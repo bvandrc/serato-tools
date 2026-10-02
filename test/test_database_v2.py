@@ -4,9 +4,22 @@ import os
 import json
 
 from src.serato_tools.database_v2 import DatabaseV2
+from src.serato_tools.utils.bin_file_base import SeratoBinFile
 
 
 class TestCase(unittest.TestCase):
+    def test_duplicate_field_in_track_raises(self):
+        # a repeated field would be silently collapsed/duplicated on round-trip, corrupting the file
+        with self.assertRaises(ValueError):
+            SeratoBinFile.Track(
+                [
+                    (SeratoBinFile.Fields.FILE_PATH.value, "a.mp3"),
+                    (SeratoBinFile.Fields.GENRE.value, "House"),
+                    (SeratoBinFile.Fields.GENRE.value, "Techno"),
+                ],
+                path_key=SeratoBinFile.Fields.FILE_PATH.value,
+            )
+
     def test_format_filepath(self):
         self.assertEqual(
             DatabaseV2.get_relative_path("C:\\Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3"),

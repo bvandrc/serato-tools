@@ -129,12 +129,20 @@ class SmartCrate(CrateBase):
                 except AttributeError:
                     return None
 
+            # check "is None" rather than truthiness: 0 and "" are valid rule values
             self.value = cast(
                 str | int | float,  # float for date or no?
-                (
-                    try_to_get_value(SmartCrate.Fields.RULE_VALUE_INTEGER)
-                    or try_to_get_value(SmartCrate.Fields.RULE_VALUE_TEXT)
-                    or try_to_get_value(SmartCrate.Fields.RULE_VALUE_DATE)
+                next(
+                    (
+                        value
+                        for value in (
+                            try_to_get_value(SmartCrate.Fields.RULE_VALUE_INTEGER),
+                            try_to_get_value(SmartCrate.Fields.RULE_VALUE_TEXT),
+                            try_to_get_value(SmartCrate.Fields.RULE_VALUE_DATE),
+                        )
+                        if value is not None
+                    ),
+                    None,
                 ),
             )
 
@@ -142,6 +150,20 @@ class SmartCrate(CrateBase):
             self, value: str | int
         ):
             field = SmartCrate._get_rule_value_type(value)  # pylint: disable=protected-access
+            # a rule holds exactly one value field: when the value type changes (e.g. text -> integer),
+            # replace the old value field in place instead of leaving both in the rule
+            for other in (
+                SmartCrate.Fields.RULE_VALUE_INTEGER,
+                SmartCrate.Fields.RULE_VALUE_TEXT,
+                SmartCrate.Fields.RULE_VALUE_DATE,
+            ):
+                if other == field or other not in self.fields:
+                    continue
+                if field in self.fields:
+                    self.fields.remove(other)
+                else:
+                    self.fields[self.fields.index(other)] = field
+                delattr(self, other)
             super().set_value(field, value)
 
         def set_field(self, value: "SmartCrate.RuleField"):
@@ -237,6 +259,8 @@ def main():
         if args.set_rules:
             for key, value in set_rules.items():
                 field = SmartCrate._get_rule_field_from_key(key)  # pylint: disable=protected-access
+                if not value:
+                    raise ValueError(f"no value given for --{key}, must specify a comparison and a value, or DELETE")
                 if str(value[0]).upper() == "DELETE":
                     crate.delete_rule(field)
                 else:
@@ -244,7 +268,11 @@ def main():
                     comparison = SmartCrate._get_rule_comparison_from_key(  # pylint: disable=protected-access
                         str(value[0])
                     )
-                    crate.set_rule(field, comparison, value[1])
+                    rule_value: str | int = value[1]
+                    if comparison in (SmartCrate.RuleComparison.INT_IS_GE, SmartCrate.RuleComparison.INT_IS_LE):
+                        # integer comparisons must be stored in the integer value field, not as text
+                        rule_value = int(rule_value)
+                    crate.set_rule(field, comparison, rule_value)
             crate.save()
             continue
 
