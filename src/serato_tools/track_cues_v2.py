@@ -456,6 +456,7 @@ class TrackCuesV2(SeratoTag):
 
     def modify_entries(self, modify_callback: ModifyCallback, delete_tags_v1: bool = True) -> None:
         if delete_tags_v1 and self.tagfile:
+            # TODO: keep Serato Markers_ in sync with Markers2 instead of deleting it
             super(SeratoTag, self)._del_geob(TrackCuesV1.GEOB_KEY)  # pylint: disable=bad-super-call
 
         track = self._from_entries()
@@ -486,9 +487,9 @@ class TrackCuesV2(SeratoTag):
 
     def set_track_color(self, color: TrackColors, delete_tags_v1: bool = True):
         """
-        Args:
-            color: TrackColors (bytes)
-            delete_tags_v1: Must delete delete_tags_v1 in order for track color change to appear in Serato (since we never change tags_v1 along with it (TODO)). Not sure what tags_v1 is even for, probably older versions of Serato. Have found no issues with deleting this, but use with caution if running an older version of Serato.
+        Set the track color in memory; call `save()` to write it to the file.
+
+        Leaves the color unchanged if the tag has no existing color entry. `delete_tags_v1` (default `True`) deletes the legacy `Serato Markers_` tag, because a stale one stops the new color from appearing in Serato. No issues have been found from deleting it, but use caution with older versions of Serato, which may still read it.
         """
 
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
