@@ -20,8 +20,12 @@ class SeratoTrack:
             try:
                 if file.lower().endswith(".mp3"):
                     self.tagfile = MP3(file)
-                elif file.lower().endswith(".aiff"):
+                elif file.lower().endswith((".aiff", ".aif")):
                     self.tagfile = AIFF(file)
+                else:
+                    raise ValueError(f"unsupported file type (only .mp3, .aiff, and .aif are supported): {file}")
+            except ValueError:
+                raise
             except:
                 logger.error(f"Mutagen error for file {file}")
                 raise
@@ -131,13 +135,16 @@ class SeratoTag(SeratoTrack):
         return super()._pack_version(self.VERSION)
 
     def delete(self):
-        return self._del_geob()
+        was_deleted = self._del_geob() if self.tagfile else False
+        # clear raw_data so a later save() persists the deletion instead of re-tagging the old bytes
+        self.raw_data = None
+        return was_deleted
 
     def save(self):
         if not self.tagfile:
             raise Exception("no tagfile, no saving")
-        if (self._get_geob() != None) and (self.raw_data is None):
-            raise ValueError("no data to save")
         if self.raw_data:
             self._tag_geob()
+        else:
+            self._del_geob()
         self.tagfile.save()

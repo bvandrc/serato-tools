@@ -465,6 +465,13 @@ class TrackCuesV2(SeratoTag):
         self.entries = new_track.to_entries()
         self._dump()
 
+    def delete(self):
+        was_deleted = super().delete()
+        self.entries = []
+        if was_deleted:
+            self.modified = True
+        return was_deleted
+
     def save(self, force: bool = False):
         if self.modified or force:
             super().save()
