@@ -489,7 +489,11 @@ class TrackCuesV2(SeratoTag):
         """
         Set the track color in memory; call `save()` to write it to the file.
 
-        Leaves the color unchanged if the tag has no existing color entry. `delete_tags_v1` (default `True`) deletes the legacy `Serato Markers_` tag, because a stale one stops the new color from appearing in Serato. No issues have been found from deleting it, but use caution with older versions of Serato, which may still read it.
+        Leaves the color unchanged if the tag has no existing color entry.
+
+        Args:
+            color: The new track color.
+            delete_tags_v1: Delete the legacy `Serato Markers_` tag, because a stale one stops the new color from appearing in Serato. No issues have been found from deleting it, but use caution with older versions of Serato, which may still read it.
         """
 
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
