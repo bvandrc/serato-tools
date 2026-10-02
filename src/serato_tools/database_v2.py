@@ -31,6 +31,11 @@ class DatabaseV2(SeratoBinFile):
         This renames the file path, and also changes the path in the database to point to the new filename, so that
         the renamed file is not missing in the library.
         """
+        # os.rename only raises FileExistsError on Windows; on POSIX it silently overwrites, so check
+        # first. A case-only rename is fine: on case-insensitive filesystems dest is then the same file.
+        if os.path.exists(dest) and not (os.path.exists(src) and os.path.samefile(src, dest)):
+            logger.error(f"File already exists with change: {src}")
+            return
         try:
             os.rename(src=src, dst=dest)
             logger.info(f"renamed {src} to {dest}")

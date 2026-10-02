@@ -230,8 +230,8 @@ class SeratoBinFile:
 
         json_content = write_json_array(self.to_json_object(), indent=0)
 
+        json.loads(json_content)  # check validity before opening (and truncating) the destination file
         with open(filepath, "w", encoding="utf-8") as f:
-            json.loads(json_content)  # check
             f.write(json_content)
 
     def print(self):
@@ -247,6 +247,10 @@ class SeratoBinFile:
             for field, value in entries:
                 if isinstance(value, list):
                     raise DeeplyNestedListError
+                if field in self.fields:
+                    # values are stored as attributes, so a repeated field would silently overwrite the
+                    # earlier value and then be written back twice — corrupting the file on round-trip
+                    raise ValueError(f"duplicate field in entry: {field}")
                 setattr(self, field, value)
                 self.fields.append(field)
 
@@ -312,7 +316,7 @@ class SeratoBinFile:
                 value = data.decode("utf-16-be")
             elif type_id == "b":  # single byte, is a boolean
                 value = cast(bool, struct.unpack("?", data)[0])
-            elif type_id == "s":  # signed int
+            elif type_id == "s":  # unsigned 16-bit int
                 value = cast(int, struct.unpack(">H", data)[0])
             elif type_id == "u":  # unsigned int
                 value = cast(int, struct.unpack(">I", data)[0])
@@ -349,7 +353,7 @@ class SeratoBinFile:
             if not isinstance(value, bool):
                 raise DataTypeError(value, bool, field)
             data = struct.pack("?", value)
-        elif type_id == "s":  # signed int
+        elif type_id == "s":  # unsigned 16-bit int
             if not isinstance(value, int):
                 raise DataTypeError(value, int, field)
             data = struct.pack(">H", value)
@@ -507,7 +511,8 @@ class SeratoBinFile:
         for field in all_field_names:
             SeratoBinFile._check_valid_field(field)
 
-        # fix some rules if needed
+        # normalize file lists on copies, so the caller's rule dicts are not mutated
+        rules = [cast("SeratoBinFile.ModifyRule", dict(rule)) for rule in rules]
         for rule in rules:
             if "files" in rule:
                 rule["files"] = [SeratoBinFile.get_relative_path(file).upper() for file in rule["files"]]
