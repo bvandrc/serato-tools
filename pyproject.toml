@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "serato-tools"
-version = "4.0.2"
+version = "4.1.0"
 description = "Serato track metadata (cues, beatgrid, etc.) crate, smartcrate, library database, and modification; dynamic beatgrid analysis; and better USB export."
 keywords = [
     "serato",
