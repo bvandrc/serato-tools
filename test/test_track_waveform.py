@@ -18,3 +18,13 @@ class TestCase(unittest.TestCase):
             expected_parsed_data,
             "parsed data",
         )
+        self.assertEqual(
+            b"".join(bytes(x) for x in list(tags.data)),
+            expected_parsed_data,
+            "data can be read repeatedly",
+        )
+
+    def test_untested_version_raises_at_construction(self):
+        bad_data = bytes([0x99, 0x99]) + b"\x00" * 32
+        with self.assertRaises(ValueError):
+            TrackWaveform(bad_data)

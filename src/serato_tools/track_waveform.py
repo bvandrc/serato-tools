@@ -24,15 +24,18 @@ class TrackWaveform(SeratoTag):
         if self.raw_data is None:
             raise ValueError("no waveform yet set")
 
+        # materialize so the version check runs at construction time and the data can be read repeatedly
         self.data = self._parse(self.raw_data)
 
-    def _parse(self, data: bytes):
+    def _parse(self, data: bytes) -> list[bytearray]:
         fp = io.BytesIO(data)
         self._check_version(fp.read(self.VERSION_LEN))
 
+        rows: list[bytearray] = []
         for x in iter(lambda: fp.read(16), b""):
             assert len(x) == 16
-            yield bytearray(x)
+            rows.append(bytearray(x))
+        return rows
 
     def draw_image(self):
         try:
@@ -44,8 +47,11 @@ class TrackWaveform(SeratoTag):
         img = Image.new("RGB", (240, 16), "black")
         pixels = img.load()
 
+        if len(self.data) < img.size[0]:
+            raise ValueError(f"waveform data has {len(self.data)} rows, expected at least {img.size[0]}")
+
         for i in range(img.size[0]):
-            rowdata = next(self.data)
+            rowdata = self.data[i]
             factor = len([x for x in rowdata if x < 0x80]) / len(rowdata)
 
             for j, value in enumerate(rowdata):

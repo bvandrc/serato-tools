@@ -47,6 +47,10 @@ class TrackAutotags(SeratoTag):
         return bpm, autogain, gaindb
 
     def _dump(self):
+        if self.bpm is None or self.autogain is None or self.gaindb is None:
+            raise ValueError(
+                "bpm, autogain, and gaindb must all be set before dumping (file had no existing Serato Autotags tag)"
+            )
         data: bytes = self._pack_version()
         for value, decimals in ((self.bpm, 2), (self.autogain, 3), (self.gaindb, 3)):
             data += "{:.{}f}".format(value, decimals).encode("ascii")
