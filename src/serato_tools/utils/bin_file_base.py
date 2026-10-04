@@ -316,7 +316,7 @@ class SeratoBinFile:
                 value = data.decode("utf-16-be")
             elif type_id == "b":  # single byte, is a boolean
                 value = cast(bool, struct.unpack("?", data)[0])
-            elif type_id == "s":  # unsigned 16-bit int
+            elif type_id == "s":  # signed int
                 value = cast(int, struct.unpack(">H", data)[0])
             elif type_id == "u":  # unsigned int
                 value = cast(int, struct.unpack(">I", data)[0])
@@ -353,7 +353,7 @@ class SeratoBinFile:
             if not isinstance(value, bool):
                 raise DataTypeError(value, bool, field)
             data = struct.pack("?", value)
-        elif type_id == "s":  # unsigned 16-bit int
+        elif type_id == "s":  # signed int
             if not isinstance(value, int):
                 raise DataTypeError(value, int, field)
             data = struct.pack(">H", value)
