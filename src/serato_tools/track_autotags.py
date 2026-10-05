@@ -55,9 +55,7 @@ class TrackAutotags(SeratoTag):
             if value is None
         ]
         if missing:
-            raise ValueError(
-                f"{', '.join(missing)} must be set before dumping (file had no existing Serato Autotags tag, and the tag cannot be written without all of bpm, autogain, and gaindb)"
-            )
+            raise ValueError(f"must be set to write the Serato Autotags tag: {', '.join(missing)}")
         data: bytes = self._pack_version()
         for value, decimals in ((self.bpm, 2), (self.autogain, 3), (self.gaindb, 3)):
             data += "{:.{}f}".format(value, decimals).encode("ascii")
