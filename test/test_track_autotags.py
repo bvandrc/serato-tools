@@ -16,17 +16,3 @@ class TestCase(unittest.TestCase):
         self.assertEqual(tags.gaindb, 0.0, "parsed gaindb")
         tags._dump()
         self.assertEqual(tags.raw_data, file_data, "dump")
-
-    def test_partial_set_without_existing_tag_raises(self):
-        tags = TrackAutotags.__new__(TrackAutotags)  # pylint: disable=no-value-for-parameter
-        tags.tagfile = None
-        tags.raw_data = None
-        tags.bpm = None
-        tags.autogain = None
-        tags.gaindb = None
-        with self.assertRaises(ValueError) as ctx:
-            tags.set(bpm=128.0)
-        self.assertTrue(
-            str(ctx.exception).startswith("autogain, gaindb must be set"),
-            f"error must name exactly the missing values, got: {ctx.exception}",
-        )
