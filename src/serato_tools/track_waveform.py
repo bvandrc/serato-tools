@@ -28,6 +28,13 @@ class TrackWaveform(SeratoTag):
         self.data = self._parse(self.raw_data)
 
     def _parse(self, data: bytes) -> list[bytearray]:
+        """Parse the waveform data into its 16-byte rows.
+
+        Deliberately a list, not a generator: a generator would defer the body — including the
+        version check — to first iteration, letting an untested tag version construct silently,
+        and could only be consumed once (a second draw_image() would find it exhausted). The tag
+        is a fixed 240 rows of 16 bytes, so materializing costs nothing meaningful.
+        """
         fp = io.BytesIO(data)
         self._check_version(fp.read(self.VERSION_LEN))
 
