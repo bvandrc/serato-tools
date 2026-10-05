@@ -22,3 +22,7 @@ class TestCase(unittest.TestCase):
         )
         tags._dump()
         self.assertEqual(tags.raw_data, file_data, "dump")
+
+    def test_untested_version_raises_at_construction(self):
+        with self.assertRaises(ValueError):
+            TrackBeatgrid(bytes([0x99, 0x99]))
