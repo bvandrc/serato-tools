@@ -515,7 +515,7 @@ class TrackCuesV2(SeratoTag):
     def get_snapped_beat_ms(self, postion_ms: int, tolerance_beats: float, min_ms_change: int = 1) -> int | None:
         beatgrid = self.beatgrid or self._get_beatgrid()
         snapped_ms = beatgrid.find_nearest_beat(postion_ms, tolerance_beats)
-        if snapped_ms is None:  # 0.0 is a valid beat position (a beat at the very start of the track)
+        if snapped_ms is None:  # NOTE: don't do `if not`, 0.0 is valid
             return None
         snapped_ms = int(round(snapped_ms))
         return snapped_ms if abs(snapped_ms - postion_ms) >= min_ms_change else None
