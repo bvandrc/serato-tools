@@ -70,6 +70,13 @@ class TrackBeatgrid(SeratoTag):
         nonterminal_markers, terminal_marker, _footer = self._check_and_split(self.enhanced_entries)
         return "\n".join(str(marker) for marker in (*nonterminal_markers, terminal_marker))
 
+    def delete(self):
+        was_deleted = super().delete()
+        self.entries = None
+        self.enhanced_entries = None
+        self.beats = None
+        return was_deleted
+
     def _parse(self, data: bytes):
         fp = io.BytesIO(data)
         self._check_version(fp.read(self.VERSION_LEN))
