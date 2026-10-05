@@ -195,10 +195,15 @@ class TrackBeatgrid(SeratoTag):
                 else terminal_marker.position_s
             )
             if position_s < next_pos:
+                if marker.beats_till_next_marker <= 0 or next_pos <= marker.position_s:
+                    # degenerate zero-length/zero-beat segment: the position is at its start
+                    return cumulative_beats
                 interval = (next_pos - marker.position_s) / marker.beats_till_next_marker
                 return cumulative_beats + (position_s - marker.position_s) / interval
             cumulative_beats += marker.beats_till_next_marker
 
+        if terminal_marker.bpm <= 0:
+            raise ValueError(f"invalid terminal marker bpm: {terminal_marker.bpm}")
         terminal_interval = 60.0 / terminal_marker.bpm
         return cumulative_beats + (position_s - terminal_marker.position_s) / terminal_interval
 
@@ -226,6 +231,8 @@ class TrackBeatgrid(SeratoTag):
                 if i + 1 < len(nonterminal_markers)
                 else terminal_marker.position_s
             )
+            if marker.beats_till_next_marker <= 0:
+                continue  # degenerate segment, no beats in it
             interval = (next_pos - marker.position_s) / marker.beats_till_next_marker
             for j in range(marker.beats_till_next_marker):
                 pos = marker.position_s + j * interval
@@ -236,6 +243,8 @@ class TrackBeatgrid(SeratoTag):
         track_length: float = self.tagfile.info.length
         if track_length > 60 * 60 * 3:  # 3 hours
             raise ValueError(f"Track length is too long: {track_length} seconds")
+        if terminal_marker.bpm <= 0:
+            raise ValueError(f"invalid terminal marker bpm: {terminal_marker.bpm}")
         terminal_interval = 60.0 / terminal_marker.bpm
         pos = terminal_marker.position_s
         while pos <= track_length:
@@ -288,6 +297,8 @@ class TrackBeatgrid(SeratoTag):
 
         logger.info("Analyzing beat grid...")
         analyzed_breatgrid = analyze_beatgrid(filename, bpm_helper=bpm)
+        if not analyzed_breatgrid.downbeats:
+            raise ValueError("beatgrid analysis found no downbeats, cannot write beatgrid")
 
         logger.info("Writing tags...")
         raw_entries: TrackBeatgrid.EntryList = (

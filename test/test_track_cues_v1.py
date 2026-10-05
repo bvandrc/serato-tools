@@ -21,6 +21,18 @@ class TestCase(unittest.TestCase):
         tags._dump()
         self.assertEqual(tags.raw_data, self.file_data, "dump")
 
+    def test_dump_without_trailing_color_raises(self):
+        tags = TrackCuesV1(self.file_data)
+
+        tags.entries = []
+        with self.assertRaises(ValueError, msg="empty entries must not dump"):
+            tags._dump()
+
+        tags = TrackCuesV1(self.file_data)
+        tags.entries = [e for e in tags.entries if not isinstance(e, TrackCuesV1.Color)]
+        with self.assertRaises(ValueError, msg="entries without a trailing Color must not dump"):
+            tags._dump()
+
     def test_untested_version_raises_at_construction(self):
         with self.assertRaises(ValueError):
             TrackCuesV1(bytes([0x99, 0x99]))

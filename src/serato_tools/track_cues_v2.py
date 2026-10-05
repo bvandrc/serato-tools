@@ -455,14 +455,14 @@ class TrackCuesV2(SeratoTag):
     type ModifyCallback = Callable[["TrackCuesInfo"], "TrackCuesInfo | None"]
 
     def modify_entries(self, modify_callback: ModifyCallback, delete_tags_v1: bool = True) -> None:
-        if delete_tags_v1 and self.tagfile:
-            # TODO: keep Serato Markers_ in sync with Markers2 instead of deleting it
-            super(SeratoTag, self)._del_geob(TrackCuesV1.GEOB_KEY)  # pylint: disable=bad-super-call
-
         track = self._from_entries()
         new_track = modify_callback(track)
         if new_track is None:
             return
+        # only delete the v1 tag once we know a change is actually being made
+        # TODO: keep Serato Markers_ in sync with Markers2 instead of deleting it
+        if delete_tags_v1 and self.tagfile:
+            super(SeratoTag, self)._del_geob(TrackCuesV1.GEOB_KEY)  # pylint: disable=bad-super-call
         self.entries = new_track.to_entries()
         self._dump()
 
@@ -515,10 +515,10 @@ class TrackCuesV2(SeratoTag):
     def get_snapped_beat_ms(self, postion_ms: int, tolerance_beats: float, min_ms_change: int = 1) -> int | None:
         beatgrid = self.beatgrid or self._get_beatgrid()
         snapped_ms = beatgrid.find_nearest_beat(postion_ms, tolerance_beats)
-        if not snapped_ms:
+        if snapped_ms is None:  # NOTE: don't do `if not`, 0.0 is valid
             return None
         snapped_ms = int(round(snapped_ms))
-        return snapped_ms if abs(snapped_ms - postion_ms) > min_ms_change else None
+        return snapped_ms if abs(snapped_ms - postion_ms) >= min_ms_change else None
 
     def snap_positions_to_beat_rule(self, tolerance_beats: float, min_ms_change: int = 1) -> ModifyCallback:
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
@@ -647,7 +647,7 @@ if __name__ == "__main__":
         hex_editor = get_hex_editor()
 
     new_entries: list[TrackCuesV2.Entry] = []
-    width = math.floor(math.log10(len(tags.entries))) + 1
+    width = math.floor(math.log10(len(tags.entries))) + 1 if tags.entries else 1
     action = None
     for entry_index, entry in enumerate(tags.entries):
         if args.edit:
