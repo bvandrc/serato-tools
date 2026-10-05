@@ -83,3 +83,7 @@ class TestCase(unittest.TestCase):
         tags.entries = []
         with self.assertRaises(ValueError):
             tags.snap_positions_to_beat(1 / 8)
+
+    def test_untested_version_raises_at_construction(self):
+        with self.assertRaises(ValueError):
+            TrackCuesV2(bytes([0x99, 0x99]))
