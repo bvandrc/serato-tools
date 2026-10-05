@@ -24,5 +24,9 @@ class TestCase(unittest.TestCase):
         tags.bpm = None
         tags.autogain = None
         tags.gaindb = None
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as ctx:
             tags.set(bpm=128.0)
+        self.assertTrue(
+            str(ctx.exception).startswith("autogain, gaindb must be set"),
+            f"error must name exactly the missing values, got: {ctx.exception}",
+        )
