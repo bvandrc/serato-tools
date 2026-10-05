@@ -20,3 +20,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(tags.raw_data, self.file_data, "raw_data read")
         tags._dump()
         self.assertEqual(tags.raw_data, self.file_data, "dump")
+
+    def test_untested_version_raises_at_construction(self):
+        with self.assertRaises(ValueError):
+            TrackCuesV1(bytes([0x99, 0x99]))
