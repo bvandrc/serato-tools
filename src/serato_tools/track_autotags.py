@@ -47,11 +47,7 @@ class TrackAutotags(SeratoTag):
         return bpm, autogain, gaindb
 
     def _dump(self):
-        missing = [
-            name
-            for name, value in (("bpm", self.bpm), ("autogain", self.autogain), ("gaindb", self.gaindb))
-            if value is None
-        ]
+        missing = [name for name in ("bpm", "autogain", "gaindb") if getattr(self, name) is None]
         if missing:
             raise ValueError(
                 f"{', '.join(missing)} must be set before dumping (file had no existing Serato Autotags tag, and the tag cannot be written without all of bpm, autogain, and gaindb)"
