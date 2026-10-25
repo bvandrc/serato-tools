@@ -2,7 +2,7 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [4.1.0] - 2026-10-02
+## [4.0.3] - 2026-10-25
 
 - `TrackCuesV1` refuses to dump entries without a trailing Color entry (previously wrote a corrupt tag)
 - `TrackCuesV2.modify_entries` only deletes the v1 tag once the callback actually returns a change
