@@ -646,8 +646,11 @@ if __name__ == "__main__":
         text_editor = get_text_editor()
         hex_editor = get_hex_editor()
 
+    if not tags.entries:
+        print(f'File has no "{TrackCuesV2.GEOB_KEY}" entries.')
+        sys.exit()
     new_entries: list[TrackCuesV2.Entry] = []
-    width = math.floor(math.log10(len(tags.entries))) + 1 if tags.entries else 1
+    width = math.floor(math.log10(len(tags.entries))) + 1
     action = None
     for entry_index, entry in enumerate(tags.entries):
         if args.edit:

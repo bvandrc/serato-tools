@@ -210,8 +210,12 @@ if __name__ == "__main__":
         hex_editor = get_hex_editor()
 
     entries: list[TrackCuesV1.Entry] = tags.entries
+    if not entries:
+        # a parsed tag always has at least the trailing Color entry, so empty means the tag is not set
+        print(f'File has no "{TrackCuesV1.GEOB_KEY}" tag.')
+        sys.exit()
     new_entries: list[TrackCuesV1.Entry] = []
-    width = math.floor(math.log10(len(entries))) + 1 if entries else 1
+    width = math.floor(math.log10(len(entries))) + 1
     action: str | None = None
     for entry_index, entry in enumerate(entries):
         if args.edit:
