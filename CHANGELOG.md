@@ -4,12 +4,10 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [4.0.3] - 2026-10-25
 
-- `TrackCuesV1` refuses to dump entries without a trailing Color entry (previously wrote a corrupt tag)
-- `TrackCuesV2.modify_entries` only deletes the v1 tag once the callback actually returns a change
 - Cue snapping: a snapped position of 0 ms counts as a valid beat, and `min_ms_change` is inclusive as the name implies
-- Cue CLIs print a clear message instead of crashing on tracks that have no cue tag yet
-- Beatgrid: degenerate (zero-beat or zero-length) marker segments and `bpm <= 0` markers raise a clear error instead of `ZeroDivisionError` or silently wrong beats
+- `TrackCuesV2.modify_entries` only deletes the v1 tag once the callback actually returns a change
 - Beatgrid analysis: the downbeat window offset is correct near the track start, and confidence no longer goes negative for tempos far from 120
+- Various error-throwing improvements: clear errors instead of crashes or corrupt writes for degenerate beatgrid markers, cue dumps without a trailing Color entry, and cue CLIs run on tracks with no cue tag yet
 
 ## [4.0.2] - 2026-08-17
 
