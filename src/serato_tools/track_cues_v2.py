@@ -460,8 +460,8 @@ class TrackCuesV2(SeratoTag):
         if new_track is None:
             return
         # only delete the v1 tag once we know a change is actually being made
-        # TODO: keep Serato Markers_ in sync with Markers2 instead of deleting it
         if delete_tags_v1 and self.tagfile:
+            # TODO: keep Serato Markers_ in sync with Markers2 instead of deleting it
             super(SeratoTag, self)._del_geob(TrackCuesV1.GEOB_KEY)  # pylint: disable=bad-super-call
         self.entries = new_track.to_entries()
         self._dump()
