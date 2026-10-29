@@ -2,6 +2,10 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.0.3] - 2026-10-25
+
+- Misc. edge-case fixes and clearer errors for cues, cue snapping, and beatgrids
+
 ## [4.0.2] - 2026-08-17
 
 - Deep copy `DEFAULT_ENTRIES` when creating a crate whose file does not exist, so instances no longer share the class-level nested sublists
