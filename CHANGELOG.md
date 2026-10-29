@@ -4,10 +4,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [4.0.3] - 2026-10-25
 
-- Cue snapping: a snapped position of 0 ms counts as a valid beat, and `min_ms_change` is inclusive as the name implies
-- `TrackCuesV2.modify_entries` only deletes the v1 tag once the callback actually returns a change
-- Beatgrid analysis: the downbeat window offset is correct near the track start, and confidence no longer goes negative for tempos far from 120
-- Various error-throwing improvements: clear errors instead of crashes or corrupt writes for degenerate beatgrid markers, cue dumps without a trailing Color entry, and cue CLIs run on tracks with no cue tag yet
+- Misc. edge-case fixes and clearer errors for cues, cue snapping, and beatgrids
 
 ## [4.0.2] - 2026-08-17
 
