@@ -454,11 +454,11 @@ class SeratoBinFile:
 
     @staticmethod
     def get_full_path(filepath: str):
-        drive, filepath = os.path.splitdrive(filepath)
+        drive, path = os.path.splitdrive(filepath)
         if drive:
-            return filepath
+            return os.path.normpath(filepath)
         else:
-            return os.path.normpath(os.path.join(SERATO_DRIVE, "\\", filepath))
+            return os.path.normpath(os.path.join(SERATO_DRIVE, "\\", path))
 
     def get_entries(self) -> Generator[EntryFull, None, None]:
         """Get entry fieldnames."""

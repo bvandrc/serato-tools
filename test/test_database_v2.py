@@ -28,6 +28,12 @@ class TestCase(unittest.TestCase):
             "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
         )
 
+    def test_full_path_keeps_given_drive(self):
+        self.assertEqual(
+            DatabaseV2.get_full_path("D:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
+            os.path.normpath("D:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
+        )
+
     def test_parse_and_dump(self):
         file = os.path.abspath("test/data/database_v2_test.bin")
         with open(file, mode="rb") as fp:
