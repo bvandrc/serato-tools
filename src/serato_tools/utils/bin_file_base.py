@@ -382,14 +382,19 @@ class SeratoBinFile:
         return [t.get_full_path() if include_drive else t.relpath for t in self.get_tracks()]
 
     def modify_tracks(self, func: Callable[[Track], Track]):
+        changed = False
         for i, (field, value) in enumerate(self.entries):
             if field == SeratoBinFile.Fields.TRACK:
                 if not isinstance(value, list):
                     raise DataTypeError(value, list, field)
                 track = self._get_track(value)
-                new_track = func(track)
-                self.entries[i] = (field, new_track.to_entries())
-        self._dump()
+                new_entries = func(track).to_entries()
+                if new_entries != value:
+                    self.entries[i] = (field, new_entries)
+                    changed = True
+        # re-encoding the whole file is the slow part, so skip it when no track changed
+        if changed:
+            self._dump()
 
     def filter_tracks(self, func: Callable[[Track], bool]):
         new_entries: "SeratoBinFile.EntryList" = []

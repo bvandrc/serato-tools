@@ -2,6 +2,10 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.0.4] - 2026-10-31
+
+- `modify_tracks` (and so `modify()`) no longer re-encodes the file when no track changed
+
 ## [4.0.3] - 2026-10-31
 
 - `DatabaseV2.rename_track_file` only rewrites crates that contain the track, instead of every crate
