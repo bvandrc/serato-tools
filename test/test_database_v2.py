@@ -29,10 +29,8 @@ class TestCase(unittest.TestCase):
         )
 
     def test_full_path_keeps_given_drive(self):
-        self.assertEqual(
-            DatabaseV2.get_full_path("D:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
-            os.path.normpath("D:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
-        )
+        path = "D:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
+        self.assertEqual(DatabaseV2.get_full_path(path), os.path.normpath(path))
 
     def test_parse_and_dump(self):
         file = os.path.abspath("test/data/database_v2_test.bin")
