@@ -1,7 +1,10 @@
 # pylint: disable=protected-access
 import unittest
+from unittest import mock
 import os
 import json
+import shutil
+import tempfile
 
 from src.serato_tools.database_v2 import DatabaseV2
 
@@ -87,6 +90,43 @@ class TestCase(unittest.TestCase):
             self.assertEqual(db.__str__(), f.read(), "was modified correctly, given files")
         with open("test/data/database_v2_test_modified_output_2.bin", "rb") as f:
             self.assertEqual(db.raw_data, f.read(), "was modified correctly, given files")
+
+    def test_rename_track_file_only_saves_crates_with_track(self):
+        # rename_track_file imports Crate from the installed package, so patch that one
+        from serato_tools.crate import Crate  # pylint: disable=import-outside-toplevel
+
+        with tempfile.TemporaryDirectory() as tmp:
+            src, dest = os.path.join(tmp, "Old.mp3"), os.path.join(tmp, "New.mp3")
+            open(src, "wb").close()
+
+            db_file = os.path.join(tmp, "database V2")
+            shutil.copy("test/data/database_v2_test.bin", db_file)
+            db = DatabaseV2(db_file)
+            db.entries.append(
+                (DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, DatabaseV2.get_relative_path(src))])
+            )
+            db._dump()
+
+            crates_dir = os.path.join(tmp, "Subcrates")
+            os.mkdir(crates_dir)
+            for name, has_track in [("With.crate", True), ("Without.crate", False)]:
+                crate = Crate(os.path.join(crates_dir, name))
+                if has_track:
+                    crate.add_track(src)
+                crate.save()
+
+            saved: list[Crate] = []
+            with (
+                mock.patch.object(Crate, "DIR_PATH", crates_dir),
+                mock.patch.object(Crate, "save", autospec=True, side_effect=saved.append),
+            ):
+                db.rename_track_file(src, dest)
+
+            self.assertEqual(
+                [os.path.basename(c.filepath) for c in saved], ["With.crate"], "only crate with track saved"
+            )
+            self.assertEqual(saved[0].get_track_paths(), [DatabaseV2.get_relative_path(dest)], "crate path updated")
+            self.assertIn(DatabaseV2.get_relative_path(dest), DatabaseV2(db_file).get_track_paths(), "db path updated")
 
     def test_dedupe(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_duplicates.bin"))

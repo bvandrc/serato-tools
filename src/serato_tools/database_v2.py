@@ -43,10 +43,13 @@ class DatabaseV2(SeratoBinFile):
 
         from serato_tools.crate import Crate
 
+        src_relpath = self.get_relative_path(src).upper()
         for crate_path in Crate.get_crate_files():
             crate = Crate(crate_path)
-            crate.change_track_path(src, dest)
-            crate.save()
+            # only rewrite crates that have the track
+            if any(path.upper() == src_relpath for path in crate.get_track_paths()):
+                crate.change_track_path(src, dest)
+                crate.save()
 
 
 if __name__ == "__main__":

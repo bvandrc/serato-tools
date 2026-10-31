@@ -76,7 +76,7 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
 ### Cross-module dependencies
 
 - `TrackCuesV2` cue snapping reads the track's `TrackBeatgrid` to find beat positions.
-- `DatabaseV2.rename_track_file` renames on disk, updates the database, *and* rewrites every crate under `Crate.DIR_PATH`, so a renamed file doesn't go missing.
+- `DatabaseV2.rename_track_file` renames on disk, updates the database, *and* rewrites every crate under `Crate.DIR_PATH` that contains the track, so a renamed file doesn't go missing.
 - `usb_export.py` composes `Crate`, `SmartCrate`, and `DatabaseV2`: it flattens all tracks into one folder on the drive, dedupes by basename, rewrites crate/database paths to the new layout, and copies only changed files.
 - `SERATO_DIR` (`~/Music/_Serato_`) in `utils/__init__.py` is the default root for all library lookups.
 
