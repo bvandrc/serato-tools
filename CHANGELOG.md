@@ -2,6 +2,11 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.0.3] - 2026-10-31
+
+- `DatabaseV2.rename_track_file` only rewrites crates that contain the track, instead of every crate
+- Fix `get_full_path` dropping the drive from a path that has one, so it resolved against the current drive instead
+
 ## [4.0.2] - 2026-08-17
 
 - Deep copy `DEFAULT_ENTRIES` when creating a crate whose file does not exist, so instances no longer share the class-level nested sublists

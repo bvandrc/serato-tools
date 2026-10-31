@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "serato-tools"
-version = "4.0.2"
+version = "4.0.3"
 description = "Serato track metadata (cues, beatgrid, etc.) crate, smartcrate, library database, and modification; dynamic beatgrid analysis; and better USB export."
 keywords = [
     "serato",
@@ -36,6 +36,7 @@ dependencies = [
 track_tags = ["mutagen"]
 waveform_drawing = ["pillow"]
 beatgrid_analysis = ["librosa", "numpy"]
+dev = ["black", "pylint", "pyright"]
 
 [project.urls]
 Homepage = "https://pypi.org/project/serato-tools/"
