@@ -398,13 +398,24 @@ class SeratoBinFile:
     def get_track_paths(self, include_drive: bool = False) -> list[str]:
         return [t.get_full_path() if include_drive else t.relpath for t in self.get_tracks()]
 
-    def modify_tracks(self, func: Callable[[Track], Track]) -> bool:
-        """Replaces each track with what `func` returns for it, and returns whether any track changed."""
+    def modify_tracks(self, func: Callable[[Track], Track], files: Optional[Iterable[str]] = None) -> bool:
+        """
+        Replaces each track with what `func` returns for it, and returns whether any track changed.
+
+        Given `files`, only those tracks are passed to `func`; the rest are skipped without being parsed, which is much
+        faster on a large library.
+        """
+        relpaths = None if files is None else {SeratoBinFile.get_relative_path(f).upper() for f in files}
         changed = False
         for i, (field, value) in enumerate(self.entries):
             if field == SeratoBinFile.Fields.TRACK:
                 if not isinstance(value, list):
                     raise DataTypeError(value, list, field)
+                if relpaths is not None:
+                    # read the path straight off the entries, since building a Track for every entry is the slow part
+                    relpath = next((v for f, v in value if f == self.TRACK_PATH_KEY), None)
+                    if isinstance(relpath, str) and relpath.upper() not in relpaths:
+                        continue
                 track = self._get_track(value)
                 # Track copies the values out of `value`, so this compares against the untouched original
                 new_entries = func(track).to_entries()
@@ -554,6 +565,11 @@ class SeratoBinFile:
             if "files" in rule:
                 rule["files"] = [SeratoBinFile.get_relative_path(file).upper() for file in rule["files"]]
 
+        # if every rule is limited to certain files, no other track can change, so skip them entirely
+        only_files = (
+            None if any("files" not in rule for rule in rules) else [f for r in rules for f in r.get("files", [])]
+        )
+
         def _maybe_perform_rule(field: str, prev_val: "SeratoBinFile.ValueOrNone", track_relpath: str):
             rule = next((r for r in rules if field == r["field"]), None)
             if rule is None:
@@ -588,7 +604,7 @@ class SeratoBinFile:
                         track.set_value(rule["field"], maybe_new_value)
             return track
 
-        return self.modify_tracks(modify_track)
+        return self.modify_tracks(modify_track, files=only_files)
 
     def modify_and_save(self, rules: list[ModifyRule], file: Optional[str] = None):
         """
