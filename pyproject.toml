@@ -36,6 +36,7 @@ dependencies = [
 track_tags = ["mutagen"]
 waveform_drawing = ["pillow"]
 beatgrid_analysis = ["librosa", "numpy"]
+dev = ["black", "pylint", "pyright"]
 
 [project.urls]
 Homepage = "https://pypi.org/project/serato-tools/"

@@ -14,8 +14,15 @@ The repo's conventions live in `conventions/` and are imported here in full — 
 
 Requires Python 3.12+ (the code uses PEP 695 `type` statements, which are a syntax error on 3.11).
 
+Work in the repo's `.venv` (gitignored), with the package installed editable so `serato_tools` imports resolve to `src/` rather than some other installed copy:
+
 ```bash
-pip install ".[track_tags,waveform_drawing,beatgrid_analysis]"   # install with all optional deps
+python -m venv .venv
+source .venv/Scripts/activate                                     # Git Bash on Windows; .venv/bin/activate elsewhere
+pip install -e ".[track_tags,waveform_drawing,beatgrid_analysis,dev]"  # all optional deps + black, pylint, pyright
+```
+
+```bash
 python -m unittest                                                # full suite
 python -m unittest test.test_crate                                # one module
 python -m unittest test.test_crate.TestCase.test_format_filepath  # one test
