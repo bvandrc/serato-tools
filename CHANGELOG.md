@@ -2,6 +2,10 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.0.5] - 2026-10-31
+
+- `raw_data` is only re-encoded when read (e.g. on `save()`) instead of after every change, so several changes before one save only pay for one re-encode
+
 ## [4.0.4] - 2026-10-31
 
 - `modify_tracks` (and so `modify()`) no longer re-encodes the file when no track changed

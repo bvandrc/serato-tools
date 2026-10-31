@@ -81,7 +81,7 @@ class SeratoBinFile:
     def __init__(self, file: str):
         self.filepath = os.path.abspath(file)
 
-        self.raw_data: bytes
+        self._raw_data: bytes | None = None
         self.entries: SeratoBinFile.EntryList
         self.version: str
 
@@ -367,8 +367,24 @@ class SeratoBinFile:
     def _dump_entries(self, entries: EntryList):
         return b"".join(self._dump_item(entry) for entry in entries)
 
+    @property
+    def raw_data(self) -> bytes:
+        """
+        The file's bytes as of the current entries.
+
+        Rebuilt on the first read after a change, so a run of mutations only pays for one dump.
+        """
+        if self._raw_data is None:
+            self._raw_data = self._dump_entries(self.entries)
+        return self._raw_data
+
+    @raw_data.setter
+    def raw_data(self, data: bytes):
+        self._raw_data = data
+
     def _dump(self):
-        self.raw_data = self._dump_entries(self.entries)
+        """Marks raw_data stale after a change to entries."""
+        self._raw_data = None
 
     def get_tracks(self) -> Generator[Track, None, None]:
         for field, value in self.entries:

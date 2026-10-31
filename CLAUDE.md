@@ -49,7 +49,7 @@ The package handles two unrelated Serato binary formats. Nearly everything else 
 
 Subclasses (`DatabaseV2`, `CrateBase` → `Crate` / `SmartCrate`) must define `TESTED_VERSIONS`, `TRACK_PATH_KEY`, and `DEFAULT_ENTRIES`; the constructor raises `AttributeError` if any is missing. Field names are centralized in the `SeratoBinFile.Fields` StrEnum.
 
-The lifecycle is `parse → self.entries → mutate → _dump() → self.raw_data → save()`. Mutating helpers (`modify_tracks`, `filter_tracks`, `modify`, `add_track`) all re-`_dump()` themselves, so `save()` writes whatever the last mutation produced (`modify_tracks` skips the `_dump()` when no track changed). `modify()` takes a list of `ModifyRule` dicts (`{"field": ..., "func": (filename, prev_val) -> new_val | None, "files": [...]}`); returning `None` from `func` means "leave unchanged". Files can also round-trip through JSON (`to_json_object` / `from_json_object` / `write_json`), with bytes base64-encoded.
+The lifecycle is `parse → self.entries → mutate → _dump() → self.raw_data → save()`. Mutating helpers (`modify_tracks`, `filter_tracks`, `modify`, `add_track`) all call `_dump()` themselves, which only marks `raw_data` stale; the `raw_data` property re-encodes `entries` on its next read (e.g. in `save()`), so a run of mutations pays for one dump, and `modify_tracks` skips the `_dump()` when no track changed. `modify()` takes a list of `ModifyRule` dicts (`{"field": ..., "func": (filename, prev_val) -> new_val | None, "files": [...]}`); returning `None` from `func` means "leave unchanged". Files can also round-trip through JSON (`to_json_object` / `from_json_object` / `write_json`), with bytes base64-encoded.
 
 ### 2. GEOB tags inside audio files — `utils/track_tags.py`
 
