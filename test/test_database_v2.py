@@ -46,8 +46,9 @@ class TestCase(unittest.TestCase):
             expected = f.read()
             self.assertEqual(db.__str__(), expected, "parse")
 
-        db._mark_stale()
-        self.assertEqual(db.raw_data, file_data, "raw_data read")
+        # assigning entries drops the file's cached bytes, so this read re-encodes them from the parsed entries
+        db.entries = db.entries
+        self.assertEqual(db.raw_data, file_data, "re-encoded raw_data")
 
     def test_parse_and_modify(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
@@ -106,10 +107,10 @@ class TestCase(unittest.TestCase):
             db_file = os.path.join(tmp, "database V2")
             shutil.copy("test/data/database_v2_test.bin", db_file)
             db = DatabaseV2(db_file)
-            db.entries.append(
-                (DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, DatabaseV2.get_relative_path(src))])
-            )
-            db._mark_stale()
+            db.entries = [
+                *db.entries,
+                (DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, DatabaseV2.get_relative_path(src))]),
+            ]
 
             crates_dir = os.path.join(tmp, "Subcrates")
             os.mkdir(crates_dir)

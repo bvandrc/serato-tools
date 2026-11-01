@@ -5,6 +5,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [4.0.5] - 2026-10-31
 
 - `raw_data` is only re-encoded when read (e.g. on `save()`) instead of after every change, so several changes before one save only pay for one re-encode
+- `Crate.save()` and `SmartCrate.save()` no longer re-encode unconditionally. To change `entries` in place, assign the list back afterward (`crate.entries = crate.entries`) so the change gets saved
 
 ## [4.0.4] - 2026-10-31
 

@@ -82,7 +82,7 @@ class SeratoBinFile:
         self.filepath = os.path.abspath(file)
 
         self._raw_data: bytes | None = None
-        self.entries: SeratoBinFile.EntryList
+        self._entries: SeratoBinFile.EntryList
         self.version: str
 
         for key in ["TESTED_VERSIONS", "TRACK_PATH_KEY", "DEFAULT_ENTRIES"]:
@@ -95,8 +95,10 @@ class SeratoBinFile:
                     self.from_json_object(json.load(f))
             else:
                 with open(file, "rb") as f:
-                    self.raw_data = f.read()
-                    self.entries = list(self._parse_item(self.raw_data))
+                    data = f.read()
+                # entries first: assigning them drops raw_data, and the file's own bytes are already its encoding
+                self.entries = list(self._parse_item(data))
+                self.raw_data = data
         else:
             logger.warning(f"File does not exist: {file}. Using default data to create an empty item.")
             # deep copy: nested values (osrt, ovct, ...) are lists too, and a shallow copy would leave every
@@ -109,7 +111,6 @@ class SeratoBinFile:
             if default_version not in self.TESTED_VERSIONS:
                 raise ValueError("version in DEFAULT_ENTRIES is not in TESTED_VERSIONS")
             self.version = default_version
-            self._mark_stale()
 
         if not hasattr(self, "version"):
             raise AttributeError("version not set after parsing file")
@@ -206,7 +207,6 @@ class SeratoBinFile:
             return result
 
         self.entries = json_to_entries(json_data)
-        self._mark_stale()
 
     def write_json(self, filepath: str) -> None:
         def write_json_array(json_entries: list[SeratoBinFile.EntryJson], indent: int = 0) -> str:
@@ -382,6 +382,21 @@ class SeratoBinFile:
     def raw_data(self, data: bytes):
         self._raw_data = data
 
+    @property
+    def entries(self) -> EntryList:
+        """
+        The file's parsed entries.
+
+        Assigning a list marks raw_data stale, so its next read re-encodes. Changing the list in place doesn't: assign it
+        back afterward (`f.entries = f.entries`), or call _mark_stale() from within the class.
+        """
+        return self._entries
+
+    @entries.setter
+    def entries(self, entries: EntryList):
+        self._entries = entries
+        self._mark_stale()
+
     def _mark_stale(self):
         """Marks raw_data stale after a change to entries."""
         self._raw_data = None
@@ -398,19 +413,17 @@ class SeratoBinFile:
         return [t.get_full_path() if include_drive else t.relpath for t in self.get_tracks()]
 
     def modify_tracks(self, func: Callable[[Track], Track]):
-        changed = False
         for i, (field, value) in enumerate(self.entries):
             if field == SeratoBinFile.Fields.TRACK:
                 if not isinstance(value, list):
                     raise DataTypeError(value, list, field)
                 track = self._get_track(value)
                 new_entries = func(track).to_entries()
+                # only a changed track marks stale, so a call that changes nothing keeps the cached raw_data
                 if new_entries != value:
+                    # in place, so the entries setter doesn't see it
                     self.entries[i] = (field, new_entries)
-                    changed = True
-        # re-encoding the whole file is the slow part, so skip it when no track changed
-        if changed:
-            self._mark_stale()
+                    self._mark_stale()
 
     def filter_tracks(self, func: Callable[[Track], bool]):
         new_entries: "SeratoBinFile.EntryList" = []
@@ -423,7 +436,6 @@ class SeratoBinFile:
                     continue
             new_entries.append((field, value))
         self.entries = new_entries
-        self._mark_stale()
 
     def remove_track(self, filepath: str):
         self.filter_tracks(lambda track: track.relpath != SeratoBinFile.get_relative_path(filepath))
@@ -618,5 +630,4 @@ class SeratoBinFile:
                 value = track.to_entries()
             new_entries.append((field, value))
         self.entries = new_entries
-        self._mark_stale()
         self.save()
