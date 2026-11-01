@@ -382,6 +382,10 @@ class SeratoBinFile:
     def raw_data(self, data: bytes):
         self._raw_data = data
 
+    def _mark_stale(self):
+        """Marks raw_data stale after a change to entries."""
+        self._raw_data = None
+
     @property
     def entries(self) -> EntryList:
         """
@@ -396,10 +400,6 @@ class SeratoBinFile:
     def entries(self, entries: EntryList):
         self._entries = entries
         self._mark_stale()
-
-    def _mark_stale(self):
-        """Marks raw_data stale after a change to entries."""
-        self._raw_data = None
 
     def get_tracks(self) -> Generator[Track, None, None]:
         for field, value in self.entries:
@@ -489,8 +489,10 @@ class SeratoBinFile:
     def get_full_path(filepath: str) -> str:
         """Get the absolute, normalized form of a track path.
 
-        A path with a drive or UNC share keeps it. A path without one, which is how Serato stores track paths, is
-        resolved from the root of `SERATO_DRIVE`. Doesn't check that the file exists.
+        - A path with a drive or UNC share keeps it.
+        - A path without one, which is how Serato stores track paths, is resolved from the root of `SERATO_DRIVE`.
+
+        Doesn't check that the file exists.
         """
         # with no drive, splitdrive's path half is the whole of filepath, so filepath serves both branches
         drive = os.path.splitdrive(filepath)[0]
