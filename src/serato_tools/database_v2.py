@@ -38,17 +38,15 @@ class DatabaseV2(SeratoBinFile):
             # can't just do os.path.exists, doesn't pick up case changes for certain filesystems
             logger.error(f"File already exists with change: {src}")
             return
-        self.change_track_path(src, dest)
-        self.save()
+        # only rewrite files that have the track
+        if self.change_track_path(src, dest):
+            self.save()
 
         from serato_tools.crate import Crate
 
-        src_relpath = self.get_relative_path(src).upper()
         for crate_path in Crate.get_crate_files():
             crate = Crate(crate_path)
-            # only rewrite crates that have the track
-            if any(path.upper() == src_relpath for path in crate.get_track_paths()):
-                crate.change_track_path(src, dest)
+            if crate.change_track_path(src, dest):
                 crate.save()
 
 

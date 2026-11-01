@@ -4,8 +4,9 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [4.0.5] - 2026-10-31
 
-- `raw_data` is only re-encoded when read (e.g. on `save()`) instead of after every change, so several changes before one save only pay for one re-encode
-- `Crate.save()` and `SmartCrate.save()` no longer re-encode unconditionally. To change `entries` in place, assign the list back afterward (`crate.entries = crate.entries`) so the change gets saved
+- Changes to a database or crate are no longer re-encoded one by one. The file is encoded once, when `raw_data` is read (e.g. on `save()`), so several changes before one save only pay for one encode. `raw_data` is now read-only
+- `modify_tracks`, `modify`, and `change_track_path` return whether anything changed
+- `modify_and_save` and `find_missing` skip writing the file when nothing changed, and `DatabaseV2.rename_track_file` only saves the database if it has the track
 
 ## [4.0.4] - 2026-10-31
 

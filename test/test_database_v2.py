@@ -46,10 +46,6 @@ class TestCase(unittest.TestCase):
             expected = f.read()
             self.assertEqual(db.__str__(), expected, "parse")
 
-        # assigning entries drops the file's cached bytes, so this read re-encodes them from the parsed entries
-        db.entries = db.entries
-        self.assertEqual(db.raw_data, file_data, "re-encoded raw_data")
-
     def test_parse_and_modify(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
 
@@ -61,19 +57,20 @@ class TestCase(unittest.TestCase):
 
         original_entries = db.entries
         original_raw_data = db.raw_data
-        db.modify([])
+        self.assertFalse(db.modify([]), "reports no change")
         self.assertEqual(db.entries, original_entries, "was not modified")
         self.assertEqual(db.raw_data, original_raw_data, "was not modified")
         self.assertEqual(db.__str__(), expected, "was not modified")
 
         new_time = int(1735748100)
-        db.modify(
+        changed = db.modify(
             [
                 {"field": DatabaseV2.Fields.DATE_ADDED_U, "func": lambda *args: new_time},
                 {"field": DatabaseV2.Fields.DATE_ADDED_T, "func": lambda *args: str(new_time)},
                 {"field": DatabaseV2.Fields.GROUPING, "func": lambda *args: "NEW_GROUPING"},
             ]
         )
+        self.assertTrue(changed, "reports change")
         with open("test/data/database_v2_test_modified_output.txt", "r", encoding="utf-16") as f:
             self.assertEqual(db.__str__(), f.read(), "was modified correctly")
         with open("test/data/database_v2_test_modified_output.bin", "rb") as f:
@@ -107,10 +104,9 @@ class TestCase(unittest.TestCase):
             db_file = os.path.join(tmp, "database V2")
             shutil.copy("test/data/database_v2_test.bin", db_file)
             db = DatabaseV2(db_file)
-            db.entries = [
-                *db.entries,
-                (DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, DatabaseV2.get_relative_path(src))]),
-            ]
+            db.entries.append(
+                (DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, DatabaseV2.get_relative_path(src))])
+            )
 
             crates_dir = os.path.join(tmp, "Subcrates")
             os.mkdir(crates_dir)
@@ -132,6 +128,60 @@ class TestCase(unittest.TestCase):
             )
             self.assertEqual(saved[0].get_track_paths(), [DatabaseV2.get_relative_path(dest)], "crate path updated")
             self.assertIn(DatabaseV2.get_relative_path(dest), DatabaseV2(db_file).get_track_paths(), "db path updated")
+
+    def test_rename_track_file_skips_saving_db_without_track(self):
+        # rename_track_file imports Crate from the installed package, so patch that one
+        from serato_tools.crate import Crate  # pylint: disable=import-outside-toplevel
+
+        with tempfile.TemporaryDirectory() as tmp:
+            src, dest = os.path.join(tmp, "Old.mp3"), os.path.join(tmp, "New.mp3")
+            open(src, "wb").close()
+
+            db_file = os.path.join(tmp, "database V2")
+            shutil.copy("test/data/database_v2_test.bin", db_file)
+            db = DatabaseV2(db_file)
+            os.remove(db_file)  # so any save shows up as the file reappearing
+
+            crates_dir = os.path.join(tmp, "Subcrates")
+            os.mkdir(crates_dir)
+            with mock.patch.object(Crate, "DIR_PATH", crates_dir):
+                db.rename_track_file(src, dest)
+
+            self.assertTrue(os.path.exists(dest), "file renamed")
+            self.assertFalse(os.path.exists(db_file), "db not saved")
+
+    def test_modify_and_save_skips_save_when_unchanged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_file = os.path.join(tmp, "database V2")
+            shutil.copy("test/data/database_v2_test.bin", db_file)
+            db = DatabaseV2(db_file)
+            os.remove(db_file)  # so any save shows up as the file reappearing
+
+            no_match: list[DatabaseV2.ModifyRule] = [
+                {"field": DatabaseV2.Fields.GROUPING, "files": ["Not In Library.mp3"], "func": lambda *args: "X"}
+            ]
+            db.modify_and_save(no_match)
+            self.assertFalse(os.path.exists(db_file), "unchanged, so not saved")
+
+            copy_file = os.path.join(tmp, "copy")
+            db.modify_and_save(no_match, copy_file)
+            self.assertTrue(os.path.exists(copy_file), "saved anyway when given another file")
+
+            db.modify_and_save([{"field": DatabaseV2.Fields.GROUPING, "func": lambda *args: "X"}])
+            self.assertTrue(os.path.exists(db_file), "changed, so saved")
+
+    def test_find_missing_skips_save_when_nothing_relocated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_file = os.path.join(tmp, "database V2")
+            shutil.copy("test/data/database_v2_test.bin", db_file)
+            db = DatabaseV2(db_file)
+            os.remove(db_file)  # so any save shows up as the file reappearing
+
+            # the fixture's tracks don't exist here, so each one prompts; "s" skips it
+            with mock.patch("builtins.input", return_value="s"), mock.patch("builtins.print"):
+                db.find_missing()
+
+            self.assertFalse(os.path.exists(db_file), "nothing relocated, so not saved")
 
     def test_dedupe(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_duplicates.bin"))

@@ -81,8 +81,7 @@ class SeratoBinFile:
     def __init__(self, file: str):
         self.filepath = os.path.abspath(file)
 
-        self._raw_data: bytes | None = None
-        self._entries: SeratoBinFile.EntryList
+        self.entries: SeratoBinFile.EntryList
         self.version: str
 
         for key in ["TESTED_VERSIONS", "TRACK_PATH_KEY", "DEFAULT_ENTRIES"]:
@@ -95,10 +94,7 @@ class SeratoBinFile:
                     self.from_json_object(json.load(f))
             else:
                 with open(file, "rb") as f:
-                    data = f.read()
-                # entries first: assigning them drops raw_data, and the file's own bytes are already its encoding
-                self.entries = list(self._parse_item(data))
-                self.raw_data = data
+                    self.entries = list(self._parse_item(f.read()))
         else:
             logger.warning(f"File does not exist: {file}. Using default data to create an empty item.")
             # deep copy: nested values (osrt, ovct, ...) are lists too, and a shallow copy would leave every
@@ -370,36 +366,11 @@ class SeratoBinFile:
     @property
     def raw_data(self) -> bytes:
         """
-        The file's bytes as of the current entries.
+        The file's bytes, encoded from the current entries.
 
-        Rebuilt on the first read after a change, so a run of mutations only pays for one dump.
+        Every read re-encodes the whole file, so read it once rather than in a loop.
         """
-        if self._raw_data is None:
-            self._raw_data = self._dump_entries(self.entries)
-        return self._raw_data
-
-    @raw_data.setter
-    def raw_data(self, data: bytes):
-        self._raw_data = data
-
-    def _mark_stale(self):
-        """Marks raw_data stale after a change to entries."""
-        self._raw_data = None
-
-    @property
-    def entries(self) -> EntryList:
-        """
-        The file's parsed entries.
-
-        Assigning a list marks raw_data stale, so its next read re-encodes. Changing the list in place doesn't: assign it
-        back afterward (`f.entries = f.entries`), or call _mark_stale() from within the class.
-        """
-        return self._entries
-
-    @entries.setter
-    def entries(self, entries: EntryList):
-        self._entries = entries
-        self._mark_stale()
+        return self._dump_entries(self.entries)
 
     def get_tracks(self) -> Generator[Track, None, None]:
         for field, value in self.entries:
@@ -412,18 +383,20 @@ class SeratoBinFile:
     def get_track_paths(self, include_drive: bool = False) -> list[str]:
         return [t.get_full_path() if include_drive else t.relpath for t in self.get_tracks()]
 
-    def modify_tracks(self, func: Callable[[Track], Track]):
+    def modify_tracks(self, func: Callable[[Track], Track]) -> bool:
+        """Replaces each track with what `func` returns for it, and returns whether any track changed."""
+        changed = False
         for i, (field, value) in enumerate(self.entries):
             if field == SeratoBinFile.Fields.TRACK:
                 if not isinstance(value, list):
                     raise DataTypeError(value, list, field)
                 track = self._get_track(value)
+                # Track copies the values out of `value`, so this compares against the untouched original
                 new_entries = func(track).to_entries()
-                # only a changed track marks stale, so a call that changes nothing keeps the cached raw_data
                 if new_entries != value:
-                    # in place, so the entries setter doesn't see it
                     self.entries[i] = (field, new_entries)
-                    self._mark_stale()
+                    changed = True
+        return changed
 
     def filter_tracks(self, func: Callable[[Track], bool]):
         new_entries: "SeratoBinFile.EntryList" = []
@@ -536,7 +509,8 @@ class SeratoBinFile:
         """ (filename: str, prev_value: ValueType | None) -> new_value: ValueType | None """
         files: NotRequired[list[str]]
 
-    def modify(self, rules: list[ModifyRule]):
+    def modify(self, rules: list[ModifyRule]) -> bool:
+        """Applies `rules` to every track, and returns whether any track changed."""
         # check rule fields
         all_field_names = [rule["field"] for rule in rules]
         assert len(list(rules)) == len(
@@ -584,18 +558,26 @@ class SeratoBinFile:
                         track.set_value(rule["field"], maybe_new_value)
             return track
 
-        self.modify_tracks(modify_track)
+        return self.modify_tracks(modify_track)
 
     def modify_and_save(self, rules: list[ModifyRule], file: Optional[str] = None):
-        self.modify(rules)
-        self.save(file)
+        """
+        Applies `rules` to every track, then saves.
 
-    def change_track_path(self, src: str, dest: str):
-        self.modify([{"field": self.TRACK_PATH_KEY, "files": [src], "func": lambda *args: dest}])
+        Skips the save when nothing changed, unless `file` names somewhere other than this file's own path.
+        """
+        changed = self.modify(rules)
+        if changed or (file is not None and os.path.abspath(file) != self.filepath):
+            self.save(file)
+
+    def change_track_path(self, src: str, dest: str) -> bool:
+        """Points the track at `src` to `dest`, and returns whether this file had that track."""
+        return self.modify([{"field": self.TRACK_PATH_KEY, "files": [src], "func": lambda *args: dest}])
 
     def find_missing(self):
         new_entries: SeratoBinFile.EntryList = []
         new_dir: str | None = None
+        changed = False
         for field, value in self.entries:
             if field == SeratoBinFile.Fields.TRACK:
                 if not isinstance(value, list):
@@ -629,7 +611,9 @@ class SeratoBinFile:
                     if new_location:
                         print("   new_location: " + new_location)
                         track.set_path(new_location)
+                        changed = True
                 value = track.to_entries()
             new_entries.append((field, value))
         self.entries = new_entries
-        self.save()
+        if changed:
+            self.save()

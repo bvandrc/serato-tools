@@ -91,20 +91,8 @@ class TestCase(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             file = os.path.join(tmp, "Test.crate")
             crate = Crate(file)
-            _ = crate.raw_data  # cache the bytes, so a stale cache would be what gets saved
             crate.add_track("/music/track1.mp3")
             crate.save()
 
             self.assertEqual(Crate(file).get_track_paths(), crate.get_track_paths())
             self.assertEqual(len(crate.get_track_paths()), 1)
-
-    def test_assigning_entries_is_saved(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            file = os.path.join(tmp, "Test.crate")
-            crate = Crate("test/data/TestCrate.crate")
-            self.assertNotEqual(crate.get_track_paths(), [], "fixture should have tracks")
-            _ = crate.raw_data  # cache the bytes, so a stale cache would be what gets saved
-            crate.entries = [e for e in crate.entries if e[0] != Crate.Fields.TRACK]
-            crate.save(file)
-
-            self.assertEqual(Crate(file).get_track_paths(), [])

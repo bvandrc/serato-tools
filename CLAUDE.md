@@ -51,8 +51,8 @@ Subclasses (`DatabaseV2`, `CrateBase` → `Crate` / `SmartCrate`) must define `T
 
 The lifecycle is `parse → self.entries → mutate → self.raw_data → save()`:
 
-- `raw_data` is a cached encoding of `entries`. It's dropped when the file changes and rebuilt on its next read (e.g. in `save()`), so a run of mutations pays for one encode.
-- Assigning `entries` drops the cache through its property setter. Changing the list in place doesn't, so in-place mutators (`modify_tracks`, `CrateBase.add_track`) call `_mark_stale()` themselves. `modify_tracks` only does so when a track actually changed, so a no-op call keeps the cache.
+- `raw_data` is not stored. Each read encodes `entries` from scratch, so mutations cost nothing and each `save()` pays for one encode. Edit `entries` however you like, in place or by assignment.
+- `modify_tracks`, `modify`, and `change_track_path` return whether anything changed. Methods that save on the caller's behalf (`modify_and_save`, `find_missing`, `DatabaseV2.rename_track_file`) use that to skip writing an unchanged file. `save()` itself always writes, since it doubles as "save as".
 - `modify()` takes a list of `ModifyRule` dicts (`{"field": ..., "func": (filename, prev_val) -> new_val | None, "files": [...]}`); returning `None` from `func` means "leave unchanged".
 - Files can also round-trip through JSON (`to_json_object` / `from_json_object` / `write_json`), with bytes base64-encoded.
 
@@ -81,7 +81,7 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
 ### Cross-module dependencies
 
 - `TrackCuesV2` cue snapping reads the track's `TrackBeatgrid` to find beat positions.
-- `DatabaseV2.rename_track_file` renames on disk, updates the database, *and* rewrites every crate under `Crate.DIR_PATH` that contains the track, so a renamed file doesn't go missing.
+- `DatabaseV2.rename_track_file` renames on disk, then updates the database *and* every crate under `Crate.DIR_PATH`, saving only those that contain the track, so a renamed file doesn't go missing.
 - `usb_export.py` composes `Crate`, `SmartCrate`, and `DatabaseV2`: it flattens all tracks into one folder on the drive, dedupes by basename, rewrites crate/database paths to the new layout, and copies only changed files.
 - `SERATO_DIR` (`~/Music/_Serato_`) in `utils/__init__.py` is the default root for all library lookups.
 
