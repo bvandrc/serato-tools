@@ -46,7 +46,7 @@ class TestCase(unittest.TestCase):
             expected = f.read()
             self.assertEqual(db.__str__(), expected, "parse")
 
-        db._dump()
+        db._mark_stale()
         self.assertEqual(db.raw_data, file_data, "raw_data read")
 
     def test_parse_and_modify(self):
@@ -109,7 +109,7 @@ class TestCase(unittest.TestCase):
             db.entries.append(
                 (DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, DatabaseV2.get_relative_path(src))])
             )
-            db._dump()
+            db._mark_stale()
 
             crates_dir = os.path.join(tmp, "Subcrates")
             os.mkdir(crates_dir)

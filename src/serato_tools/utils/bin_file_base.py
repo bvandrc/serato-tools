@@ -109,7 +109,7 @@ class SeratoBinFile:
             if default_version not in self.TESTED_VERSIONS:
                 raise ValueError("version in DEFAULT_ENTRIES is not in TESTED_VERSIONS")
             self.version = default_version
-            self._dump()
+            self._mark_stale()
 
         if not hasattr(self, "version"):
             raise AttributeError("version not set after parsing file")
@@ -206,7 +206,7 @@ class SeratoBinFile:
             return result
 
         self.entries = json_to_entries(json_data)
-        self._dump()
+        self._mark_stale()
 
     def write_json(self, filepath: str) -> None:
         def write_json_array(json_entries: list[SeratoBinFile.EntryJson], indent: int = 0) -> str:
@@ -382,7 +382,7 @@ class SeratoBinFile:
     def raw_data(self, data: bytes):
         self._raw_data = data
 
-    def _dump(self):
+    def _mark_stale(self):
         """Marks raw_data stale after a change to entries."""
         self._raw_data = None
 
@@ -410,7 +410,7 @@ class SeratoBinFile:
                     changed = True
         # re-encoding the whole file is the slow part, so skip it when no track changed
         if changed:
-            self._dump()
+            self._mark_stale()
 
     def filter_tracks(self, func: Callable[[Track], bool]):
         new_entries: "SeratoBinFile.EntryList" = []
@@ -423,7 +423,7 @@ class SeratoBinFile:
                     continue
             new_entries.append((field, value))
         self.entries = new_entries
-        self._dump()
+        self._mark_stale()
 
     def remove_track(self, filepath: str):
         self.filter_tracks(lambda track: track.relpath != SeratoBinFile.get_relative_path(filepath))
@@ -615,5 +615,5 @@ class SeratoBinFile:
                 value = track.to_entries()
             new_entries.append((field, value))
         self.entries = new_entries
-        self._dump()
+        self._mark_stale()
         self.save()

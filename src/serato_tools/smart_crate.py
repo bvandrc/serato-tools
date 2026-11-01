@@ -177,7 +177,7 @@ class SmartCrate(CrateBase):
             new_entries.append((CrateBase.Fields.SMARTCRATE_RULE.value, new_rule.to_entries()))
 
         self.entries = new_entries  # pylint: disable=attribute-defined-outside-init
-        self._dump()
+        self._mark_stale()
 
     def delete_rule(self, field: "SmartCrate.RuleField"):
         rule_field_id = field.value
@@ -192,7 +192,7 @@ class SmartCrate(CrateBase):
             new_entries.append((f, v))
 
         self.entries = new_entries  # pylint: disable=attribute-defined-outside-init
-        self._dump()
+        self._mark_stale()
 
     def find_missing(self):
         raise Exception("cannot be done on smart crate")
