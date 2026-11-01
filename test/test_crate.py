@@ -38,7 +38,7 @@ class TestCase(unittest.TestCase):
 
         self.maxDiff = None
 
-        self.assertEqual(crate.raw_data, file_data, "raw_data read")
+        self.assertEqual(crate.to_bytes(), file_data, "to_bytes")
         expected = base_expected
 
         self.assertEqual(crate.__str__(), expected, "parse")

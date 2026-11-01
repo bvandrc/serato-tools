@@ -40,11 +40,17 @@ class TestCase(unittest.TestCase):
         db = DatabaseV2(file)
 
         self.maxDiff = None
-        self.assertEqual(db.raw_data, file_data, "raw_data read")
+        self.assertEqual(db.to_bytes(), file_data, "to_bytes")
 
         with open("test/data/database_v2_test_output.txt", "r", encoding="utf-16") as f:
             expected = f.read()
             self.assertEqual(db.__str__(), expected, "parse")
+
+    def test_raw_data_is_deprecated_alias_of_to_bytes(self):
+        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        with self.assertWarns(DeprecationWarning):
+            raw_data = db.raw_data
+        self.assertEqual(raw_data, db.to_bytes())
 
     def test_parse_and_modify(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
@@ -56,10 +62,10 @@ class TestCase(unittest.TestCase):
             self.assertEqual(db.__str__(), expected, "parse")
 
         original_entries = db.entries
-        original_raw_data = db.raw_data
+        original_bytes = db.to_bytes()
         self.assertFalse(db.modify([]), "reports no change")
         self.assertEqual(db.entries, original_entries, "was not modified")
-        self.assertEqual(db.raw_data, original_raw_data, "was not modified")
+        self.assertEqual(db.to_bytes(), original_bytes, "was not modified")
         self.assertEqual(db.__str__(), expected, "was not modified")
 
         new_time = int(1735748100)
@@ -74,7 +80,7 @@ class TestCase(unittest.TestCase):
         with open("test/data/database_v2_test_modified_output.txt", "r", encoding="utf-16") as f:
             self.assertEqual(db.__str__(), f.read(), "was modified correctly")
         with open("test/data/database_v2_test_modified_output.bin", "rb") as f:
-            self.assertEqual(db.raw_data, f.read(), "was modified correctly")
+            self.assertEqual(db.to_bytes(), f.read(), "was modified correctly")
 
         db.modify(
             [
@@ -91,7 +97,7 @@ class TestCase(unittest.TestCase):
         with open("test/data/database_v2_test_modified_output_2.txt", "r", encoding="utf-8") as f:
             self.assertEqual(db.__str__(), f.read(), "was modified correctly, given files")
         with open("test/data/database_v2_test_modified_output_2.bin", "rb") as f:
-            self.assertEqual(db.raw_data, f.read(), "was modified correctly, given files")
+            self.assertEqual(db.to_bytes(), f.read(), "was modified correctly, given files")
 
     def test_rename_track_file_only_saves_crates_with_track(self):
         # rename_track_file imports Crate from the installed package, so patch that one

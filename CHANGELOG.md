@@ -4,7 +4,8 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [4.1.0] - 2026-11-01
 
-- Changes to a database or crate are no longer re-serialized one by one. The file is serialized once, when `raw_data` is read (e.g. on `save()`), so several changes before one save only pay for one serialization. `raw_data` is now read-only
+- Changes to a database or crate are no longer re-serialized one by one. The file is serialized once, by the new `to_bytes()` (e.g. on `save()`), so several changes before one save only pay for one serialization
+- `raw_data` on databases and crates is deprecated in favor of `to_bytes()`, and will be removed in 5.0. It's now read-only, and each read re-serializes the file
 - `modify_tracks`, `modify`, and `change_track_path` return whether anything changed
 - `modify_and_save` and `find_missing` skip writing the file when nothing changed, and `DatabaseV2.rename_track_file` only saves the database if it has the track
 

@@ -49,9 +49,9 @@ The package handles two unrelated Serato binary formats. Nearly everything else 
 
 Subclasses (`DatabaseV2`, `CrateBase` → `Crate` / `SmartCrate`) must define `TESTED_VERSIONS`, `TRACK_PATH_KEY`, and `DEFAULT_ENTRIES`; the constructor raises `AttributeError` if any is missing. Field names are centralized in the `SeratoBinFile.Fields` StrEnum.
 
-The lifecycle is `parse → self.entries → mutate → self.raw_data → save()`:
+The lifecycle is `parse → self.entries → mutate → to_bytes() → save()`:
 
-- `raw_data` is not stored. Each read serializes `entries` from scratch, so mutations cost nothing and each `save()` pays for one serialization. Edit `entries` however you like, in place or by assignment.
+- The file's bytes aren't stored. Each `to_bytes()` call serializes `entries` from scratch, so mutations cost nothing and each `save()` pays for one serialization. Edit `entries` however you like, in place or by assignment. `raw_data` is a deprecated alias of `to_bytes()`, due for removal in 5.0; the `SeratoTag` classes' `raw_data` is unrelated and really is stored.
 - `modify_tracks`, `modify`, and `change_track_path` return whether anything changed. Methods that save on the caller's behalf (`modify_and_save`, `find_missing`, `DatabaseV2.rename_track_file`) use that to skip writing an unchanged file. `save()` itself always writes, since it doubles as "save as".
 - `modify()` takes a list of `ModifyRule` dicts (`{"field": ..., "func": (filename, prev_val) -> new_val | None, "files": [...]}`); returning `None` from `func` means "leave unchanged".
 - Files can also round-trip through JSON (`to_json_object` / `from_json_object` / `write_json`), with bytes base64-encoded.

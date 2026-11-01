@@ -4,6 +4,7 @@ import re
 import copy
 import struct
 import base64
+import warnings
 from enum import StrEnum
 import json
 from typing import Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
@@ -234,7 +235,7 @@ class SeratoBinFile:
         print(self)
 
     def __repr__(self) -> str:
-        return str(self.raw_data)
+        return str(self.to_bytes())
 
     class EntryListCls:
         def __init__(self, entries: "SeratoBinFile.EntryList"):
@@ -363,14 +364,19 @@ class SeratoBinFile:
     def _dump_entries(self, entries: EntryList):
         return b"".join(self._dump_item(entry) for entry in entries)
 
-    @property
-    def raw_data(self) -> bytes:
+    def to_bytes(self) -> bytes:
         """
         The file's bytes, serialized from the current entries.
 
-        Every read re-serializes the whole file, so read it once rather than in a loop.
+        Each call re-serializes the whole file, so call it once rather than in a loop.
         """
         return self._dump_entries(self.entries)
+
+    @property
+    def raw_data(self) -> bytes:
+        """Deprecated, to be removed in 5.0: use to_bytes(), which this calls."""
+        warnings.warn("raw_data is deprecated, use to_bytes() instead", DeprecationWarning, stacklevel=2)
+        return self.to_bytes()
 
     def get_tracks(self) -> Generator[Track, None, None]:
         for field, value in self.entries:
@@ -429,7 +435,7 @@ class SeratoBinFile:
         if file.lower().endswith(".json"):
             raise ValueError("cannot save raw data to .json")
         with open(file, "wb") as f:
-            f.write(self.raw_data)
+            f.write(self.to_bytes())
 
     @staticmethod
     def get_field_name(field: str) -> str:
