@@ -474,12 +474,15 @@ class SeratoBinFile:
         return relpath
 
     @staticmethod
-    def get_full_path(filepath: str):
-        drive, path = os.path.splitdrive(filepath)
-        if drive:
-            return os.path.normpath(filepath)
-        else:
-            return os.path.normpath(os.path.join(SERATO_DRIVE, "\\", path))
+    def get_full_path(filepath: str) -> str:
+        """Get the absolute, normalized form of a track path.
+
+        A path with a drive or UNC share keeps it. A path without one, which is how Serato stores track paths, is
+        resolved from the root of `SERATO_DRIVE`. Doesn't check that the file exists.
+        """
+        # with no drive, splitdrive's path half is the whole of filepath, so filepath serves both branches
+        drive = os.path.splitdrive(filepath)[0]
+        return os.path.normpath(filepath if drive else os.path.join(SERATO_DRIVE, "\\", filepath))
 
     def get_entries(self) -> Generator[EntryFull, None, None]:
         """Get entry fieldnames."""
