@@ -366,9 +366,9 @@ class SeratoBinFile:
     @property
     def raw_data(self) -> bytes:
         """
-        The file's bytes, encoded from the current entries.
+        The file's bytes, serialized from the current entries.
 
-        Every read re-encodes the whole file, so read it once rather than in a loop.
+        Every read re-serializes the whole file, so read it once rather than in a loop.
         """
         return self._dump_entries(self.entries)
 

@@ -51,7 +51,7 @@ Subclasses (`DatabaseV2`, `CrateBase` → `Crate` / `SmartCrate`) must define `T
 
 The lifecycle is `parse → self.entries → mutate → self.raw_data → save()`:
 
-- `raw_data` is not stored. Each read encodes `entries` from scratch, so mutations cost nothing and each `save()` pays for one encode. Edit `entries` however you like, in place or by assignment.
+- `raw_data` is not stored. Each read serializes `entries` from scratch, so mutations cost nothing and each `save()` pays for one serialization. Edit `entries` however you like, in place or by assignment.
 - `modify_tracks`, `modify`, and `change_track_path` return whether anything changed. Methods that save on the caller's behalf (`modify_and_save`, `find_missing`, `DatabaseV2.rename_track_file`) use that to skip writing an unchanged file. `save()` itself always writes, since it doubles as "save as".
 - `modify()` takes a list of `ModifyRule` dicts (`{"field": ..., "func": (filename, prev_val) -> new_val | None, "files": [...]}`); returning `None` from `func` means "leave unchanged".
 - Files can also round-trip through JSON (`to_json_object` / `from_json_object` / `write_json`), with bytes base64-encoded.
