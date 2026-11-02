@@ -22,7 +22,7 @@ class TestCase(unittest.TestCase):
 
         crate = SmartCrate(file)
 
-        self.assertEqual(crate.raw_data, file_data, "raw_data read")
+        self.assertEqual(crate.to_bytes(), file_data, "to_bytes")
         self.check_lines(crate.__str__(), expected)
 
     def test_add_rule(self):
