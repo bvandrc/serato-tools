@@ -3,6 +3,8 @@ import sys
 from typing import Optional
 from dataclasses import dataclass
 
+from mutagen.id3._frames import RVA2
+
 if __package__ is None:
     sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
@@ -10,13 +12,15 @@ from serato_tools.utils.track_tags import SeratoTrack
 
 
 class TrackGain(SeratoTrack):
-    REPLAY_GAIN_GAIN_KEY = "replaygain_SeratoGain_gain"
-    REPLAY_GAIN_PEAK_KEY = "replaygain_SeratoGain_peak"
+    # Serato stores gain in ID3 files as an RVA2 (relative volume adjustment) frame with this description
+    RVA2_DESC = "SeratoGain"
+    RVA2_KEY = f"RVA2:{RVA2_DESC}"
 
     def __init__(self, file: SeratoTrack.FileArg):
         super().__init__(file)
-        self.gain: float | None = self.tagfile.get(TrackGain.REPLAY_GAIN_GAIN_KEY, None)
-        self.peak: float | None = self.tagfile.get(TrackGain.REPLAY_GAIN_PEAK_KEY, None)
+        frame = self.tagfile.get(TrackGain.RVA2_KEY, None)
+        self.gain: float | None = frame.gain if frame is not None else None
+        self.peak: float | None = frame.peak if frame is not None else None
 
     def __str__(self) -> str:
         return f"gain: {self.gain}\npeak: {self.peak}"
@@ -26,18 +30,17 @@ class TrackGain(SeratoTrack):
             self.gain = gain
         if peak is not None:
             self.peak = peak
+        if self.gain is None or self.peak is None:
+            raise ValueError("both gain and peak must be set (file had no existing SeratoGain tag)")
 
-        self.tagfile[TrackGain.REPLAY_GAIN_GAIN_KEY] = self.gain
-        self.tagfile[TrackGain.REPLAY_GAIN_PEAK_KEY] = self.peak
+        self.tagfile[TrackGain.RVA2_KEY] = RVA2(desc=TrackGain.RVA2_DESC, channel=1, gain=self.gain, peak=self.peak)
         self.tagfile.save()
 
     def save(self):
         self.tagfile.save()
 
     def delete(self):
-        for key in [TrackGain.REPLAY_GAIN_GAIN_KEY, TrackGain.REPLAY_GAIN_PEAK_KEY]:
-            if key in self.tagfile:
-                del self.tagfile[key]
+        return self._del_tag(TrackGain.RVA2_KEY)
 
 
 if __name__ == "__main__":
