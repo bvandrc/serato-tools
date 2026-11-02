@@ -33,7 +33,8 @@ class DatabaseV2(SeratoBinFile):
         """
         # os.rename only raises FileExistsError on Windows; on POSIX it silently overwrites, so check
         # first. A case-only rename is fine: on case-insensitive filesystems dest is then the same file.
-        if os.path.exists(dest) and not (os.path.exists(src) and os.path.samefile(src, dest)):
+        # If src is missing, samefile raises FileNotFoundError, just as the rename itself would.
+        if os.path.exists(dest) and not os.path.samefile(src, dest):
             logger.error(f"File already exists with change: {src}")
             return
         try:
