@@ -1,6 +1,7 @@
 import sys
 import os
 import filecmp
+import fnmatch
 import shutil
 import glob
 import re
@@ -39,7 +40,7 @@ def copy_crates_to_usb(
     crate_files: list[str], dest_drive_dir: str, dest_tracks_dir: str, root_crate: Optional[str] = None
 ):
     if not os.path.isdir(dest_drive_dir):
-        logger.error(f"destination drive directory does not exist: {dest_drive_dir}")
+        raise FileNotFoundError(f"destination drive directory does not exist: {dest_drive_dir}")
 
     DEST_SERATO_DIR = os.path.join(dest_drive_dir, SERATO_DIR_NAME)
 
@@ -85,7 +86,9 @@ def copy_crates_to_usb(
         # need to just save smartCrates as a .crate instead of a .scrate, can't do smart crate on USB.
         if isinstance(crate, SmartCrate):
             existing = new_crate_file
-            new = existing.replace("≫≫", "%%").replace(SmartCrate.EXTENSION, Crate.EXTENSION)
+            dirname, basename = os.path.split(existing)
+            # only touch the filename: str.replace on the full path could hit a directory name
+            new = os.path.join(dirname, os.path.splitext(basename.replace("≫≫", "%%"))[0] + Crate.EXTENSION)
             os.replace(existing, new)
             new_crate_file = new
         logger.info(f"copied crate {new_crate_file}")
@@ -111,24 +114,29 @@ def copy_crates_to_usb(
 
     # copy crate order file, modify if needed
     NEW_ORDER_FILE = "neworder.pref"
-    with open(os.path.join(LOCAL_SERATO_DIR, NEW_ORDER_FILE), "r", encoding="utf-8") as f:
-        lines = f.read().splitlines()
+    LOCAL_NEW_ORDER_FILEPATH = os.path.join(LOCAL_SERATO_DIR, NEW_ORDER_FILE)
+    if os.path.isfile(LOCAL_NEW_ORDER_FILEPATH):
+        with open(LOCAL_NEW_ORDER_FILEPATH, "r", encoding="utf-8") as f:
+            lines = f.read().splitlines()
 
-    if root_crate:
-        CRATE_KEY = "[crate]"
-        new_lines = []
-        for line in lines:
-            if line.startswith(CRATE_KEY):
-                value = line[len(CRATE_KEY) :]
-                if value != "Stems":
-                    line = f"{CRATE_KEY}{root_crate}%%{value}"
-            new_lines.append(line)
-        lines = new_lines
+        if root_crate:
+            CRATE_KEY = "[crate]"
+            new_lines = []
+            for line in lines:
+                if line.startswith(CRATE_KEY):
+                    value = line[len(CRATE_KEY) :]
+                    if value != "Stems":
+                        line = f"{CRATE_KEY}{root_crate}%%{value}"
+                new_lines.append(line)
+            lines = new_lines
 
-    DEST_NEW_ORDER_FILEPATH = os.path.join(DEST_SERATO_DIR, NEW_ORDER_FILE)
-    with open(DEST_NEW_ORDER_FILEPATH, "w", encoding="utf-8") as f:
-        f.writelines(lines)
-        logger.info(f"copied order file {DEST_NEW_ORDER_FILEPATH}")
+        DEST_NEW_ORDER_FILEPATH = os.path.join(DEST_SERATO_DIR, NEW_ORDER_FILE)
+        with open(DEST_NEW_ORDER_FILEPATH, "w", encoding="utf-8") as f:
+            # splitlines() strips the newlines, so they must be re-added on write
+            f.write("\n".join(lines) + "\n")
+            logger.info(f"copied order file {DEST_NEW_ORDER_FILEPATH}")
+    else:
+        logger.warning(f"no order file to copy: {LOCAL_NEW_ORDER_FILEPATH}")
 
     # copy stems crate
     LOCAL_STEMS_CRATE = os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
@@ -187,7 +195,7 @@ def copy_crates_to_usb(
             )
     print("\n")
 
-    if len(not_found) == len(tracks_to_copy):
+    if tracks_to_copy and len(not_found) == len(tracks_to_copy):
         logger.error("No source files found.")
         uniq_dirs = list(set(os.path.dirname(d) for d in tracks_to_copy))
         logger.error(f"Directories: \n{"\n    ".join(uniq_dirs)}")
@@ -198,30 +206,21 @@ def copy_crates_to_usb(
 
 
 def get_crate_files(pattern: str):
-    try:
-        regex = re.compile(pattern)
-
-        def get_files_by_regex(folder_path: str) -> list[str]:
-            matched_files = []
-            for filename in os.listdir(folder_path):
-                full_path = os.path.join(folder_path, filename)
-                if os.path.isfile(full_path) and regex.search(filename):
-                    matched_files.append(full_path)
-            return matched_files
-
-        func = get_files_by_regex
-    except re.error:
-
-        def get_files_by_glob(folder_path: str) -> list[str]:
-            return glob.glob(pattern, root_dir=folder_path, recursive=False)
-
-        func = get_files_by_glob
-
-    files: list[str] = []
+    filepaths: list[str] = []
     for dir in [Crate.DIR, SmartCrate.DIR]:
         root_dir = os.path.join(LOCAL_SERATO_DIR, dir)
-        files += [os.path.join(root_dir, f) for f in func(root_dir)]
-    files = [i for i in files if os.path.isfile(i)]  # remove dirs
+        filepaths += [os.path.join(root_dir, f) for f in os.listdir(root_dir)]
+    filepaths = [f for f in filepaths if os.path.isfile(f)]  # remove dirs
+
+    # try the pattern as a glob first: most globs (e.g. "house*") are also valid regexes, so
+    # checking re.compile first would silently give glob-looking patterns regex semantics
+    files = [f for f in filepaths if fnmatch.fnmatch(os.path.basename(f), pattern)]
+    if not files:
+        try:
+            regex = re.compile(pattern)
+        except re.error:
+            return []
+        files = [f for f in filepaths if regex.search(os.path.basename(f))]
     return files
 
 
