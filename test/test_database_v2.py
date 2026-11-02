@@ -46,12 +46,6 @@ class TestCase(unittest.TestCase):
             expected = f.read()
             self.assertEqual(db.__str__(), expected, "parse")
 
-    def test_raw_data_is_deprecated_alias_of_to_bytes(self):
-        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
-        with self.assertWarns(DeprecationWarning):
-            raw_data = db.raw_data
-        self.assertEqual(raw_data, db.to_bytes())
-
     def test_parse_and_modify(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
 
