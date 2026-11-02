@@ -6,7 +6,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Editing a database or crate is now faster: the file is serialized once, when it's saved, instead of after every change
   - `raw_data` is now deprecated in favor of the new `to_bytes()`, and will be removed in 5.0
-- Editing a single track is now faster: `modify()` skips tracks that no rule's `files` can match, without parsing them
+- Editing a single track is now faster: `modify()` skips tracks that no rule's `files` can match, instead of processing every track
   - Add `files` parameter to `modify_tracks` to only pass the given tracks to `func`
 - `modify`, `modify_tracks`, `change_track_path`, `filter_tracks`, `remove_track`, and `remove_duplicates` now return whether anything changed
 - `modify_and_save`, `find_missing`, and `DatabaseV2.rename_track_file` now skip saving files that didn't change

@@ -407,8 +407,8 @@ class SeratoBinFile:
         """
         Replaces each track with what `func` returns for it, and returns whether any track changed.
 
-        Given `files`, only those tracks are passed to `func`; the rest are skipped without being parsed, which is much
-        faster on a large library.
+        Given `files`, only those tracks are passed to `func`, and the rest are skipped after reading just their path,
+        which is much faster on a large library.
         """
         relpaths = None if files is None else {SeratoBinFile.get_relative_path(f).upper() for f in files}
         changed = False
@@ -417,7 +417,7 @@ class SeratoBinFile:
                 if not isinstance(value, list):
                     raise DataTypeError(value, list, field)
                 if relpaths is not None:
-                    # read the path straight off the entries, since building a Track for every entry is the slow part
+                    # check the path first: building a Track, running func, and comparing the result costs far more
                     relpath = self._get_entry_value(value, self.TRACK_PATH_KEY)
                     if isinstance(relpath, str) and relpath.upper() not in relpaths:
                         continue
