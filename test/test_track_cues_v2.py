@@ -87,13 +87,3 @@ class TestCase(unittest.TestCase):
     def test_untested_version_raises_at_construction(self):
         with self.assertRaises(ValueError):
             TrackCuesV2(bytes([0x99, 0x99]))
-
-    def test_deprecated_load_and_dump_still_work(self):
-        with open(os.path.abspath("test/data/track_cues_v2.bin"), mode="rb") as fp:
-            entries = TrackCuesV2(fp.read()).entries
-        for entry in entries:
-            with self.assertWarns(DeprecationWarning):
-                data = entry.dump()
-            self.assertEqual(data, entry.to_bytes(), f"dump() matches to_bytes() for {entry}")
-            with self.assertWarns(DeprecationWarning):
-                self.assertEqual(type(entry).load(data), entry, f"load() matches from_bytes() for {entry}")

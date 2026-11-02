@@ -4,7 +4,6 @@ import re
 import copy
 import struct
 import base64
-import warnings
 from enum import StrEnum
 import json
 from typing import Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
@@ -385,12 +384,6 @@ class SeratoBinFile:
         Each call re-serializes the whole file, so call it once rather than in a loop.
         """
         return self._serialize_entries(self.entries)
-
-    @property
-    def raw_data(self) -> bytes:
-        """Deprecated, to be removed in 5.0: use to_bytes(), which this calls."""
-        warnings.warn("raw_data is deprecated, use to_bytes() instead", DeprecationWarning, stacklevel=2)
-        return self.to_bytes()
 
     def get_tracks(self) -> Generator[Track, None, None]:
         for field, value in self.entries:

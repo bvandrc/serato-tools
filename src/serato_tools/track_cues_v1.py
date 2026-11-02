@@ -12,7 +12,7 @@ from mutagen.mp3 import HeaderNotFoundError
 if __package__ is None:
     sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
-from serato_tools.utils.track_tags import SeratoTag, SeratoTagEntry
+from serato_tools.utils.track_tags import SeratoTag
 
 
 class TrackCuesV1(SeratoTag):
@@ -32,7 +32,7 @@ class TrackCuesV1(SeratoTag):
         if self.raw_data is not None:
             self.entries = list(self._parse(self.raw_data))
 
-    class Entry(SeratoTagEntry):
+    class Entry(object):
         FORMAT = ">B4sB4s6s4sBB"
         FIELDS = (
             "start_position_set",
@@ -58,7 +58,7 @@ class TrackCuesV1(SeratoTag):
             )
 
         @classmethod
-        def from_bytes(cls, data: bytes):
+        def _from_bytes(cls, data: bytes):
             def _decode_bytes_32(data: bytes):
                 """Decode 4 byte Serato binary format into 3 byte plain text."""
                 w, x, y, z = struct.unpack("BBBB", data)
@@ -105,7 +105,7 @@ class TrackCuesV1(SeratoTag):
 
             return cls(*entry_data)
 
-        def to_bytes(self):
+        def _to_bytes(self):
             def _encode_bytes_32(data: bytes):
                 """Encode 3 byte plain text into 4 byte Serato binary format."""
                 a, b, c = struct.unpack("BBB", data)
@@ -144,6 +144,8 @@ class TrackCuesV1(SeratoTag):
         FIELDS = ("color",)
 
     def _parse(self, data: bytes):
+        # the entry classes' _from_bytes() / _to_bytes() are internal to this module
+        # pylint: disable=protected-access
         fp = io.BytesIO(data)
         self._check_version(fp.read(self.VERSION_LEN))
 
@@ -152,22 +154,26 @@ class TrackCuesV1(SeratoTag):
             entry_data = fp.read(0x16)
             assert len(entry_data) == 0x16
 
-            entry = TrackCuesV1.Entry.from_bytes(entry_data)
+            entry = TrackCuesV1.Entry._from_bytes(entry_data)
             yield entry
 
-        yield TrackCuesV1.Color.from_bytes(fp.read())
+        yield TrackCuesV1.Color._from_bytes(fp.read())
 
     def _serialize(self):
+        # the entry classes' _from_bytes() / _to_bytes() are internal to this module
+        # pylint: disable=protected-access
         entries = self.entries
         data = self._pack_version()
         num_entries = len(entries) - 1
         data += struct.pack(">I", num_entries)
         for entry_data in entries:
-            data += entry_data.to_bytes()
+            data += entry_data._to_bytes()
         self.raw_data = data
 
 
 if __name__ == "__main__":
+    # this script is part of the module, so it uses the tag's internals: _serialize(), and its entries' _from_bytes() / _to_bytes()
+    # pylint: disable=protected-access
     import argparse
     import ast
     import configparser
@@ -223,7 +229,7 @@ if __name__ == "__main__":
                 while True:
                     with tempfile.NamedTemporaryFile() as f:
                         if action == "b":
-                            f.write(entry.to_bytes())
+                            f.write(entry._to_bytes())
                             editor = hex_editor  # pyright: ignore[reportPossiblyUnboundVariable]
                         else:
                             if action == "a":
@@ -299,9 +305,9 @@ if __name__ == "__main__":
                                             for field in cls.FIELDS
                                         )
                                     )
-                                    results.append(cls.from_bytes(e.to_bytes()))
+                                    results.append(cls._from_bytes(e._to_bytes()))
                             else:
-                                results = [entry.from_bytes(output)]
+                                results = [entry._from_bytes(output)]
                         except Exception as e:  # pylint: disable=broad-exception-caught
                             print(str(e))
                             if (
@@ -349,7 +355,7 @@ if __name__ == "__main__":
             print("No changes made.")
         else:
             tags.entries = new_entries
-            tags._serialize()  # pylint: disable=protected-access
+            tags._serialize()
             if tags.tagfile:
                 tags.save()
             else:
