@@ -4,7 +4,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [4.1.0] - 2026-11-01
 
-- Editing a database or crate is now faster: the file is serialized once, when it's saved, instead of after every change
+- Editing a database or crate is now faster
   - `raw_data` is now deprecated in favor of the new `to_bytes()`, and will be removed in 5.0
 - `modify()` is about 2.5x faster
   - Much faster when every rule is limited to certain `files`, such as when editing a single track
