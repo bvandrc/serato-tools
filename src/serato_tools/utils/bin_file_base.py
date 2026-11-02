@@ -293,6 +293,11 @@ class SeratoBinFile:
         return SeratoBinFile.Track(entries, path_key=self.TRACK_PATH_KEY)
 
     @staticmethod
+    def _get_entry_value(entries: "SeratoBinFile.EntryList", field: str) -> "SeratoBinFile.ValueOrNone":
+        """The value of the first entry named `field`, or None if there isn't one."""
+        return next((v for f, v in entries if f == field), None)
+
+    @staticmethod
     def _get_type(field: str) -> str:
         # vrsn field has no type_id, but contains text ("t")
         return "t" if field == SeratoBinFile.Fields.VERSION else field[0]
@@ -402,13 +407,24 @@ class SeratoBinFile:
     def get_track_paths(self, include_drive: bool = False) -> list[str]:
         return [t.get_full_path() if include_drive else t.relpath for t in self.get_tracks()]
 
-    def modify_tracks(self, func: Callable[[Track], Track]) -> bool:
-        """Replaces each track with what `func` returns for it, and returns whether any track changed."""
+    def modify_tracks(self, func: Callable[[Track], Track], files: Optional[list[str]] = None) -> bool:
+        """
+        Replaces each track with what `func` returns for it, and returns whether any track changed.
+
+        Given `files`, only those tracks are passed to `func`, and the rest are skipped after reading just their path,
+        which is much faster on a large library.
+        """
+        relpaths = None if files is None else {SeratoBinFile.get_relative_path(f).upper() for f in files}
         changed = False
         for i, (field, value) in enumerate(self.entries):
             if field == SeratoBinFile.Fields.TRACK:
                 if not isinstance(value, list):
                     raise DataTypeError(value, list, field)
+                if relpaths is not None:
+                    # check the path first: building a Track, running func, and comparing the result costs far more
+                    relpath = self._get_entry_value(value, self.TRACK_PATH_KEY)
+                    if isinstance(relpath, str) and relpath.upper() not in relpaths:
+                        continue
                 track = self._get_track(value)
                 # Track copies the values out of `value`, so this compares against the untouched original
                 new_entries = func(track).to_entries()
@@ -559,13 +575,17 @@ class SeratoBinFile:
             if "files" in rule:
                 rule["files"] = [SeratoBinFile.get_relative_path(file).upper() for file in rule["files"]]
 
-        def _maybe_perform_rule(field: str, prev_val: "SeratoBinFile.ValueOrNone", track_relpath: str):
-            rule = next((r for r in rules if field == r["field"]), None)
-            if rule is None:
-                return None
-            if "files" in rule and track_relpath.upper() not in rule["files"]:
-                return None
+        # if every rule is limited to certain files, no other track can change, so skip them entirely
+        every_rule_limited = all("files" in rule for rule in rules)
+        only_files = [f for r in rules for f in r.get("files", [])] if every_rule_limited else None
 
+        # as sets, since each track is checked against them
+        rule_files = [set(rule["files"]) if "files" in rule else None for rule in rules]
+
+        def _maybe_perform_rule(
+            rule: "SeratoBinFile.ModifyRule", prev_val: "SeratoBinFile.ValueOrNone", track_relpath: str
+        ):
+            field = rule["field"]
             maybe_new_value = rule["func"](track_relpath, prev_val)
             if maybe_new_value is None or maybe_new_value == prev_val:
                 return None
@@ -582,18 +602,19 @@ class SeratoBinFile:
             return maybe_new_value
 
         def modify_track(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
-            for f, v in track.to_entries():
-                maybe_new_value = _maybe_perform_rule(f, v, track.relpath)
+            # loop over the rules rather than the track's fields, since a track has far more fields than there are rules
+            relpath_upper = track.relpath.upper()
+            for rule, files in zip(rules, rule_files):
+                if files is not None and relpath_upper not in files:
+                    continue
+                field = rule["field"]
+                prev_val = track.get_value(field) if field in track.fields else None
+                maybe_new_value = _maybe_perform_rule(rule, prev_val, track.relpath)
                 if maybe_new_value is not None:
-                    track.set_value(f, maybe_new_value)
-            for rule in rules:
-                if rule["field"] not in track.fields:
-                    maybe_new_value = _maybe_perform_rule(rule["field"], None, track.relpath)
-                    if maybe_new_value is not None:
-                        track.set_value(rule["field"], maybe_new_value)
+                    track.set_value(field, maybe_new_value)
             return track
 
-        return self.modify_tracks(modify_track)
+        return self.modify_tracks(modify_track, files=only_files)
 
     def modify_and_save(self, rules: list[ModifyRule], file: Optional[str] = None):
         """
