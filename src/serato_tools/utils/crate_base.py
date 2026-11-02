@@ -50,7 +50,6 @@ class CrateBase(SeratoBinFile):
         if not file.endswith(self.EXTENSION):
             raise ValueError(f"file should end with {self.EXTENSION}: " + file)
 
-        self._dump()
         super().save(file)
 
     def add_track(self, filepath: str):
@@ -61,7 +60,6 @@ class CrateBase(SeratoBinFile):
             return
 
         self.entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, filepath)]))
-        self._dump()
 
     def add_tracks_from_dir(self, dir: str, replace: bool = False):
         dir_tracks = [self.get_relative_path(os.path.join(dir, t)) for t in os.listdir(dir)]
