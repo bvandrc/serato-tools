@@ -230,6 +230,19 @@ class TestCase(unittest.TestCase):
             db.from_json_object(json_obj)
         self.assertEqual(db.entries, original_entries, "existing entries left as they were")
 
+    def test_modify_tracks_given_files(self):
+        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        target = "C:/Users/bvand/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
+
+        seen: list[str] = []
+
+        def func(track: DatabaseV2.Track):
+            seen.append(track.relpath)
+            return track
+
+        db.modify_tracks(func, files=[target])
+        self.assertEqual(seen, [DatabaseV2.get_relative_path(target)], "only the given track is passed to func")
+
     def test_dedupe(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_duplicates.bin"))
 
