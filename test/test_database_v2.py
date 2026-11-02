@@ -66,6 +66,10 @@ class TestCase(unittest.TestCase):
         self.assertEqual(db.to_bytes(), original_bytes, "was not modified")
         self.assertEqual(db.__str__(), expected, "was not modified")
 
+        with self.assertRaises(DataTypeError, msg="bad value rejected by modify, not at save"):
+            db.modify([{"field": DatabaseV2.Fields.GROUPING, "func": lambda *args: 5}])  # text field, given an int
+        self.assertEqual(db.__str__(), expected, "rejected change not applied")
+
         new_time = int(1735748100)
         changed = db.modify(
             [
@@ -97,7 +101,7 @@ class TestCase(unittest.TestCase):
         with open("test/data/database_v2_test_modified_output_2.bin", "rb") as f:
             self.assertEqual(db.to_bytes(), f.read(), "was modified correctly, given files")
 
-    def test_rename_track_file_only_saves_crates_with_track(self):
+    def test_rename_track_file_only_saves_files_with_track(self):
         # rename_track_file imports Crate from the installed package, so patch that one
         from serato_tools.crate import Crate  # pylint: disable=import-outside-toplevel
 
@@ -133,26 +137,20 @@ class TestCase(unittest.TestCase):
             self.assertEqual(saved[0].get_track_paths(), [DatabaseV2.get_relative_path(dest)], "crate path updated")
             self.assertIn(DatabaseV2.get_relative_path(dest), DatabaseV2(db_file).get_track_paths(), "db path updated")
 
-    def test_rename_track_file_skips_saving_db_without_track(self):
-        # rename_track_file imports Crate from the installed package, so patch that one
-        from serato_tools.crate import Crate  # pylint: disable=import-outside-toplevel
-
-        with tempfile.TemporaryDirectory() as tmp:
-            src, dest = os.path.join(tmp, "Old.mp3"), os.path.join(tmp, "New.mp3")
-            open(src, "wb").close()
-
-            db_file = os.path.join(tmp, "database V2")
-            shutil.copy("test/data/database_v2_test.bin", db_file)
-            db = DatabaseV2(db_file)
+            # a file in neither the db nor any crate: renamed on disk, nothing saved
+            other_src, other_dest = os.path.join(tmp, "Other.mp3"), os.path.join(tmp, "Other New.mp3")
+            open(other_src, "wb").close()
             os.remove(db_file)  # so any save shows up as the file reappearing
+            saved.clear()
+            with (
+                mock.patch.object(Crate, "DIR_PATH", crates_dir),
+                mock.patch.object(Crate, "save", autospec=True, side_effect=saved.append),
+            ):
+                db.rename_track_file(other_src, other_dest)
 
-            crates_dir = os.path.join(tmp, "Subcrates")
-            os.mkdir(crates_dir)
-            with mock.patch.object(Crate, "DIR_PATH", crates_dir):
-                db.rename_track_file(src, dest)
-
-            self.assertTrue(os.path.exists(dest), "file renamed")
-            self.assertFalse(os.path.exists(db_file), "db not saved")
+            self.assertTrue(os.path.exists(other_dest), "file renamed")
+            self.assertFalse(os.path.exists(db_file), "db without track not saved")
+            self.assertEqual(saved, [], "no crate saved")
 
     def test_modify_and_save_skips_save_when_unchanged(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -166,6 +164,9 @@ class TestCase(unittest.TestCase):
             ]
             db.modify_and_save(no_match)
             self.assertFalse(os.path.exists(db_file), "unchanged, so not saved")
+            if os.name == "nt":  # paths are only case-insensitive on Windows
+                db.modify_and_save(no_match, db_file.upper())
+                self.assertFalse(os.path.exists(db_file), "same file in other case, unchanged, so not saved")
 
             copy_file = os.path.join(tmp, "copy")
             db.modify_and_save(no_match, copy_file)
@@ -187,25 +188,35 @@ class TestCase(unittest.TestCase):
 
             self.assertFalse(os.path.exists(db_file), "nothing relocated, so not saved")
 
-    def test_save_keeps_file_when_serialization_fails(self):
+    def test_save_leaves_file_as_it_was_on_error(self):
+        with open("test/data/database_v2_test.bin", "rb") as f:
+            orig = f.read()
+
         with tempfile.TemporaryDirectory() as tmp:
             db_file = os.path.join(tmp, "database V2")
             shutil.copy("test/data/database_v2_test.bin", db_file)
+
             db = DatabaseV2(db_file)
             db.entries.append((DatabaseV2.Fields.TRACK, "not a list"))
-
             with self.assertRaises(DataTypeError):
                 db.save()
-            with open(db_file, "rb") as f, open("test/data/database_v2_test.bin", "rb") as orig:
-                self.assertEqual(f.read(), orig.read(), "file left as it was")
+            with open(db_file, "rb") as f:
+                self.assertEqual(f.read(), orig, "serialization error")
 
-    def test_modify_rejects_bad_value_right_away(self):
-        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
-        with self.assertRaises(DataTypeError):
-            db.modify([{"field": DatabaseV2.Fields.GROUPING, "func": lambda *args: 5}])  # text field, given an int
+            class SavesTooEarly(DatabaseV2):
+                def __init__(self, file: str):
+                    self.filepath = file
+                    self.save()
+                    super().__init__(file)
 
-    def test_json_with_mistyped_value_fails_on_load(self):
+            with self.assertRaises(RuntimeError):
+                SavesTooEarly(db_file)
+            with open(db_file, "rb") as f:
+                self.assertEqual(f.read(), orig, "save before parse finished")
+
+    def test_mistyped_json_value_is_refused(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        original_entries = copy.deepcopy(db.entries)
         json_obj = db.to_json_object()
         track = json_obj[1]["value"]
         assert isinstance(track, list)
@@ -216,48 +227,12 @@ class TestCase(unittest.TestCase):
             json_file = os.path.join(tmp, "db.json")
             with open(json_file, "w", encoding="utf-8") as f:
                 json.dump(json_obj, f)
-            with self.assertRaises(DataTypeError):
+            with self.assertRaises(DataTypeError, msg="on load"):
                 DatabaseV2(json_file)
 
-    def test_save_refuses_before_parse_finishes(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            db_file = os.path.join(tmp, "database V2")
-            shutil.copy("test/data/database_v2_test.bin", db_file)
-
-            class SavesTooEarly(DatabaseV2):
-                def __init__(self, file: str):
-                    self.filepath = file
-                    self.save()
-                    super().__init__(file)
-
-            with self.assertRaises(RuntimeError):
-                SavesTooEarly(db_file)
-            with open(db_file, "rb") as f, open("test/data/database_v2_test.bin", "rb") as orig:
-                self.assertEqual(f.read(), orig.read(), "file left as it was")
-
-    def test_bad_json_leaves_entries_as_they_were(self):
-        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
-        original_entries = copy.deepcopy(db.entries)
-        json_obj = db.to_json_object()
-        track = json_obj[1]["value"]
-        assert isinstance(track, list)
-        uadd = next(e for e in track if e["field"] == DatabaseV2.Fields.DATE_ADDED_U)
-        uadd["value"], uadd["type"] = "not an int", "str"
-
-        with self.assertRaises(DataTypeError):
+        with self.assertRaises(DataTypeError, msg="into an existing db"):
             db.from_json_object(json_obj)
-        self.assertEqual(db.entries, original_entries)
-
-    @unittest.skipUnless(os.name == "nt", "paths are only case-insensitive on Windows")
-    def test_modify_and_save_treats_other_case_as_same_file(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            db_file = os.path.join(tmp, "database V2")
-            shutil.copy("test/data/database_v2_test.bin", db_file)
-            db = DatabaseV2(db_file)
-            os.remove(db_file)  # so any save shows up as the file reappearing
-
-            db.modify_and_save([], db_file.upper())
-            self.assertFalse(os.path.exists(db_file), "same file, unchanged, so not saved")
+        self.assertEqual(db.entries, original_entries, "existing entries left as they were")
 
     def test_dedupe(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_duplicates.bin"))
