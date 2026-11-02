@@ -5,7 +5,6 @@ import copy
 import struct
 import base64
 import warnings
-from itertools import islice
 from enum import StrEnum
 import json
 from typing import Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
@@ -243,16 +242,6 @@ class SeratoBinFile:
 
     def print(self):
         print(self)
-
-    def __repr__(self) -> str:
-        # a <...> summary rather than the contents: the full file is megabytes, and serializing it costs a full dump
-        num_tracks = sum(1 for field, _ in self.entries if field == SeratoBinFile.Fields.TRACK)
-        summary = f"<{type(self).__name__} {self.filepath!r}, {num_tracks} track{'' if num_tracks == 1 else 's'}"
-        # islice so only the shown tracks get parsed into Track objects
-        shown = [repr(track.relpath) for track in islice(self.get_tracks(), 3)]
-        if shown:
-            summary += ": " + ", ".join(shown) + (", ..." if num_tracks > len(shown) else "")
-        return summary + ">"
 
     class EntryListCls:
         def __init__(self, entries: "SeratoBinFile.EntryList"):
