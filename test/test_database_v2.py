@@ -36,7 +36,7 @@ class TestCase(unittest.TestCase):
         path = "D:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
         self.assertEqual(DatabaseV2.get_full_path(path), os.path.normpath(path))
 
-    def test_parse_and_dump(self):
+    def test_parse_and_serialize(self):
         file = os.path.abspath("test/data/database_v2_test.bin")
         with open(file, mode="rb") as fp:
             file_data = fp.read()

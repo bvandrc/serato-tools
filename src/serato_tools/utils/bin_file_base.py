@@ -211,7 +211,7 @@ class SeratoBinFile:
         entries = json_to_entries(json_data)
         # JSON types aren't tied to field prefixes the way the binary format is, so check now that it serializes,
         # rather than failing on the first save. Checked before assigning, so a bad file leaves entries as they were.
-        self._dump_entries(entries)
+        self._serialize_entries(entries)
         self.entries = entries
 
     def write_json(self, filepath: str) -> None:
@@ -336,7 +336,7 @@ class SeratoBinFile:
 
             yield field, value
 
-    def _dump_item(self, entry: Entry) -> bytes:
+    def _serialize_item(self, entry: Entry) -> bytes:
         field, value = entry
         field_bytes = field.encode("ascii")
         assert len(field_bytes) == 4
@@ -351,7 +351,7 @@ class SeratoBinFile:
         if type_id in ("o", "r"):  #  struct (list)
             if not isinstance(value, list):
                 raise DataTypeError(value, list, field)
-            data = self._dump_entries(value)
+            data = self._serialize_entries(value)
         elif type_id in ("p", "t"):  # text
             if not isinstance(value, str):
                 raise DataTypeError(value, str, field)
@@ -375,8 +375,8 @@ class SeratoBinFile:
         header = struct.pack(">4sI", field_bytes, length)
         return header + data
 
-    def _dump_entries(self, entries: EntryList):
-        return b"".join(self._dump_item(entry) for entry in entries)
+    def _serialize_entries(self, entries: EntryList):
+        return b"".join(self._serialize_item(entry) for entry in entries)
 
     def to_bytes(self) -> bytes:
         """
@@ -384,7 +384,7 @@ class SeratoBinFile:
 
         Each call re-serializes the whole file, so call it once rather than in a loop.
         """
-        return self._dump_entries(self.entries)
+        return self._serialize_entries(self.entries)
 
     @property
     def raw_data(self) -> bytes:

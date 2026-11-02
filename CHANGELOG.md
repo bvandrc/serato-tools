@@ -2,6 +2,10 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.2.0] - 2026-11-02
+
+- Rename the `TrackCuesV2` and `TrackCuesV1` entry classes' `load()` and `dump()` to `from_bytes()` and `to_bytes()`, matching `to_bytes()` on databases and crates. The old names still work, but are deprecated and will be removed in 5.0
+
 ## [4.1.0] - 2026-11-01
 
 - Editing a database or crate is now much faster

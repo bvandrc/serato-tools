@@ -1,5 +1,7 @@
 import struct
 import io
+import warnings
+from typing import Self
 
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3FileType, ID3
@@ -7,6 +9,34 @@ from mutagen.aiff import AIFF
 from mutagen.id3._frames import GEOB
 
 from serato_tools.utils import logger
+
+
+class SeratoTagEntry:
+    """
+    Base for an entry inside a GEOB tag, which converts to and from its bytes with `from_bytes()` and `to_bytes()`.
+
+    `load()` and `dump()`, the old names for those, are deprecated aliases until 5.0.
+    """
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> Self:
+        """Parses an entry from its bytes."""
+        raise NotImplementedError
+
+    def to_bytes(self) -> bytes:
+        """Serializes the entry to its bytes."""
+        raise NotImplementedError
+
+    @classmethod
+    def load(cls, data: bytes) -> Self:
+        """Deprecated, to be removed in 5.0: use from_bytes(), which this calls."""
+        warnings.warn("load() is deprecated, use from_bytes() instead", DeprecationWarning, stacklevel=2)
+        return cls.from_bytes(data)
+
+    def dump(self) -> bytes:
+        """Deprecated, to be removed in 5.0: use to_bytes(), which this calls."""
+        warnings.warn("dump() is deprecated, use to_bytes() instead", DeprecationWarning, stacklevel=2)
+        return self.to_bytes()
 
 
 class SeratoTrack:

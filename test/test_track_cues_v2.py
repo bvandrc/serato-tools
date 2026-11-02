@@ -9,7 +9,7 @@ from src.serato_tools.track_cues_v2 import TrackCuesV2
 
 
 class TestCase(unittest.TestCase):
-    def test_parse_and_dump(self):
+    def test_parse_and_serialize(self):
         with open(os.path.abspath("test/data/track_cues_v2.bin"), mode="rb") as fp:
             file_data = fp.read()
         tags = TrackCuesV2(file_data)
@@ -29,8 +29,8 @@ class TestCase(unittest.TestCase):
             ],
             "parsed entries",
         )
-        tags._dump()
-        self.assertEqual(tags.raw_data, file_data, "dump")
+        tags._serialize()
+        self.assertEqual(tags.raw_data, file_data, "serialize")
 
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
             new_color = None
@@ -64,11 +64,11 @@ class TestCase(unittest.TestCase):
             ],
             "modified entries",
         )
-        tags._dump()
+        tags._serialize()
 
         with open(os.path.abspath("test/data/track_cues_v2_modified.bin"), mode="rb") as fp:
             expected_modified_data = fp.read()
-        self.assertEqual(tags.raw_data, expected_modified_data, "modified data dump")
+        self.assertEqual(tags.raw_data, expected_modified_data, "modified data serialize")
 
     def test_snap_position_to_beat(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
@@ -87,3 +87,13 @@ class TestCase(unittest.TestCase):
     def test_untested_version_raises_at_construction(self):
         with self.assertRaises(ValueError):
             TrackCuesV2(bytes([0x99, 0x99]))
+
+    def test_deprecated_load_and_dump_still_work(self):
+        with open(os.path.abspath("test/data/track_cues_v2.bin"), mode="rb") as fp:
+            entries = TrackCuesV2(fp.read()).entries
+        for entry in entries:
+            with self.assertWarns(DeprecationWarning):
+                data = entry.dump()
+            self.assertEqual(data, entry.to_bytes(), f"dump() matches to_bytes() for {entry}")
+            with self.assertWarns(DeprecationWarning):
+                self.assertEqual(type(entry).load(data), entry, f"load() matches from_bytes() for {entry}")
