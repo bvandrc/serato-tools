@@ -9,6 +9,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `modify`, `modify_tracks`, `change_track_path`, `filter_tracks`, `remove_track`, and `remove_duplicates` now return whether anything changed
 - `modify_and_save`, `find_missing`, and `DatabaseV2.rename_track_file` now skip saving files that didn't change
 - Loading a JSON file with an invalid value now raises an error right away instead of on save, and a failed save no longer leaves the file empty
+- `modify` is about 2.5x faster: each track is checked against the rules, instead of every field of every track being looked up in the rules
 
 ## [4.0.4] - 2026-10-31
 
