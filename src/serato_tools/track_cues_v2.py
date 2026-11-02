@@ -130,10 +130,10 @@ class TrackCuesV2(SeratoTag):
         FIELDS: ClassVar[tuple[str, ...]] = ("data",)
 
         @classmethod
-        def _from_bytes(cls, data: bytes) -> "TrackCuesV2.UnknownEntry":
+        def _parse(cls, data: bytes) -> "TrackCuesV2.UnknownEntry":
             return cls(data=data)
 
-        def _to_bytes(self) -> bytes:
+        def _serialize(self) -> bytes:
             return self.data
 
     @dataclass(repr=False)
@@ -146,10 +146,10 @@ class TrackCuesV2(SeratoTag):
         _FORMAT: ClassVar[str] = "?"
 
         @classmethod
-        def _from_bytes(cls, data: bytes) -> "TrackCuesV2.BpmLockEntry":
+        def _parse(cls, data: bytes) -> "TrackCuesV2.BpmLockEntry":
             return cls(*struct.unpack(cls._FORMAT, data))
 
-        def _to_bytes(self) -> bytes:
+        def _serialize(self) -> bytes:
             return struct.pack(self._FORMAT, self.enabled)
 
     @dataclass(repr=False)
@@ -163,10 +163,10 @@ class TrackCuesV2(SeratoTag):
         _FORMAT: ClassVar[str] = "c3s"
 
         @classmethod
-        def _from_bytes(cls, data: bytes) -> "TrackCuesV2.ColorEntry":
+        def _parse(cls, data: bytes) -> "TrackCuesV2.ColorEntry":
             return cls(*struct.unpack(cls._FORMAT, data))
 
-        def _to_bytes(self) -> bytes:
+        def _serialize(self) -> bytes:
             return struct.pack(self._FORMAT, self.field1, self.color)
 
     @dataclass(repr=False)
@@ -193,7 +193,7 @@ class TrackCuesV2(SeratoTag):
         _FORMAT: ClassVar[str] = ">cBIc3s2s"
 
         @classmethod
-        def _from_bytes(cls, data: bytes) -> "TrackCuesV2.CueEntry":
+        def _parse(cls, data: bytes) -> "TrackCuesV2.CueEntry":
             info_size = struct.calcsize(cls._FORMAT)
             field1, index, position, field4, color, field6 = struct.unpack(cls._FORMAT, data[:info_size])
             name, nullbyte, other = data[info_size:].partition(b"\x00")
@@ -201,7 +201,7 @@ class TrackCuesV2(SeratoTag):
             assert other == b""
             return cls(field1, index, position, field4, color, field6, name.decode("utf-8"))
 
-        def _to_bytes(self) -> bytes:
+        def _serialize(self) -> bytes:
             position = max(0, min(self.position, 0xFFFFFFFF))
             return b"".join(
                 (
@@ -247,7 +247,7 @@ class TrackCuesV2(SeratoTag):
         _FORMAT: ClassVar[str] = ">cBII4s4sB?"
 
         @classmethod
-        def _from_bytes(cls, data: bytes) -> "TrackCuesV2.LoopEntry":
+        def _parse(cls, data: bytes) -> "TrackCuesV2.LoopEntry":
             info_size = struct.calcsize(cls._FORMAT)
             (
                 field1,
@@ -264,7 +264,7 @@ class TrackCuesV2(SeratoTag):
             assert other == b""
             return cls(field1, index, startposition, endposition, field5, field6, color, locked, name.decode("utf-8"))
 
-        def _to_bytes(self) -> bytes:
+        def _serialize(self) -> bytes:
             startposition = max(0, min(self.startposition, 0xFFFFFFFF))
             endposition = max(0, min(self.endposition, 0xFFFFFFFF))
             return b"".join(
@@ -294,16 +294,16 @@ class TrackCuesV2(SeratoTag):
         FIELDS: ClassVar[tuple[str, ...]] = ("_raw_data",)
 
         @classmethod
-        def _from_bytes(cls, data: bytes) -> "TrackCuesV2.FlipEntry":
+        def _parse(cls, data: bytes) -> "TrackCuesV2.FlipEntry":
             return cls(_raw_data=data)
 
-        def _to_bytes(self) -> bytes:
+        def _serialize(self) -> bytes:
             return self._raw_data
 
     type Entry = UnknownEntry | BpmLockEntry | ColorEntry | CueEntry | LoopEntry | FlipEntry
 
     def _parse(self, data: bytes):
-        # the entry classes' _from_bytes() / _to_bytes() are internal to this module
+        # the entry classes' _parse() / _serialize() are internal to this module
         # pylint: disable=protected-access
         self._check_version(data[: self.VERSION_LEN])
         data = data[self.VERSION_LEN :]  # b64data
@@ -329,17 +329,17 @@ class TrackCuesV2(SeratoTag):
             assert entry_len > 0
 
             entry_class = TrackCuesV2._get_entry_class(entry_name)
-            yield entry_class._from_bytes(fp.read(entry_len))
+            yield entry_class._parse(fp.read(entry_len))
             num_entries += 1
 
     def _serialize(self):
-        # the entry classes' _from_bytes() / _to_bytes() are internal to this module
+        # the entry classes' _parse() / _serialize() are internal to this module
         # pylint: disable=protected-access
         version = self._pack_version()
 
         contents: list[bytes] = [version]
         for entry in self.entries:
-            data = entry._to_bytes()
+            data = entry._serialize()
             if entry.NAME is not None:
                 data = b"".join(
                     (
@@ -376,7 +376,7 @@ class TrackCuesV2(SeratoTag):
 
     @staticmethod
     def parse_entries_file(contents: str, assert_len_1: bool):
-        # the entry classes' _from_bytes() / _to_bytes() are internal to this module
+        # the entry classes' _parse() / _serialize() are internal to this module
         # pylint: disable=protected-access
         cp = configparser.ConfigParser()
         cp.read_string(contents)
@@ -397,7 +397,7 @@ class TrackCuesV2(SeratoTag):
                     for field in entry_class.FIELDS
                 )
             )
-            results.append(entry_class._from_bytes(e._to_bytes()))
+            results.append(entry_class._parse(e._serialize()))
         return results
 
     def _from_entries(self) -> "TrackCuesV2.TrackCuesInfo":
@@ -565,7 +565,7 @@ class TrackCuesV2(SeratoTag):
 
 
 if __name__ == "__main__":
-    # this script is part of the module, so it uses the tag's internals: _serialize(), and its entries' _from_bytes() / _to_bytes()
+    # this script is part of the module, so it uses the tag's and its entries' internal _parse() / _serialize()
     # pylint: disable=protected-access
     import argparse
     import math
@@ -671,7 +671,7 @@ if __name__ == "__main__":
                 while True:
                     with tempfile.NamedTemporaryFile() as f:
                         if action == "b":
-                            f.write(entry._to_bytes())
+                            f.write(entry._serialize())
                             editor = hex_editor  # pyright: ignore[reportPossiblyUnboundVariable]
                         else:
                             if action == "a":
@@ -713,7 +713,7 @@ if __name__ == "__main__":
                             if action != "b":
                                 results = TrackCuesV2.parse_entries_file(output.decode(), assert_len_1=action != "a")
                             else:
-                                results = [type(entry)._from_bytes(output)]
+                                results = [type(entry)._parse(output)]
                         except Exception as e:  # pylint: disable=broad-exception-caught
                             print(str(e))
                             if (

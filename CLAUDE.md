@@ -73,7 +73,7 @@ Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`
 
 **v1/v2 interaction:** current Serato reads `Serato Markers2`, but a stale `Serato Markers_` shadows changes made to it. That's why the mutating APIs (`TrackCuesV2.modify_entries`, `set_track_color`) take `delete_tags_v1=True` by default — they delete the v1 tag rather than keeping the two in sync.
 
-`TrackCuesV2` exposes each entry kind (`CueEntry`, `LoopEntry`, `ColorEntry`, `FlipEntry`, `BpmLockEntry`) as a dataclass, aggregated into `TrackCuesInfo`; `modify_entries(callback)` hands the callback the whole `TrackCuesInfo` and expects a new one back (use `dataclasses.replace`) or `None` for no change. Each entry class (and `TrackCuesV1.Entry`) converts with `_from_bytes()` / `_to_bytes()`, which are internal to its module: callers go through `modify_entries` and `save()`, so the tag class and its CLI are the only users. Pylint's `protected-access` is disabled per function where they're called.
+`TrackCuesV2` exposes each entry kind (`CueEntry`, `LoopEntry`, `ColorEntry`, `FlipEntry`, `BpmLockEntry`) as a dataclass, aggregated into `TrackCuesInfo`; `modify_entries(callback)` hands the callback the whole `TrackCuesInfo` and expects a new one back (use `dataclasses.replace`) or `None` for no change. Each entry class (and `TrackCuesV1.Entry`) converts with `_parse()` / `_serialize()`, which are internal to its module: callers go through `modify_entries` and `save()`, so the tag class and its CLI are the only users. Pylint's `protected-access` is disabled per function where they're called.
 
 ### Version gating
 

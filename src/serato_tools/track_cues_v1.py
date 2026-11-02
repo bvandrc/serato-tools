@@ -58,7 +58,7 @@ class TrackCuesV1(SeratoTag):
             )
 
         @classmethod
-        def _from_bytes(cls, data: bytes):
+        def _parse(cls, data: bytes):
             def _decode_bytes_32(data: bytes):
                 """Decode 4 byte Serato binary format into 3 byte plain text."""
                 w, x, y, z = struct.unpack("BBBB", data)
@@ -105,7 +105,7 @@ class TrackCuesV1(SeratoTag):
 
             return cls(*entry_data)
 
-        def _to_bytes(self):
+        def _serialize(self):
             def _encode_bytes_32(data: bytes):
                 """Encode 3 byte plain text into 4 byte Serato binary format."""
                 a, b, c = struct.unpack("BBB", data)
@@ -144,7 +144,7 @@ class TrackCuesV1(SeratoTag):
         FIELDS = ("color",)
 
     def _parse(self, data: bytes):
-        # the entry classes' _from_bytes() / _to_bytes() are internal to this module
+        # the entry classes' _parse() / _serialize() are internal to this module
         # pylint: disable=protected-access
         fp = io.BytesIO(data)
         self._check_version(fp.read(self.VERSION_LEN))
@@ -154,25 +154,25 @@ class TrackCuesV1(SeratoTag):
             entry_data = fp.read(0x16)
             assert len(entry_data) == 0x16
 
-            entry = TrackCuesV1.Entry._from_bytes(entry_data)
+            entry = TrackCuesV1.Entry._parse(entry_data)
             yield entry
 
-        yield TrackCuesV1.Color._from_bytes(fp.read())
+        yield TrackCuesV1.Color._parse(fp.read())
 
     def _serialize(self):
-        # the entry classes' _from_bytes() / _to_bytes() are internal to this module
+        # the entry classes' _parse() / _serialize() are internal to this module
         # pylint: disable=protected-access
         entries = self.entries
         data = self._pack_version()
         num_entries = len(entries) - 1
         data += struct.pack(">I", num_entries)
         for entry_data in entries:
-            data += entry_data._to_bytes()
+            data += entry_data._serialize()
         self.raw_data = data
 
 
 if __name__ == "__main__":
-    # this script is part of the module, so it uses the tag's internals: _serialize(), and its entries' _from_bytes() / _to_bytes()
+    # this script is part of the module, so it uses the tag's and its entries' internal _parse() / _serialize()
     # pylint: disable=protected-access
     import argparse
     import ast
@@ -229,7 +229,7 @@ if __name__ == "__main__":
                 while True:
                     with tempfile.NamedTemporaryFile() as f:
                         if action == "b":
-                            f.write(entry._to_bytes())
+                            f.write(entry._serialize())
                             editor = hex_editor  # pyright: ignore[reportPossiblyUnboundVariable]
                         else:
                             if action == "a":
@@ -305,9 +305,9 @@ if __name__ == "__main__":
                                             for field in cls.FIELDS
                                         )
                                     )
-                                    results.append(cls._from_bytes(e._to_bytes()))
+                                    results.append(cls._parse(e._serialize()))
                             else:
-                                results = [entry._from_bytes(output)]
+                                results = [entry._parse(output)]
                         except Exception as e:  # pylint: disable=broad-exception-caught
                             print(str(e))
                             if (
