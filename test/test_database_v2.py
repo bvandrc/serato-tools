@@ -232,7 +232,7 @@ class TestCase(unittest.TestCase):
 
     def test_modify_tracks_given_files(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
-        target = "C:/Users/bvand/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
+        target = "Users/bvand/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
 
         seen: list[str] = []
 

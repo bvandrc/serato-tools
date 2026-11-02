@@ -403,7 +403,7 @@ class SeratoBinFile:
     def get_track_paths(self, include_drive: bool = False) -> list[str]:
         return [t.get_full_path() if include_drive else t.relpath for t in self.get_tracks()]
 
-    def modify_tracks(self, func: Callable[[Track], Track], files: Optional[Iterable[str]] = None) -> bool:
+    def modify_tracks(self, func: Callable[[Track], Track], files: Optional[list[str]] = None) -> bool:
         """
         Replaces each track with what `func` returns for it, and returns whether any track changed.
 
