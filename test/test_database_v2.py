@@ -1,5 +1,6 @@
 # pylint: disable=protected-access
 import unittest
+import copy
 from unittest import mock
 import os
 import json
@@ -217,6 +218,35 @@ class TestCase(unittest.TestCase):
                 json.dump(json_obj, f)
             with self.assertRaises(DataTypeError):
                 DatabaseV2(json_file)
+
+    def test_save_refuses_before_parse_finishes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_file = os.path.join(tmp, "database V2")
+            shutil.copy("test/data/database_v2_test.bin", db_file)
+
+            class SavesTooEarly(DatabaseV2):
+                def __init__(self, file: str):
+                    self.filepath = file
+                    self.save()
+                    super().__init__(file)
+
+            with self.assertRaises(RuntimeError):
+                SavesTooEarly(db_file)
+            with open(db_file, "rb") as f, open("test/data/database_v2_test.bin", "rb") as orig:
+                self.assertEqual(f.read(), orig.read(), "file left as it was")
+
+    def test_bad_json_leaves_entries_as_they_were(self):
+        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        original_entries = copy.deepcopy(db.entries)
+        json_obj = db.to_json_object()
+        track = json_obj[1]["value"]
+        assert isinstance(track, list)
+        uadd = next(e for e in track if e["field"] == DatabaseV2.Fields.DATE_ADDED_U)
+        uadd["value"], uadd["type"] = "not an int", "str"
+
+        with self.assertRaises(DataTypeError):
+            db.from_json_object(json_obj)
+        self.assertEqual(db.entries, original_entries)
 
     def test_non_canonical_bool_is_refused(self):
         with open("test/data/database_v2_test.bin", "rb") as f:

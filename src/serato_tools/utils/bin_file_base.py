@@ -79,6 +79,9 @@ class SeratoBinFile:
     TRACK_PATH_KEY: Fields
     DEFAULT_ENTRIES: EntryList
 
+    # set once __init__ has parsed the file, so save() can refuse a half-built instance
+    _parsed: bool = False
+
     def __init__(self, file: str):
         self.filepath = os.path.abspath(file)
 
@@ -111,6 +114,8 @@ class SeratoBinFile:
 
         if not hasattr(self, "version"):
             raise AttributeError("version not set after parsing file")
+
+        self._parsed = True
 
     def __str__(self) -> str:
         return self._stringify_entries(self.get_entries())
@@ -203,10 +208,11 @@ class SeratoBinFile:
 
             return result
 
-        self.entries = json_to_entries(json_data)
+        entries = json_to_entries(json_data)
         # JSON types aren't tied to field prefixes the way the binary format is, so check now that it serializes,
-        # rather than failing on the first save
-        self.to_bytes()
+        # rather than failing on the first save. Checked before assigning, so a bad file leaves entries as they were.
+        self._dump_entries(entries)
+        self.entries = entries
 
     def write_json(self, filepath: str) -> None:
         def write_json_array(json_entries: list[SeratoBinFile.EntryJson], indent: int = 0) -> str:
@@ -443,6 +449,14 @@ class SeratoBinFile:
         return self.filter_tracks(filter_track)
 
     def save(self, file: Optional[str] = None):
+        """
+        Writes the file's bytes to `file`, or to the path it was loaded from.
+
+        Raises RuntimeError if called before the initial parse has finished, e.g. from a subclass's __init__ before
+        it calls super().__init__().
+        """
+        if not self._parsed:
+            raise RuntimeError(f"cannot save a {type(self).__name__} before it has finished parsing")
         if file is None:
             file = self.filepath
         if file.lower().endswith(".json"):
