@@ -574,13 +574,13 @@ class SeratoBinFile:
         every_rule_limited = all("files" in rule for rule in rules)
         only_files = [f for r in rules for f in r.get("files", [])] if every_rule_limited else None
 
+        # as sets, since each track is checked against them
+        rule_files = [set(rule["files"]) if "files" in rule else None for rule in rules]
+
         def _maybe_perform_rule(
             rule: "SeratoBinFile.ModifyRule", prev_val: "SeratoBinFile.ValueOrNone", track_relpath: str
         ):
             field = rule["field"]
-            if "files" in rule and track_relpath.upper() not in rule["files"]:
-                return None
-
             maybe_new_value = rule["func"](track_relpath, prev_val)
             if maybe_new_value is None or maybe_new_value == prev_val:
                 return None
@@ -598,7 +598,10 @@ class SeratoBinFile:
 
         def modify_track(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
             # loop over the rules rather than the track's fields, since a track has far more fields than there are rules
-            for rule in rules:
+            relpath_upper = track.relpath.upper()
+            for rule, files in zip(rules, rule_files):
+                if files is not None and relpath_upper not in files:
+                    continue
                 field = rule["field"]
                 prev_val = track.get_value(field) if field in track.fields else None
                 maybe_new_value = _maybe_perform_rule(rule, prev_val, track.relpath)
