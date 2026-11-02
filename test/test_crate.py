@@ -2,6 +2,7 @@
 import unittest
 import copy
 import os
+import tempfile
 
 from src.serato_tools.crate import Crate
 
@@ -37,7 +38,7 @@ class TestCase(unittest.TestCase):
 
         self.maxDiff = None
 
-        self.assertEqual(crate.raw_data, file_data, "raw_data read")
+        self.assertEqual(crate.to_bytes(), file_data, "to_bytes")
         expected = base_expected
 
         self.assertEqual(crate.__str__(), expected, "parse")
@@ -85,3 +86,13 @@ class TestCase(unittest.TestCase):
 
         self.assertEqual(Crate.DEFAULT_ENTRIES, default_entries, "class default must not be mutated")
         self.assertEqual(b.entries, default_entries, "other instance must not be mutated")
+
+    def test_add_track_is_saved(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            file = os.path.join(tmp, "Test.crate")
+            crate = Crate(file)
+            crate.add_track("/music/track1.mp3")
+            crate.save()
+
+            self.assertEqual(Crate(file).get_track_paths(), crate.get_track_paths())
+            self.assertEqual(len(crate.get_track_paths()), 1)
