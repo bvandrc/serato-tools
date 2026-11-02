@@ -244,7 +244,9 @@ class SeratoBinFile:
         print(self)
 
     def __repr__(self) -> str:
-        return f"{type(self).__name__}({self.filepath!r})"
+        # a <...> summary rather than the contents: the full file is megabytes, and serializing it costs a full dump
+        num_tracks = sum(1 for field, _ in self.entries if field == SeratoBinFile.Fields.TRACK)
+        return f"<{type(self).__name__} {self.filepath!r}, {num_tracks} tracks>"
 
     class EntryListCls:
         def __init__(self, entries: "SeratoBinFile.EntryList"):

@@ -10,8 +10,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `modify` and `modify_tracks` check that each changed track serializes, and loading JSON checks the whole file, so a mistyped value fails right away instead of at the next save
 - `save()` serializes before opening the file, so a serialization error no longer leaves it empty, and raises `RuntimeError` if called before the file has finished parsing
 - `from_json_object` leaves `entries` untouched when the JSON doesn't serialize
-- Loading a database or crate whose boolean field holds anything but `0x00` or `0x01` now raises `ValueError`, since saving would have silently rewritten it as `0x01`
-- `repr()` of a database or crate shows its class and path instead of the whole file's bytes
+- `repr()` of a database or crate is a short summary, e.g. `<DatabaseV2 'C:\...\database V2', 10000 tracks>`, instead of the whole file's bytes
 - `modify_and_save` and `find_missing` skip writing the file when nothing changed, and `DatabaseV2.rename_track_file` only saves the database if it has the track
 
 ## [4.0.4] - 2026-10-31

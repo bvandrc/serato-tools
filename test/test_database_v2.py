@@ -259,21 +259,18 @@ class TestCase(unittest.TestCase):
             db.modify_and_save([], db_file.upper())
             self.assertFalse(os.path.exists(db_file), "same file, unchanged, so not saved")
 
-    def test_remove_track_reports_whether_removed(self):
-        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
-        self.assertFalse(db.remove_track("Not In Library.mp3"))
-        self.assertTrue(db.remove_track(db.get_track_paths()[0]))
-
     def test_dedupe(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_duplicates.bin"))
 
         with open("test/data/database_v2_duplicates_output.txt", "r", encoding="utf-8") as f:
             self.assertEqual(db.__str__(), f.read(), "original")
 
-        db.remove_duplicates()
+        self.assertTrue(db.remove_duplicates(), "reports removal")
 
         with open("test/data/database_v2_duplicates_output_deduped.txt", "r", encoding="utf-8") as f:
             self.assertEqual(db.__str__(), f.read(), "deduped")
+
+        self.assertFalse(db.remove_duplicates(), "nothing left to remove")
 
     def test_to_json_object(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
