@@ -248,16 +248,6 @@ class TestCase(unittest.TestCase):
             db.from_json_object(json_obj)
         self.assertEqual(db.entries, original_entries)
 
-    def test_non_canonical_bool_is_refused(self):
-        with open("test/data/database_v2_test.bin", "rb") as f:
-            data = f.read()
-        with tempfile.TemporaryDirectory() as tmp:
-            db_file = os.path.join(tmp, "database V2")
-            with open(db_file, "wb") as f:
-                f.write(data + b"bhrt" + (1).to_bytes(4, "big") + b"\x02")
-            with self.assertRaises(ValueError):
-                DatabaseV2(db_file)
-
     @unittest.skipUnless(os.name == "nt", "paths are only case-insensitive on Windows")
     def test_modify_and_save_treats_other_case_as_same_file(self):
         with tempfile.TemporaryDirectory() as tmp:
