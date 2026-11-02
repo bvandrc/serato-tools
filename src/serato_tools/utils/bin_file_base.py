@@ -566,9 +566,8 @@ class SeratoBinFile:
                 rule["files"] = [SeratoBinFile.get_relative_path(file).upper() for file in rule["files"]]
 
         # if every rule is limited to certain files, no other track can change, so skip them entirely
-        only_files = (
-            None if any("files" not in rule for rule in rules) else [f for r in rules for f in r.get("files", [])]
-        )
+        every_rule_limited = all("files" in rule for rule in rules)
+        only_files = [f for r in rules for f in r.get("files", [])] if every_rule_limited else None
 
         def _maybe_perform_rule(field: str, prev_val: "SeratoBinFile.ValueOrNone", track_relpath: str):
             rule = next((r for r in rules if field == r["field"]), None)
