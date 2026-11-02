@@ -554,10 +554,10 @@ class SeratoBinFile:
             if "files" in rule:
                 rule["files"] = [SeratoBinFile.get_relative_path(file).upper() for file in rule["files"]]
 
-        def _maybe_perform_rule(field: str, prev_val: "SeratoBinFile.ValueOrNone", track_relpath: str):
-            rule = next((r for r in rules if field == r["field"]), None)
-            if rule is None:
-                return None
+        def _maybe_perform_rule(
+            rule: "SeratoBinFile.ModifyRule", prev_val: "SeratoBinFile.ValueOrNone", track_relpath: str
+        ):
+            field = rule["field"]
             if "files" in rule and track_relpath.upper() not in rule["files"]:
                 return None
 
@@ -577,15 +577,13 @@ class SeratoBinFile:
             return maybe_new_value
 
         def modify_track(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
-            for f, v in track.to_entries():
-                maybe_new_value = _maybe_perform_rule(f, v, track.relpath)
-                if maybe_new_value is not None:
-                    track.set_value(f, maybe_new_value)
+            # loop over the rules rather than the track's fields, since a track has far more fields than there are rules
             for rule in rules:
-                if rule["field"] not in track.fields:
-                    maybe_new_value = _maybe_perform_rule(rule["field"], None, track.relpath)
-                    if maybe_new_value is not None:
-                        track.set_value(rule["field"], maybe_new_value)
+                field = rule["field"]
+                prev_val = track.get_value(field) if field in track.fields else None
+                maybe_new_value = _maybe_perform_rule(rule, prev_val, track.relpath)
+                if maybe_new_value is not None:
+                    track.set_value(field, maybe_new_value)
             return track
 
         return self.modify_tracks(modify_track)
