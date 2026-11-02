@@ -157,6 +157,11 @@ class TrackCuesV1(SeratoTag):
 
         yield TrackCuesV1.Color.load(fp.read())
 
+    def delete(self):
+        was_deleted = super().delete()
+        self.entries = []
+        return was_deleted
+
     def _dump(self):
         entries = self.entries
         data = self._pack_version()
