@@ -29,7 +29,7 @@ class TestCase(unittest.TestCase):
             "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
         )
 
-    def test_parse_and_modify_and_dump(self):
+    def test_parse_and_modify_and_serialize(self):
         file = os.path.abspath("test/data/TestCrate.crate")
         with open(file, mode="rb") as fp:
             file_data = fp.read()
