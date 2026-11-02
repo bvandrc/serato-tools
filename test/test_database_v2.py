@@ -50,6 +50,14 @@ class TestCase(unittest.TestCase):
             expected = f.read()
             self.assertEqual(db.__str__(), expected, "parse")
 
+        self.assertEqual(
+            repr(db),
+            f"<DatabaseV2 {file!r}, 4 tracks: 'Users/bvand/Music/DJ Tracks/Zeds Dead - In The Beginning.mp3', "
+            "'Users/bvand/Music/DJ Tracks/Tripp St. - Enlighten.mp3', \"Users/bvand/Music/DJ Tracks/SiR - D'Evils.mp3\", "
+            "...>",
+            "repr",
+        )
+
     def test_parse_and_modify(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
 

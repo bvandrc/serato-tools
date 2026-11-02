@@ -10,7 +10,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `modify` and `modify_tracks` now check that each changed track serializes, and loading JSON now checks the whole file, so a mistyped value fails right away instead of at the next save
 - `save()` now serializes before opening the file, so a serialization error no longer leaves it empty, and now raises `RuntimeError` if called before the file has finished parsing
 - `from_json_object` now leaves `entries` untouched when the JSON doesn't serialize
-- `repr()` of a database or crate is now a short summary, e.g. `<DatabaseV2 'C:\...\database V2', 10000 tracks>`, instead of the whole file's bytes
+- `repr()` of a database or crate is now a short summary with its first 3 tracks, e.g. `<DatabaseV2 'C:\...\database V2', 10000 tracks: 'Music/A.mp3', 'Music/B.mp3', 'Music/C.mp3', ...>`, instead of the whole file's bytes
 - `modify_and_save` and `find_missing` now skip writing the file when nothing changed, and `DatabaseV2.rename_track_file` now only saves the database if it has the track
 
 ## [4.0.4] - 2026-10-31
