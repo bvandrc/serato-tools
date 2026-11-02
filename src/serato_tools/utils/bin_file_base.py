@@ -289,6 +289,20 @@ class SeratoBinFile:
         return SeratoBinFile.Track(entries, path_key=self.TRACK_PATH_KEY)
 
     @staticmethod
+    def _get_entry_value(entries: "SeratoBinFile.EntryList", field: str) -> "SeratoBinFile.ValueOrNone":
+        """The value of the first entry named `field`, or None if there isn't one."""
+        return next((v for f, v in entries if f == field), None)
+
+    def _get_track_path(self, entries: "SeratoBinFile.EntryList") -> str | None:
+        """
+        A track's relative path, read straight off its entries without building a `Track`.
+
+        None if the track has no path, or one that isn't text.
+        """
+        relpath = self._get_entry_value(entries, self.TRACK_PATH_KEY)
+        return relpath if isinstance(relpath, str) else None
+
+    @staticmethod
     def _get_type(field: str) -> str:
         # vrsn field has no type_id, but contains text ("t")
         return "t" if field == SeratoBinFile.Fields.VERSION else field[0]
@@ -413,8 +427,8 @@ class SeratoBinFile:
                     raise DataTypeError(value, list, field)
                 if relpaths is not None:
                     # read the path straight off the entries, since building a Track for every entry is the slow part
-                    relpath = next((v for f, v in value if f == self.TRACK_PATH_KEY), None)
-                    if isinstance(relpath, str) and relpath.upper() not in relpaths:
+                    relpath = self._get_track_path(value)
+                    if relpath is not None and relpath.upper() not in relpaths:
                         continue
                 track = self._get_track(value)
                 # Track copies the values out of `value`, so this compares against the untouched original
