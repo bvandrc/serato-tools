@@ -4,14 +4,11 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [4.1.0] - 2026-11-01
 
-- Changes to a database or crate are no longer re-serialized one-by-one: The file is serialized once, by the new `to_bytes()` (e.g. on `save()`), so several changes before one save only pay for one serialization
-  - `raw_data` on databases and crates is deprecated in favor of `to_bytes()`, and will be removed in 5.0. It's now read-only, and each read re-serializes the file
-- `modify_tracks`, `modify`, `change_track_path`, `filter_tracks`, `remove_track`, and `remove_duplicates` now return whether anything changed
-- `modify` and `modify_tracks` now check that each changed track serializes, and loading JSON now checks the whole file, so a mistyped value fails right away instead of at the next save
-- `save()` now serializes before opening the file, so a serialization error no longer leaves it empty, and now raises `RuntimeError` if called before the file has finished parsing
-- `from_json_object` now leaves `entries` untouched when the JSON doesn't serialize
-- `repr()` of a database or crate is now a short summary with its first 3 tracks, e.g. `<DatabaseV2 'C:\...\database V2', 10000 tracks: 'Music/A.mp3', 'Music/B.mp3', 'Music/C.mp3', ...>`, instead of the whole file's bytes
-- `modify_and_save` and `find_missing` now skip writing the file when nothing changed, and `DatabaseV2.rename_track_file` now only saves the database if it has the track
+- Editing a database or crate is now faster: the file is serialized once, when it's saved, instead of after every change
+  - `raw_data` is now deprecated in favor of the new `to_bytes()`, and will be removed in 5.0
+- `modify`, `modify_tracks`, `change_track_path`, `filter_tracks`, `remove_track`, and `remove_duplicates` now return whether anything changed
+- `modify_and_save`, `find_missing`, and `DatabaseV2.rename_track_file` now skip saving files that didn't change
+- An invalid value now raises an error as soon as it's set (in `modify`, or when loading JSON) instead of on save, and a failed save no longer leaves the file empty
 
 ## [4.0.4] - 2026-10-31
 
