@@ -8,6 +8,9 @@ import tempfile
 
 from src.serato_tools.database_v2 import DatabaseV2
 
+# bin_file_base raises the installed package's DataTypeError, so catch that one
+from serato_tools.utils import DataTypeError
+
 
 class TestCase(unittest.TestCase):
     def test_format_filepath(self):
@@ -182,6 +185,64 @@ class TestCase(unittest.TestCase):
                 db.find_missing()
 
             self.assertFalse(os.path.exists(db_file), "nothing relocated, so not saved")
+
+    def test_save_keeps_file_when_serialization_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_file = os.path.join(tmp, "database V2")
+            shutil.copy("test/data/database_v2_test.bin", db_file)
+            db = DatabaseV2(db_file)
+            db.entries.append((DatabaseV2.Fields.TRACK, "not a list"))
+
+            with self.assertRaises(DataTypeError):
+                db.save()
+            with open(db_file, "rb") as f, open("test/data/database_v2_test.bin", "rb") as orig:
+                self.assertEqual(f.read(), orig.read(), "file left as it was")
+
+    def test_modify_rejects_bad_value_right_away(self):
+        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        with self.assertRaises(DataTypeError):
+            db.modify([{"field": DatabaseV2.Fields.GROUPING, "func": lambda *args: 5}])  # text field, given an int
+
+    def test_json_with_mistyped_value_fails_on_load(self):
+        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        json_obj = db.to_json_object()
+        track = json_obj[1]["value"]
+        assert isinstance(track, list)
+        uadd = next(e for e in track if e["field"] == DatabaseV2.Fields.DATE_ADDED_U)
+        uadd["value"], uadd["type"] = "not an int", "str"
+
+        with tempfile.TemporaryDirectory() as tmp:
+            json_file = os.path.join(tmp, "db.json")
+            with open(json_file, "w", encoding="utf-8") as f:
+                json.dump(json_obj, f)
+            with self.assertRaises(DataTypeError):
+                DatabaseV2(json_file)
+
+    def test_non_canonical_bool_is_refused(self):
+        with open("test/data/database_v2_test.bin", "rb") as f:
+            data = f.read()
+        with tempfile.TemporaryDirectory() as tmp:
+            db_file = os.path.join(tmp, "database V2")
+            with open(db_file, "wb") as f:
+                f.write(data + b"bhrt" + (1).to_bytes(4, "big") + b"\x02")
+            with self.assertRaises(ValueError):
+                DatabaseV2(db_file)
+
+    @unittest.skipUnless(os.name == "nt", "paths are only case-insensitive on Windows")
+    def test_modify_and_save_treats_other_case_as_same_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_file = os.path.join(tmp, "database V2")
+            shutil.copy("test/data/database_v2_test.bin", db_file)
+            db = DatabaseV2(db_file)
+            os.remove(db_file)  # so any save shows up as the file reappearing
+
+            db.modify_and_save([], db_file.upper())
+            self.assertFalse(os.path.exists(db_file), "same file, unchanged, so not saved")
+
+    def test_remove_track_reports_whether_removed(self):
+        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        self.assertFalse(db.remove_track("Not In Library.mp3"))
+        self.assertTrue(db.remove_track(db.get_track_paths()[0]))
 
     def test_dedupe(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_duplicates.bin"))

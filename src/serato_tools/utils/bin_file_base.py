@@ -204,6 +204,9 @@ class SeratoBinFile:
             return result
 
         self.entries = json_to_entries(json_data)
+        # JSON types aren't tied to field prefixes the way the binary format is, so check now that it serializes,
+        # rather than failing on the first save
+        self.to_bytes()
 
     def write_json(self, filepath: str) -> None:
         def write_json_array(json_entries: list[SeratoBinFile.EntryJson], indent: int = 0) -> str:
@@ -235,7 +238,7 @@ class SeratoBinFile:
         print(self)
 
     def __repr__(self) -> str:
-        return str(self.to_bytes())
+        return f"{type(self).__name__}({self.filepath!r})"
 
     class EntryListCls:
         def __init__(self, entries: "SeratoBinFile.EntryList"):
@@ -308,6 +311,9 @@ class SeratoBinFile:
                 # value = (data[1:] + b"\00").decode("utf-16") # from imported code
                 value = data.decode("utf-16-be")
             elif type_id == "b":  # single byte, is a boolean
+                # anything but 0x00/0x01 would be rewritten as 0x01 on save, so refuse it like an unknown version
+                if data not in (b"\x00", b"\x01"):
+                    raise ValueError(f"unexpected boolean value for field {field}: {data!r}")
                 value = cast(bool, struct.unpack("?", data)[0])
             elif type_id == "s":  # unsigned 16-bit int
                 value = cast(int, struct.unpack(">H", data)[0])
@@ -400,11 +406,14 @@ class SeratoBinFile:
                 # Track copies the values out of `value`, so this compares against the untouched original
                 new_entries = func(track).to_entries()
                 if new_entries != value:
+                    # serializing just the changed track catches a bad value here, not at the next save
+                    self._dump_item((field, new_entries))
                     self.entries[i] = (field, new_entries)
                     changed = True
         return changed
 
-    def filter_tracks(self, func: Callable[[Track], bool]):
+    def filter_tracks(self, func: Callable[[Track], bool]) -> bool:
+        """Keeps only the tracks `func` returns True for, and returns whether any track was removed."""
         new_entries: "SeratoBinFile.EntryList" = []
         for field, value in self.entries:
             if field == SeratoBinFile.Fields.TRACK:
@@ -414,12 +423,16 @@ class SeratoBinFile:
                 if not func(track):
                     continue
             new_entries.append((field, value))
+        removed = len(new_entries) != len(self.entries)
         self.entries = new_entries
+        return removed
 
-    def remove_track(self, filepath: str):
-        self.filter_tracks(lambda track: track.relpath != SeratoBinFile.get_relative_path(filepath))
+    def remove_track(self, filepath: str) -> bool:
+        """Removes the track at `filepath`, and returns whether this file had it."""
+        return self.filter_tracks(lambda track: track.relpath != SeratoBinFile.get_relative_path(filepath))
 
-    def remove_duplicates(self):
+    def remove_duplicates(self) -> bool:
+        """Removes every repeat of an earlier track's path, and returns whether any were removed."""
         track_paths: list[str] = []
 
         def filter_track(track: "SeratoBinFile.Track") -> bool:
@@ -427,15 +440,17 @@ class SeratoBinFile:
             track_paths.append(track.relpath)
             return was_in_track_paths
 
-        self.filter_tracks(filter_track)
+        return self.filter_tracks(filter_track)
 
     def save(self, file: Optional[str] = None):
         if file is None:
             file = self.filepath
         if file.lower().endswith(".json"):
             raise ValueError("cannot save raw data to .json")
+        # serialize before opening, since opening truncates and a serialization error would leave the file empty
+        data = self.to_bytes()
         with open(file, "wb") as f:
-            f.write(self.to_bytes())
+            f.write(data)
 
     @staticmethod
     def get_field_name(field: str) -> str:
@@ -573,11 +588,16 @@ class SeratoBinFile:
         Skips the save when nothing changed, unless `file` names somewhere other than this file's own path.
         """
         changed = self.modify(rules)
-        if changed or (file is not None and os.path.abspath(file) != self.filepath):
+        same_file = file is None or os.path.normcase(os.path.abspath(file)) == os.path.normcase(self.filepath)
+        if changed or not same_file:
             self.save(file)
 
     def change_track_path(self, src: str, dest: str) -> bool:
         """Points the track at `src` to `dest`, and returns whether this file had that track."""
+        # a path scan is much cheaper than running modify() over every track, and most files won't have it
+        src_relpath = self.get_relative_path(src).upper()
+        if not any(path.upper() == src_relpath for path in self.get_track_paths()):
+            return False
         return self.modify([{"field": self.TRACK_PATH_KEY, "files": [src], "func": lambda *args: dest}])
 
     def find_missing(self):
