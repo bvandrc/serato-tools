@@ -66,10 +66,6 @@ class TestCase(unittest.TestCase):
         self.assertEqual(db.to_bytes(), original_bytes, "was not modified")
         self.assertEqual(db.__str__(), expected, "was not modified")
 
-        with self.assertRaises(DataTypeError, msg="bad value rejected by modify, not at save"):
-            db.modify([{"field": DatabaseV2.Fields.GROUPING, "func": lambda *args: 5}])  # text field, given an int
-        self.assertEqual(db.__str__(), expected, "rejected change not applied")
-
         new_time = int(1735748100)
         changed = db.modify(
             [

@@ -409,8 +409,6 @@ class SeratoBinFile:
                 # Track copies the values out of `value`, so this compares against the untouched original
                 new_entries = func(track).to_entries()
                 if new_entries != value:
-                    # serializing just the changed track catches a bad value here, not at the next save
-                    self._dump_item((field, new_entries))
                     self.entries[i] = (field, new_entries)
                     changed = True
         return changed
@@ -605,10 +603,6 @@ class SeratoBinFile:
 
     def change_track_path(self, src: str, dest: str) -> bool:
         """Points the track at `src` to `dest`, and returns whether this file had that track."""
-        # a path scan is much cheaper than running modify() over every track, and most files won't have it
-        src_relpath = self.get_relative_path(src).upper()
-        if not any(path.upper() == src_relpath for path in self.get_track_paths()):
-            return False
         return self.modify([{"field": self.TRACK_PATH_KEY, "files": [src], "func": lambda *args: dest}])
 
     def find_missing(self):

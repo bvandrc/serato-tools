@@ -8,7 +8,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - `raw_data` is now deprecated in favor of the new `to_bytes()`, and will be removed in 5.0
 - `modify`, `modify_tracks`, `change_track_path`, `filter_tracks`, `remove_track`, and `remove_duplicates` now return whether anything changed
 - `modify_and_save`, `find_missing`, and `DatabaseV2.rename_track_file` now skip saving files that didn't change
-- An invalid value now raises an error as soon as it's set (in `modify`, or when loading JSON) instead of on save, and a failed save no longer leaves the file empty
+- Loading a JSON file with an invalid value now raises an error right away instead of on save, and a failed save no longer leaves the file empty
 
 ## [4.0.4] - 2026-10-31
 
