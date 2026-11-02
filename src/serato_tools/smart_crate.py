@@ -154,7 +154,7 @@ class SmartCrate(CrateBase):
         rule_field_id = field.value
         rule_exists: bool = False
         new_entries: SmartCrate.EntryList = []
-        for f, v in self.entries:  # pylint: disable=access-member-before-definition
+        for f, v in self.entries:
             if f == CrateBase.Fields.SMARTCRATE_RULE:
                 if not isinstance(v, list):
                     raise DataTypeError(v, list, f)
@@ -176,13 +176,12 @@ class SmartCrate(CrateBase):
             )
             new_entries.append((CrateBase.Fields.SMARTCRATE_RULE.value, new_rule.to_entries()))
 
-        self.entries = new_entries  # pylint: disable=attribute-defined-outside-init
-        self._dump()
+        self.entries = new_entries
 
     def delete_rule(self, field: "SmartCrate.RuleField"):
         rule_field_id = field.value
         new_entries: SmartCrate.EntryList = []
-        for f, v in self.entries:  # pylint: disable=access-member-before-definition
+        for f, v in self.entries:
             if f == CrateBase.Fields.SMARTCRATE_RULE:
                 if not isinstance(v, list):
                     raise DataTypeError(v, list, f)
@@ -191,8 +190,7 @@ class SmartCrate(CrateBase):
                     continue
             new_entries.append((f, v))
 
-        self.entries = new_entries  # pylint: disable=attribute-defined-outside-init
-        self._dump()
+        self.entries = new_entries
 
     def find_missing(self):
         raise Exception("cannot be done on smart crate")
