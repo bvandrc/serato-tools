@@ -164,6 +164,12 @@ class TrackCuesV1(SeratoTag):
 
     def _dump(self):
         entries = self.entries
+        # the trailing Color entry doubles as the format's footer: it is not counted in num_entries,
+        # so dumping without it (or with it anywhere else) would write a tag Serato cannot parse
+        if not entries or not isinstance(entries[-1], TrackCuesV1.Color):
+            raise ValueError("last entry must be a Color entry, cannot dump")
+        if any(isinstance(e, TrackCuesV1.Color) for e in entries[:-1]):
+            raise ValueError("only the last entry may be a Color entry, cannot dump")
         data = self._pack_version()
         num_entries = len(entries) - 1
         data += struct.pack(">I", num_entries)
@@ -204,6 +210,10 @@ if __name__ == "__main__":
         hex_editor = get_hex_editor()
 
     entries: list[TrackCuesV1.Entry] = tags.entries
+    if not entries:
+        # a parsed tag always has at least the trailing Color entry, so empty means the tag is not set
+        print(f'File has no "{TrackCuesV1.GEOB_KEY}" tag.')
+        sys.exit()
     new_entries: list[TrackCuesV1.Entry] = []
     width = math.floor(math.log10(len(entries))) + 1
     action: str | None = None
