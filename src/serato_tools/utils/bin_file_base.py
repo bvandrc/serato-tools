@@ -250,12 +250,16 @@ class SeratoBinFile:
             for field, value in entries:
                 if isinstance(value, list):
                     raise DeeplyNestedListError
-                if field in self.fields:
-                    # values are stored as attributes, so a repeated field would silently overwrite the
-                    # earlier value and then be written back twice — corrupting the file on round-trip
-                    raise ValueError(f"duplicate field in entry: {field}")
                 setattr(self, field, value)
                 self.fields.append(field)
+
+            # values are stored as attributes, so a repeated field would silently overwrite the earlier
+            # value and then be written back twice — corrupting the file on round-trip. One set-vs-list
+            # length comparison is far cheaper than a per-field membership scan; name the culprits only
+            # on the failure path.
+            if len(set(self.fields)) != len(self.fields):
+                duplicates = sorted({f for f in self.fields if self.fields.count(f) > 1})
+                raise ValueError(f"duplicate field(s) in entry: {', '.join(duplicates)}")
 
         def __repr__(self) -> str:
             return str(self.to_entries())
