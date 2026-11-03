@@ -52,7 +52,7 @@ Subclasses (`DatabaseV2`, `CrateBase` → `Crate` / `SmartCrate`) must define `T
 The lifecycle is `parse → self.entries → mutate → to_bytes() → save()`:
 
 - The file's bytes aren't stored. Each `to_bytes()` call serializes `entries` from scratch, so mutations cost nothing and each `save()` pays for one serialization. Edit `entries` however you like, in place or by assignment. (The `SeratoTag` classes below do store theirs, in `_raw_data`; the read-only `raw_data` getter is deprecated for removal in the next major version.)
-- `modify_tracks`, `modify`, `change_track_path`, `filter_tracks`, `remove_tracks`, and `remove_duplicates` return whether anything changed. Methods that save on the caller's behalf (`modify_and_save`, `find_missing`, `DatabaseV2.rename_track_file`) use that to skip writing an unchanged file. `save()` itself always writes, since it doubles as "save as".
+- `modify_tracks`, `modify`, `change_track_path`, `filter_tracks`, `remove_tracks`, and `remove_duplicates` return whether anything changed. Methods that save on the caller's behalf (`modify_and_save`, `find_missing`, and `Library`'s methods) use that to skip writing an unchanged file. `save()` itself always writes, since it doubles as "save as".
 - `modify()` takes a list of `ModifyRule` dicts (`{"field": ..., "func": (filename, prev_val) -> new_val | None, "files": [...]}`); returning `None` from `func` means "leave unchanged".
 - `modify_tracks(func, files=...)` and `modify()` with every rule limited to `files` skip every other track after reading only its path, which keeps single-track edits fast on a large library.
 - `add_tracks` / `remove_tracks` are the batch track APIs (one pass each); the singular `add_track` / `remove_track` are deprecated for removal in the next major version and delegate to them.
@@ -83,7 +83,7 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
 ### Cross-module dependencies
 
 - `TrackCuesV2` cue snapping reads the track's `TrackBeatgrid` to find beat positions.
-- `DatabaseV2.rename_track_file` renames on disk, then updates the database *and* every crate under `Crate.DIR_PATH`, saving only those that contain the track, so a renamed file doesn't go missing.
+- `Library` (`library.py`) holds one library folder's `DatabaseV2`, `Crate`s, and `SmartCrate`s, each parsed on first use and then kept. Its `rename_track_file` and `remove_track_files` change the files on disk and update every one of them that contains the track, saving only those. Smart crates are included because Serato re-adds a missing path from a smart crate to the database as a blank "?" entry. The deprecated `DatabaseV2.rename_track_file` calls it with its own database. New operations that have to reach the whole library (database and every crate) belong on `Library`, not on `DatabaseV2`; pass `Library(database=...)` an already-loaded database so the two don't overwrite each other's saves.
 - `usb_export.py` composes `Crate`, `SmartCrate`, and `DatabaseV2`: it flattens all tracks into one folder on the drive, dedupes by basename, rewrites crate/database paths to the new layout, and copies only changed files.
 - `SERATO_DIR` (`~/Music/_Serato_`) in `utils/__init__.py` is the default root for all library lookups.
 
