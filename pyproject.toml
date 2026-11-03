@@ -42,6 +42,7 @@ dev = ["black", "pylint", "pyright"]
 Homepage = "https://pypi.org/project/serato-tools/"
 Repository = "https://github.com/bvandrc/serato-tools"
 Issues = "https://github.com/bvandrc/serato-tools/issues"
+Changelog = "https://github.com/bvandrc/serato-tools/blob/main/CHANGELOG.md"
 
 
 [project.scripts]

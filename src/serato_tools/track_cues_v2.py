@@ -506,7 +506,7 @@ class TrackCuesV2(SeratoTag):
 
         Args:
             color: The new track color.
-            delete_tags_v1: Delete the legacy `Serato Markers_` tag, because a stale one stops the new color from appearing in Serato. No issues have been found from deleting it, but use caution with older versions of Serato, which may still read it.
+            delete_tags_v1: Delete the legacy `Serato Markers_` tag, because a stale one stops the new color from appearing in Serato. No issues have been found from deleting it, but use caution with versions of Serato before 3, which may still read it.
         """
 
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
