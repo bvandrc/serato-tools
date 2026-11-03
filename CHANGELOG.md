@@ -35,7 +35,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Breaking: remove `raw_data` from databases and crates, deprecated in 4.1.0. Use `to_bytes()` instead
 - Breaking: the `TrackCuesV2` and `TrackCuesV1` entry classes' `load()` and `dump()` are now internal. Read and change entries through `TrackCuesV2.modify_entries` (or a tag's `entries`), then `save()`
 
-## [4.1.0] - 2026-11-01
+## [4.1.0] - 2026-11-02
 
 - Editing a database or crate is now much faster
   - `raw_data` is now deprecated in favor of the new `to_bytes()`, and will be removed in 5.0
@@ -46,7 +46,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `modify_and_save`, `find_missing`, and `DatabaseV2.rename_track_file` now skip saving files that didn't change
 - Loading a JSON file with an invalid value now raises an error right away instead of on save, and a failed save no longer leaves the file empty
 
-## [4.0.4] - 2026-10-31
+## [4.0.4] - 2026-11-01
 
 - `modify_tracks` (and so `modify()`) no longer re-encodes the file when no track changed
 
@@ -75,7 +75,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Rename `get_serato_crate_files` to `get_crate_files`, check file extension
 
-## [3.7.0] - 2026-01-20
+## [3.7.0] - 2026-01-23
 
 - `get_tracks` to bin_file
 
@@ -96,6 +96,6 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Modify smartcrate rules
 - Add `serato_smartcrate` and `serato_crate` entry points
 
-## [1.5.1] - 2025-04-10
+## [1.5.1] - 2025-04-11
 
 - Initial publish (pyproject.toml added). Serato library and track metadata modification.
