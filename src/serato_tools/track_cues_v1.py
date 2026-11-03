@@ -159,6 +159,11 @@ class TrackCuesV1(SeratoTag):
 
         yield TrackCuesV1.Color._parse(fp.read())
 
+    def delete(self):
+        was_deleted = super().delete()
+        self.entries = []
+        return was_deleted
+
     def _serialize(self):
         # the entry classes' _parse() / _serialize() are internal to this module
         # pylint: disable=protected-access
