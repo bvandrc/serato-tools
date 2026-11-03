@@ -39,7 +39,7 @@ def copy_crates_to_usb(
     crate_files: list[str], dest_drive_dir: str, dest_tracks_dir: str, root_crate: Optional[str] = None
 ):
     if not os.path.isdir(dest_drive_dir):
-        logger.error(f"destination drive directory does not exist: {dest_drive_dir}")
+        raise FileNotFoundError(f"destination drive directory does not exist: {dest_drive_dir}")
 
     DEST_SERATO_DIR = os.path.join(dest_drive_dir, SERATO_DIR_NAME)
 
@@ -85,7 +85,9 @@ def copy_crates_to_usb(
         # need to just save smartCrates as a .crate instead of a .scrate, can't do smart crate on USB.
         if isinstance(crate, SmartCrate):
             existing = new_crate_file
-            new = existing.replace("≫≫", "%%").replace(SmartCrate.EXTENSION, Crate.EXTENSION)
+            dirname, basename = os.path.split(existing)
+            # only touch the filename: str.replace on the full path could hit a directory name
+            new = os.path.join(dirname, os.path.splitext(basename.replace("≫≫", "%%"))[0] + Crate.EXTENSION)
             os.replace(existing, new)
             new_crate_file = new
         logger.info(f"copied crate {new_crate_file}")
@@ -187,7 +189,7 @@ def copy_crates_to_usb(
             )
     print("\n")
 
-    if len(not_found) == len(tracks_to_copy):
+    if tracks_to_copy and len(not_found) == len(tracks_to_copy):
         logger.error("No source files found.")
         uniq_dirs = list(set(os.path.dirname(d) for d in tracks_to_copy))
         logger.error(f"Directories: \n{"\n    ".join(uniq_dirs)}")
