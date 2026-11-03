@@ -10,6 +10,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Fix track paths resolving to a broken path on macOS and Linux
 - Fix track paths in a library on an external drive (e.g. `E:\_Serato_` or `/Volumes/USB/_Serato_`): they're now relative to that drive's root, as Serato stores them, instead of the home library's drive
   - Each database and crate finds that root from where its file is, in `track_path_root`, and `get_relative_path` / `get_full_path` take it as an optional `root`
+- USB export: fix finding the source tracks of a library that isn't on the system drive, and add `--source` (`source_serato_dir`) to export from a library on another drive instead of the home library
 - Fix: `pip install serato-tools` no longer installs the optional deps (about 430 MB): they're only installed by the extra whose feature needs them, as the README always described
   - **If you use track tags (cues, beatgrid, waveform, etc.), the beatgrid analysis, or waveform drawing, install with the matching extra**, e.g. `pip install "serato-tools[track_tags]"`, or `pip install "serato-tools[all]"` for everything
   - `waveform_drawing` and `beatgrid_analysis` now also install `mutagen`, since they read the track's tags through it
