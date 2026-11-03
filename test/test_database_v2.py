@@ -49,6 +49,12 @@ class TestCase(unittest.TestCase):
         path = "D:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
         self.assertEqual(DatabaseV2.get_full_path(path), os.path.normpath(path))
 
+    def test_full_path_without_drive_is_absolute(self):
+        # Serato stores track paths with no drive or leading separator
+        full_path = DatabaseV2.get_full_path("Music/DJ Tracks/Tripp St. - Enlighten.mp3")
+        self.assertTrue(os.path.isabs(full_path), full_path)
+        self.assertTrue(full_path.endswith(os.path.normpath("/Music/DJ Tracks/Tripp St. - Enlighten.mp3")), full_path)
+
     def test_parse_and_serialize(self):
         file = os.path.abspath("test/data/database_v2_test.bin")
         with open(file, mode="rb") as fp:
