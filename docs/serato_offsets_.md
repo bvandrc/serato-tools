@@ -6,7 +6,7 @@
     00000020  30 30 2e 30 30 30 30 30  30 00 04 3e 43 00 04 09  |00.000000..>C...|
     00000030  0e 04 00 00 3f 6b 00 00  08 14 08 14 08 15 08 15  |....?k..........|
 
-The `Serato Offsets_` tag is rare: a scan of 1,500 MP3s out of a 12,332-track library found it on only 15 (about 1%). It is also large — 15–38 KB in the copies seen so far, growing with track length (the dump in `data/id3/` is 16,401 bytes).
+The `Serato Offsets_` tag is rare: a scan of 1,500 MP3s out of a 12k-track library found it on only 15 (about 1%). It is also large — 15–38 KB in the copies seen so far, growing with track length (the dump in `data/id3/` is 16,401 bytes).
 
 The data is a header followed by a long binary table.
 
