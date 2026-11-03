@@ -2,6 +2,10 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.2.1] - 2026-11-03
+
+- Add the MIT `LICENSE` file the package metadata already declared, with the notices of the projects it's derived from
+
 ## [5.2.0] - 2026-11-03
 
 - Add `Library`, which renames or removes track files and updates the database, crates, and smart crates to match, so the track isn't left missing in Serato
