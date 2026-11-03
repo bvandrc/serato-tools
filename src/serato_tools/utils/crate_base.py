@@ -2,6 +2,7 @@
 # This is from this repo: https://github.com/sharst/seratopy
 import os
 import sys
+import warnings
 from typing import Optional, Iterable
 
 if __package__ is None:
@@ -53,24 +54,30 @@ class CrateBase(SeratoBinFile):
         super().save(file)
 
     def add_track(self, filepath: str):
-        # filepath name must include the containing dir
-        filepath = self.get_relative_path(filepath)
+        """Deprecated, to be removed in the next major version: use add_tracks(), which this calls."""
+        warnings.warn("add_track is deprecated, use add_tracks instead", DeprecationWarning, stacklevel=2)
+        self.add_tracks([filepath])
 
-        if filepath in self.get_track_paths():
-            return
-
-        self.entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, filepath)]))
+    def add_tracks(self, filepaths: Iterable[str]):
+        """Adds the tracks not already in the crate. Filepaths must include the containing dir."""
+        # build the existing-path set once: checking get_track_paths() per added file costs a pass over
+        # the whole crate per file
+        existing = set(self.get_track_paths())
+        for filepath in filepaths:
+            relpath = self.get_relative_path(filepath)
+            if relpath not in existing:
+                self.entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, relpath)]))
+                existing.add(relpath)
 
     def add_tracks_from_dir(self, dir: str, replace: bool = False):
         dir_tracks = [self.get_relative_path(os.path.join(dir, t)) for t in os.listdir(dir)]
 
         if replace:
-            for track in self.get_track_paths():
-                if track not in dir_tracks:
-                    self.remove_track(track)
+            # one filter pass instead of a full remove_track scan per removed track
+            dir_track_set = set(dir_tracks)
+            self.filter_tracks(lambda track: track.relpath in dir_track_set)
 
-        for track in dir_tracks:
-            self.add_track(track)
+        self.add_tracks(dir_tracks)
 
     @classmethod
     def get_crate_files(cls, file_or_dir: str | None = None) -> list[str]:
