@@ -443,7 +443,12 @@ class SeratoBinFile:
 
     def remove_track(self, filepath: str) -> bool:
         """Removes the track at `filepath`, and returns whether this file had it."""
-        return self.filter_tracks(lambda track: track.relpath != SeratoBinFile.get_relative_path(filepath))
+        return self.remove_tracks([filepath])
+
+    def remove_tracks(self, filepaths: Iterable[str]) -> bool:
+        """Removes every track whose path is in `filepaths`, in one pass, and returns whether any was removed."""
+        relpaths = {SeratoBinFile.get_relative_path(f) for f in filepaths}
+        return self.filter_tracks(lambda track: track.relpath not in relpaths)
 
     def remove_duplicates(self) -> bool:
         """Removes every repeat of an earlier track's path, and returns whether any were removed."""

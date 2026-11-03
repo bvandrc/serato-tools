@@ -63,6 +63,15 @@ class TestCase(unittest.TestCase):
             expected = f.read()
             self.assertEqual(db.__str__(), expected, "parse")
 
+    def test_remove_tracks(self):
+        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        paths = db.get_track_paths()
+        self.assertGreater(len(paths), 2)
+
+        self.assertTrue(db.remove_tracks(paths[:2]), "reports removal")
+        self.assertEqual(db.get_track_paths(), paths[2:], "removes exactly the given tracks, keeping order")
+        self.assertFalse(db.remove_tracks(paths[:2]), "reports no change when already gone")
+
     def test_parse_and_modify(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
 
