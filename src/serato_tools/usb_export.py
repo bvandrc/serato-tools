@@ -114,24 +114,29 @@ def copy_crates_to_usb(
 
     # copy crate order file, modify if needed
     NEW_ORDER_FILE = "neworder.pref"
-    with open(os.path.join(LOCAL_SERATO_DIR, NEW_ORDER_FILE), "r", encoding="utf-8") as f:
-        lines = f.read().splitlines()
+    LOCAL_NEW_ORDER_FILEPATH = os.path.join(LOCAL_SERATO_DIR, NEW_ORDER_FILE)
+    if os.path.isfile(LOCAL_NEW_ORDER_FILEPATH):
+        with open(LOCAL_NEW_ORDER_FILEPATH, "r", encoding="utf-8") as f:
+            lines = f.read().splitlines()
 
-    if root_crate:
-        CRATE_KEY = "[crate]"
-        new_lines = []
-        for line in lines:
-            if line.startswith(CRATE_KEY):
-                value = line[len(CRATE_KEY) :]
-                if value != "Stems":
-                    line = f"{CRATE_KEY}{root_crate}%%{value}"
-            new_lines.append(line)
-        lines = new_lines
+        if root_crate:
+            CRATE_KEY = "[crate]"
+            new_lines = []
+            for line in lines:
+                if line.startswith(CRATE_KEY):
+                    value = line[len(CRATE_KEY) :]
+                    if value != "Stems":
+                        line = f"{CRATE_KEY}{root_crate}%%{value}"
+                new_lines.append(line)
+            lines = new_lines
 
-    DEST_NEW_ORDER_FILEPATH = os.path.join(DEST_SERATO_DIR, NEW_ORDER_FILE)
-    with open(DEST_NEW_ORDER_FILEPATH, "w", encoding="utf-8") as f:
-        f.writelines(lines)
-        logger.info(f"copied order file {DEST_NEW_ORDER_FILEPATH}")
+        DEST_NEW_ORDER_FILEPATH = os.path.join(DEST_SERATO_DIR, NEW_ORDER_FILE)
+        with open(DEST_NEW_ORDER_FILEPATH, "w", encoding="utf-8") as f:
+            # splitlines() strips the newlines, so they must be re-added on write
+            f.write("\n".join(lines) + "\n")
+            logger.info(f"copied order file {DEST_NEW_ORDER_FILEPATH}")
+    else:
+        logger.warning(f"no order file to copy: {LOCAL_NEW_ORDER_FILEPATH}")
 
     # copy stems crate
     LOCAL_STEMS_CRATE = os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
