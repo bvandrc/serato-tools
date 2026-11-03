@@ -2,6 +2,11 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.1.2] - 2026-11-03
+
+- Fix the README's examples, which had drifted from the current API, and add a table of contents
+- Add a changelog link to the project's PyPI page
+
 ## [5.1.1] - 2026-11-03
 
 - Printing or JSON-dumping a large database is faster: field display names are now looked up in a cached map
