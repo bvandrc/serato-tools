@@ -19,7 +19,7 @@ Work in the repo's `.venv` (gitignored), with the package installed editable so 
 ```bash
 python -m venv .venv
 source .venv/Scripts/activate                                     # Git Bash on Windows; .venv/bin/activate elsewhere
-pip install -e ".[track_tags,waveform_drawing,beatgrid_analysis,dev]"  # all optional deps + black, pylint, pyright
+pip install -e ".[all,dev]"                                  # all optional deps + black, pylint, pyright
 ```
 
 ```bash
