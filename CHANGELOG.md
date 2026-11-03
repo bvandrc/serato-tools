@@ -2,9 +2,9 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [6.0.0] - 2026-11-03
+## [5.0.2] - 2026-11-03
 
-- Breaking: the smart crate rule fields moved from the shared `Fields` enum to the new `SmartCrate.RuleFields`, and `modify` on a database or regular crate now rejects them
+- The smart crate rule fields moved from the shared `Fields` enum to the new `SmartCrate.RuleFields`, and `modify` on a database or regular crate now rejects them
 
 ## [5.0.1] - 2026-11-03
 
