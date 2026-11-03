@@ -571,7 +571,7 @@ class TrackCuesV2(SeratoTag):
         return any((isinstance(entry, TrackCuesV2.BpmLockEntry) and entry.enabled) for entry in self.entries)
 
 
-if __name__ == "__main__":
+def main():
     # this script is part of the module, so it uses the tag's and its entries' internal _parse() / _serialize()
     # pylint: disable=protected-access
     import argparse
@@ -777,3 +777,7 @@ if __name__ == "__main__":
             else:
                 with open(args.file, mode="wb") as fp:
                     fp.write(tags._raw_data or b"")  # pylint: disable=protected-access
+
+
+if __name__ == "__main__":
+    main()
