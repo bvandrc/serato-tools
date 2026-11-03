@@ -158,15 +158,13 @@ def copy_crates_to_usb(
     stem_files_by_dir: dict[str, list[str]] = {}
 
     def find_stem_files(src_path: str) -> list[str]:
-        # list each source directory once instead of running a filesystem glob per track; matching on the
-        # literal basename also fixes glob treating characters like [ ] in a track name as pattern syntax
         dirname, basename = os.path.split(src_path)
         if dirname not in stem_files_by_dir:
             try:
-                entries = os.listdir(dirname)
+                dir_filenames = os.listdir(dirname)
             except OSError:
-                entries = []
-            stem_files_by_dir[dirname] = [f for f in entries if f.endswith(".serato-stems")]
+                dir_filenames = []
+            stem_files_by_dir[dirname] = [f for f in dir_filenames if f.endswith(".serato-stems")]
         prefix = os.path.splitext(basename)[0]
         return [os.path.join(dirname, f) for f in stem_files_by_dir[dirname] if f.startswith(prefix)]
 
