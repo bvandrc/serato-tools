@@ -123,27 +123,23 @@ class SmartCrate(CrateBase):
             self.comparison = self.get_value(SmartCrate.Fields.RULE_COMPARISON)
             self.field = self.get_value(SmartCrate.Fields.RULE_FIELD)
 
-            def try_to_get_value(field: str):
-                try:
-                    return self.get_value(field)
-                except AttributeError:
-                    return None
-
-            # check "is None" rather than truthiness: 0 and "" are valid rule values
+            # a rule holds its value in exactly one of the three value fields, named for the value's type,
+            # so look for the field that is present rather than for a truthy value (0 and "" are valid)
+            value_field = next(
+                (
+                    field
+                    for field in (
+                        SmartCrate.Fields.RULE_VALUE_INTEGER,
+                        SmartCrate.Fields.RULE_VALUE_TEXT,
+                        SmartCrate.Fields.RULE_VALUE_DATE,
+                    )
+                    if field in self.fields
+                ),
+                None,
+            )
             self.value = cast(
                 str | int | float,  # float for date or no?
-                next(
-                    (
-                        value
-                        for value in (
-                            try_to_get_value(SmartCrate.Fields.RULE_VALUE_INTEGER),
-                            try_to_get_value(SmartCrate.Fields.RULE_VALUE_TEXT),
-                            try_to_get_value(SmartCrate.Fields.RULE_VALUE_DATE),
-                        )
-                        if value is not None
-                    ),
-                    None,
-                ),
+                self.get_value(value_field) if value_field is not None else None,
             )
 
         def set_value(  # pylint: disable=arguments-differ # pyright: ignore[reportIncompatibleMethodOverride]
