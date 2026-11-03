@@ -25,7 +25,7 @@
   - [Modifying a SmartCrate Rule](#modifying-a-smartcrate-rule)
   - [Crate details and adding a track](#crate-details-and-adding-a-track)
   - [Smart Crate details](#smart-crate-details)
-- [Serato Tags](#serato-tags)
+- [Track Tags](#track-tags)
 - [Sources](#sources)
 - [Contributing](#contributing)
 
@@ -284,7 +284,7 @@ s_crate = SmartCrate('/Users/Username/Music/_Serato_/SmartCrates/Dubstep.scrate'
 print(s_crate)
 ```
 
-# Serato Tags
+# Track Tags
 
 Original writeup on Serato GEOB tag discoveries: [blog post](https://homepage.ruhr-uni-bochum.de/jan.holthuis/posts/reversing-seratos-geob-tags)
 
