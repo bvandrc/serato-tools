@@ -77,7 +77,7 @@ The following deps are optional, but **must be installed based on what features 
 
 `Library` changes a track file and every place Serato points to it: the database, crates, and smart crates, so the track isn't left missing in Serato. Each file is parsed the first time it's needed and then kept, so many changes in a row stay fast. Keep one `Library` per library folder, since another copy's save would overwrite this one's changes.
 
-_NOTE: Recommended to make a backup of the `_Serato_` folder elsewhere, before modifying via this package, in case an unforseen bug appears._
+_NOTE: Close Serato first. It keeps the library in memory, and saves it over any changes made while it's open._
 
 ```python
 from serato_tools.library import Library
@@ -92,7 +92,7 @@ library.remove_track_files(["/Users/Username/Music/Dubstep/Raaket - ILL (Radio E
 
 ### Modifying the database file
 
-_NOTE: Recommended to make a backup of the database file elsewhere, before modifying via this package, in case an unforseen bug appears._
+_NOTE: Close Serato first. It keeps the library in memory, and saves it over any changes made while it's open._
 
 ```python
 import time
