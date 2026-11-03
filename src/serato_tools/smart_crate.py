@@ -12,7 +12,7 @@ from serato_tools.utils import get_enum_key_from_value, parse_cli_keys_and_value
 
 
 class SmartCrate(CrateBase):
-    TESTED_VERSIONS = ["1.0/Serato ScratchLive Smart Crate"]
+    TESTED_VERSIONS = frozenset({"1.0/Serato ScratchLive Smart Crate"})
     EXTENSION = ".scrate"
     DIR = "SmartCrates"
     DIR_PATH = os.path.join(SERATO_DIR, DIR)
@@ -30,7 +30,7 @@ class SmartCrate(CrateBase):
         RULE_FIELD = "urkt"
 
     FIELD_ENUMS = (CrateBase.Fields, RuleFields)
-    FIELDS = [f.value for field_enum in FIELD_ENUMS for f in field_enum]
+    FIELDS = frozenset(f.value for field_enum in FIELD_ENUMS for f in field_enum)
 
     # the fields a rule can hold its value in, one per value type; a rule has exactly one of them
     RULE_VALUE_FIELDS = frozenset(

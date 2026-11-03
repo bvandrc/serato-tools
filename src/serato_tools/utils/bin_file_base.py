@@ -56,7 +56,7 @@ class SeratoBinFile:
     FIELD_ENUMS: tuple[type[StrEnum], ...] = (Fields,)
 
     # derived from FIELD_ENUMS so the two can't drift; redefine it alongside FIELD_ENUMS in a subclass
-    FIELDS = [f.value for field_enum in FIELD_ENUMS for f in field_enum]
+    FIELDS = frozenset(f.value for field_enum in FIELD_ENUMS for f in field_enum)
 
     type ParsedField = Fields | str
     type BasicValue = str | bytes | int | bool
@@ -71,7 +71,7 @@ class SeratoBinFile:
 
     type ValueOrNone = Value | None
 
-    TESTED_VERSIONS: list[str]
+    TESTED_VERSIONS: frozenset[str]
     TRACK_PATH_KEY: Fields
     DEFAULT_ENTRIES: EntryList
 
@@ -140,7 +140,7 @@ class SeratoBinFile:
                 We do not want to risk damaging users' library database or crate files!
 
                 Possible versions:
-                {'\n'.join(self.TESTED_VERSIONS)}
+                {'\n'.join(sorted(self.TESTED_VERSIONS))}
                 """)
         if set_version:
             self.version = value
@@ -506,7 +506,7 @@ class SeratoBinFile:
     def _check_valid_field(cls, field: str):
         if field not in cls.FIELDS:
             raise ValueError(
-                f"invalid field: {field} must be one of: {str(cls.FIELDS)}\n(see {__file__} for what these keys map to)"
+                f"invalid field: {field} must be one of: {', '.join(sorted(cls.FIELDS))}\n(see {__file__} for what these keys map to)"
             )
 
     @staticmethod
