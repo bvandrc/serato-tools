@@ -26,6 +26,7 @@
 - [Track Tags](#track-tags)
 - [Sources](#sources)
 - [Contributing](#contributing)
+- [License](#license)
 
 ## Example uses:
 
@@ -317,4 +318,10 @@ The different file/tag formats that Serato uses to store the information are doc
 
 # Contributing
 
-If you want a new feature, or have a bug fix, please put in a PR!
+If you want a new feature, or have a bug fix, please put in a PR! For anything bigger, or if you're not sure about an approach, feel free to [open an issue](https://github.com/bvandrc/serato-tools/issues) to discuss it first.
+
+**Please contribute here rather than publishing your own fork.** One maintained package keeps fixes and format discoveries in one place, instead of splitting them across copies that drift apart.
+
+# License
+
+[MIT](https://github.com/bvandrc/serato-tools/blob/main/LICENSE): free to use, modify, and include in your own projects, personal or commercial.
