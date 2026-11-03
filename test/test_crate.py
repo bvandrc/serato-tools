@@ -43,27 +43,28 @@ class TestCase(unittest.TestCase):
 
         self.assertEqual(crate.__str__(), expected, "parse")
 
-        crate.add_track("C:\\Users\\bvand\\Music\\DJ Tracks\\Soulacybin - Zeu.mp3")
+        crate.add_tracks(["C:\\Users\\bvand\\Music\\DJ Tracks\\Soulacybin - Zeu.mp3"])
         expected += "\notrk (Track): [ ptrk (Track Path): Users/bvand/Music/DJ Tracks/Soulacybin - Zeu.mp3 ]"
         self.assertEqual(crate.__str__(), expected, "track added")
 
-        for t in [
-            "C:\\Users\\bvand\\Music\\DJ Tracks\\Soulacybin - Zeu.mp3",
-            "Users\\bvand\\Music\\DJ Tracks\\Soulacybin - Zeu.mp3",
-            "C:/Users/bvand/Music/DJ Tracks/Soulacybin - Zeu.mp3",
-            "Users/bvand/Music/DJ Tracks/Soulacybin - Zeu.mp3",
-            "/Users/bvand/Music/DJ Tracks/Soulacybin - Zeu.mp3",
-        ]:
-            crate.add_track(t)
-            self.assertEqual(crate.__str__(), expected, "duplicate track not added")
+        crate.add_tracks(
+            [
+                "C:\\Users\\bvand\\Music\\DJ Tracks\\Soulacybin - Zeu.mp3",
+                "Users\\bvand\\Music\\DJ Tracks\\Soulacybin - Zeu.mp3",
+                "C:/Users/bvand/Music/DJ Tracks/Soulacybin - Zeu.mp3",
+                "Users/bvand/Music/DJ Tracks/Soulacybin - Zeu.mp3",
+                "/Users/bvand/Music/DJ Tracks/Soulacybin - Zeu.mp3",
+            ]
+        )
+        self.assertEqual(crate.__str__(), expected, "duplicate tracks not added")
 
-        crate.add_track("C:/Users/bvand/Music/DJ Tracks/Thundercat - Them Changes.mp3")
+        crate.add_tracks(["C:/Users/bvand/Music/DJ Tracks/Thundercat - Them Changes.mp3"])
         expected += "\notrk (Track): [ ptrk (Track Path): Users/bvand/Music/DJ Tracks/Thundercat - Them Changes.mp3 ]"
         self.assertEqual(crate.__str__(), expected, "track added")
 
     def test_new_crate_does_not_share_entries_with_class_default(self):
         a = Crate("/tmp/serato_test_A.crate")
-        a.add_track("/music/track1.mp3")
+        a.add_tracks(["/music/track1.mp3"])
 
         b = Crate("/tmp/serato_test_B.crate")
         otrk_entries = [e for e in b.entries if e[0] == "otrk"]
@@ -87,11 +88,11 @@ class TestCase(unittest.TestCase):
         self.assertEqual(Crate.DEFAULT_ENTRIES, default_entries, "class default must not be mutated")
         self.assertEqual(b.entries, default_entries, "other instance must not be mutated")
 
-    def test_add_track_is_saved(self):
+    def test_add_tracks_is_saved(self):
         with tempfile.TemporaryDirectory() as tmp:
             file = os.path.join(tmp, "Test.crate")
             crate = Crate(file)
-            crate.add_track("/music/track1.mp3")
+            crate.add_tracks(["/music/track1.mp3"])
             crate.save()
 
             self.assertEqual(Crate(file).get_track_paths(), crate.get_track_paths())

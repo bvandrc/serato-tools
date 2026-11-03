@@ -139,7 +139,7 @@ class TestCase(unittest.TestCase):
             for name, has_track in [("With.crate", True), ("Without.crate", False)]:
                 crate = Crate(os.path.join(crates_dir, name))
                 if has_track:
-                    crate.add_track(src)
+                    crate.add_tracks([src])
                 crate.save()
 
             saved: list[Crate] = []

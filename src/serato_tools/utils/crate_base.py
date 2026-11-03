@@ -2,6 +2,7 @@
 # This is from this repo: https://github.com/sharst/seratopy
 import os
 import sys
+import warnings
 from typing import Optional, Iterable
 
 if __package__ is None:
@@ -53,13 +54,17 @@ class CrateBase(SeratoBinFile):
         super().save(file)
 
     def add_track(self, filepath: str):
-        # filepath name must include the containing dir
-        self._add_tracks([self.get_relative_path(filepath)])
+        """Deprecated, to be removed in the next major version: use add_tracks(), which this calls."""
+        warnings.warn("add_track is deprecated, use add_tracks instead", DeprecationWarning, stacklevel=2)
+        self.add_tracks([filepath])
 
-    def _add_tracks(self, relpaths: Iterable[str]):
-        # build the existing-path set once
+    def add_tracks(self, filepaths: Iterable[str]):
+        """Adds the tracks not already in the crate. Filepaths must include the containing dir."""
+        # build the existing-path set once: checking get_track_paths() per added file costs a pass over
+        # the whole crate per file
         existing = set(self.get_track_paths())
-        for relpath in relpaths:
+        for filepath in filepaths:
+            relpath = self.get_relative_path(filepath)
             if relpath not in existing:
                 existing.add(relpath)
                 self.entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, relpath)]))
@@ -72,7 +77,7 @@ class CrateBase(SeratoBinFile):
             dir_track_set = set(dir_tracks)
             self.filter_tracks(lambda track: track.relpath in dir_track_set)
 
-        self._add_tracks(dir_tracks)
+        self.add_tracks(dir_tracks)
 
     @classmethod
     def get_crate_files(cls, file_or_dir: str | None = None) -> list[str]:
