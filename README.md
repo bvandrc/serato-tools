@@ -252,8 +252,6 @@ from serato_tools.crate import Crate
 crate = Crate('/Users/Username/Music/_Serato_/Subcrates/Dubstep.crate')
 
 crate.print_track_paths()
-# OUTPUT:
-#
 # /Users/Username/Music/Dubstep/Saka - backitup.mp3
 # /Users/Username/Music/Dubstep/Mind Splitter - YAPPIN'.mp3
 # /Users/Username/Music/Dubstep/Flozone - DO IT.mp3
@@ -261,8 +259,6 @@ crate.print_track_paths()
 # ...
 
 print(crate)  # or crate.print()
-# OUTPUT:
-#
 # vrsn (Version): 1.0/Serato ScratchLive Crate
 # osrt (Sorting): [ tvcn (Column Name): key ], [ brev (Reverse Order): False ]
 # ovct (Column): [ tvcn (Column Name): song ], [ tvcw (Column Width): 0 ]
