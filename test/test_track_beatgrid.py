@@ -6,7 +6,7 @@ from src.serato_tools.track_beatgrid import TrackBeatgrid
 
 
 class TestCase(unittest.TestCase):
-    def test_parse_and_dump(self):
+    def test_parse_and_serialize(self):
         with open(os.path.abspath("test/data/track_beatgrid.bin"), mode="rb") as fp:
             file_data = fp.read()
         tags = TrackBeatgrid(file_data)
@@ -20,5 +20,9 @@ class TestCase(unittest.TestCase):
             ),
             "parsed entries",
         )
-        tags._dump()
-        self.assertEqual(tags.raw_data, file_data, "dump")
+        tags._serialize()
+        self.assertEqual(tags.raw_data, file_data, "serialize")
+
+    def test_untested_version_raises_at_construction(self):
+        with self.assertRaises(ValueError):
+            TrackBeatgrid(bytes([0x99, 0x99]))

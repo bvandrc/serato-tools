@@ -15,8 +15,12 @@ class TestCase(unittest.TestCase):
         self.assertEqual(tags.raw_data, self.file_data, "raw_data read")
 
     @unittest.skip("doesn't work with old data")
-    def test_parse_and_dump(self):
+    def test_parse_and_serialize(self):
         tags = TrackCuesV1(self.file_data)
         self.assertEqual(tags.raw_data, self.file_data, "raw_data read")
-        tags._dump()
-        self.assertEqual(tags.raw_data, self.file_data, "dump")
+        tags._serialize()
+        self.assertEqual(tags.raw_data, self.file_data, "serialize")
+
+    def test_untested_version_raises_at_construction(self):
+        with self.assertRaises(ValueError):
+            TrackCuesV1(bytes([0x99, 0x99]))

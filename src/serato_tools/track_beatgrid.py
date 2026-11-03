@@ -133,7 +133,7 @@ class TrackBeatgrid(SeratoTag):
         assert isinstance(entries[-2], TrackBeatgrid.TerminalBeatgridMarker), "last item should be a terminal marker"
         return (nonterminal_markers, terminal_markers[0], footers[0])
 
-    def _dump(self):
+    def _serialize(self):
         entries = self._check_and_split()
         nonterminal_markers, terminal_marker, footer = entries
         markers = (*nonterminal_markers, terminal_marker)
@@ -302,7 +302,7 @@ class TrackBeatgrid(SeratoTag):
         self.entries = raw_entries
         self.enhanced_entries = self._enhance_entries(self.entries)
 
-        self._dump()
+        self._serialize()
         self.save()
 
 

@@ -46,7 +46,16 @@ class TrackAutotags(SeratoTag):
         gaindb = get_value()
         return bpm, autogain, gaindb
 
-    def _dump(self):
+    def _serialize(self):
+        # explicit attribute accesses rather than getattr(self, name): pyright checks these, so a
+        # typo'd field is a type error, where a typo'd getattr string would silently pass
+        missing = [
+            name
+            for name, value in (("bpm", self.bpm), ("autogain", self.autogain), ("gaindb", self.gaindb))
+            if value is None
+        ]
+        if missing:
+            raise ValueError(f"must be set to write the Serato Autotags tag: {', '.join(missing)}")
         data: bytes = self._pack_version()
         for value, decimals in ((self.bpm, 2), (self.autogain, 3), (self.gaindb, 3)):
             data += "{:.{}f}".format(value, decimals).encode("ascii")
@@ -65,7 +74,7 @@ class TrackAutotags(SeratoTag):
             self.autogain = autogain
         if gaindb is not None:
             self.gaindb = gaindb
-        self._dump()
+        self._serialize()
 
 
 if __name__ == "__main__":

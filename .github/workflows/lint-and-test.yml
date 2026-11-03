@@ -27,8 +27,7 @@ jobs:
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install ".[track_tags,waveform_drawing,beatgrid_analysis]"
-        python -m pip install pylint
+        python -m pip install ".[track_tags,waveform_drawing,beatgrid_analysis,dev]"
 
     - name: Lint (Pylint)
       run: pylint $(git ls-files '*.py')

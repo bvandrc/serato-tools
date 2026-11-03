@@ -31,7 +31,7 @@ def get_serato_tagdata(tagfile: mutagen._file.FileType, decode: bool = False):
         for tagname in tagfile.tags.keys():
             tagname = str(tagname)
             if tagname.startswith("GEOB:Serato"):
-                tagvalue = tf._get_geob(tagname.lstrip("GEOB:"))  # pylint: disable=protected-access
+                tagvalue = tf._get_geob(tagname[len("GEOB:") :])  # pylint: disable=protected-access
                 if not tagvalue:
                     raise ValueError(f"no value for {tagname}")
                 yield tagname[5:], tagvalue
