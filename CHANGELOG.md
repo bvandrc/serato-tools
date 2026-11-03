@@ -5,7 +5,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [5.0.3] - 2026-11-03
 
 - Adding tracks to a crate, `remove_duplicates`, and the USB export dedupe are much faster on a large library
-- Add `add_tracks` and `remove_tracks` for batch changes in one pass; `add_track` is deprecated in favor of `add_tracks`, and will be removed in the next major version
+- Add `add_tracks` and `remove_tracks` for batch changes in one pass; `add_track` and `remove_track` are deprecated in their favor, and will be removed in the next major version
 
 ## [5.0.2] - 2026-11-03
 

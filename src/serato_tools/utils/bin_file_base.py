@@ -4,6 +4,7 @@ import re
 import copy
 import struct
 import base64
+import warnings
 from enum import StrEnum
 import json
 from typing import Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
@@ -442,7 +443,8 @@ class SeratoBinFile:
         return removed
 
     def remove_track(self, filepath: str) -> bool:
-        """Removes the track at `filepath`, and returns whether this file had it."""
+        """Deprecated, to be removed in the next major version: use remove_tracks(), which this calls."""
+        warnings.warn("remove_track is deprecated, use remove_tracks instead", DeprecationWarning, stacklevel=2)
         return self.remove_tracks([filepath])
 
     def remove_tracks(self, filepaths: Iterable[str]) -> bool:

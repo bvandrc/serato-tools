@@ -66,8 +66,8 @@ class CrateBase(SeratoBinFile):
         for filepath in filepaths:
             relpath = self.get_relative_path(filepath)
             if relpath not in existing:
-                existing.add(relpath)
                 self.entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, relpath)]))
+                existing.add(relpath)
 
     def add_tracks_from_dir(self, dir: str, replace: bool = False):
         dir_tracks = [self.get_relative_path(os.path.join(dir, t)) for t in os.listdir(dir)]
