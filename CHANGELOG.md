@@ -2,6 +2,12 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.3.0] - 2026-11-03
+
+- `pip install serato-tools` no longer installs `mutagen`, `numpy`, `librosa`, or `pillow` (about 430 MB): they're only installed by the extra whose feature needs them, as the README always described
+  - **If you use track tags (cues, beatgrid, waveform, etc.), the beatgrid analysis, or waveform drawing, install with the matching extra**, e.g. `pip install "serato-tools[track_tags]"`, or `pip install "serato-tools[all]"` for everything
+  - `waveform_drawing` and `beatgrid_analysis` now also install `mutagen`, since they read the track's tags through it
+
 ## [5.2.0] - 2026-11-03
 
 - Add `Library`, which renames or removes track files and updates the database, crates, and smart crates to match, so the track isn't left missing in Serato

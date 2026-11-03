@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "serato-tools"
-version = "5.2.0"
+version = "5.3.0"
 description = "Serato track metadata (cues, beatgrid, etc.) crate, smartcrate, library database, and modification; dynamic beatgrid analysis; and better USB export."
 keywords = [
     "serato",
@@ -25,17 +25,19 @@ authors = [
     { name = "bvandrc", email = "bvandercar@outlook.com" },
 ]
 license = "MIT"
-dependencies = [
+# crates, smart crates, the database, and USB export need nothing beyond the standard library;
+# each extra pulls in what its feature imports, including mutagen, which every track tag reads through
+dependencies = []
+
+[project.optional-dependencies]
+track_tags = ["mutagen"]
+waveform_drawing = [
     "mutagen",
-    "numpy",
-    "librosa",
     'pillow>=0; python_version<"3.14"',
     'pillow>=12; python_version>="3.14"',
 ]
-[project.optional-dependencies]
-track_tags = ["mutagen"]
-waveform_drawing = ["pillow"]
-beatgrid_analysis = ["librosa", "numpy"]
+beatgrid_analysis = ["mutagen", "librosa", "numpy"]
+all = ["serato-tools[track_tags,waveform_drawing,beatgrid_analysis]"]
 dev = ["black", "pylint", "pyright"]
 
 [project.urls]
