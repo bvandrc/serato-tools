@@ -94,7 +94,7 @@ def copy_crates_to_usb(
     db = DatabaseV2()
     tracks_to_copy = [os.path.normpath(f) for f in tracks_to_copy]
     tracks_to_copy = _uniq_by_basename(tracks_to_copy)
-    tracks_to_copy_basenames = [os.path.basename(f) for f in tracks_to_copy]
+    tracks_to_copy_basenames = {os.path.basename(f) for f in tracks_to_copy}  # a set: both filters below test against it per track
 
     def modify_db_track(track: DatabaseV2.Track) -> DatabaseV2.Track:
         track.set_path(os.path.join(dest_tracks_dir, os.path.basename(track.relpath)))
