@@ -140,6 +140,16 @@ class SmartCrate(CrateBase):
             self, value: str | int
         ):
             field = SmartCrate._get_rule_value_type(value)  # pylint: disable=protected-access
+            # when the value type changes (e.g. text -> integer), replace the old value field in place
+            # instead of leaving both in the rule
+            for other in self.RULE_VALUE_FIELDS:
+                if other == field or other not in self.fields:
+                    continue
+                if field in self.fields:
+                    self.fields.remove(other)
+                else:
+                    self.fields[self.fields.index(other)] = field
+                delattr(self, other)
             super().set_value(field, value)
 
         def set_field(self, value: "SmartCrate.RuleField"):

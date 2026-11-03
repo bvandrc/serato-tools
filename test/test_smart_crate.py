@@ -45,3 +45,22 @@ class TestCase(unittest.TestCase):
             ]
         )
         self.assertEqual(rule.value, 0, "an integer rule value of 0 must not read as None")
+
+    def test_rule_set_value_replaces_value_field_on_type_change(self):
+        rule = SmartCrate.Rule(
+            [
+                (SmartCrate.Fields.RULE_COMPARISON.value, SmartCrate.RuleComparison.STR_IS.value),
+                (SmartCrate.Fields.RULE_FIELD.value, SmartCrate.RuleField.ARTIST.value),
+                (SmartCrate.Fields.RULE_VALUE_TEXT.value, "some artist"),
+            ]
+        )
+        rule.set_value(100)
+        self.assertEqual(
+            rule.to_entries(),
+            [
+                (SmartCrate.Fields.RULE_COMPARISON.value, SmartCrate.RuleComparison.STR_IS.value),
+                (SmartCrate.Fields.RULE_FIELD.value, SmartCrate.RuleField.ARTIST.value),
+                (SmartCrate.Fields.RULE_VALUE_INTEGER, 100),
+            ],
+            "old text value field must be replaced in place, not kept alongside the integer field",
+        )
