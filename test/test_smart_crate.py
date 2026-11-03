@@ -70,7 +70,7 @@ class TestCase(unittest.TestCase):
             [
                 (SmartCrate.RuleFields.RULE_COMPARISON.value, SmartCrate.RuleComparison.STR_IS.value),
                 (SmartCrate.RuleFields.RULE_FIELD.value, SmartCrate.RuleField.ARTIST.value),
-                (SmartCrate.RuleFields.RULE_VALUE_INTEGER, 100),
+                (SmartCrate.RuleFields.RULE_VALUE_INTEGER.value, 100),
             ],
             "old text value field must be replaced in place, not kept alongside the integer field",
         )

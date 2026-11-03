@@ -54,7 +54,8 @@ class SeratoBinFile:
     # rule fields) extends this, which extends what _check_valid_field accepts and get_field_name resolves
     FIELD_ENUMS: tuple[type[StrEnum], ...] = (Fields,)
 
-    FIELDS = list(f.value for f in Fields)
+    # derived from FIELD_ENUMS so the two can't drift; redefine it alongside FIELD_ENUMS in a subclass
+    FIELDS = [f.value for field_enum in FIELD_ENUMS for f in field_enum]
 
     type ParsedField = Fields | str
     type BasicValue = str | bytes | int | bool

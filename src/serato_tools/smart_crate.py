@@ -30,7 +30,7 @@ class SmartCrate(CrateBase):
         RULE_FIELD = "urkt"
 
     FIELD_ENUMS = (CrateBase.Fields, RuleFields)
-    FIELDS = CrateBase.FIELDS + list(f.value for f in RuleFields)
+    FIELDS = [f.value for field_enum in FIELD_ENUMS for f in field_enum]
 
     # the fields a rule can hold its value in, one per value type; a rule has exactly one of them
     RULE_VALUE_FIELDS = (
