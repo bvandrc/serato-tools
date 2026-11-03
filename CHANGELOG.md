@@ -2,6 +2,10 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.1.1] - 2026-11-03
+
+- Fix smart crate rules with a value of `0` or empty text being read as having no value, and changing a rule's value type leaving both value fields in the rule
+
 ## [4.1.0] - 2026-11-01
 
 - Editing a database or crate is now much faster
