@@ -12,7 +12,7 @@ from serato_tools.utils import logger, SERATO_DIR
 
 
 class DatabaseV2(SeratoBinFile):
-    TESTED_VERSIONS = ["2.0/Serato Scratch LIVE Database"]
+    TESTED_VERSIONS = frozenset({"2.0/Serato Scratch LIVE Database"})
     FILENAME = "database V2"
     DEFAULT_DATABASE_FILE = os.path.join(SERATO_DIR, FILENAME)
     TRACK_PATH_KEY = SeratoBinFile.Fields.FILE_PATH

@@ -12,7 +12,7 @@ from serato_tools.utils import SERATO_DIR
 
 
 class Crate(CrateBase):
-    TESTED_VERSIONS = ["1.0/Serato ScratchLive Crate"]
+    TESTED_VERSIONS = frozenset({"1.0/Serato ScratchLive Crate"})
     EXTENSION = ".crate"
     DIR = "Subcrates"
     DIR_PATH = os.path.join(SERATO_DIR, DIR)
