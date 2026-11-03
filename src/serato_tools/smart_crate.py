@@ -115,6 +115,13 @@ class SmartCrate(CrateBase):
         return ret_val
 
     class Rule(CrateBase.EntryListCls):
+        # the fields a rule can hold its value in, one per value type; a rule has exactly one of them
+        VALUE_FIELDS = (
+            CrateBase.Fields.RULE_VALUE_INTEGER,
+            CrateBase.Fields.RULE_VALUE_TEXT,
+            CrateBase.Fields.RULE_VALUE_DATE,
+        )
+
         def __init__(self, entries: "CrateBase.EntryList"):
             super().__init__(entries)
 
@@ -123,20 +130,8 @@ class SmartCrate(CrateBase):
             self.comparison = self.get_value(SmartCrate.Fields.RULE_COMPARISON)
             self.field = self.get_value(SmartCrate.Fields.RULE_FIELD)
 
-            # a rule holds its value in exactly one of the three value fields, named for the value's type,
-            # so look for the field that is present rather than for a truthy value (0 and "" are valid)
-            value_field = next(
-                (
-                    field
-                    for field in (
-                        SmartCrate.Fields.RULE_VALUE_INTEGER,
-                        SmartCrate.Fields.RULE_VALUE_TEXT,
-                        SmartCrate.Fields.RULE_VALUE_DATE,
-                    )
-                    if field in self.fields
-                ),
-                None,
-            )
+            # look for the value field that is present rather than for a truthy value (0 and "" are valid)
+            value_field = next((field for field in self.VALUE_FIELDS if field in self.fields), None)
             self.value = cast(
                 str | int | float,  # float for date or no?
                 self.get_value(value_field) if value_field is not None else None,
@@ -146,13 +141,9 @@ class SmartCrate(CrateBase):
             self, value: str | int
         ):
             field = SmartCrate._get_rule_value_type(value)  # pylint: disable=protected-access
-            # a rule holds exactly one value field: when the value type changes (e.g. text -> integer),
-            # replace the old value field in place instead of leaving both in the rule
-            for other in (
-                SmartCrate.Fields.RULE_VALUE_INTEGER,
-                SmartCrate.Fields.RULE_VALUE_TEXT,
-                SmartCrate.Fields.RULE_VALUE_DATE,
-            ):
+            # when the value type changes (e.g. text -> integer), replace the old value field in place
+            # instead of leaving both in the rule
+            for other in self.VALUE_FIELDS:
                 if other == field or other not in self.fields:
                     continue
                 if field in self.fields:
