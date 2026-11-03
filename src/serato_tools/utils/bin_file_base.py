@@ -8,7 +8,7 @@ from enum import StrEnum
 import json
 from typing import Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
 
-from serato_tools.utils import get_enum_key_from_value, logger, SERATO_DRIVE, DataTypeError, DeeplyNestedListError
+from serato_tools.utils import logger, SERATO_DRIVE, DataTypeError, DeeplyNestedListError
 
 
 class SeratoBinFile:
@@ -476,19 +476,24 @@ class SeratoBinFile:
 
     @classmethod
     def get_field_name(cls, field: str) -> str:
-        for field_enum in cls.FIELD_ENUMS:
-            try:
-                return (
-                    get_enum_key_from_value(field, field_enum)
-                    .replace("_", " ")
-                    .title()
-                    .replace("Smartcrate", "SmartCrate")
-                    .replace("Added U", "Added")
-                    .replace("Added T", "Added")
-                )
-            except ValueError:
-                continue
-        return "Unknown Field"
+        # look up in a map built once per class (vars(cls), so a subclass with its own FIELD_ENUMS doesn't
+        # inherit the base's map): scanning the enums and re-deriving the name costs too much when printing
+        # or JSON-dumping every field of a large database
+        names: dict[str, str] | None = vars(cls).get("_field_names")
+        if names is None:
+            names = {}
+            for field_enum in cls.FIELD_ENUMS:
+                for member in field_enum:
+                    if member.value not in names:
+                        names[member.value] = (
+                            member.name.replace("_", " ")
+                            .title()
+                            .replace("Smartcrate", "SmartCrate")
+                            .replace("Added U", "Added")
+                            .replace("Added T", "Added")
+                        )
+            cls._field_names = names
+        return names.get(field, "Unknown Field")
 
     @classmethod
     def _check_valid_field(cls, field: str):
