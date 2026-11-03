@@ -64,13 +64,13 @@ class CrateBase(SeratoBinFile):
         # the whole crate per file
         existing = set(self.get_track_paths())
         for filepath in filepaths:
-            relpath = self.get_relative_path(filepath)
+            relpath = self.get_relative_path(filepath, self.track_path_root)
             if relpath not in existing:
                 self.entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, relpath)]))
                 existing.add(relpath)
 
     def add_tracks_from_dir(self, dir: str, replace: bool = False):
-        dir_tracks = [self.get_relative_path(os.path.join(dir, t)) for t in os.listdir(dir)]
+        dir_tracks = [self.get_relative_path(os.path.join(dir, t), self.track_path_root) for t in os.listdir(dir)]
 
         if replace:
             # one filter pass instead of a full remove_track scan per removed track
