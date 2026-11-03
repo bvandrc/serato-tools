@@ -5,7 +5,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [5.1.1] - 2026-11-03
 
 - Printing or JSON-dumping a large database is faster: field display names are now looked up in a cached map
-- The USB export scans each source directory once for `.serato-stems` files instead of globbing per track, and a track name containing glob characters like `[` no longer breaks the stem lookup
+- Much faster USB export: Now scans each source directory once for `.serato-stems` files instead of globbing per track, and a track name containing glob characters like `[` no longer breaks the stem lookup
 
 ## [5.1.0] - 2026-11-03
 
