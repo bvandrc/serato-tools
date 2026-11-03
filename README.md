@@ -37,7 +37,24 @@
 - Modify a smart crate's rules
 - List available smart crates
 
-_**Code examples are below.**_
+## Contents
+
+- [Installation](#installation)
+- [Examples](#examples)
+  - [Analyzing and setting a dynamic beatgrid](#analyzing-and-setting-a-dynamic-beatgrid)
+  - [Exporting crates to USB](#exporting-crates-to-usb)
+  - [Renaming a file and changing its location in the database](#renaming-a-file-and-changing-its-location-in-the-database)
+  - [Modifying the database file](#modifying-the-database-file)
+  - [Setting track color](#setting-track-color)
+  - [Snapping cue positions to the beatgrid](#snapping-cue-positions-to-the-beatgrid)
+  - [Modifying track metadata / hot cues](#modifying-track-metadata--hot-cues)
+  - [Listing available crates or smart crates](#listing-available-crates-or-smart-crates)
+  - [Modifying a SmartCrate Rule](#modifying-a-smartcrate-rule)
+  - [Crate details and adding a track](#crate-details-and-adding-a-track)
+  - [Smart Crate details](#smart-crate-details)
+- [Serato Tags](#serato-tags)
+- [Sources](#sources)
+- [Contributing](#contributing)
 
 # Installation
 
@@ -45,11 +62,11 @@ _**Code examples are below.**_
 pip install serato-tools
 ```
 
-The following deps are optional, but **must be installed based on what features you want to use**:
+The following deps are optional, but **must be installed based on what features you want to use** (each is also available as a package extra, e.g. `pip install "serato-tools[track_tags]"`):
 
-- For getting/modifying track metadata including tags, cue points, beagrid, and waveform, must install `pip install mutagen`
-- For viewing a track's waveform, must install `pip install pillow`
-- For beatgrid analysis, must install `pip install numpy` and `pip install librosa`
+- For getting/modifying track metadata including tags, cue points, beatgrid, and waveform, must install `pip install mutagen` (extra: `track_tags`)
+- For viewing a track's waveform, must install `pip install pillow` (extra: `waveform_drawing`)
+- For beatgrid analysis, must install `pip install numpy` and `pip install librosa` (extra: `beatgrid_analysis`)
 
 # Examples
 
@@ -68,7 +85,7 @@ _NOTE: This feature has only been tested on a couple of tracks. Recommend review
 **NOTE: replaces existing crates on flash drive! (but does not delete existing track files) (TODO: ability to merge with existing)**
 
 ```cmd
->>> serato_usb_export --drive E --crate_matcher *house* *techno* --root_crate="Dave USB"
+>>> serato_usb_export --drive E --crate_matcher "*house*" "*techno*" --root_crate="Dave USB"
 ```
 
 ### Renaming a file and changing its location in the database
@@ -90,9 +107,13 @@ db.rename_track_file(src="5udo - One - Original Mix.mp3", dest="5udo - One.mp3")
 _NOTE: Recommended to make a backup of the database file elsewhere, before modifying via this package, in case an unforseen bug appears._
 
 ```python
+import time
+from typing import Any
+
 from serato_tools.database_v2 import DatabaseV2
 
 now = int(time.time())
+files_set_date = ["/Users/Username/Music/Dubstep/Mind Splitter - YAPPIN'.mp3"]
 
 def modify_uadd(filename: str, prev_val: Any):
     print(f'Serato library change - Changed "date added" to today: {filename}')
@@ -105,8 +126,8 @@ def remove_group(filename: str, prev_val: Any):
     return " "
 
 db = DatabaseV2()
-# a list of field keys can be found in serato_tools.database_v2
-db.modify_file(
+# the available fields are in DatabaseV2.Fields
+db.modify_and_save(
     rules=[
         {"field": DatabaseV2.Fields.DATE_ADDED_U, "files": files_set_date, "func": modify_uadd},
         {"field": DatabaseV2.Fields.DATE_ADDED_T, "files": files_set_date, "func": modify_tadd},
@@ -118,13 +139,13 @@ db.modify_file(
 ### Setting track color
 
 ```python
-from serato_tools.track_cues_v2 import TrackCuesV2, TRACK_COLORS
+from serato_tools.track_cues_v2 import TrackCuesV2
 
-tags = TrackCuesV2(file)
-tags.set_track_color('/Users/Username/Music/Dubstep/Raaket - ILL.mp3',
-    TRACK_COLORS["purple"],
+tags = TrackCuesV2('/Users/Username/Music/Dubstep/Raaket - ILL.mp3')
+tags.set_track_color(
+    TrackCuesV2.TrackColors.PURPLE,
     delete_tags_v1=True
-    # Must delete delete_tags_v1 in order for track color change to appear in Serato (since we never change tags_v1 along with it (TODO)). Not sure what tags_v1 is even for, probably older versions of Serato. Have found no issues with deleting this, but use with caution if running an older version of Serato.
+    # delete_tags_v1 (the default) deletes the legacy "Serato Markers_" tag, since a stale one stops the new color from appearing in Serato. No issues have been found from deleting it, but use caution with older versions of Serato, which may still read it.
 )
 tags.save()
 ```
@@ -147,22 +168,27 @@ Only cue points within the tolerance window of some beat are moved; others are l
 ```python
 import dataclasses
 from mutagen.id3._frames import TIT1
-from serato_tools.track_cues_v2 import TrackCuesV2, CUE_COLORS, TRACK_COLORS
+from serato_tools.track_cues_v2 import TrackCuesV2
+
+CueColors = TrackCuesV2.CueColors
+TrackColors = TrackCuesV2.TrackColors
+
+tags = TrackCuesV2('/Users/Username/Music/Dubstep/Raaket - ILL.mp3')
 
 def track_rule(track: TrackCuesV2.TrackCuesInfo) -> TrackCuesV2.TrackCuesInfo | None:
     # Set ID3 grouping field from track color
     if track.color is not None:
         track_color = track.color.color
-        if track_color == TRACK_COLORS["limegreen3"]:
-            tagfile.tags.setall("TIT1", [TIT1(text="TAGGED")])
-        elif track_color in [TRACK_COLORS["white"], TRACK_COLORS["grey"], TRACK_COLORS["black"]]:
-            tagfile.tags.setall("TIT1", [TIT1(text="UNTAGGED")])
+        if track_color == TrackColors.LIMEGREEN3.value:
+            tags.tagfile.tags.setall("TIT1", [TIT1(text="TAGGED")])
+        elif track_color in [TrackColors.WHITE.value, TrackColors.GREY.value, TrackColors.BLACK.value]:
+            tags.tagfile.tags.setall("TIT1", [TIT1(text="UNTAGGED")])
 
     # Normalize cue colors and names
     new_cues = []
     for c in track.cues:
         # Make "close to red", red.
-        cue_color = CUE_COLORS["red"] if c.color in [CUE_COLORS["pinkred"], CUE_COLORS["magenta"]] else c.color
+        cue_color = CueColors.RED.value if c.color in [CueColors.PINKRED.value, CueColors.MAGENTA.value] else c.color
         # Make all cuenames all-caps
         cue_name = c.name.strip().upper()
 
@@ -170,7 +196,6 @@ def track_rule(track: TrackCuesV2.TrackCuesInfo) -> TrackCuesV2.TrackCuesInfo | 
     new_track = dataclasses.replace(track, cues=new_cues)
     return new_track if new_track != track else None
 
-tags = TrackCuesV2(file)
 tags.modify_entries(track_rule, delete_tags_v1=True)
 tags.save()
 ```
@@ -189,14 +214,16 @@ print('\n'.join(SmartCrate.get_crate_files()))
 
 __via command line__
 
+Each rule takes a comparison and a value (or `DELETE` to remove the rule). The available comparisons are the `SmartCrate.RuleComparison` names, lowercase: `str_contains`, `str_is`, `int_is_ge`, etc.
+
 _one crate_
 ```cmd
->>> serato_smartcrate '/Users/Username/Music/_Serato_/SmartCrates/Dubstep.scrate' --set_rules --grouping UNTAGGED
+>>> serato_smartcrate '/Users/Username/Music/_Serato_/SmartCrates/Dubstep.scrate' --set_rules --grouping str_is UNTAGGED
 ```
 
 _all crates_
 ```cmd
->>> serato_smartcrate --all --set_rules --grouping UNTAGGED
+>>> serato_smartcrate --all --set_rules --grouping str_is UNTAGGED
 ```
 
 __via code__
@@ -206,13 +233,9 @@ from serato_tools.smart_crate import SmartCrate
 
 crate = SmartCrate('/Users/Username/Music/_Serato_/SmartCrates/Dubstep.scrate')
 
-def modify_rule(rule: SmartCrate.Rule):
-    if rule.field != SmartCrate.RULE_FIELD["grouping"]:
-        return rule
-    rule.set_value(SmartCrate.Fields.RULE_VALUE_TEXT, "UNTAGGED")
-    return rule
-
-crate.modify_rules(modify_rule)
+# updates the rule on this field, or adds the rule if the crate doesn't have one for it.
+# the value is stored in the value field the comparison expects, just like Serato does.
+crate.set_rule(SmartCrate.RuleField.GROUPING, SmartCrate.RuleComparison.STR_IS, "UNTAGGED")
 crate.save()
 ```
 
@@ -223,49 +246,41 @@ from serato_tools.crate import Crate
 
 crate = Crate('/Users/Username/Music/_Serato_/Subcrates/Dubstep.crate')
 
-print(crate)
+crate.print_track_paths()
 # OUTPUT:
 #
-# Crate containing 81 tracks:
-# Music/Dubstep/Saka - backitup.mp3
-# Music/Dubstep/Mind Splitter - YAPPIN'.mp3
-# Music/Dubstep/Flozone - DO IT.mp3
-# Music/Dubstep/Evalution - Throw It Back.mp3
+# /Users/Username/Music/Dubstep/Saka - backitup.mp3
+# /Users/Username/Music/Dubstep/Mind Splitter - YAPPIN'.mp3
+# /Users/Username/Music/Dubstep/Flozone - DO IT.mp3
+# /Users/Username/Music/Dubstep/Evalution - Throw It Back.mp3
 # ...
 
-crate.print()
+print(crate)  # or crate.print()
 # OUTPUT:
 #
-# [   ('vrsn', 1.0/Serato ScratchLive Crate),
-#     ('osrt', [('brev', b'\x00')]),
-#     ('ovct', [('tvcn', 'key'), ('tvcw', '0')]),
-#     ('ovct', [('tvcn', 'artist'), ('tvcw', '0')]),
-#     ('ovct', [('tvcn', 'song'), ('tvcw', '0')]),
-#     ('ovct', [('tvcn', 'bpm'), ('tvcw', '0')]),
-#     ('ovct', [('tvcn', 'playCount'), ('tvcw', '0')]),
-#     ('ovct', [('tvcn', 'length'), ('tvcw', '0')]),
-#     ('ovct', [('tvcn', 'added'), ('tvcw', '0')]),
-#     (   'otrk',
-#         [   (   'ptrk',
-#                 'Music/Dubstep/Flozone - Candy Paint')]),
-#     (   'otrk',
-#         [   (   'ptrk',
-#                 'Music/Dubstep/Mind Splitter - LISTEN TO ME')]),
-#     ('otrk', [('ptrk', 'Music/Dubstep/Flozone - DO IT')]),
+# vrsn (Version): 1.0/Serato ScratchLive Crate
+# osrt (Sorting): [ tvcn (Column Name): key ], [ brev (Reverse Order): False ]
+# ovct (Column): [ tvcn (Column Name): song ], [ tvcw (Column Width): 0 ]
+# ovct (Column): [ tvcn (Column Name): artist ], [ tvcw (Column Width): 0 ]
+# ovct (Column): [ tvcn (Column Name): bpm ], [ tvcw (Column Width): 0 ]
+# ovct (Column): [ tvcn (Column Name): playCount ], [ tvcw (Column Width): 0 ]
+# otrk (Track): [ ptrk (Track Path): Music/Dubstep/Flozone - Candy Paint.mp3 ]
+# otrk (Track): [ ptrk (Track Path): Music/Dubstep/Mind Splitter - LISTEN TO ME.mp3 ]
+# otrk (Track): [ ptrk (Track Path): Music/Dubstep/Flozone - DO IT.mp3 ]
 # ...
 
 
-# Example: Add a track to the crate and save it as a new crate
-crate.add_track('/Users/Username/Music/Dubstep/Chozen - I Wanna Dance.mp3')
-crate.save_to_file('/Users/Username/Music/Dubstep/New Crate.crate')
+# Example: Add tracks to the crate and save it as a new crate
+crate.add_tracks(['/Users/Username/Music/Dubstep/Chozen - I Wanna Dance.mp3'])
+crate.save('/Users/Username/Music/_Serato_/Subcrates/New Crate.crate')
 ```
 
-### Smart Crate details (TODO: modification)
+### Smart Crate details
 
 ```python
 from serato_tools.smart_crate import SmartCrate
 
-s_crate = Crate('/Users/Username/Music/_Serato_/SmartCrates/Dubstep.scrate')
+s_crate = SmartCrate('/Users/Username/Music/_Serato_/SmartCrates/Dubstep.scrate')
 print(s_crate)
 ```
 
@@ -276,14 +291,14 @@ Original writeup on Serato GEOB tag discoveries: [blog post](https://homepage.ru
 | GEOB Tag                                     | Research Progress | Contents                                                                        | Script File                                  |
 | -------------------------------------------- | ----------------- | ------------------------------------------------------------------------------- | -------------------------------------------- |
 | [`Serato Analysis`](docs/serato_analysis.md) | Done              | Serato version information                                                      |
-| [`Serato Autotags`](docs/serato_autotags.md) | Done              | BPM and Gain values                                                             | [`track_autotags.py`](src/track_autotags.py) |
-| [`Serato BeatGrid`](docs/serato_beatgrid.md) | Mostly done       | Beatgrid Markers                                                                | [`track_beatgrid.py`](src/track_beatgrid.py) |
-| [`Serato Markers2`](docs/serato_markers2.md) | Mostly done       | Hotcues, Saved Loops, etc.<br>_(The main one used in newer versions of Serato)_ | [`track_cues_v2.py`](src/track_cues_v2.py)   |
-| [`Serato Markers_`](docs/serato_markers_.md) | Mostly done       | Hotcues, Saved Loops, etc.<br>_(Old, not used in newer versions of Serato)_     | [`track_cues_v1.py`](src/track_cues_v1.py)   |
+| [`Serato Autotags`](docs/serato_autotags.md) | Done              | BPM and Gain values                                                             | [`track_autotags.py`](src/serato_tools/track_autotags.py) |
+| [`Serato BeatGrid`](docs/serato_beatgrid.md) | Mostly done       | Beatgrid Markers                                                                | [`track_beatgrid.py`](src/serato_tools/track_beatgrid.py) |
+| [`Serato Markers2`](docs/serato_markers2.md) | Mostly done       | Hotcues, Saved Loops, etc.<br>_(The main one used in newer versions of Serato)_ | [`track_cues_v2.py`](src/serato_tools/track_cues_v2.py)   |
+| [`Serato Markers_`](docs/serato_markers_.md) | Mostly done       | Hotcues, Saved Loops, etc.<br>_(Old, not used in newer versions of Serato)_     | [`track_cues_v1.py`](src/serato_tools/track_cues_v1.py)   |
 | [`Serato Offsets_`](docs/serato_offsets_.md) | _Not started_     | ???                                                                             |
-| [`Serato Overview`](docs/serato_overview.md) | Done              | Waveform data                                                                   | [`track_waveform.py`](src/track_waveform.py) |
+| [`Serato Overview`](docs/serato_overview.md) | Done              | Waveform data                                                                   | [`track_waveform.py`](src/serato_tools/track_waveform.py) |
 
-The different file/tag formats that Serato uses to store the information are documented in [`docs/fileformats.md`](docs/fileformats.md), a script to dump the tag data can be found at [`track_tagdump.py`](src/track_tagdump.py).
+The different file/tag formats that Serato uses to store the information are documented in [`docs/fileformats.md`](docs/fileformats.md), a script to dump the tag data can be found at [`track_tagdump.py`](src/serato_tools/track_tagdump.py).
 
 # Sources
 
