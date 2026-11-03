@@ -40,8 +40,10 @@
 - Analyze a track's Dynamic Beatgrid and save it to the beatgrid Serato tag.
  - Snap cue points to the nearest beat with a configurable tolerance (e.g. 1/16, 1/8, 1/4 of a beat).
 
-**Database:**
+**Library:**
 - Rename or delete a track file while updating the database, crates, and smart crates as well, so that it doesn't go missing.
+
+**Database:**
 - After changing a track's metadata, modify database values for a specific track so that you don't have to "Reload Id3 Tags" in Serato, the change appears in Serato instantly.
 
 **Crate:**
