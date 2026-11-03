@@ -526,7 +526,7 @@ class SeratoBinFile:
         """
         # with no drive, splitdrive's path half is the whole of filepath, so filepath serves both branches
         drive = os.path.splitdrive(filepath)[0]
-        return os.path.normpath(filepath if drive else os.path.join(SERATO_DRIVE, "\\", filepath))
+        return os.path.normpath(filepath if drive else os.path.join(SERATO_DRIVE, os.sep, filepath))
 
     def get_entries(self) -> Generator[EntryFull, None, None]:
         """Get entry fieldnames."""

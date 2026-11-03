@@ -2,6 +2,10 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.2.1] - 2026-11-03
+
+- Fix track paths resolving to a broken path on macOS and Linux: a path without a drive is now joined with the platform's separator instead of a hard-coded `\`
+
 ## [5.2.0] - 2026-11-03
 
 - Add `Library`, which renames or removes track files and updates the database, crates, and smart crates to match, so the track isn't left missing in Serato
