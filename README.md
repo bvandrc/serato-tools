@@ -75,7 +75,9 @@ The following deps are optional, but **must be installed based on what features 
 
 ### Renaming or removing track files across the library
 
-`Library` changes a track file and every place Serato points to it: the database, crates, and smart crates, so the track isn't left missing in Serato. Each file is parsed the first time it's needed and then kept, so many changes in a row stay fast. Keep one `Library` per library folder, since another copy's save would overwrite this one's changes.
+`Library` changes a track file and every place Serato points to it: the database, crates, and smart crates, so the track isn't left missing in Serato.
+
+It's also the fastest way for an app to work with the library. Each file is parsed only once, the first time it's needed, then kept for every later change, instead of re-parsing the whole library per change. Use `library.database` for other database changes too (like [modifying the database file](#modifying-the-database-file)), so they share that one parse. Keep one `Library` per library folder, since another copy's save would overwrite this one's changes.
 
 _NOTE: Close Serato first. It keeps the library in memory, and saves it over any changes made while it's open._
 
