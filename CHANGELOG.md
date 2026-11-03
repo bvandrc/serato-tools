@@ -8,6 +8,9 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - It also speeds up an app that makes many library changes: each file is parsed only once, the first time it's needed, then kept for every later change. Use `library.database` for other database changes too, so they share that one parse
   - `DatabaseV2.rename_track_file` is deprecated in favor of `Library.rename_track_file`, and will be removed in the next major version. It now also updates smart crates, and looks for crates next to the database instead of in the default `_Serato_` folder
 - Fix track paths resolving to a broken path on macOS and Linux: a path without a drive is now joined with the platform's separator instead of a hard-coded `\`
+- Fix: `pip install serato-tools` no longer installs `mutagen`, `numpy`, `librosa`, or `pillow` (about 430 MB): they're only installed by the extra whose feature needs them, as the README always described
+  - **If you use track tags (cues, beatgrid, waveform, etc.), the beatgrid analysis, or waveform drawing, install with the matching extra**, e.g. `pip install "serato-tools[track_tags]"`, or `pip install "serato-tools[all]"` for everything
+  - `waveform_drawing` and `beatgrid_analysis` now also install `mutagen`, since they read the track's tags through it
 - Fix the `serato_snap_cues_v2` command failing with `ImportError: cannot import name 'main'`
 - Add the MIT `LICENSE` file the package metadata already declared, with the notices of the projects it's derived from
 

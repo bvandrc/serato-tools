@@ -66,11 +66,14 @@
 pip install serato-tools
 ```
 
-The following deps are optional, but **must be installed based on what features you want to use** (each is also available as a package extra, e.g. `pip install "serato-tools[track_tags]"`):
+That alone covers crates, smart crates, the library database, and USB export. The rest of the features need extra packages, installed through the matching extra:
 
-- For getting/modifying track metadata including tags, cue points, beatgrid, and waveform, must install `pip install mutagen` (extra: `track_tags`)
-- For viewing a track's waveform, must install `pip install pillow` (extra: `waveform_drawing`)
-- For beatgrid analysis, must install `pip install numpy` and `pip install librosa` (extra: `beatgrid_analysis`)
+| Extra | Install | Adds |
+| --- | --- | --- |
+| `track_tags` | `pip install "serato-tools[track_tags]"` | Getting/modifying track metadata: tags, cue points, beatgrid, and waveform (installs `mutagen`) |
+| `waveform_drawing` | `pip install "serato-tools[waveform_drawing]"` | Viewing a track's waveform (installs `mutagen` and `pillow`) |
+| `beatgrid_analysis` | `pip install "serato-tools[beatgrid_analysis]"` | Beatgrid analysis (installs `mutagen`, `librosa`, and `numpy`) |
+| `all` | `pip install "serato-tools[all]"` | Everything above |
 
 # Examples
 
