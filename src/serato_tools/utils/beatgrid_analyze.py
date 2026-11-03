@@ -46,7 +46,7 @@ def analyze_beatgrid(file: str, bpm_helper: Optional[int | float] = None):
     grid_consistency = float(1.0 / (1.0 + variance / mean_ibi))
 
     # Calculate confidence based on grid strength and tempo stability
-    confidence = float(grid_consistency * (1.0 - abs(tempo - 120) / 120))
+    confidence = float(grid_consistency * max(0.0, 1.0 - abs(tempo - 120) / 120))
 
     # --- Get downbeats ---
     # Find phase offset (time to first beat)
@@ -60,8 +60,10 @@ def analyze_beatgrid(file: str, bpm_helper: Optional[int | float] = None):
     for beat_time in beat_times[::4]:  # Check every 4th beat
         beat_frame = int(beat_time * sample_rate / 512)  # Convert to onset frames
         if beat_frame < len(onset_env):
-            local_max = np.argmax(onset_env[max(0, beat_frame - 2) : min(len(onset_env), beat_frame + 3)])
-            downbeats.append(float(beat_time + (local_max - 2) * 512 / sample_rate))
+            window_start = max(0, beat_frame - 2)
+            local_max = np.argmax(onset_env[window_start : min(len(onset_env), beat_frame + 3)])
+            # local_max is relative to window_start, which is not beat_frame - 2 near the track start
+            downbeats.append(float(beat_time + (window_start + local_max - beat_frame) * 512 / sample_rate))
 
     return BeatGridInfo(
         bpm=float(tempo),
