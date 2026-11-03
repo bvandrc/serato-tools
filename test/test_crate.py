@@ -13,6 +13,13 @@ with open("test/data/crate.txt", "r", encoding="utf-8") as f:
 class TestCase(unittest.TestCase):
     def test_format_filepath(self):
         self.assertEqual(
+            Crate.get_relative_path("Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
+            "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
+        )
+
+    @unittest.skipUnless(os.name == "nt", "Windows drive letters and backslash separators")
+    def test_format_windows_filepath(self):
+        self.assertEqual(
             Crate.get_relative_path("C:\\Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3"),
             "Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
         )
@@ -24,9 +31,12 @@ class TestCase(unittest.TestCase):
             Crate.get_relative_path("C:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
             "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
         )
+
+    @unittest.skipIf(os.name == "nt", "POSIX paths")
+    def test_format_posix_filepath(self):
         self.assertEqual(
-            Crate.get_relative_path("Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
-            "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
+            Crate.get_relative_path("/Users/Username/Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
+            "Users/Username/Music/DJ Tracks/Tripp St. - Enlighten.mp3",
         )
 
     def test_parse_and_modify_and_serialize(self):

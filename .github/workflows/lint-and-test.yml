@@ -42,3 +42,30 @@ jobs:
 
     - name: Test
       run: python -m unittest
+
+  # macOS and Linux run only the tests: lint, types, and format don't depend on the OS. A separate job, so the
+  # windows job's check names, which the main branch ruleset requires, stay the same.
+  test-posix:
+    name: "Test (${{ matrix.os }}, ${{ matrix.python-version }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["macos-latest", "ubuntu-latest"]
+        python-version: ["3.12", "3.13", "3.14", "3.15"]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install ".[all]"
+
+    - name: Test
+      run: python -m unittest

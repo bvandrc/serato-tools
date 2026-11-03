@@ -35,7 +35,7 @@ This is a Python repo with no package manager scripts, so `black .` is the "form
 
 Tests import via `from src.serato_tools...`, so `python -m unittest` only works from the repo root.
 
-CI (`.github/workflows/lint-and-test.yml`) runs on **windows-latest** across Python 3.12/3.13/3.14. Path handling is Windows-centric — `SeratoBinFile.get_relative_path` strips a drive letter via `os.path.splitdrive` and normalizes on `os.path.sep`, so several crate/database tests fail on Linux and macOS. That is expected locally; don't "fix" those failures unless the task is explicitly about cross-platform paths.
+CI (`.github/workflows/lint-and-test.yml`) runs lint, types, format, and tests on **windows-latest**, and the tests alone on **macos-latest** and **ubuntu-latest**, each across Python 3.12-3.15. The `main` ruleset requires the windows job's checks by name (`Lint & Test (3.12)` ...), so keep that job's name and matrix as they are; the macOS/Linux job is separate for that reason. Tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `unittest.skipUnless` / `skipIf`, with a matching test for the other OS family.
 
 Publishing to PyPI is a manual `workflow_dispatch` of `.github/workflows/build-and-publish.yml`. Bump `version` in `pyproject.toml` and add a `CHANGELOG.md` entry for user-visible changes.
 
