@@ -242,11 +242,7 @@ def main():
                     comparison = SmartCrate._get_rule_comparison_from_key(  # pylint: disable=protected-access
                         str(value[0])
                     )
-                    rule_value: str | int = value[1]
-                    if comparison in (SmartCrate.RuleComparison.INT_IS_GE, SmartCrate.RuleComparison.INT_IS_LE):
-                        # integer comparisons must be stored in the integer value field, not as text
-                        rule_value = int(rule_value)
-                    crate.set_rule(field, comparison, rule_value)
+                    crate.set_rule(field, comparison, value[1])
             crate.save()
             continue
 
