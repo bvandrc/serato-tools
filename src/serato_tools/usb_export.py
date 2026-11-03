@@ -168,8 +168,8 @@ def copy_crates_to_usb(
             except OSError:
                 dir_filenames = []
             stem_files_by_dir[dirname] = [f for f in dir_filenames if f.endswith(".serato-stems")]
-        prefix = os.path.splitext(basename)[0]
-        return [os.path.join(dirname, f) for f in stem_files_by_dir[dirname] if f.startswith(prefix)]
+        track_name = os.path.splitext(basename)[0]
+        return [os.path.join(dirname, f) for f in stem_files_by_dir[dirname] if f.startswith(track_name)]
 
     def maybe_copy(src_path: str, dst_path: str):
         if not os.path.exists(src_path):
