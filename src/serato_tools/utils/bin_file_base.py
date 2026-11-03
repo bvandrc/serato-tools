@@ -4,7 +4,6 @@ import re
 import copy
 import struct
 import base64
-import warnings
 from enum import StrEnum
 import json
 from typing import Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
@@ -50,17 +49,13 @@ class SeratoBinFile:
         COLUMN_NAME = "tvcn"
         COLUMN_WIDTH = "tvcw"
         TRACK_PATH = "ptrk"
-        # Smart Crates
-        SMARTCRATE_RULE = "rurt"
-        SMARTCRATE_LIVE_UPDATE = "rlut"
-        SMARTCRATE_MATCH_ALL = "rart"
-        RULE_VALUE_TEXT = "trpt"
-        RULE_VALUE_DATE = "trtt"
-        RULE_VALUE_INTEGER = "urpt"
-        RULE_COMPARISON = "trft"
-        RULE_FIELD = "urkt"
 
-    FIELDS = list(f.value for f in Fields)
+    # the enums holding this class's valid field names; a subclass with fields of its own (SmartCrate's
+    # rule fields) extends this, which extends what _check_valid_field accepts and get_field_name resolves
+    FIELD_ENUMS: tuple[type[StrEnum], ...] = (Fields,)
+
+    # derived from FIELD_ENUMS so the two can't drift; redefine it alongside FIELD_ENUMS in a subclass
+    FIELDS = [f.value for field_enum in FIELD_ENUMS for f in field_enum]
 
     type ParsedField = Fields | str
     type BasicValue = str | bytes | int | bool
@@ -167,7 +162,7 @@ class SeratoBinFile:
 
                 entry_obj: SeratoBinFile.EntryJson = {
                     "field": field,
-                    "fieldname": SeratoBinFile.get_field_name(field),
+                    "fieldname": self.get_field_name(field),
                     "value": value,
                     "type": type(value).__name__,
                 }
@@ -211,7 +206,7 @@ class SeratoBinFile:
         entries = json_to_entries(json_data)
         # JSON types aren't tied to field prefixes the way the binary format is, so check now that it serializes,
         # rather than failing on the first save. Checked before assigning, so a bad file leaves entries as they were.
-        self._dump_entries(entries)
+        self._serialize_entries(entries)
         self.entries = entries
 
     def write_json(self, filepath: str) -> None:
@@ -236,8 +231,8 @@ class SeratoBinFile:
 
         json_content = write_json_array(self.to_json_object(), indent=0)
 
+        json.loads(json_content)  # check validity before opening (and truncating) the destination file
         with open(filepath, "w", encoding="utf-8") as f:
-            json.loads(json_content)  # check
             f.write(json_content)
 
     def print(self):
@@ -252,6 +247,14 @@ class SeratoBinFile:
                     raise DeeplyNestedListError
                 setattr(self, field, value)
                 self.fields.append(field)
+
+            # values are stored as attributes, so a repeated field would silently overwrite the earlier
+            # value and then be written back twice — corrupting the file on round-trip. One set-vs-list
+            # length comparison is far cheaper than a per-field membership scan; name the culprits only
+            # on the failure path.
+            if len(set(self.fields)) != len(self.fields):
+                duplicates = sorted({f for f in self.fields if self.fields.count(f) > 1})
+                raise ValueError(f"duplicate field(s) in entry: {', '.join(duplicates)}")
 
         def __repr__(self) -> str:
             return str(self.to_entries())
@@ -336,7 +339,7 @@ class SeratoBinFile:
 
             yield field, value
 
-    def _dump_item(self, entry: Entry) -> bytes:
+    def _serialize_item(self, entry: Entry) -> bytes:
         field, value = entry
         field_bytes = field.encode("ascii")
         assert len(field_bytes) == 4
@@ -351,7 +354,7 @@ class SeratoBinFile:
         if type_id in ("o", "r"):  #  struct (list)
             if not isinstance(value, list):
                 raise DataTypeError(value, list, field)
-            data = self._dump_entries(value)
+            data = self._serialize_entries(value)
         elif type_id in ("p", "t"):  # text
             if not isinstance(value, str):
                 raise DataTypeError(value, str, field)
@@ -375,8 +378,8 @@ class SeratoBinFile:
         header = struct.pack(">4sI", field_bytes, length)
         return header + data
 
-    def _dump_entries(self, entries: EntryList):
-        return b"".join(self._dump_item(entry) for entry in entries)
+    def _serialize_entries(self, entries: EntryList):
+        return b"".join(self._serialize_item(entry) for entry in entries)
 
     def to_bytes(self) -> bytes:
         """
@@ -384,13 +387,7 @@ class SeratoBinFile:
 
         Each call re-serializes the whole file, so call it once rather than in a loop.
         """
-        return self._dump_entries(self.entries)
-
-    @property
-    def raw_data(self) -> bytes:
-        """Deprecated, to be removed in 5.0: use to_bytes(), which this calls."""
-        warnings.warn("raw_data is deprecated, use to_bytes() instead", DeprecationWarning, stacklevel=2)
-        return self.to_bytes()
+        return self._serialize_entries(self.entries)
 
     def get_tracks(self) -> Generator[Track, None, None]:
         for field, value in self.entries:
@@ -477,25 +474,27 @@ class SeratoBinFile:
         with open(file, "wb") as f:
             f.write(data)
 
-    @staticmethod
-    def get_field_name(field: str) -> str:
-        try:
-            return (
-                get_enum_key_from_value(field, SeratoBinFile.Fields)
-                .replace("_", " ")
-                .title()
-                .replace("Smartcrate", "SmartCrate")
-                .replace("Added U", "Added")
-                .replace("Added T", "Added")
-            )
-        except ValueError:
-            return "Unknown Field"
+    @classmethod
+    def get_field_name(cls, field: str) -> str:
+        for field_enum in cls.FIELD_ENUMS:
+            try:
+                return (
+                    get_enum_key_from_value(field, field_enum)
+                    .replace("_", " ")
+                    .title()
+                    .replace("Smartcrate", "SmartCrate")
+                    .replace("Added U", "Added")
+                    .replace("Added T", "Added")
+                )
+            except ValueError:
+                continue
+        return "Unknown Field"
 
-    @staticmethod
-    def _check_valid_field(field: str):
-        if field not in SeratoBinFile.FIELDS:
+    @classmethod
+    def _check_valid_field(cls, field: str):
+        if field not in cls.FIELDS:
             raise ValueError(
-                f"invalid field: {field} must be one of: {str(SeratoBinFile.FIELDS)}\n(see {__file__} for what these keys map to)"
+                f"invalid field: {field} must be one of: {str(cls.FIELDS)}\n(see {__file__} for what these keys map to)"
             )
 
     @staticmethod
@@ -541,13 +540,13 @@ class SeratoBinFile:
                     for f, v in value:
                         if isinstance(v, list):
                             raise DeeplyNestedListError
-                        new_entries.append((f, SeratoBinFile.get_field_name(f), v))
+                        new_entries.append((f, self.get_field_name(f), v))
                 except:
                     logger.error(f"error on field: {field} value: {value}")
                     raise
                 value = new_entries
 
-            yield field, SeratoBinFile.get_field_name(field), value
+            yield field, self.get_field_name(field), value
 
     class ModifyRule(TypedDict):
         field: "SeratoBinFile.Fields"
@@ -563,9 +562,10 @@ class SeratoBinFile:
             list(set(all_field_names))
         ), f"must only have 1 function per field. fields passed: {str(sorted(all_field_names))}"
         for field in all_field_names:
-            SeratoBinFile._check_valid_field(field)
+            self._check_valid_field(field)
 
-        # fix some rules if needed
+        # normalize file lists on copies, so the caller's rule dicts are not mutated
+        rules = [cast("SeratoBinFile.ModifyRule", dict(rule)) for rule in rules]
         for rule in rules:
             if "files" in rule:
                 rule["files"] = [SeratoBinFile.get_relative_path(file).upper() for file in rule["files"]]
@@ -592,7 +592,7 @@ class SeratoBinFile:
                     raise FileNotFoundError(f"set track location to {maybe_new_value}, but doesn't exist")
                 maybe_new_value = SeratoBinFile.get_relative_path(maybe_new_value)
 
-            field_name = SeratoBinFile.get_field_name(field)
+            field_name = self.get_field_name(field)
             logger.info(f"Set {field}({field_name})={str(maybe_new_value)} in library for {track_relpath}")
             return maybe_new_value
 
