@@ -36,12 +36,22 @@ class TestCase(unittest.TestCase):
             + "\nrurt (SmartCrate Rule): [ trft (Rule Comparison): cond_isn_str (STR_IS_NOT) ], [ urkt (Rule Field): 8 (album) ], [ trpt (Rule Value Text): albo ]",
         )
 
-    def test_rule_value_zero(self):
-        rule = SmartCrate.Rule(
-            [
-                (SmartCrate.Fields.RULE_COMPARISON.value, SmartCrate.RuleComparison.INT_IS_GE.value),
-                (SmartCrate.Fields.RULE_FIELD.value, SmartCrate.RuleField.PLAYS.value),
-                (SmartCrate.Fields.RULE_VALUE_INTEGER.value, 0),
-            ]
-        )
-        self.assertEqual(rule.value, 0, "an integer rule value of 0 must not read as None")
+    def test_rule_falsy_value_reads_back(self):
+        # one falsy value per value field; the dict also pins that every field in the constant is covered
+        falsy_values = {
+            SmartCrate.Fields.RULE_VALUE_INTEGER: 0,
+            SmartCrate.Fields.RULE_VALUE_TEXT: "",
+            SmartCrate.Fields.RULE_VALUE_DATE: "",
+        }
+        self.assertEqual(set(falsy_values), set(SmartCrate.RULE_VALUE_FIELDS))
+
+        for value_field in SmartCrate.RULE_VALUE_FIELDS:
+            with self.subTest(value_field=value_field):
+                rule = SmartCrate.Rule(
+                    [
+                        (SmartCrate.Fields.RULE_COMPARISON.value, SmartCrate.RuleComparison.INT_IS_GE.value),
+                        (SmartCrate.Fields.RULE_FIELD.value, SmartCrate.RuleField.PLAYS.value),
+                        (value_field.value, falsy_values[value_field]),
+                    ]
+                )
+                self.assertEqual(rule.value, falsy_values[value_field], "a falsy rule value must not read as no value")
