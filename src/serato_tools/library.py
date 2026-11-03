@@ -45,7 +45,7 @@ class Library:
         # Serato only creates the folder once the first crate of its kind is made
         return crate_class.get_crate_files(crates_dir) if os.path.isdir(crates_dir) else []
 
-    def _get_files(self) -> list[SeratoBinFile]:
+    def _get_bin_files(self) -> list[SeratoBinFile]:
         # smart crates store their matched tracks' paths too, and Serato re-adds any of those that are missing from
         # the database as blank "?" entries
         return [self.database, *self.crates, *self.smart_crates]
@@ -69,7 +69,7 @@ class Library:
             logger.error(f"File already exists with change: {src}")
             return
 
-        for file in self._get_files():
+        for file in self._get_bin_files():
             if file.change_track_path(src, dest):
                 file.save()
 
@@ -79,7 +79,7 @@ class Library:
         Paths whose file is already gone are still removed from the library, which cleans up missing tracks. Only the
         files that contain one of the tracks are saved.
         """
-        for file in self._get_files():
+        for file in self._get_bin_files():
             if file.remove_tracks(filepaths):
                 file.save()
         for filepath in filepaths:
