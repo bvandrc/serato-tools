@@ -10,11 +10,12 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Misc. edge-case fixes and clearer errors for cues, cue snapping, and beatgrids
 - The tag classes' stored bytes (`SeratoTag.raw_data`) are now internal: the deprecated read-only `raw_data` getter will be removed in the next major version — parse, modify, and serialize through each tag's own methods instead
 - Fix the USB export writing a corrupted crate order file on every export
+- Fix smart crate rules: a rule's value is now stored in the value field its comparison expects, like Serato does — integer-comparison values set from the CLI were stored as text, and changing a rule's value type left both value fields in the rule
 
 ## [5.1.0] - 2026-11-03
 
-- Add `add_tracks` and `remove_tracks` for batch changes in one pass; `add_track` and `remove_track` are deprecated in their favor, and will be removed in the next major version
 - Adding tracks to a crate, `remove_duplicates`, and the USB export dedupe are much faster on a large library
+- Add `add_tracks` and `remove_tracks` for batch changes in one pass; `add_track` and `remove_track` are deprecated in their favor, and will be removed in the next major version
 
 ## [5.0.2] - 2026-11-03
 
