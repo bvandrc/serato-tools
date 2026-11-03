@@ -7,8 +7,6 @@
 - Dynamic beatgrid analysis that can be saved to a track's beatgrid.
 - Serato USB export that beats Serato's sync by putting all files in 1 folder (without duplicates) and only copying changed files, unlike Serato's sync which takes forever and creates many duplicate file locations
 
-**Currently designed for Python 3.12+. If you would like backwards compatibility with an older version, please reach out!**
-
 ## Contents
 
 - [Example uses](#example-uses)
@@ -58,6 +56,8 @@
 - List available smart crates
 
 # Installation
+
+**Currently designed for Python 3.12+. If you would like backwards compatibility with an older version, please reach out!**
 
 ```cmd
 pip install serato-tools
