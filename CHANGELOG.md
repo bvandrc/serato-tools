@@ -2,6 +2,10 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.0.2] - 2026-11-03
+
+- `modify` on a database or regular crate now rejects smart crate rule fields, which moved from the shared `Fields` enum to the new `SmartCrate.RuleFields`
+
 ## [5.0.1] - 2026-11-03
 
 - Fix smart crate rules with a value of `0` or empty text being read as having no value

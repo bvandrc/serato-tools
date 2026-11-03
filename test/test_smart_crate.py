@@ -39,9 +39,9 @@ class TestCase(unittest.TestCase):
     def test_rule_falsy_value_reads_back(self):
         # one falsy value per value field; the dict also pins that every field in the constant is covered
         falsy_values = {
-            SmartCrate.Fields.RULE_VALUE_INTEGER: 0,
-            SmartCrate.Fields.RULE_VALUE_TEXT: "",
-            SmartCrate.Fields.RULE_VALUE_DATE: "",
+            SmartCrate.RuleFields.RULE_VALUE_INTEGER: 0,
+            SmartCrate.RuleFields.RULE_VALUE_TEXT: "",
+            SmartCrate.RuleFields.RULE_VALUE_DATE: "",
         }
         self.assertEqual(set(falsy_values), set(SmartCrate.RULE_VALUE_FIELDS))
 
@@ -49,8 +49,8 @@ class TestCase(unittest.TestCase):
             with self.subTest(value_field=value_field):
                 rule = SmartCrate.Rule(
                     [
-                        (SmartCrate.Fields.RULE_COMPARISON.value, SmartCrate.RuleComparison.INT_IS_GE.value),
-                        (SmartCrate.Fields.RULE_FIELD.value, SmartCrate.RuleField.PLAYS.value),
+                        (SmartCrate.RuleFields.RULE_COMPARISON.value, SmartCrate.RuleComparison.INT_IS_GE.value),
+                        (SmartCrate.RuleFields.RULE_FIELD.value, SmartCrate.RuleField.PLAYS.value),
                         (value_field.value, falsy_values[value_field]),
                     ]
                 )

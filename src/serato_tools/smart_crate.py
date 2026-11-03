@@ -17,11 +17,26 @@ class SmartCrate(CrateBase):
     DIR = "SmartCrates"
     DIR_PATH = os.path.join(SERATO_DIR, DIR)
 
+    class RuleFields(StrEnum):
+        """The fields only a smart crate holds, which extend the common `Fields` of the other bin files."""
+
+        SMARTCRATE_RULE = "rurt"
+        SMARTCRATE_LIVE_UPDATE = "rlut"
+        SMARTCRATE_MATCH_ALL = "rart"
+        RULE_VALUE_TEXT = "trpt"
+        RULE_VALUE_DATE = "trtt"
+        RULE_VALUE_INTEGER = "urpt"
+        RULE_COMPARISON = "trft"
+        RULE_FIELD = "urkt"
+
+    FIELD_ENUMS = (CrateBase.Fields, RuleFields)
+    FIELDS = [f.value for field_enum in FIELD_ENUMS for f in field_enum]
+
     # the fields a rule can hold its value in, one per value type; a rule has exactly one of them
     RULE_VALUE_FIELDS = (
-        CrateBase.Fields.RULE_VALUE_INTEGER,
-        CrateBase.Fields.RULE_VALUE_TEXT,
-        CrateBase.Fields.RULE_VALUE_DATE,
+        RuleFields.RULE_VALUE_INTEGER,
+        RuleFields.RULE_VALUE_TEXT,
+        RuleFields.RULE_VALUE_DATE,
     )
 
     class RuleField(IntEnum):
@@ -55,8 +70,8 @@ class SmartCrate(CrateBase):
 
     DEFAULT_ENTRIES = [
         (CrateBase.Fields.VERSION, "1.0/Serato ScratchLive Smart Crate"),
-        (CrateBase.Fields.SMARTCRATE_MATCH_ALL, [("brut", False)]),
-        (CrateBase.Fields.SMARTCRATE_LIVE_UPDATE, [("brut", False)]),
+        (RuleFields.SMARTCRATE_MATCH_ALL, [("brut", False)]),
+        (RuleFields.SMARTCRATE_LIVE_UPDATE, [("brut", False)]),
         (CrateBase.Fields.SORTING, [(CrateBase.Fields.COLUMN_NAME, "key"), (CrateBase.Fields.REVERSE_ORDER, False)]),
         (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "song"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
         (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "playCount"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
@@ -98,9 +113,9 @@ class SmartCrate(CrateBase):
     @staticmethod
     def _get_rule_value_type(value: str | int):
         if isinstance(value, int):
-            return SmartCrate.Fields.RULE_VALUE_INTEGER
+            return SmartCrate.RuleFields.RULE_VALUE_INTEGER
         elif isinstance(value, str):
-            return SmartCrate.Fields.RULE_VALUE_TEXT
+            return SmartCrate.RuleFields.RULE_VALUE_TEXT
         else:
             raise TypeError(f"Bad type: {type(value)} (value: {value})")
 
@@ -110,11 +125,11 @@ class SmartCrate(CrateBase):
             return self._stringify_entries(value, indent)
 
         ret_val = str(value)
-        if field == CrateBase.Fields.RULE_FIELD:
+        if field == SmartCrate.RuleFields.RULE_FIELD:
             if not isinstance(value, int):
                 raise DataTypeError(value, int, field)
             ret_val += f" ({self._get_rule_field_from_val(value).lower()})"
-        elif field == CrateBase.Fields.RULE_COMPARISON:
+        elif field == SmartCrate.RuleFields.RULE_COMPARISON:
             if not isinstance(value, str):
                 raise DataTypeError(value, str, field)
             ret_val += f" ({self._get_rule_comparison_from_val(value)})"
@@ -127,8 +142,8 @@ class SmartCrate(CrateBase):
 
             # TODO: check and ensure types
 
-            self.comparison = self.get_value(SmartCrate.Fields.RULE_COMPARISON)
-            self.field = self.get_value(SmartCrate.Fields.RULE_FIELD)
+            self.comparison = self.get_value(SmartCrate.RuleFields.RULE_COMPARISON)
+            self.field = self.get_value(SmartCrate.RuleFields.RULE_FIELD)
 
             value_field = next((field for field in SmartCrate.RULE_VALUE_FIELDS if field in self.fields), None)
             self.value = cast(
@@ -143,17 +158,17 @@ class SmartCrate(CrateBase):
             super().set_value(field, value)
 
         def set_field(self, value: "SmartCrate.RuleField"):
-            super().set_value(SmartCrate.Fields.RULE_FIELD, value.value)
+            super().set_value(SmartCrate.RuleFields.RULE_FIELD, value.value)
 
         def set_comparison(self, value: "SmartCrate.RuleComparison"):
-            super().set_value(SmartCrate.Fields.RULE_COMPARISON, value.value)
+            super().set_value(SmartCrate.RuleFields.RULE_COMPARISON, value.value)
 
     def set_rule(self, field: "SmartCrate.RuleField", comparison: "SmartCrate.RuleComparison", value: str | int):
         rule_field_id = field.value
         rule_exists: bool = False
         new_entries: SmartCrate.EntryList = []
         for f, v in self.entries:
-            if f == CrateBase.Fields.SMARTCRATE_RULE:
+            if f == SmartCrate.RuleFields.SMARTCRATE_RULE:
                 if not isinstance(v, list):
                     raise DataTypeError(v, list, f)
                 rule = SmartCrate.Rule(v)
@@ -167,12 +182,12 @@ class SmartCrate(CrateBase):
         if not rule_exists:
             new_rule = SmartCrate.Rule(
                 [
-                    (SmartCrate.Fields.RULE_COMPARISON.value, comparison.value),
-                    (SmartCrate.Fields.RULE_FIELD.value, rule_field_id),
+                    (SmartCrate.RuleFields.RULE_COMPARISON.value, comparison.value),
+                    (SmartCrate.RuleFields.RULE_FIELD.value, rule_field_id),
                     (SmartCrate._get_rule_value_type(value).value, value),
                 ]
             )
-            new_entries.append((CrateBase.Fields.SMARTCRATE_RULE.value, new_rule.to_entries()))
+            new_entries.append((SmartCrate.RuleFields.SMARTCRATE_RULE.value, new_rule.to_entries()))
 
         self.entries = new_entries
 
@@ -180,7 +195,7 @@ class SmartCrate(CrateBase):
         rule_field_id = field.value
         new_entries: SmartCrate.EntryList = []
         for f, v in self.entries:
-            if f == CrateBase.Fields.SMARTCRATE_RULE:
+            if f == SmartCrate.RuleFields.SMARTCRATE_RULE:
                 if not isinstance(v, list):
                     raise DataTypeError(v, list, f)
                 rule = SmartCrate.Rule(v)
