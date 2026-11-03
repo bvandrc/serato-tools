@@ -25,12 +25,12 @@ class TrackCuesV1(SeratoTag):
         LOOP = 3
 
     def __init__(self, file_or_data: SeratoTag.FileOrData):
-        self.raw_data: bytes | None
+        self._raw_data: bytes | None
         super().__init__(file_or_data)
 
         self.entries: list[TrackCuesV1.Entry | TrackCuesV1.Color] = []
-        if self.raw_data is not None:
-            self.entries = list(self._parse(self.raw_data))
+        if self._raw_data is not None:
+            self.entries = list(self._parse(self._raw_data))
 
     class Entry(object):
         FORMAT = ">B4sB4s6s4sBB"
@@ -173,7 +173,7 @@ class TrackCuesV1(SeratoTag):
         data += struct.pack(">I", num_entries)
         for entry_data in entries:
             data += entry_data._serialize()
-        self.raw_data = data
+        self._raw_data = data
 
 
 if __name__ == "__main__":
@@ -365,4 +365,4 @@ if __name__ == "__main__":
                 tags.save()
             else:
                 with open(args.file, mode="wb") as fp:
-                    fp.write(tags.raw_data or b"")
+                    fp.write(tags._raw_data or b"")  # pylint: disable=protected-access

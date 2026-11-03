@@ -1,5 +1,6 @@
 import struct
 import io
+import warnings
 
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3FileType, ID3
@@ -104,24 +105,34 @@ class SeratoTag(SeratoTrack):
 
     def __init__(self, file_or_data: FileOrData):
         self.tagfile: SeratoTrack.Tagfile | None = None  # pyright: ignore[reportIncompatibleVariableOverride]
-        self.raw_data: bytes | None = None
+        self._raw_data: bytes | None = None
 
         if isinstance(file_or_data, (bytes, bytearray, memoryview)):
-            self.raw_data = file_or_data
+            self._raw_data = file_or_data
         else:
             super().__init__(file=file_or_data)
-            self.raw_data = self._get_geob()
+            self._raw_data = self._get_geob()
 
     def __repr__(self) -> str:
-        return str(self.raw_data)
+        return str(self._raw_data)
+
+    @property
+    def raw_data(self) -> bytes | None:
+        """Deprecated, to be removed in the next major version: read-only. Use the tag's own parse, modify, and serialize methods instead of the stored bytes."""
+        warnings.warn(
+            "raw_data is deprecated, use the tag's own parse, modify, and serialize methods instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._raw_data
 
     def _get_geob(self):  # pylint: disable=arguments-differ  # pyright: ignore[reportIncompatibleMethodOverride]
         return super()._get_geob(self.GEOB_KEY)
 
     def _tag_geob(self):  # pylint: disable=arguments-differ  # pyright: ignore[reportIncompatibleMethodOverride]
-        if self.raw_data is None:
+        if self._raw_data is None:
             return
-        return super()._tag_geob(self.GEOB_KEY, self.raw_data)
+        return super()._tag_geob(self.GEOB_KEY, self._raw_data)
 
     def _del_geob(self):  # pylint: disable=arguments-differ  # pyright: ignore[reportIncompatibleMethodOverride]
         return super()._del_geob(self.GEOB_KEY)
@@ -136,14 +147,14 @@ class SeratoTag(SeratoTrack):
 
     def delete(self):
         was_deleted = self._del_geob() if self.tagfile else False
-        # clear raw_data so a later save() persists the deletion instead of re-tagging the old bytes
-        self.raw_data = None
+        # clear _raw_data so a later save() persists the deletion instead of re-tagging the old bytes
+        self._raw_data = None
         return was_deleted
 
     def save(self):
         if not self.tagfile:
             raise Exception("no tagfile, no saving")
-        if self.raw_data:
+        if self._raw_data:
             self._tag_geob()
         else:
             self._del_geob()

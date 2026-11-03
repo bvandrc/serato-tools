@@ -12,14 +12,14 @@ class TestCase(unittest.TestCase):
 
     def test_parse(self):
         tags = TrackCuesV1(self.file_data)
-        self.assertEqual(tags.raw_data, self.file_data, "raw_data read")
+        self.assertEqual(tags._raw_data, self.file_data, "raw_data read")  # pylint: disable=protected-access
 
     @unittest.skip("doesn't work with old data")
     def test_parse_and_serialize(self):
         tags = TrackCuesV1(self.file_data)
-        self.assertEqual(tags.raw_data, self.file_data, "raw_data read")
+        self.assertEqual(tags._raw_data, self.file_data, "raw_data read")  # pylint: disable=protected-access
         tags._serialize()
-        self.assertEqual(tags.raw_data, self.file_data, "serialize")
+        self.assertEqual(tags._raw_data, self.file_data, "serialize")  # pylint: disable=protected-access
 
     def test_untested_version_raises_at_construction(self):
         with self.assertRaises(ValueError):

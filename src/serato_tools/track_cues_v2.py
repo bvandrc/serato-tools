@@ -72,12 +72,12 @@ class TrackCuesV2(SeratoTag):
         BLACK = b"\x99\x99\x99"
 
     def __init__(self, file_or_data: SeratoTag.FileOrData):
-        self.raw_data: bytes | None = None
+        self._raw_data: bytes | None = None
         super().__init__(file_or_data)
 
         self.entries: list[TrackCuesV2.Entry] = []
-        if self.raw_data is not None:
-            self.entries = list(self._parse(self.raw_data))
+        if self._raw_data is not None:
+            self.entries = list(self._parse(self._raw_data))
         self.modified: bool = False
 
         self.beatgrid: TrackBeatgrid | None = None
@@ -371,8 +371,8 @@ class TrackCuesV2(SeratoTag):
 
         new_raw_data = data.ljust(470, b"\x00")
 
-        self.modified = new_raw_data != self.raw_data  # pylint: disable=access-member-before-definition
-        self.raw_data = new_raw_data
+        self.modified = new_raw_data != self._raw_data  # pylint: disable=access-member-before-definition
+        self._raw_data = new_raw_data
 
     @staticmethod
     def parse_entries_file(contents: str, assert_len_1: bool):
@@ -773,4 +773,4 @@ if __name__ == "__main__":
                 tags.save()
             else:
                 with open(args.file, mode="wb") as fp:
-                    fp.write(tags.raw_data or b"")
+                    fp.write(tags._raw_data or b"")  # pylint: disable=protected-access

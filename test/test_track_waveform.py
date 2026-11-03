@@ -10,7 +10,7 @@ class TestCase(unittest.TestCase):
         with open(os.path.abspath("test/data/track_waveform.bin"), mode="rb") as fp:
             file_data = fp.read()
         tags = TrackWaveform(file_data)
-        self.assertEqual(tags.raw_data, file_data, "raw_data read")
+        self.assertEqual(tags._raw_data, file_data, "raw_data read")  # pylint: disable=protected-access
         with open(os.path.abspath("test/data/track_waveform_parsed.bin"), mode="rb") as fp:
             expected_parsed_data = fp.read()
         self.assertEqual(
