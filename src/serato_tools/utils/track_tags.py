@@ -120,7 +120,7 @@ class SeratoTag(SeratoTrack):
     def raw_data(self) -> bytes | None:
         """Deprecated, to be removed in the next major version: read-only. Use the tag's own parse, modify, and serialize methods instead of the stored bytes."""
         warnings.warn(
-            "raw_data is deprecated, use the tag's own parse, modify, and serialize methods instead",
+            "raw_data is deprecated and will be removed in version 6, use the tag's own parse, modify, and serialize methods instead",
             DeprecationWarning,
             stacklevel=2,
         )

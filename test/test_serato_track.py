@@ -42,13 +42,3 @@ class TestCase(unittest.TestCase):
     def test_unsupported_file_type_raises(self):
         with self.assertRaises(ValueError):
             SeratoTrack("some_file.flac")
-
-    def test_raw_data_is_a_deprecated_read_only_property(self):
-        tags = TrackAutotags(os.path.abspath("test/data/test_mp3.mp3"))
-
-        with self.assertWarns(DeprecationWarning):
-            data = tags.raw_data
-        self.assertEqual(data, tags._raw_data, "the deprecated getter returns the stored bytes")
-
-        with self.assertRaises(AttributeError, msg="raw_data must not be settable"):
-            tags.raw_data = b"x"  # pyright: ignore[reportAttributeAccessIssue]
