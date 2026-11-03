@@ -21,6 +21,18 @@ class TestCase(unittest.TestCase):
         tags._serialize()
         self.assertEqual(tags._raw_data, self.file_data, "serialize")  # pylint: disable=protected-access
 
+    def test_serialize_without_trailing_color_raises(self):
+        tags = TrackCuesV1(self.file_data)
+
+        tags.entries = []
+        with self.assertRaises(ValueError, msg="empty entries must not serialize"):
+            tags._serialize()
+
+        tags = TrackCuesV1(self.file_data)
+        tags.entries = [e for e in tags.entries if not isinstance(e, TrackCuesV1.Color)]
+        with self.assertRaises(ValueError, msg="entries without a trailing Color must not serialize"):
+            tags._serialize()
+
     def test_untested_version_raises_at_construction(self):
         with self.assertRaises(ValueError):
             TrackCuesV1(bytes([0x99, 0x99]))
