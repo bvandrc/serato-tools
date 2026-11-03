@@ -2,13 +2,14 @@
 # -*- coding: utf-8 -*-
 import os
 import sys
+import warnings
 from dataclasses import dataclass
 
 if __package__ is None:
     sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from serato_tools.utils.bin_file_base import SeratoBinFile
-from serato_tools.utils import logger, SERATO_DIR
+from serato_tools.utils import SERATO_DIR
 
 
 class DatabaseV2(SeratoBinFile):
@@ -27,33 +28,19 @@ class DatabaseV2(SeratoBinFile):
         super().__init__(file=file)
 
     def rename_track_file(self, src: str, dest: str):
-        """
-        This renames the file path, and also changes the path in the database to point to the new filename, so that
-        the renamed file is not missing in the library.
-        """
-        # os.rename only raises FileExistsError on Windows; on POSIX it silently overwrites, so check
-        # first. A case-only rename is fine: on case-insensitive filesystems dest is then the same file.
-        # If src is missing, samefile raises FileNotFoundError, just as the rename itself would.
-        if os.path.exists(dest) and not os.path.samefile(src, dest):
-            logger.error(f"File already exists with change: {src}")
-            return
-        try:
-            os.rename(src=src, dst=dest)
-            logger.info(f"renamed {src} to {dest}")
-        except FileExistsError:
-            # can't just do os.path.exists, doesn't pick up case changes for certain filesystems
-            logger.error(f"File already exists with change: {src}")
-            return
-        # only rewrite files that have the track
-        if self.change_track_path(src, dest):
-            self.save()
+        """Deprecated, to be removed in the next major version: use Library.rename_track_file(), which this calls."""
+        warnings.warn(
+            "DatabaseV2.rename_track_file is deprecated, use Library.rename_track_file instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        # imported here since library imports this module
+        from serato_tools.library import Library  # pylint: disable=import-outside-toplevel
 
-        from serato_tools.crate import Crate
-
-        for crate_path in Crate.get_crate_files():
-            crate = Crate(crate_path)
-            if crate.change_track_path(src, dest):
-                crate.save()
+        # pyright sees this file as src.serato_tools.database_v2 but library's import as serato_tools.database_v2,
+        # two names for the same class
+        library = Library(os.path.dirname(self.filepath), database=self)  # pyright: ignore[reportArgumentType]
+        library.rename_track_file(src, dest)
 
 
 if __name__ == "__main__":

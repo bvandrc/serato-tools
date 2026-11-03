@@ -2,6 +2,11 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.2.0] - 2026-11-03
+
+- Add `Library`, which renames or removes track files and updates the database, crates, and smart crates to match. It parses each file the first time it's needed and then keeps it, so bulk changes don't re-parse the library
+- `DatabaseV2.rename_track_file` is deprecated in favor of `Library.rename_track_file`, and will be removed in the next major version. It now also updates smart crates, and looks for crates next to the database instead of in the default `_Serato_` folder
+
 ## [5.1.1] - 2026-11-03
 
 - Printing or JSON-dumping a large database is faster: field display names are now looked up in a cached map

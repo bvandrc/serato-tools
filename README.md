@@ -71,18 +71,18 @@ _NOTE: This feature has only been tested on a couple of tracks. Recommend review
 >>> serato_usb_export --drive E --crate_matcher *house* *techno* --root_crate="Dave USB"
 ```
 
-### Renaming a file and changing its location in the database
+### Renaming or removing track files across the library
 
-This renames the file path, and also changes the path in the database to point to the new filename, so that the renamed file is not missing in the library.
+`Library` changes a track file and every place Serato points to it: the database, crates, and smart crates, so the track isn't left missing in Serato. Each file is parsed the first time it's needed and then kept, so many changes in a row stay fast. Keep one `Library` per library folder, since another copy's save would overwrite this one's changes.
 
-_NOTE: Recommended to make a backup of the database file elsewhere, before modifying via this package, in case an unforseen bug appears._
+_NOTE: Recommended to make a backup of the `_Serato_` folder elsewhere, before modifying via this package, in case an unforseen bug appears._
 
 ```python
-from serato_tools.database_v2 import DatabaseV2
+from serato_tools.library import Library
 
-db = DatabaseV2()
-db.rename_track_file(src="5udo - One - Original Mix.mp3", dest="5udo - One.mp3")
-
+library = Library()  # or Library(r"E:\_Serato_") for a library on another drive
+library.rename_track_file(src="5udo - One - Original Mix.mp3", dest="5udo - One.mp3")
+library.remove_track_files(["5udo - One (Radio Edit).mp3"])  # deletes the files too
 ```
 
 ### Modifying the database file

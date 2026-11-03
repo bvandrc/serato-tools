@@ -146,6 +146,7 @@ class TestCase(unittest.TestCase):
             with (
                 mock.patch.object(Crate, "DIR_PATH", crates_dir),
                 mock.patch.object(Crate, "save", autospec=True, side_effect=saved.append),
+                self.assertWarns(DeprecationWarning),
             ):
                 db.rename_track_file(src, dest)
 
@@ -163,6 +164,7 @@ class TestCase(unittest.TestCase):
             with (
                 mock.patch.object(Crate, "DIR_PATH", crates_dir),
                 mock.patch.object(Crate, "save", autospec=True, side_effect=saved.append),
+                self.assertWarns(DeprecationWarning),
             ):
                 db.rename_track_file(other_src, other_dest)
 
