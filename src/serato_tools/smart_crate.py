@@ -33,11 +33,20 @@ class SmartCrate(CrateBase):
     FIELDS = [f.value for field_enum in FIELD_ENUMS for f in field_enum]
 
     # the fields a rule can hold its value in, one per value type; a rule has exactly one of them
-    RULE_VALUE_FIELDS = (
-        RuleFields.RULE_VALUE_INTEGER,
-        RuleFields.RULE_VALUE_TEXT,
-        RuleFields.RULE_VALUE_DATE,
+    RULE_VALUE_FIELDS = frozenset(
+        (
+            RuleFields.RULE_VALUE_INTEGER,
+            RuleFields.RULE_VALUE_TEXT,
+            RuleFields.RULE_VALUE_DATE,
+        )
     )
+
+    # each comparison names its value's type in its suffix (cond_is_str, cond_bef_time, cond_greq_uint)
+    _RULE_VALUE_FIELD_BY_COMPARISON_SUFFIX = {
+        "str": RuleFields.RULE_VALUE_TEXT,
+        "time": RuleFields.RULE_VALUE_DATE,
+        "uint": RuleFields.RULE_VALUE_INTEGER,
+    }
 
     class RuleField(IntEnum):
         ADDED = 25
@@ -111,13 +120,24 @@ class SmartCrate(CrateBase):
             ) from exc
 
     @staticmethod
-    def _get_rule_value_type(value: str | int):
-        if isinstance(value, int):
-            return SmartCrate.RuleFields.RULE_VALUE_INTEGER
-        elif isinstance(value, str):
-            return SmartCrate.RuleFields.RULE_VALUE_TEXT
-        else:
-            raise TypeError(f"Bad type: {type(value)} (value: {value})")
+    def _get_rule_value_field(comparison: str) -> "SmartCrate.RuleFields":
+        """The field a rule stores its value in.
+
+        Serato picks it by the comparison's type (the cond_*_str / cond_*_time / cond_*_uint suffixes),
+        not by the value's own type: an artist rule set to 100 is stored as the text "100".
+        """
+        suffix = SmartCrate.RuleComparison(comparison).value.rsplit("_", 1)[-1]
+        return SmartCrate._RULE_VALUE_FIELD_BY_COMPARISON_SUFFIX[suffix]
+
+    @staticmethod
+    def _coerce_rule_value(comparison: str, value: str | int) -> str | int:
+        """The value converted to the type of the field the comparison stores it in."""
+        if SmartCrate._get_rule_value_field(comparison) == SmartCrate.RuleFields.RULE_VALUE_INTEGER:
+            try:
+                return int(value)
+            except ValueError:
+                raise ValueError(f'comparison "{comparison}" requires an integer value, got "{value}"') from None
+        return str(value)
 
     def _stringify_entry(self, entry: CrateBase.EntryFull, indent: int = 0) -> str:
         field, fieldname, value = entry  # pylint: disable=unused-variable
@@ -154,14 +174,31 @@ class SmartCrate(CrateBase):
         def set_value(  # pylint: disable=arguments-differ # pyright: ignore[reportIncompatibleMethodOverride]
             self, value: str | int
         ):
-            field = SmartCrate._get_rule_value_type(value)  # pylint: disable=protected-access
+            if not isinstance(self.comparison, str):
+                raise DataTypeError(self.comparison, str, SmartCrate.RuleFields.RULE_COMPARISON)
+            # pylint: disable=protected-access
+            field = SmartCrate._get_rule_value_field(self.comparison)
+            value = SmartCrate._coerce_rule_value(self.comparison, value)
+            # when the comparison's type differs from the old value's (e.g. text -> integer), replace
+            # the old value field in place instead of leaving both in the rule
+            for other in SmartCrate.RULE_VALUE_FIELDS - {field}:
+                if other not in self.fields:
+                    continue
+                if field in self.fields:
+                    self.fields.remove(other)
+                else:
+                    self.fields[self.fields.index(other)] = field
+                delattr(self, other)
             super().set_value(field, value)
+            self.value = value
 
         def set_field(self, value: "SmartCrate.RuleField"):
             super().set_value(SmartCrate.RuleFields.RULE_FIELD, value.value)
+            self.field = value.value
 
         def set_comparison(self, value: "SmartCrate.RuleComparison"):
             super().set_value(SmartCrate.RuleFields.RULE_COMPARISON, value.value)
+            self.comparison = value.value
 
     def set_rule(self, field: "SmartCrate.RuleField", comparison: "SmartCrate.RuleComparison", value: str | int):
         rule_field_id = field.value
@@ -173,8 +210,9 @@ class SmartCrate(CrateBase):
                     raise DataTypeError(v, list, f)
                 rule = SmartCrate.Rule(v)
                 if rule.field == rule_field_id:
-                    rule.set_value(value)
+                    # the comparison first: it decides which value field set_value stores into
                     rule.set_comparison(comparison)
+                    rule.set_value(value)
                     rule_exists = True
                 v = rule.to_entries()
             new_entries.append((f, v))
@@ -184,9 +222,9 @@ class SmartCrate(CrateBase):
                 [
                     (SmartCrate.RuleFields.RULE_COMPARISON.value, comparison.value),
                     (SmartCrate.RuleFields.RULE_FIELD.value, rule_field_id),
-                    (SmartCrate._get_rule_value_type(value).value, value),
                 ]
             )
+            new_rule.set_value(value)
             new_entries.append((SmartCrate.RuleFields.SMARTCRATE_RULE.value, new_rule.to_entries()))
 
         self.entries = new_entries
@@ -250,14 +288,16 @@ def main():
                 field = SmartCrate._get_rule_field_from_key(key)  # pylint: disable=protected-access
                 if not value:
                     raise ValueError(f"no value given for --{key}, must specify a comparison and a value, or DELETE")
-                if str(value[0]).upper() == "DELETE":
+                comparison_key, *rule_values = value
+                if str(comparison_key).upper() == "DELETE":
                     crate.delete_rule(field)
                 else:
-                    assert len(value) == 2, "must specify 2 values: a comparison and a value"
                     comparison = SmartCrate._get_rule_comparison_from_key(  # pylint: disable=protected-access
-                        str(value[0])
+                        str(comparison_key)
                     )
-                    crate.set_rule(field, comparison, value[1])
+                    assert len(rule_values) == 1, "must specify 2 values: a comparison and a value"
+                    # set_rule stores the value in the field the comparison expects, parsing it as needed
+                    crate.set_rule(field, comparison, rule_values[0])
             crate.save()
             continue
 

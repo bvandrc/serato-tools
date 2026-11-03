@@ -55,3 +55,62 @@ class TestCase(unittest.TestCase):
                     ]
                 )
                 self.assertEqual(rule.value, falsy_values[value_field], "a falsy rule value must not read as no value")
+
+    def test_every_comparison_maps_to_a_value_field(self):
+        # the suffix lookup must cover every comparison, so a comparison with an unknown suffix
+        # fails here rather than at set_rule time
+        for comparison in SmartCrate.RuleComparison:
+            with self.subTest(comparison=comparison):
+                self.assertIn(SmartCrate._get_rule_value_field(comparison.value), SmartCrate.RULE_VALUE_FIELDS)
+
+    def test_rule_value_field_follows_comparison_not_value_type(self):
+        # confirmed against Serato itself: an artist rule set to 100 is stored as the text "100",
+        # so the comparison, not the passed value's type, decides the value field
+        rule = SmartCrate.Rule(
+            [
+                (SmartCrate.RuleFields.RULE_COMPARISON.value, SmartCrate.RuleComparison.STR_IS.value),
+                (SmartCrate.RuleFields.RULE_FIELD.value, SmartCrate.RuleField.ARTIST.value),
+                (SmartCrate.RuleFields.RULE_VALUE_TEXT.value, "some artist"),
+            ]
+        )
+        rule.set_value(100)
+        self.assertEqual(
+            rule.to_entries(),
+            [
+                (SmartCrate.RuleFields.RULE_COMPARISON.value, SmartCrate.RuleComparison.STR_IS.value),
+                (SmartCrate.RuleFields.RULE_FIELD.value, SmartCrate.RuleField.ARTIST.value),
+                (SmartCrate.RuleFields.RULE_VALUE_TEXT.value, "100"),
+            ],
+            "a string comparison's value must be stored as text, whatever type was passed",
+        )
+
+    def test_rule_set_value_replaces_value_field_on_comparison_type_change(self):
+        rule = SmartCrate.Rule(
+            [
+                (SmartCrate.RuleFields.RULE_COMPARISON.value, SmartCrate.RuleComparison.STR_IS.value),
+                (SmartCrate.RuleFields.RULE_FIELD.value, SmartCrate.RuleField.PLAYS.value),
+                (SmartCrate.RuleFields.RULE_VALUE_TEXT.value, "100"),
+            ]
+        )
+        rule.set_comparison(SmartCrate.RuleComparison.INT_IS_GE)
+        rule.set_value("100")
+        self.assertEqual(
+            rule.to_entries(),
+            [
+                (SmartCrate.RuleFields.RULE_COMPARISON.value, SmartCrate.RuleComparison.INT_IS_GE.value),
+                (SmartCrate.RuleFields.RULE_FIELD.value, SmartCrate.RuleField.PLAYS.value),
+                (SmartCrate.RuleFields.RULE_VALUE_INTEGER.value, 100),
+            ],
+            "old text value field must be replaced in place, not kept alongside the integer field",
+        )
+
+    def test_rule_set_value_rejects_non_integer_for_integer_comparison(self):
+        rule = SmartCrate.Rule(
+            [
+                (SmartCrate.RuleFields.RULE_COMPARISON.value, SmartCrate.RuleComparison.INT_IS_GE.value),
+                (SmartCrate.RuleFields.RULE_FIELD.value, SmartCrate.RuleField.PLAYS.value),
+                (SmartCrate.RuleFields.RULE_VALUE_INTEGER.value, 5),
+            ]
+        )
+        with self.assertRaisesRegex(ValueError, "requires an integer value"):
+            rule.set_value("abc")
