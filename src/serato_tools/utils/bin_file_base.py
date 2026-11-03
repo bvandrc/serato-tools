@@ -235,8 +235,8 @@ class SeratoBinFile:
 
         json_content = write_json_array(self.to_json_object(), indent=0)
 
+        json.loads(json_content)  # check validity before opening (and truncating) the destination file
         with open(filepath, "w", encoding="utf-8") as f:
-            json.loads(json_content)  # check
             f.write(json_content)
 
     def print(self):
@@ -251,6 +251,14 @@ class SeratoBinFile:
                     raise DeeplyNestedListError
                 setattr(self, field, value)
                 self.fields.append(field)
+
+            # values are stored as attributes, so a repeated field would silently overwrite the earlier
+            # value and then be written back twice — corrupting the file on round-trip. One set-vs-list
+            # length comparison is far cheaper than a per-field membership scan; name the culprits only
+            # on the failure path.
+            if len(set(self.fields)) != len(self.fields):
+                duplicates = sorted({f for f in self.fields if self.fields.count(f) > 1})
+                raise ValueError(f"duplicate field(s) in entry: {', '.join(duplicates)}")
 
         def __repr__(self) -> str:
             return str(self.to_entries())
@@ -558,7 +566,8 @@ class SeratoBinFile:
         for field in all_field_names:
             SeratoBinFile._check_valid_field(field)
 
-        # fix some rules if needed
+        # normalize file lists on copies, so the caller's rule dicts are not mutated
+        rules = [cast("SeratoBinFile.ModifyRule", dict(rule)) for rule in rules]
         for rule in rules:
             if "files" in rule:
                 rule["files"] = [SeratoBinFile.get_relative_path(file).upper() for file in rule["files"]]

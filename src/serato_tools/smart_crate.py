@@ -17,6 +17,13 @@ class SmartCrate(CrateBase):
     DIR = "SmartCrates"
     DIR_PATH = os.path.join(SERATO_DIR, DIR)
 
+    # the fields a rule can hold its value in, one per value type; a rule has exactly one of them
+    RULE_VALUE_FIELDS = (
+        CrateBase.Fields.RULE_VALUE_INTEGER,
+        CrateBase.Fields.RULE_VALUE_TEXT,
+        CrateBase.Fields.RULE_VALUE_DATE,
+    )
+
     class RuleField(IntEnum):
         ADDED = 25
         ALBUM = 8
@@ -123,19 +130,10 @@ class SmartCrate(CrateBase):
             self.comparison = self.get_value(SmartCrate.Fields.RULE_COMPARISON)
             self.field = self.get_value(SmartCrate.Fields.RULE_FIELD)
 
-            def try_to_get_value(field: str):
-                try:
-                    return self.get_value(field)
-                except AttributeError:
-                    return None
-
+            value_field = next((field for field in SmartCrate.RULE_VALUE_FIELDS if field in self.fields), None)
             self.value = cast(
                 str | int | float,  # float for date or no?
-                (
-                    try_to_get_value(SmartCrate.Fields.RULE_VALUE_INTEGER)
-                    or try_to_get_value(SmartCrate.Fields.RULE_VALUE_TEXT)
-                    or try_to_get_value(SmartCrate.Fields.RULE_VALUE_DATE)
-                ),
+                self.get_value(value_field) if value_field is not None else None,
             )
 
         def set_value(  # pylint: disable=arguments-differ # pyright: ignore[reportIncompatibleMethodOverride]
@@ -235,6 +233,8 @@ def main():
         if args.set_rules:
             for key, value in set_rules.items():
                 field = SmartCrate._get_rule_field_from_key(key)  # pylint: disable=protected-access
+                if not value:
+                    raise ValueError(f"no value given for --{key}, must specify a comparison and a value, or DELETE")
                 if str(value[0]).upper() == "DELETE":
                     crate.delete_rule(field)
                 else:
