@@ -2,10 +2,16 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.1.1] - 2026-11-03
+
+- Printing or JSON-dumping a large database is faster: field display names are now looked up in a cached map
+- Much faster USB export: Now scans each source directory once for `.serato-stems` files instead of globbing per track
+  - Fixes a track name containing glob characters like `[` breaking the stem lookup
+
 ## [5.1.0] - 2026-11-03
 
-- Adding tracks to a crate, `remove_duplicates`, and the USB export dedupe are much faster on a large library
 - Add `add_tracks` and `remove_tracks` for batch changes in one pass; `add_track` and `remove_track` are deprecated in their favor, and will be removed in the next major version
+- Adding tracks to a crate, `remove_duplicates`, and the USB export dedupe are much faster on a large library
 
 ## [5.0.2] - 2026-11-03
 
