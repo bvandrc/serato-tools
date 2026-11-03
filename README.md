@@ -296,6 +296,7 @@ Original writeup on Serato GEOB tag discoveries: [blog post](https://homepage.ru
 | [`Serato Markers2`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_markers2.md) | Hotcues, Saved Loops, etc.<br>_(The main one used in newer versions of Serato)_ | [`track_cues_v2.py`](https://github.com/bvandrc/serato-tools/blob/main/src/serato_tools/track_cues_v2.py)   |
 | [`Serato Markers_`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_markers_.md) | Hotcues, Saved Loops, etc.<br>_(Old, not used in newer versions of Serato)_     | [`track_cues_v1.py`](https://github.com/bvandrc/serato-tools/blob/main/src/serato_tools/track_cues_v1.py)   |
 | [`Serato Overview`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_overview.md) | Waveform data                                                                   | [`track_waveform.py`](https://github.com/bvandrc/serato-tools/blob/main/src/serato_tools/track_waveform.py) |
+| [`Serato Offsets_`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_offsets_.md) | ???                                                                             | -                                            |
 
 What's still unknown in these formats — including the rare, mostly undecoded `Serato Offsets_` tag — is collected in [`docs/MYSTERIES.md`](https://github.com/bvandrc/serato-tools/blob/main/docs/MYSTERIES.md).
 
