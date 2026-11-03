@@ -447,12 +447,12 @@ class SeratoBinFile:
 
     def remove_duplicates(self) -> bool:
         """Removes every repeat of an earlier track's path, and returns whether any were removed."""
-        track_paths: list[str] = []
+        seen_track_paths: set[str] = set()
 
         def filter_track(track: "SeratoBinFile.Track") -> bool:
-            was_in_track_paths = track.relpath not in track_paths
-            track_paths.append(track.relpath)
-            return was_in_track_paths
+            is_new = track.relpath not in seen_track_paths
+            seen_track_paths.add(track.relpath)
+            return is_new
 
         return self.filter_tracks(filter_track)
 

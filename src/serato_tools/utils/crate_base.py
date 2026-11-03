@@ -54,23 +54,26 @@ class CrateBase(SeratoBinFile):
 
     def add_track(self, filepath: str):
         # filepath name must include the containing dir
-        filepath = self.get_relative_path(filepath)
+        self._add_tracks([self.get_relative_path(filepath)])
 
-        if filepath in self.get_track_paths():
-            return
-
-        self.entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, filepath)]))
+    def _add_tracks(self, relpaths: Iterable[str]):
+        # build the existing-path set once: get_track_paths constructs a Track per entry, so calling it
+        # per added file makes adding m files to an n-track crate cost n * m Track constructions
+        existing = set(self.get_track_paths())
+        for relpath in relpaths:
+            if relpath not in existing:
+                existing.add(relpath)
+                self.entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, relpath)]))
 
     def add_tracks_from_dir(self, dir: str, replace: bool = False):
         dir_tracks = [self.get_relative_path(os.path.join(dir, t)) for t in os.listdir(dir)]
 
         if replace:
-            for track in self.get_track_paths():
-                if track not in dir_tracks:
-                    self.remove_track(track)
+            # one filter pass instead of a full remove_track scan per removed track
+            dir_track_set = set(dir_tracks)
+            self.filter_tracks(lambda track: track.relpath in dir_track_set)
 
-        for track in dir_tracks:
-            self.add_track(track)
+        self._add_tracks(dir_tracks)
 
     @classmethod
     def get_crate_files(cls, file_or_dir: str | None = None) -> list[str]:

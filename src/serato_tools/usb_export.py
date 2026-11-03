@@ -25,12 +25,12 @@ from serato_tools.utils import (
 
 
 def _uniq_by_basename(paths: list[str]):
-    basenames: list[str] = []
+    basenames: set[str] = set()
     return_paths: list[str] = []
     for path in paths:
         basename = os.path.basename(path)
         if basename not in basenames:
-            basenames.append(basename)
+            basenames.add(basename)
             return_paths.append(path)
     return return_paths
 
