@@ -12,10 +12,10 @@
 - [Example uses](#example-uses)
 - [Installation](#installation)
 - [Examples](#examples)
-  - [Analyzing and setting a dynamic beatgrid](#analyzing-and-setting-a-dynamic-beatgrid)
-  - [Exporting crates to USB](#exporting-crates-to-usb)
   - [Renaming or removing track files across the library](#renaming-or-removing-track-files-across-the-library)
   - [Modifying the database file](#modifying-the-database-file)
+  - [Exporting crates to USB](#exporting-crates-to-usb)
+  - [Analyzing and setting a dynamic beatgrid](#analyzing-and-setting-a-dynamic-beatgrid)
   - [Setting track color](#setting-track-color)
   - [Snapping cue positions to the beatgrid](#snapping-cue-positions-to-the-beatgrid)
   - [Modifying track metadata / hot cues](#modifying-track-metadata--hot-cues)
@@ -71,24 +71,6 @@ The following deps are optional, but **must be installed based on what features 
 
 # Examples
 
-### Analyzing and setting a dynamic beatgrid
-
- Rekordbox has Dynamic Beatgrid Analysis but Serato doesn't. This analyzes a non-consistent BPM across a track, such as a track with live drums, and snaps a beatgrid marker to each beat.
-
-_NOTE: This feature has only been tested on a couple of tracks. Recommend reviewing the resulting beatgrid in Serato— some grid markers may require adjustment. It seems to be working pretty great though!_
-
-```cmd
->>> serato_analyze_beatgrid "/Users/Username/Music/Dubstep/Raaket - ILL.mp3"
-```
-
-### Exporting crates to USB
-
-**NOTE: replaces existing crates on flash drive! (but does not delete existing track files) (TODO: ability to merge with existing)**
-
-```cmd
->>> serato_usb_export --drive E --crate_matcher "*house*" "*techno*" --root_crate="Dave USB"
-```
-
 ### Renaming or removing track files across the library
 
 `Library` changes a track file and every place Serato points to it: the database, crates, and smart crates, so the track isn't left missing in Serato. Each file is parsed the first time it's needed and then kept, so many changes in a row stay fast. Keep one `Library` per library folder, since another copy's save would overwrite this one's changes.
@@ -138,6 +120,24 @@ db.modify_and_save(
         {"field": DatabaseV2.Fields.GROUPING, "func": remove_group}, # all files
     ]
 )
+```
+
+### Exporting crates to USB
+
+**NOTE: replaces existing crates on flash drive! (but does not delete existing track files) (TODO: ability to merge with existing)**
+
+```cmd
+>>> serato_usb_export --drive E --crate_matcher "*house*" "*techno*" --root_crate="Dave USB"
+```
+
+### Analyzing and setting a dynamic beatgrid
+
+ Rekordbox has Dynamic Beatgrid Analysis but Serato doesn't. This analyzes a non-consistent BPM across a track, such as a track with live drums, and snaps a beatgrid marker to each beat.
+
+_NOTE: This feature has only been tested on a couple of tracks. Recommend reviewing the resulting beatgrid in Serato— some grid markers may require adjustment. It seems to be working pretty great though!_
+
+```cmd
+>>> serato_analyze_beatgrid "/Users/Username/Music/Dubstep/Raaket - ILL.mp3"
 ```
 
 ### Setting track color
