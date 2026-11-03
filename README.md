@@ -288,15 +288,16 @@ print(s_crate)
 
 Original writeup on Serato GEOB tag discoveries: [blog post](https://homepage.ruhr-uni-bochum.de/jan.holthuis/posts/reversing-seratos-geob-tags)
 
-| GEOB Tag                                     | Research Progress | Contents                                                                        | Script File                                  |
-| -------------------------------------------- | ----------------- | ------------------------------------------------------------------------------- | -------------------------------------------- |
-| [`Serato Analysis`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_analysis.md) | Done              | Serato version information                                                      |
-| [`Serato Autotags`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_autotags.md) | Done              | BPM and Gain values                                                             | [`track_autotags.py`](https://github.com/bvandrc/serato-tools/blob/main/src/serato_tools/track_autotags.py) |
-| [`Serato BeatGrid`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_beatgrid.md) | Mostly done       | Beatgrid Markers                                                                | [`track_beatgrid.py`](https://github.com/bvandrc/serato-tools/blob/main/src/serato_tools/track_beatgrid.py) |
-| [`Serato Markers2`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_markers2.md) | Mostly done       | Hotcues, Saved Loops, etc.<br>_(The main one used in newer versions of Serato)_ | [`track_cues_v2.py`](https://github.com/bvandrc/serato-tools/blob/main/src/serato_tools/track_cues_v2.py)   |
-| [`Serato Markers_`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_markers_.md) | Mostly done       | Hotcues, Saved Loops, etc.<br>_(Old, not used in newer versions of Serato)_     | [`track_cues_v1.py`](https://github.com/bvandrc/serato-tools/blob/main/src/serato_tools/track_cues_v1.py)   |
-| [`Serato Offsets_`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_offsets_.md) | Started           | Bitrate, sample rate, and (likely) an MP3 frame-offset index for seeking        |
-| [`Serato Overview`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_overview.md) | Done              | Waveform data                                                                   | [`track_waveform.py`](https://github.com/bvandrc/serato-tools/blob/main/src/serato_tools/track_waveform.py) |
+| GEOB Tag                                     | Contents                                                                        | Script File                                  |
+| -------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------- |
+| [`Serato Analysis`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_analysis.md) | Serato version information                                                      |
+| [`Serato Autotags`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_autotags.md) | BPM and Gain values                                                             | [`track_autotags.py`](https://github.com/bvandrc/serato-tools/blob/main/src/serato_tools/track_autotags.py) |
+| [`Serato BeatGrid`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_beatgrid.md) | Beatgrid Markers                                                                | [`track_beatgrid.py`](https://github.com/bvandrc/serato-tools/blob/main/src/serato_tools/track_beatgrid.py) |
+| [`Serato Markers2`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_markers2.md) | Hotcues, Saved Loops, etc.<br>_(The main one used in newer versions of Serato)_ | [`track_cues_v2.py`](https://github.com/bvandrc/serato-tools/blob/main/src/serato_tools/track_cues_v2.py)   |
+| [`Serato Markers_`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_markers_.md) | Hotcues, Saved Loops, etc.<br>_(Old, not used in newer versions of Serato)_     | [`track_cues_v1.py`](https://github.com/bvandrc/serato-tools/blob/main/src/serato_tools/track_cues_v1.py)   |
+| [`Serato Overview`](https://github.com/bvandrc/serato-tools/blob/main/docs/serato_overview.md) | Waveform data                                                                   | [`track_waveform.py`](https://github.com/bvandrc/serato-tools/blob/main/src/serato_tools/track_waveform.py) |
+
+What's still unknown in these formats — including the rare, mostly undecoded `Serato Offsets_` tag — is collected in [`docs/MYSTERIES.md`](https://github.com/bvandrc/serato-tools/blob/main/docs/MYSTERIES.md).
 
 The different file/tag formats that Serato uses to store the information are documented in [`docs/fileformats.md`](https://github.com/bvandrc/serato-tools/blob/main/docs/fileformats.md), a script to dump the tag data can be found at [`track_tagdump.py`](https://github.com/bvandrc/serato-tools/blob/main/src/serato_tools/track_tagdump.py).
 
