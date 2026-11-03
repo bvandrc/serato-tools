@@ -45,14 +45,14 @@ class TrackBeatgrid(SeratoTag):
     type EntryListEnhanced = _EntryList[NonTerminalBeatgridMarkerEnhanced]
 
     def __init__(self, file_or_data: SeratoTag.FileOrData):
-        self.raw_data: bytes | None = None
+        self._raw_data: bytes | None = None
         super().__init__(file_or_data)
 
         self.entries: TrackBeatgrid.EntryList | None = None
         self.enhanced_entries: TrackBeatgrid.EntryListEnhanced | None = None
 
-        if self.raw_data is not None:
-            entries = tuple(self._parse(self.raw_data))
+        if self._raw_data is not None:
+            entries = tuple(self._parse(self._raw_data))
             if len(entries) == 1 and isinstance(entries[0], TrackBeatgrid.Footer):
                 # sometimes happens from serato. There is no grid in this case.
                 entries = None
@@ -156,9 +156,9 @@ class TrackBeatgrid(SeratoTag):
         # Write footer
         fp.write(struct.pack("B", footer.unknown))
 
-        # Set to self.raw_data
+        # Set to self._raw_data
         fp.seek(0)
-        self.raw_data = fp.getvalue()
+        self._raw_data = fp.getvalue()
 
     @staticmethod
     def _enhance_entries(raw_entries: "TrackBeatgrid.EntryList") -> "TrackBeatgrid.EntryListEnhanced":

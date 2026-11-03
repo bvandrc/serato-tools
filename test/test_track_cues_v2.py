@@ -30,7 +30,7 @@ class TestCase(unittest.TestCase):
             "parsed entries",
         )
         tags._serialize()
-        self.assertEqual(tags.raw_data, file_data, "serialize")
+        self.assertEqual(tags._raw_data, file_data, "serialize")  # pylint: disable=protected-access
 
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
             new_color = None
@@ -68,7 +68,9 @@ class TestCase(unittest.TestCase):
 
         with open(os.path.abspath("test/data/track_cues_v2_modified.bin"), mode="rb") as fp:
             expected_modified_data = fp.read()
-        self.assertEqual(tags.raw_data, expected_modified_data, "modified data serialize")
+        self.assertEqual(
+            tags._raw_data, expected_modified_data, "modified data serialize"
+        )  # pylint: disable=protected-access
 
     def test_snap_position_to_beat(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
