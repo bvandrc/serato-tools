@@ -77,7 +77,7 @@ The following deps are optional, but **must be installed based on what features 
 _NOTE: This feature has only been tested on a couple of tracks. Recommend reviewing the resulting beatgrid in Serato— some grid markers may require adjustment. It seems to be working pretty great though!_
 
 ```cmd
->>> serato_analyze_beatgrid "Music/Dubstep/Mind Splitter - YAPPIN'.mp3"
+>>> serato_analyze_beatgrid "/Users/Username/Music/Dubstep/Raaket - ILL.mp3"
 ```
 
 ### Exporting crates to USB
@@ -98,7 +98,10 @@ _NOTE: Recommended to make a backup of the database file elsewhere, before modif
 from serato_tools.database_v2 import DatabaseV2
 
 db = DatabaseV2()
-db.rename_track_file(src="5udo - One - Original Mix.mp3", dest="5udo - One.mp3")
+db.rename_track_file(
+    src="/Users/Username/Music/Dubstep/Raaket - ILL - Original Mix.mp3",
+    dest="/Users/Username/Music/Dubstep/Raaket - ILL.mp3",
+)
 
 ```
 
@@ -113,7 +116,7 @@ from typing import Any
 from serato_tools.database_v2 import DatabaseV2
 
 now = int(time.time())
-files_set_date = ["/Users/Username/Music/Dubstep/Mind Splitter - YAPPIN'.mp3"]
+files_set_date = ["/Users/Username/Music/Dubstep/Raaket - ILL.mp3"]
 
 def modify_uadd(filename: str, prev_val: Any):
     print(f'Serato library change - Changed "date added" to today: {filename}')
@@ -155,7 +158,7 @@ tags.save()
 After you have a good beatgrid (including dynamic beatgrids), you can snap cue positions so they land exactly on beats, within a configurable tolerance:
 
 ```cmd
-serato_snap_cues_v2 "/Users/Username/Music/Dubstep/Some Track.mp3" --snap_cues --snap_tolerance 1/16
+serato_snap_cues_v2 "/Users/Username/Music/Dubstep/Raaket - ILL.mp3" --snap_cues --snap_tolerance 1/16
 ```
 
 - `--snap_cues` enables snapping for all cue entries in the `Serato Markers2` tag.
@@ -271,7 +274,7 @@ print(crate)  # or crate.print()
 
 
 # Example: Add tracks to the crate and save it as a new crate
-crate.add_tracks(['/Users/Username/Music/Dubstep/Chozen - I Wanna Dance.mp3'])
+crate.add_tracks(['/Users/Username/Music/Dubstep/Raaket - ILL.mp3'])
 crate.save('/Users/Username/Music/_Serato_/Subcrates/New Crate.crate')
 ```
 
