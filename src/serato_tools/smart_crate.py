@@ -116,7 +116,7 @@ class SmartCrate(CrateBase):
 
     class Rule(CrateBase.EntryListCls):
         # the fields a rule can hold its value in, one per value type; a rule has exactly one of them
-        VALUE_FIELDS = (
+        RULE_VALUE_FIELDS = (
             CrateBase.Fields.RULE_VALUE_INTEGER,
             CrateBase.Fields.RULE_VALUE_TEXT,
             CrateBase.Fields.RULE_VALUE_DATE,
@@ -130,7 +130,7 @@ class SmartCrate(CrateBase):
             self.comparison = self.get_value(SmartCrate.Fields.RULE_COMPARISON)
             self.field = self.get_value(SmartCrate.Fields.RULE_FIELD)
 
-            value_field = next((field for field in self.VALUE_FIELDS if field in self.fields), None)
+            value_field = next((field for field in self.RULE_VALUE_FIELDS if field in self.fields), None)
             self.value = cast(
                 str | int | float,  # float for date or no?
                 self.get_value(value_field) if value_field is not None else None,
@@ -142,7 +142,7 @@ class SmartCrate(CrateBase):
             field = SmartCrate._get_rule_value_type(value)  # pylint: disable=protected-access
             # when the value type changes (e.g. text -> integer), replace the old value field in place
             # instead of leaving both in the rule
-            for other in self.VALUE_FIELDS:
+            for other in self.RULE_VALUE_FIELDS:
                 if other == field or other not in self.fields:
                     continue
                 if field in self.fields:
