@@ -313,7 +313,7 @@ The different file/tag formats that Serato uses to store the information are doc
 # Sources
 
 - Serato track file tag parsing and modification from https://github.com/Holzhaus/serato-tags , which appears to be no longer maintained
-- The crate file format was first worked out from https://github.com/sharst/seratopy ; none of its code remains in this project
+- Crate file format was first worked out from https://github.com/sharst/seratopy ; but none of its code remains in this project
 - Dynamic beatgrid analysis from [https://github.com/heyitsmass/audio](https://github.com/heyitsmass/audio/blob/master/audio/beat_grid.py)
 
 # Contributing
