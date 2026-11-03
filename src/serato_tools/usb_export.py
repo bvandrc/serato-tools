@@ -158,6 +158,19 @@ def copy_crates_to_usb(
 
     not_found: list[str] = []
 
+    stem_files_by_dir: dict[str, list[str]] = {}
+
+    def find_stem_files(src_path: str) -> list[str]:
+        dirname, basename = os.path.split(src_path)
+        if dirname not in stem_files_by_dir:
+            try:
+                dir_filenames = os.listdir(dirname)
+            except OSError:
+                dir_filenames = []
+            stem_files_by_dir[dirname] = [f for f in dir_filenames if f.endswith(".serato-stems")]
+        track_name = os.path.splitext(basename)[0]
+        return [os.path.join(dirname, f) for f in stem_files_by_dir[dirname] if f.startswith(track_name)]
+
     def maybe_copy(src_path: str, dst_path: str):
         if not os.path.exists(src_path):
             not_found.append(src_path)
@@ -176,7 +189,7 @@ def copy_crates_to_usb(
             dst_path=os.path.join(dest_drive_dir, dest_tracks_dir, os.path.basename(src_path)),
         )
 
-        maybe_stem_files = glob.glob(os.path.splitext(src_path)[0] + "*.serato-stems")
+        maybe_stem_files = find_stem_files(src_path)
         if len(maybe_stem_files) > 1:
             ERROR_STR = "should not have more than 1 stem file for: " + src_path
             print(ERROR_STR)
