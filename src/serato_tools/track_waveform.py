@@ -21,11 +21,11 @@ class TrackWaveform(SeratoTag):
     def __init__(self, file_or_data: SeratoTag.FileOrData):
         super().__init__(file_or_data)
 
-        if self.raw_data is None:
+        if self._raw_data is None:
             raise ValueError("no waveform yet set")
 
         # materialize so the version check runs at construction time and the data can be read repeatedly
-        self.data = self._parse(self.raw_data)
+        self.data = self._parse(self._raw_data)
 
     def _parse(self, data: bytes) -> list[bytearray]:
         """Parse the waveform data into its 16-byte rows.

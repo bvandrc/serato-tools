@@ -33,7 +33,7 @@ class TestCase(unittest.TestCase):
             shutil.copy(os.path.abspath("test/data/test_mp3.mp3"), tmp_file)
 
             tags = TrackAutotags(tmp_file)
-            self.assertIsNotNone(tags.raw_data, "fixture should have the tag")
+            self.assertIsNotNone(tags._raw_data, "fixture should have the tag")  # pylint: disable=protected-access
             tags.delete()
             tags.save()
 

@@ -8,6 +8,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Much faster USB export: Now scans each source directory once for `.serato-stems` files instead of globbing per track
   - Fixes a track name containing glob characters like `[` breaking the stem lookup
 - Misc. edge-case fixes and clearer errors for cues, cue snapping, and beatgrids
+- The tag classes' stored bytes (`SeratoTag.raw_data`) are now internal: the deprecated read-only `raw_data` getter will be removed in the next major version — parse, modify, and serialize through each tag's own methods instead
 - Fix the USB export writing a corrupted crate order file on every export
 
 ## [5.1.0] - 2026-11-03

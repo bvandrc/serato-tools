@@ -20,15 +20,15 @@ class TrackAutotags(SeratoTag):
     VERSION = (0x01, 0x01)
 
     def __init__(self, file_or_data: SeratoTag.FileOrData):
-        self.raw_data: bytes | None = None
+        self._raw_data: bytes | None = None
         super().__init__(file_or_data)
 
         self.bpm: float | None = None
         self.autogain: float | None = None
         self.gaindb: float | None = None
 
-        if self.raw_data is not None:
-            self.bpm, self.autogain, self.gaindb = self._parse(self.raw_data)
+        if self._raw_data is not None:
+            self.bpm, self.autogain, self.gaindb = self._parse(self._raw_data)
 
     def __str__(self) -> str:
         return f"bpm: {self.bpm}\nautogain: {self.autogain}\ngaindb: {self.gaindb}"
@@ -60,7 +60,7 @@ class TrackAutotags(SeratoTag):
         for value, decimals in ((self.bpm, 2), (self.autogain, 3), (self.gaindb, 3)):
             data += "{:.{}f}".format(value, decimals).encode("ascii")
             data += b"\x00"
-        self.raw_data = data
+        self._raw_data = data
 
     def set(
         self,
@@ -136,6 +136,6 @@ if __name__ == "__main__":
             tags.save()
         else:
             with open(args.file, mode="wb") as fp:
-                fp.write(tags.raw_data or b"")
+                fp.write(tags._raw_data or b"")  # pylint: disable=protected-access
     else:
         print(str(tags))
