@@ -25,12 +25,12 @@ from serato_tools.utils import (
 
 
 def _uniq_by_basename(paths: list[str]):
-    basenames: list[str] = []
+    basenames: set[str] = set()
     return_paths: list[str] = []
     for path in paths:
         basename = os.path.basename(path)
         if basename not in basenames:
-            basenames.append(basename)
+            basenames.add(basename)
             return_paths.append(path)
     return return_paths
 
@@ -96,7 +96,8 @@ def copy_crates_to_usb(
     db = DatabaseV2()
     tracks_to_copy = [os.path.normpath(f) for f in tracks_to_copy]
     tracks_to_copy = _uniq_by_basename(tracks_to_copy)
-    tracks_to_copy_basenames = [os.path.basename(f) for f in tracks_to_copy]
+    # a set: both filters below test against it per track
+    tracks_to_copy_basenames = {os.path.basename(f) for f in tracks_to_copy}
 
     def modify_db_track(track: DatabaseV2.Track) -> DatabaseV2.Track:
         track.set_path(os.path.join(dest_tracks_dir, os.path.basename(track.relpath)))

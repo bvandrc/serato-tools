@@ -4,6 +4,7 @@ import re
 import copy
 import struct
 import base64
+import warnings
 from enum import StrEnum
 import json
 from typing import Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
@@ -442,17 +443,23 @@ class SeratoBinFile:
         return removed
 
     def remove_track(self, filepath: str) -> bool:
-        """Removes the track at `filepath`, and returns whether this file had it."""
-        return self.filter_tracks(lambda track: track.relpath != SeratoBinFile.get_relative_path(filepath))
+        """Deprecated, to be removed in the next major version: use remove_tracks(), which this calls."""
+        warnings.warn("remove_track is deprecated, use remove_tracks instead", DeprecationWarning, stacklevel=2)
+        return self.remove_tracks([filepath])
+
+    def remove_tracks(self, filepaths: Iterable[str]) -> bool:
+        """Removes every track whose path is in `filepaths`, in one pass, and returns whether any was removed."""
+        relpaths = {SeratoBinFile.get_relative_path(f) for f in filepaths}
+        return self.filter_tracks(lambda track: track.relpath not in relpaths)
 
     def remove_duplicates(self) -> bool:
         """Removes every repeat of an earlier track's path, and returns whether any were removed."""
-        track_paths: list[str] = []
+        seen_track_paths: set[str] = set()
 
         def filter_track(track: "SeratoBinFile.Track") -> bool:
-            was_in_track_paths = track.relpath not in track_paths
-            track_paths.append(track.relpath)
-            return was_in_track_paths
+            is_new = track.relpath not in seen_track_paths
+            seen_track_paths.add(track.relpath)
+            return is_new
 
         return self.filter_tracks(filter_track)
 
