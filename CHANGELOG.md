@@ -2,10 +2,13 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.0.3] - 2026-11-03
+
+- Adding tracks to a crate, `remove_duplicates`, and the USB export dedupe no longer re-scan a list per track, which makes them much faster on a large library
+
 ## [5.0.2] - 2026-11-03
 
 - `modify` on a database or regular crate now rejects smart crate rule fields, which moved from the shared `Fields` enum to the new `SmartCrate.RuleFields`
-- Adding tracks to a crate, `remove_duplicates`, and the USB export dedupe no longer re-scan a list per track, which makes them much faster on a large library
 
 ## [5.0.1] - 2026-11-03
 
