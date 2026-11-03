@@ -1,3 +1,24 @@
+## Contents
+
+- [Includes](#includes)
+- [Example uses](#example-uses)
+- [Installation](#installation)
+- [Examples](#examples)
+  - [Analyzing and setting a dynamic beatgrid](#analyzing-and-setting-a-dynamic-beatgrid)
+  - [Exporting crates to USB](#exporting-crates-to-usb)
+  - [Renaming a file and changing its location in the database](#renaming-a-file-and-changing-its-location-in-the-database)
+  - [Modifying the database file](#modifying-the-database-file)
+  - [Setting track color](#setting-track-color)
+  - [Snapping cue positions to the beatgrid](#snapping-cue-positions-to-the-beatgrid)
+  - [Modifying track metadata / hot cues](#modifying-track-metadata--hot-cues)
+  - [Listing available crates or smart crates](#listing-available-crates-or-smart-crates)
+  - [Modifying a SmartCrate Rule](#modifying-a-smartcrate-rule)
+  - [Crate details and adding a track](#crate-details-and-adding-a-track)
+  - [Smart Crate details](#smart-crate-details)
+- [Serato Tags](#serato-tags)
+- [Sources](#sources)
+- [Contributing](#contributing)
+
 ## Includes:
 
 - Serato track tag parsing and modification, including cue points, track color, beatgrid, waveform, autogain, etc.
@@ -36,25 +57,6 @@
 - Read a smart crate's tracks and rules
 - Modify a smart crate's rules
 - List available smart crates
-
-## Contents
-
-- [Installation](#installation)
-- [Examples](#examples)
-  - [Analyzing and setting a dynamic beatgrid](#analyzing-and-setting-a-dynamic-beatgrid)
-  - [Exporting crates to USB](#exporting-crates-to-usb)
-  - [Renaming a file and changing its location in the database](#renaming-a-file-and-changing-its-location-in-the-database)
-  - [Modifying the database file](#modifying-the-database-file)
-  - [Setting track color](#setting-track-color)
-  - [Snapping cue positions to the beatgrid](#snapping-cue-positions-to-the-beatgrid)
-  - [Modifying track metadata / hot cues](#modifying-track-metadata--hot-cues)
-  - [Listing available crates or smart crates](#listing-available-crates-or-smart-crates)
-  - [Modifying a SmartCrate Rule](#modifying-a-smartcrate-rule)
-  - [Crate details and adding a track](#crate-details-and-adding-a-track)
-  - [Smart Crate details](#smart-crate-details)
-- [Serato Tags](#serato-tags)
-- [Sources](#sources)
-- [Contributing](#contributing)
 
 # Installation
 
@@ -148,7 +150,7 @@ tags = TrackCuesV2('/Users/Username/Music/Dubstep/Raaket - ILL.mp3')
 tags.set_track_color(
     TrackCuesV2.TrackColors.PURPLE,
     delete_tags_v1=True
-    # delete_tags_v1 (the default) deletes the legacy "Serato Markers_" tag, since a stale one stops the new color from appearing in Serato. No issues have been found from deleting it, but use caution with older versions of Serato, which may still read it.
+    # delete_tags_v1 (the default) deletes the legacy "Serato Markers_" tag, since a stale one stops the new color from appearing in Serato. No issues have been found from deleting it, but use caution with versions of Serato before 3, which may still read it.
 )
 tags.save()
 ```
