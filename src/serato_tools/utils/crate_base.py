@@ -57,8 +57,7 @@ class CrateBase(SeratoBinFile):
         self._add_tracks([self.get_relative_path(filepath)])
 
     def _add_tracks(self, relpaths: Iterable[str]):
-        # build the existing-path set once: get_track_paths constructs a Track per entry, so calling it
-        # per added file makes adding m files to an n-track crate cost n * m Track constructions
+        # build the existing-path set once
         existing = set(self.get_track_paths())
         for relpath in relpaths:
             if relpath not in existing:
