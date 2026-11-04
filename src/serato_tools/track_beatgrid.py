@@ -11,13 +11,13 @@ from mutagen.mp3 import HeaderNotFoundError
 from mutagen.id3 import ID3
 
 
-from serato_tools.utils.track_tags import SeratoTag
+from serato_tools.utils.track_tags import SeratoGeobTag
 from serato_tools.utils import logger
 
 _T = TypeVar("_T")
 
 
-class TrackBeatgrid(SeratoTag):
+class TrackBeatgrid(SeratoGeobTag):
     GEOB_KEY = "Serato BeatGrid"
     VERSION = (0x01, 0x00)
 
@@ -40,7 +40,7 @@ class TrackBeatgrid(SeratoTag):
     type EntryList = _EntryList[NonTerminalBeatgridMarker]
     type EntryListEnhanced = _EntryList[NonTerminalBeatgridMarkerEnhanced]
 
-    def __init__(self, file_or_data: SeratoTag.FileOrData):
+    def __init__(self, file_or_data: SeratoGeobTag.FileOrData):
         self._raw_data: bytes | None = None
         super().__init__(file_or_data)
 

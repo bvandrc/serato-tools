@@ -6,15 +6,15 @@ from dataclasses import dataclass
 from mutagen.mp3 import HeaderNotFoundError
 
 
-from serato_tools.utils.track_tags import SeratoTag
+from serato_tools.utils.track_tags import SeratoGeobTag
 from serato_tools.utils import logger
 
 
-class TrackWaveform(SeratoTag):
+class TrackWaveform(SeratoGeobTag):
     GEOB_KEY = "Serato Overview"
     VERSION = (0x01, 0x05)
 
-    def __init__(self, file_or_data: SeratoTag.FileOrData):
+    def __init__(self, file_or_data: SeratoGeobTag.FileOrData):
         super().__init__(file_or_data)
 
         if self._raw_data is None:

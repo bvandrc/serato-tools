@@ -73,6 +73,15 @@ class TestCase(unittest.TestCase):
             tags._raw_data, expected_modified_data, "modified data serialize"
         )  # pylint: disable=protected-access
 
+    def test_changing_deletes_tags_v1_unless_told_not_to(self):
+        for delete_tags_v1 in (True, False):
+            with self.subTest(delete_tags_v1=delete_tags_v1):
+                tags = TrackCuesV2("test/data/test_mp3.mp3")
+                assert tags.tagfile is not None
+                self.assertIn("GEOB:Serato Markers_", tags.tagfile, "fixture has the v1 tag")
+                tags.set_track_color(TrackCuesV2.TrackColors.RED, delete_tags_v1=delete_tags_v1)
+                self.assertEqual("GEOB:Serato Markers_" in tags.tagfile, not delete_tags_v1)
+
     def test_snap_position_to_beat(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
         buf = io.StringIO()
