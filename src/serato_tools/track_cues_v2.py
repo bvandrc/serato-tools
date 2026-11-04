@@ -500,7 +500,7 @@ class TrackCuesV2(SeratoGeobTag):
         """
         Set the track color in memory; call `save()` to write it to the file.
 
-        Leaves the color unchanged if the tag has no existing color entry.
+        Adds the color entry, and the tag itself, if the track doesn't have them yet, as Serato writes them.
 
         Args:
             color: The new track color.
@@ -509,8 +509,10 @@ class TrackCuesV2(SeratoGeobTag):
 
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
             if track.color is None:
-                return None
-            new_color = dataclasses.replace(track.color, color=color.value)
+                # field1 is 0 in every COLOR entry Serato wrote in this repo's data/ captures
+                new_color = TrackCuesV2.ColorEntry(field1=b"\x00", color=color.value)
+            else:
+                new_color = dataclasses.replace(track.color, color=color.value)
             new_track = dataclasses.replace(track, color=new_color)
             return new_track if new_track != track else None
 
@@ -519,12 +521,12 @@ class TrackCuesV2(SeratoGeobTag):
     def set_beatgrid_locked(self, locked: bool, delete_tags_v1: bool = True):
         """Locks or unlocks the track's beatgrid in memory; call `save()` to write it to the file.
 
-        Leaves it unchanged if the tag has no existing BPM lock entry. See `set_track_color` for `delete_tags_v1`.
+        Adds the BPM lock entry, and the tag itself, if the track doesn't have them yet, as Serato writes them. See
+        `set_track_color` for `delete_tags_v1`.
         """
 
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
-            # TODO: add the entry when it's missing, once we've checked where Serato puts it among the others
-            if track.bpm_lock is None or track.bpm_lock.enabled == locked:
+            if track.bpm_lock is not None and track.bpm_lock.enabled == locked:
                 return None
             return dataclasses.replace(track, bpm_lock=TrackCuesV2.BpmLockEntry(enabled=locked))
 
