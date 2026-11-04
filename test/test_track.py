@@ -28,7 +28,7 @@ class TestCase(unittest.TestCase):
         return [track.cues_v2, track.cues_v1, track.beatgrid, track.autotags, track.waveform, track.gain]
 
     def test_reads_each_tag_from_one_open_file(self):
-        track = Track(self.path)
+        track = Track(self.path, waveform=True)
 
         for tag in self.read_all_tags(track):
             self.assertIs(tag.tagfile, track.tagfile, f"{type(tag).__name__} shares the open file")
@@ -37,8 +37,28 @@ class TestCase(unittest.TestCase):
         self.assertEqual(track.autotags.bpm, TrackAutotags(self.path).bpm)
         self.assertEqual(track.gain.gain, TrackGain(self.path).gain)
 
+    def test_parses_every_tag_but_the_waveform_by_default(self):
+        with mock.patch("serato_tools.track.TrackWaveform") as waveform:
+            track = Track(self.path)
+        waveform.assert_not_called()
+        with self.assertRaisesRegex(ValueError, "waveform=True"):
+            _ = track.waveform
+        self.assertIsNotNone(track.cues_v1.entries, "the other tags are parsed")
+
+    def test_tag_passed_false_isnt_parsed_or_saved(self):
+        with mock.patch("serato_tools.track.TrackCuesV1") as cues_v1:
+            track = Track(self.path, cues_v1=False)
+        cues_v1.assert_not_called()
+        with self.assertRaisesRegex(ValueError, "cues_v1=True"):
+            _ = track.cues_v1
+
+        track = Track(self.path, cues_v2=False, cues_v1=False, beatgrid=False, autotags=False, gain=False)
+        writes = self.count_writes(track)
+        self.assertFalse(track.save(), "no tags, nothing to save")
+        writes.assert_not_called()
+
     def test_save_without_changes_doesnt_write(self):
-        track = Track(self.path)
+        track = Track(self.path, waveform=True)
         self.read_all_tags(track)
         writes = self.count_writes(track)
 
