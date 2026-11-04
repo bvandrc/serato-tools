@@ -8,21 +8,19 @@ on:
   workflow_dispatch:
 
 jobs:
-  lint-and-test:
-    name: "Lint & Test"
-    runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.12", "3.13", "3.14", "3.15"]
+  # once, on the oldest supported Python: the results don't depend on the OS, and pyright checks against the running
+  # version, so 3.12 is what catches use of anything newer
+  lint:
+    name: "Lint"
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: "3.12"
 
     - name: Install Dependencies
       run: |
@@ -40,18 +38,13 @@ jobs:
     - name: Format Check (Black)
       uses: psf/black@stable
 
-    - name: Test
-      run: python -m unittest
-
-  # macOS and Linux run only the tests: lint, types, and format don't depend on the OS. A separate job, so the
-  # windows job's check names, which the main branch ruleset requires, stay the same.
-  test-posix:
+  test:
     name: "Test (${{ matrix.os }}, ${{ matrix.python-version }})"
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: ["macos-latest", "ubuntu-latest"]
+        os: ["windows-latest", "macos-latest", "ubuntu-latest"]
         python-version: ["3.12", "3.13", "3.14", "3.15"]
     steps:
     - name: Checkout repository
