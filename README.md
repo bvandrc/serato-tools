@@ -164,7 +164,7 @@ _NOTE: This feature has only been tested on a couple of tracks. Recommend review
 
 ### Changing several of a track's tags at once
 
-`Track` opens the file once and reads each Serato tag the first time you use it; `save()` then writes all of your changes in a single write, instead of rewriting the whole file once per tag:
+`Track` opens the file once and parses its Serato tags; `save()` then writes all of your changes in a single write, instead of rewriting the whole file once per tag:
 
 ```python
 from serato_tools.track import Track
@@ -177,7 +177,11 @@ track.gain.set(gain=-2.5)
 track.save()  # one write; returns False, without writing, if nothing changed
 ```
 
-Its tags are `cues_v2`, `cues_v1`, `beatgrid`, `autotags`, `waveform`, and `gain`: the same classes as below, so use their own methods to change them, and `Track.save()` rather than theirs.
+Its tags are `cues_v2`, `cues_v1`, `beatgrid`, `autotags`, `waveform`, and `gain`: the same classes as below, so use their own methods to change them, and `Track.save()` rather than theirs. Each is parsed unless you pass it `False`, except `waveform`, which you pass `True` to parse; a tag that isn't parsed isn't saved either:
+
+```python
+track = Track('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', cues_v1=False, beatgrid=False, waveform=True)
+```
 
 ### Setting track color
 
