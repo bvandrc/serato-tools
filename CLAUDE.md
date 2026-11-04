@@ -19,7 +19,7 @@ Work in the repo's `.venv` (gitignored), with the package installed editable so 
 ```bash
 python -m venv .venv
 source .venv/Scripts/activate                                     # Git Bash on Windows; .venv/bin/activate elsewhere
-pip install -e ".[track_tags,waveform_drawing,beatgrid_analysis,dev]"  # all optional deps + black, pylint, pyright
+pip install -e ".[all,dev]"                                  # all optional deps + black, pylint, pyright
 ```
 
 ```bash
@@ -35,7 +35,7 @@ This is a Python repo with no package manager scripts, so `black .` is the "form
 
 Tests import via `from src.serato_tools...`, so `python -m unittest` only works from the repo root.
 
-CI (`.github/workflows/lint-and-test.yml`) runs on **windows-latest** across Python 3.12/3.13/3.14. Path handling is Windows-centric — `SeratoBinFile.get_relative_path` strips a drive letter via `os.path.splitdrive` and normalizes on `os.path.sep`, so several crate/database tests fail on Linux and macOS. That is expected locally; don't "fix" those failures unless the task is explicitly about cross-platform paths.
+CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pylint and pyright, plus black once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15. Lint runs on every version because neither tool pins one: both check against the running interpreter, so 3.12 catches use of anything newer and later versions catch deprecations and removals. The `main` ruleset requires these checks by name, so renaming a job or matrix entry means updating the ruleset too. Tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `unittest.skipUnless` / `skipIf`, with a matching test for the other OS family.
 
 Publishing to PyPI is a manual `workflow_dispatch` of `.github/workflows/build-and-publish.yml`. Bump `version` in `pyproject.toml` and add a `CHANGELOG.md` entry for user-visible changes.
 
@@ -52,7 +52,7 @@ Subclasses (`DatabaseV2`, `CrateBase` → `Crate` / `SmartCrate`) must define `T
 The lifecycle is `parse → self.entries → mutate → to_bytes() → save()`:
 
 - The file's bytes aren't stored. Each `to_bytes()` call serializes `entries` from scratch, so mutations cost nothing and each `save()` pays for one serialization. Edit `entries` however you like, in place or by assignment. (The `SeratoTag` classes below do store theirs, in `_raw_data`; the read-only `raw_data` getter is deprecated for removal in the next major version.)
-- `modify_tracks`, `modify`, `change_track_path`, `filter_tracks`, `remove_tracks`, and `remove_duplicates` return whether anything changed. Methods that save on the caller's behalf (`modify_and_save`, `find_missing`, `DatabaseV2.rename_track_file`) use that to skip writing an unchanged file. `save()` itself always writes, since it doubles as "save as".
+- `modify_tracks`, `modify`, `change_track_path`, `filter_tracks`, `remove_tracks`, and `remove_duplicates` return whether anything changed. Methods that save on the caller's behalf (`modify_and_save`, `find_missing`, and `Library`'s methods) use that to skip writing an unchanged file. `save()` itself always writes, since it doubles as "save as".
 - `modify()` takes a list of `ModifyRule` dicts (`{"field": ..., "func": (filename, prev_val) -> new_val | None, "files": [...]}`); returning `None` from `func` means "leave unchanged".
 - `modify_tracks(func, files=...)` and `modify()` with every rule limited to `files` skip every other track after reading only its path, which keeps single-track edits fast on a large library.
 - `add_tracks` / `remove_tracks` are the batch track APIs (one pass each); the singular `add_track` / `remove_track` are deprecated for removal in the next major version and delegate to them.
@@ -83,7 +83,7 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
 ### Cross-module dependencies
 
 - `TrackCuesV2` cue snapping reads the track's `TrackBeatgrid` to find beat positions.
-- `DatabaseV2.rename_track_file` renames on disk, then updates the database *and* every crate under `Crate.DIR_PATH`, saving only those that contain the track, so a renamed file doesn't go missing.
+- `Library` (`library.py`) holds one library folder's `DatabaseV2`, `Crate`s, and `SmartCrate`s, each parsed on first use and then kept. Its `rename_track_file` and `remove_track_files` change the files on disk and update every one of them that contains the track, saving only those. Smart crates are included because Serato re-adds a missing path from a smart crate to the database as a blank "?" entry. The deprecated `DatabaseV2.rename_track_file` calls it with its own database. New operations that have to reach the whole library (database and every crate) belong on `Library`, not on `DatabaseV2`; pass `Library(database=...)` an already-loaded database so the two don't overwrite each other's saves.
 - `usb_export.py` composes `Crate`, `SmartCrate`, and `DatabaseV2`: it flattens all tracks into one folder on the drive, dedupes by basename, rewrites crate/database paths to the new layout, and copies only changed files.
 - `SERATO_DIR` (`~/Music/_Serato_`) in `utils/__init__.py` is the default root for all library lookups.
 

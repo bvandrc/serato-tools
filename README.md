@@ -12,10 +12,10 @@
 - [Example uses](#example-uses)
 - [Installation](#installation)
 - [Examples](#examples)
-  - [Analyzing and setting a dynamic beatgrid](#analyzing-and-setting-a-dynamic-beatgrid)
-  - [Exporting crates to USB](#exporting-crates-to-usb)
-  - [Renaming a file and changing its location in the database](#renaming-a-file-and-changing-its-location-in-the-database)
+  - [Renaming or removing track files across the library](#renaming-or-removing-track-files-across-the-library)
   - [Modifying the database file](#modifying-the-database-file)
+  - [Exporting crates to USB](#exporting-crates-to-usb)
+  - [Analyzing and setting a dynamic beatgrid](#analyzing-and-setting-a-dynamic-beatgrid)
   - [Setting track color](#setting-track-color)
   - [Snapping cue positions to the beatgrid](#snapping-cue-positions-to-the-beatgrid)
   - [Modifying track metadata / hot cues](#modifying-track-metadata--hot-cues)
@@ -26,6 +26,7 @@
 - [Track Tags](#track-tags)
 - [Sources](#sources)
 - [Contributing](#contributing)
+- [License](#license)
 
 ## Example uses:
 
@@ -40,8 +41,10 @@
 - Analyze a track's Dynamic Beatgrid and save it to the beatgrid Serato tag.
  - Snap cue points to the nearest beat with a configurable tolerance (e.g. 1/16, 1/8, 1/4 of a beat).
 
+**Library:**
+- Rename or delete a track file while updating the database, crates, and smart crates as well, so that it doesn't go missing.
+
 **Database:**
-- Rename a file while changing its location in the database as well, so that it doesn't go missing.
 - After changing a track's metadata, modify database values for a specific track so that you don't have to "Reload Id3 Tags" in Serato, the change appears in Serato instantly.
 
 **Crate:**
@@ -63,52 +66,39 @@
 pip install serato-tools
 ```
 
-The following deps are optional, but **must be installed based on what features you want to use** (each is also available as a package extra, e.g. `pip install "serato-tools[track_tags]"`):
+That alone covers crates, smart crates, the library database, and USB export. The rest of the features need extra packages, installed through the matching extra:
 
-- For getting/modifying track metadata including tags, cue points, beatgrid, and waveform, must install `pip install mutagen` (extra: `track_tags`)
-- For viewing a track's waveform, must install `pip install pillow` (extra: `waveform_drawing`)
-- For beatgrid analysis, must install `pip install numpy` and `pip install librosa` (extra: `beatgrid_analysis`)
+| Extra | Install | Adds |
+| --- | --- | --- |
+| `track_tags` | `pip install "serato-tools[track_tags]"` | Getting/modifying track metadata: tags, cue points, beatgrid, and waveform (installs `mutagen`) |
+| `waveform_drawing` | `pip install "serato-tools[waveform_drawing]"` | Viewing a track's waveform (installs `mutagen` and `pillow`) |
+| `beatgrid_analysis` | `pip install "serato-tools[beatgrid_analysis]"` | Beatgrid analysis (installs `mutagen`, `librosa`, and `numpy`) |
+| `all` | `pip install "serato-tools[all]"` | Everything above |
 
 # Examples
 
-### Analyzing and setting a dynamic beatgrid
+### Renaming or removing track files across the library
 
- Rekordbox has Dynamic Beatgrid Analysis but Serato doesn't. This analyzes a non-consistent BPM across a track, such as a track with live drums, and snaps a beatgrid marker to each beat.
+`Library` changes a track file and every place Serato points to it: the database, crates, and smart crates, so the track isn't left missing in Serato.
 
-_NOTE: This feature has only been tested on a couple of tracks. Recommend reviewing the resulting beatgrid in Serato— some grid markers may require adjustment. It seems to be working pretty great though!_
+It's also the fastest way for an app to work with the library. Each file is parsed only once, the first time it's needed, then kept for every later change, instead of re-parsing the whole library per change. Use `library.database` for other database changes too (like [modifying the database file](#modifying-the-database-file)), so they share that one parse. Keep one `Library` per library folder, since another copy's save would overwrite this one's changes.
 
-```cmd
->>> serato_analyze_beatgrid "/Users/Username/Music/Dubstep/Raaket - ILL.mp3"
-```
-
-### Exporting crates to USB
-
-**NOTE: replaces existing crates on flash drive! (but does not delete existing track files) (TODO: ability to merge with existing)**
-
-```cmd
->>> serato_usb_export --drive E --crate_matcher "*house*" "*techno*" --root_crate="Dave USB"
-```
-
-### Renaming a file and changing its location in the database
-
-This renames the file path, and also changes the path in the database to point to the new filename, so that the renamed file is not missing in the library.
-
-_NOTE: Recommended to make a backup of the database file elsewhere, before modifying via this package, in case an unforseen bug appears._
+_NOTE: Close Serato first. It keeps the library in memory, and saves it over any changes made while it's open._
 
 ```python
-from serato_tools.database_v2 import DatabaseV2
+from serato_tools.library import Library
 
-db = DatabaseV2()
-db.rename_track_file(
+library = Library()  # or Library("/Volumes/USB/_Serato_") for a library on another drive
+library.rename_track_file(
     src="/Users/Username/Music/Dubstep/Raaket - ILL - Original Mix.mp3",
     dest="/Users/Username/Music/Dubstep/Raaket - ILL.mp3",
 )
-
+library.remove_track_files(["/Users/Username/Music/Dubstep/Raaket - ILL (Radio Edit).mp3"])  # deletes the files too
 ```
 
 ### Modifying the database file
 
-_NOTE: Recommended to make a backup of the database file elsewhere, before modifying via this package, in case an unforseen bug appears._
+_NOTE: Close Serato first. It keeps the library in memory, and saves it over any changes made while it's open._
 
 ```python
 import time
@@ -138,6 +128,26 @@ db.modify_and_save(
         {"field": DatabaseV2.Fields.GROUPING, "func": remove_group}, # all files
     ]
 )
+```
+
+### Exporting crates to USB
+
+**NOTE: replaces existing crates on flash drive! (but does not delete existing track files) (TODO: ability to merge with existing)**
+
+```cmd
+>>> serato_usb_export --drive E --crate_matcher "*house*" "*techno*" --root_crate="Dave USB"
+```
+
+On macOS, pass the drive's folder, e.g. `--drive /Volumes/USB`.
+
+### Analyzing and setting a dynamic beatgrid
+
+ Rekordbox has Dynamic Beatgrid Analysis but Serato doesn't. This analyzes a non-consistent BPM across a track, such as a track with live drums, and snaps a beatgrid marker to each beat.
+
+_NOTE: This feature has only been tested on a couple of tracks. Recommend reviewing the resulting beatgrid in Serato— some grid markers may require adjustment. It seems to be working pretty great though!_
+
+```cmd
+>>> serato_analyze_beatgrid "/Users/Username/Music/Dubstep/Raaket - ILL.mp3"
 ```
 
 ### Setting track color
@@ -305,9 +315,15 @@ The different file/tag formats that Serato uses to store the information are doc
 # Sources
 
 - Serato track file tag parsing and modification from https://github.com/Holzhaus/serato-tags , which appears to be no longer maintained
-- Serato crate parsing and modification from https://github.com/sharst/seratopy
+- Crate file format was first worked out from https://github.com/sharst/seratopy ; but none of its code remains in this project
 - Dynamic beatgrid analysis from [https://github.com/heyitsmass/audio](https://github.com/heyitsmass/audio/blob/master/audio/beat_grid.py)
 
 # Contributing
 
-If you want a new feature, or have a bug fix, please put in a PR!
+If you want a new feature, or have a bug fix, please put in a PR! For anything bigger, or if you're not sure about an approach, feel free to [open an issue](https://github.com/bvandrc/serato-tools/issues) to discuss it first.
+
+**Please contribute here rather than publishing your own fork.** One maintained package keeps fixes and format discoveries in one place, instead of splitting them across copies that drift apart.
+
+# License
+
+[MIT](https://github.com/bvandrc/serato-tools/blob/main/LICENSE): free to use, modify, and include in your own projects, personal or commercial.
