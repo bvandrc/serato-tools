@@ -70,7 +70,8 @@ def write_file_tags(filepath: str, tags: TrackTags, delete_tags_v1: bool = True)
     See TrackCuesV2.set_track_color for `delete_tags_v1`.
     """
     check_track_tags(tags)
-    track = Track(filepath)
+    # every property so far lives in Serato Markers2, so parse only that
+    track = Track(filepath, cues_v1=False, beatgrid=False, autotags=False, gain=False)
     for key, value in tags.items():
         if not _TRACK_PROPERTIES[key].write(track, value, delete_tags_v1):
             # TODO: create the missing tag or entry, once we know exactly what Serato writes for a new track
