@@ -2,7 +2,7 @@
 import unittest
 import os
 
-from src.serato_tools.track_waveform import TrackWaveform
+from serato_tools.track_waveform import TrackWaveform
 
 
 class TestCase(unittest.TestCase):

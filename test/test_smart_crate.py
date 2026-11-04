@@ -2,7 +2,7 @@
 import unittest
 import os
 
-from src.serato_tools.smart_crate import SmartCrate
+from serato_tools.smart_crate import SmartCrate
 
 with open("test/data/smart_crate.txt", "r", encoding="utf-8") as f:
     expected = f.read()

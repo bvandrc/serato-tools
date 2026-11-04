@@ -12,8 +12,7 @@ class TestCase(unittest.TestCase):
         for name, target in scripts.items():
             with self.subTest(script=name):
                 module_name, _, attr = target.partition(":")
-                # tests import the package through src/, like the other suites
-                module = importlib.import_module(f"src.{module_name}")
+                module = importlib.import_module(module_name)
                 self.assertTrue(callable(getattr(module, attr, None)), f"{target} is not a callable")
 
 

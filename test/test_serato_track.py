@@ -7,11 +7,11 @@ import tempfile
 from mutagen.mp3 import MP3
 
 
-from src.serato_tools.track_cues_v2 import TrackCuesV2
-from src.serato_tools.track_cues_v1 import TrackCuesV1
-from src.serato_tools.track_waveform import TrackWaveform
-from src.serato_tools.track_autotags import TrackAutotags
-from src.serato_tools.utils.track_tags import SeratoTrack
+from serato_tools.track_cues_v2 import TrackCuesV2
+from serato_tools.track_cues_v1 import TrackCuesV1
+from serato_tools.track_waveform import TrackWaveform
+from serato_tools.track_autotags import TrackAutotags
+from serato_tools.utils.track_tags import SeratoTrack
 
 
 class TestCase(unittest.TestCase):
