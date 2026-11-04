@@ -116,7 +116,7 @@ class Library:
 
         - Needs the `track_tags` extra, and raises ImportError without it.
         - Only ID3 files (.mp3, .aiff, .aif) are currently supported.
-        - A track whose tags don't have a value yet, since Serato hasn't analyzed it, gets it added, as Serato writes it.
+        - A track whose tags don't have a value yet, since Serato hasn't analyzed it, gets it added as Serato writes it.
         - Every file is written before the database, which is saved once, so a file that fails to be written leaves the
           database unchanged.
         - See TrackCuesV2.set_track_color for `delete_tags_v1`.
