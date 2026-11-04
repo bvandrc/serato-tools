@@ -1,6 +1,6 @@
 """The track values that live both in a track file's tags and in the library database, for `Library.set_track_tags`.
 
-Needs the `track_tags` extra. Only ID3 files (.mp3, .aiff, .aif) are supported for now.
+Needs the `track_tags` extra. Only ID3 files (.mp3, .aiff, .aif) are currently supported.
 """
 
 from dataclasses import dataclass
