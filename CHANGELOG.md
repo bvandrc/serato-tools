@@ -7,6 +7,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Add support for libraries on an external drive (e.g. `E:\_Serato_` or `/Volumes/USB/_Serato_`): their track paths are relative to that drive's root, as Serato stores them, instead of the home library's drive
   - Each database and crate finds that root from where its file is, in `track_path_root`, and `get_relative_path` / `get_full_path` take it as an optional `root`
 - USB export: add `--source` (`source_serato_dir`) to export from a library on another drive instead of the home library
+  - `--source` also takes the drive the library is on (e.g. `D` or `/Volumes/Music`), and reports a folder with no library instead of failing on it later
 
 ## [5.3.2] - 2026-11-04
 

@@ -1,3 +1,5 @@
+import contextlib
+import io
 import os
 import tempfile
 import unittest
@@ -60,9 +62,21 @@ class GetCrateFilesTestCase(unittest.TestCase):
 
 
 class TestCase(unittest.TestCase):
-    def _run_main(self, drive: str, system: str) -> str:
-        """Runs the CLI with `--drive drive` as if on `system`, and returns the drive folder it exports to."""
-        argv = ["serato_usb_export", "--drive", drive, "--crates", "*"]
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        # stands in for the drive of the library to export from
+        self.source_drive = os.path.realpath(self._tmp.name)
+        self.source_serato_dir = os.path.join(self.source_drive, "_Serato_")
+        os.makedirs(self.source_serato_dir)
+
+    def _run_main(self, drive: str = "/Volumes/USB", source: str | None = None, system: str = "Darwin"):
+        """Runs the CLI as if on `system`, and returns the keyword arguments it calls `copy_crates_to_usb` with.
+
+        `source` defaults to the test's source library.
+        """
+        source = self.source_serato_dir if source is None else source
+        argv = ["serato_usb_export", "--drive", drive, "--crates", "*", "--source", source]
         with (
             mock.patch("sys.argv", argv),
             mock.patch.object(usb_export.platform, "system", return_value=system),
@@ -70,13 +84,24 @@ class TestCase(unittest.TestCase):
             mock.patch.object(usb_export, "copy_crates_to_usb") as copy_crates_to_usb,
         ):
             usb_export.main()
-        return copy_crates_to_usb.call_args.kwargs["dest_drive_dir"]
+        return copy_crates_to_usb.call_args.kwargs
 
     def test_drive_letter_becomes_drive_root(self):
-        self.assertEqual(self._run_main("E", "Windows"), "E:\\")
+        self.assertEqual(self._run_main(drive="E", system="Windows")["dest_drive_dir"], "E:\\")
 
     def test_drive_folder_is_kept(self):
-        self.assertEqual(self._run_main("/Volumes/USB", "Darwin"), "/Volumes/USB")
+        self.assertEqual(self._run_main(drive="/Volumes/USB")["dest_drive_dir"], "/Volumes/USB")
+
+    def test_source_serato_folder_is_kept(self):
+        self.assertEqual(self._run_main(source=self.source_serato_dir)["source_serato_dir"], self.source_serato_dir)
+
+    def test_source_drive_finds_its_serato_folder(self):
+        self.assertEqual(self._run_main(source=self.source_drive)["source_serato_dir"], self.source_serato_dir)
+
+    def test_source_folder_without_library_is_an_error(self):
+        with contextlib.redirect_stderr(io.StringIO()) as stderr, self.assertRaises(SystemExit):
+            self._run_main(source=os.path.join(self.source_drive, "Nope"))
+        self.assertIn("no Serato library folder", stderr.getvalue())
 
 
 if __name__ == "__main__":
