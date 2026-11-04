@@ -1,4 +1,5 @@
-"""The track values that live both in a track file's tags and in the library database, for `Library.set_db_track_tags`.
+"""The track values that live both in a track file's tags and in the library database: how each is written to the file,
+and converted to the database's form.
 
 Needs the `track_tags` extra. Only ID3 files (.mp3, .aiff, .aif) are currently supported.
 """
@@ -13,7 +14,7 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 
 
 class DbTrackTags(TypedDict, total=False):
-    """Values to set on a track with `Library.set_db_track_tags`; a key that's left out is left unchanged."""
+    """Values a track keeps both in its file's tags and in the library database; a key that's left out is unchanged."""
 
     color: TrackCuesV2.TrackColors
     beatgrid_locked: bool
@@ -54,16 +55,22 @@ def _check_db_track_tags(tags: DbTrackTags):
 def write_db_track_tags_to_files(tracks: Mapping[str, DbTrackTags], delete_tags_v1: bool = True):
     """Sets each track's values in its file's own tags, saving each file that changed.
 
-    `tracks` maps each file's path to its values. Raises ValueError, before writing any file, if any of them has a key
-    that isn't one of DbTrackTags'. See TrackCuesV2.set_track_color for `delete_tags_v1`.
+    `tracks` maps each file's path to its values. Every file is read and every value set before any file is saved, so
+    a bad key or value, or a file that can't be read, raises without changing any file. See
+    TrackCuesV2.set_track_color for `delete_tags_v1`.
     """
     for tags in tracks.values():
         _check_db_track_tags(tags)
+    changed_tracks: list[Track] = []
     for filepath, tags in tracks.items():
+        if not tags:
+            continue
         # every property so far lives in Serato Markers2, so parse only that
         track = Track(filepath, cues_v1=False, beatgrid=False, autotags=False, gain=False)
         for key, value in tags.items():
             _DB_TRACK_PROPS[key].write(track, value, delete_tags_v1)
+        changed_tracks.append(track)
+    for track in changed_tracks:
         track.save()
 
 

@@ -117,28 +117,33 @@ class Library:
         - Needs the `track_tags` extra, and raises ImportError without it.
         - Only ID3 files (.mp3, .aiff, .aif) are currently supported.
         - A track whose tags don't have a value yet, since Serato hasn't analyzed it, gets it added as Serato writes it.
-        - Every file is written before the database, which is saved once, so a file that fails to be written leaves the
-          database unchanged.
+        - A bad key or value, or a file that can't be read, raises before any file or the database is changed.
+        - Every file is written before the database, which is saved once.
+        - A track that isn't in the database only has its file's tags set, with a warning.
         - See TrackCuesV2.set_track_color for `delete_tags_v1`.
         """
         props = _db_track_props()
+        # converted before any file is written, so a value the database can't hold changes nothing
+        db_values = {
+            DatabaseV2.get_relative_path(filepath).upper(): props.to_db_values(tags)
+            for filepath, tags in tracks.items()
+        }
         props.write_db_track_tags_to_files(tracks, delete_tags_v1)
 
-        # each field's new value per track; modify passes rules the track's path as Serato stores it, matched by case
-        values_by_field: dict[DatabaseV2.Fields, dict[str, SeratoBinFile.BasicValue]] = {}
-        for filepath, tags in tracks.items():
-            relpath = DatabaseV2.get_relative_path(filepath).upper()
-            for field, value in props.to_db_values(tags).items():
-                values_by_field.setdefault(field, {})[relpath] = value
-        rules: list[SeratoBinFile.ModifyRule] = [
-            {
-                "field": field,
-                "files": list(values),
-                "func": lambda relpath, _, values=values: values.get(relpath.upper()),
-            }
-            for field, values in values_by_field.items()
-        ]
-        changed = self.database.modify(rules) if rules else False
+        found: set[str] = set()
+
+        def set_values(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
+            # matched by case, as modify_tracks matches `files`
+            relpath = track.relpath.upper()
+            found.add(relpath)
+            for field, value in db_values[relpath].items():
+                track.set_value(field, value)
+            return track
+
+        changed = self.database.modify_tracks(set_values, files=list(tracks))
+        for filepath in tracks:
+            if DatabaseV2.get_relative_path(filepath).upper() not in found:
+                logger.warning(f"track isn't in the database, so only its file's tags were set: {filepath}")
         if changed:
             self.database.save()
         return changed

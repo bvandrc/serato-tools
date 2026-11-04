@@ -219,6 +219,38 @@ class TestCase(unittest.TestCase):
         self.assertEqual(saved, [], "database not saved")
         self.assertEqual(TrackCuesV2(track).get_track_color(), b"\xbb\xbb\xbb", "file not changed")
 
+    def test_set_db_tracks_tags_failing_later_track_changes_nothing(self):
+        first = self.copy_analyzed_track("First.mp3")
+        self.add_to_database(first)
+        batches = {
+            "unreadable file": {
+                first: {"color": TrackCuesV2.TrackColors.RED},
+                "Second.flac": {"beatgrid_locked": True},
+            },
+            "bad value": {first: {"color": TrackCuesV2.TrackColors.RED}, first + "2": {"color": "red"}},
+        }
+        saved = self.saved_file_names()
+        for name, tracks in batches.items():
+            with self.subTest(name):
+                with self.assertRaises((ValueError, AttributeError)):
+                    Library(self.serato_dir).set_db_tracks_tags(tracks)  # type: ignore[arg-type]
+                self.assertEqual(saved, [], "database not saved")
+                self.assertEqual(TrackCuesV2(first).get_track_color(), b"\xbb\xbb\xbb", "first file not changed")
+
+    def test_set_db_tracks_tags_with_no_values_doesnt_open_the_file(self):
+        # an unsupported file type would raise when opened
+        self.assertFalse(Library(self.serato_dir).set_db_tracks_tags({"Unopened.flac": {}}))
+
+    def test_set_db_track_tags_track_not_in_database_warns(self):
+        track = self.copy_analyzed_track("Unknown.mp3")
+
+        with self.assertLogs(level="WARNING") as logs:
+            changed = Library(self.serato_dir).set_db_track_tags(track, color=TrackCuesV2.TrackColors.RED)
+
+        self.assertFalse(changed, "database unchanged")
+        self.assertIn("isn't in the database", "\n".join(logs.output))
+        self.assertEqual(TrackCuesV2(track).get_track_color(), TrackCuesV2.TrackColors.RED.value, "file still set")
+
     def test_set_db_track_tags_without_track_tags_extra(self):
         # a fresh interpreter, with mutagen blocked as if the track_tags extra weren't installed
         code = """if True:
