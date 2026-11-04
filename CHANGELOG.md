@@ -6,6 +6,8 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Fix `TrackGain`, which never read or wrote anything: Serato stores a track's gain as an `RVA2` ID3 frame named `SeratoGain`, not the `replaygain_SeratoGain_gain` / `_peak` keys we had before
   - **If you delete gain when `gain` or `peak` isn't `None`, check that code**: Serato writes the frame on most analyzed tracks, with a gain of `0.0` unless one was set, so it's now `0.0` rather than `None` for them
+- Fix USB export crate matchers: a glob like `house*` was treated as a regex, so it also matched crates like `housing`; matchers are now tried as globs first, falling back to regex
+  - Also, only actual crate files are matched (a stray file like `.DS_Store` crashed the export), and a missing `Subcrates` or `SmartCrates` folder means no crates of that kind instead of an error
 
 ## [5.2.0] - 2026-11-03
 
