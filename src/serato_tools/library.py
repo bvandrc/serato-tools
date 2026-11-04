@@ -113,8 +113,8 @@ class Library:
         """Sets values in each track file's tags and in the database, so Serato shows them right away.
 
         Needs the `track_tags` extra (raising ImportError without it), and only ID3 files (.mp3, .aiff, .aif) are
-        currently supported. `tracks` maps each file's path to the values to set (see DbTrackTags). A value the file has
-        nowhere to put yet, since Serato hasn't imported the track, is only set in the database, with a warning. Every
+        currently supported. `tracks` maps each file's path to the values to set (see DbTrackTags). A track whose tags
+        don't have a value yet, since Serato hasn't analyzed it, gets it added, as Serato writes it. Every
         file is written before the database is, in a single save, so a file that fails to be written leaves the
         database unchanged. Returns whether the database changed. See TrackCuesV2.set_track_color for `delete_tags_v1`.
         """

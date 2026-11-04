@@ -193,18 +193,18 @@ class TestCase(unittest.TestCase):
         self.assertFalse(library.set_db_track_tags(track, color=TrackCuesV2.TrackColors.GREY))
         self.assertEqual(saved, [], "database not saved")
 
-    def test_set_db_track_tags_not_yet_imported_sets_only_the_database(self):
+    def test_set_db_track_tags_creates_a_missing_tag(self):
         track = self.copy_analyzed_track("New.mp3")
         tags = TrackCuesV2(track)
         tags.delete()
         tags.save()
         self.add_to_database(track)
 
-        with self.assertLogs(level="WARNING") as logs:
-            Library(self.serato_dir).set_db_track_tags(track, color=TrackCuesV2.TrackColors.RED)
+        Library(self.serato_dir).set_db_track_tags(track, color=TrackCuesV2.TrackColors.RED, beatgrid_locked=True)
 
-        self.assertIn("not yet imported", "\n".join(logs.output))
-        self.assertIsNone(TrackCuesV2(track).get_track_color(), "tag not created")
+        tags = TrackCuesV2(track)
+        self.assertEqual(tags.get_track_color(), TrackCuesV2.TrackColors.RED.value, "color added to the file")
+        self.assertTrue(tags.is_beatgrid_locked(), "lock added to the file")
         self.assertEqual(self.db_values(DatabaseV2.Fields.COLOR)[DatabaseV2.get_relative_path(track)], 0xFF9999)
 
     def test_set_db_track_tags_unknown_key_changes_nothing(self):

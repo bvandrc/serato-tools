@@ -10,7 +10,6 @@ from serato_tools.database_v2 import DatabaseV2
 from serato_tools.track import Track
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.utils.bin_file_base import SeratoBinFile
-from serato_tools.utils import logger
 
 
 class DbTrackTags(TypedDict, total=False):
@@ -24,33 +23,22 @@ class DbTrackTags(TypedDict, total=False):
 class _DbTrackProp[T]:
     db_field: DatabaseV2.Fields
     to_db_val: Callable[[T], SeratoBinFile.BasicValue]
-    # sets the value in the track's tags (taking delete_tags_v1), returning False if the file has nowhere to put it yet
-    write: Callable[[Track, T, bool], bool]
-
-
-def _write_color(track: Track, color: TrackCuesV2.TrackColors, delete_tags_v1: bool) -> bool:
-    if track.get_track_color() is None:
-        return False
-    track.set_track_color(color, delete_tags_v1=delete_tags_v1)
-    return True
-
-
-def _write_beatgrid_locked(track: Track, locked: bool, delete_tags_v1: bool) -> bool:
-    # is_beatgrid_locked() is False both for an unlocked track and for one with no lock entry, so look for the entry
-    if not any(isinstance(entry, TrackCuesV2.BpmLockEntry) for entry in track.cues_v2.entries):
-        return False
-    track.set_beatgrid_locked(locked, delete_tags_v1=delete_tags_v1)
-    return True
+    # sets the value in the track's tags, taking delete_tags_v1
+    write: Callable[[Track, T, bool], None]
 
 
 # keyed by DbTrackTags' keys
 _DB_TRACK_PROPS: dict[str, _DbTrackProp[Any]] = {
     # the database holds the color as 0xRRGGBB, the same bytes as the tags hold, as an int
     "color": _DbTrackProp[TrackCuesV2.TrackColors](
-        DatabaseV2.Fields.COLOR, lambda color: int.from_bytes(color.value, "big"), _write_color
+        DatabaseV2.Fields.COLOR,
+        lambda color: int.from_bytes(color.value, "big"),
+        lambda track, color, delete_tags_v1: track.set_track_color(color, delete_tags_v1=delete_tags_v1),
     ),
     "beatgrid_locked": _DbTrackProp[bool](
-        DatabaseV2.Fields.BEATGRID_LOCKED, lambda locked: locked, _write_beatgrid_locked
+        DatabaseV2.Fields.BEATGRID_LOCKED,
+        lambda locked: locked,
+        lambda track, locked, delete_tags_v1: track.set_beatgrid_locked(locked, delete_tags_v1=delete_tags_v1),
     ),
 }
 assert set(_DB_TRACK_PROPS) == DbTrackTags.__optional_keys__, "every DbTrackTags key needs a property, and only those"
@@ -66,19 +54,13 @@ def check_db_track_tags(tags: DbTrackTags):
 def write_db_track_tags_to_file(filepath: str, tags: DbTrackTags, delete_tags_v1: bool = True):
     """Sets `tags` in the track file's own tags, and saves it if anything changed.
 
-    A value the file has nowhere to put yet, since Serato hasn't imported the track, is skipped with a warning.
     See TrackCuesV2.set_track_color for `delete_tags_v1`.
     """
     check_db_track_tags(tags)
     # every property so far lives in Serato Markers2, so parse only that
     track = Track(filepath, cues_v1=False, beatgrid=False, autotags=False, gain=False)
     for key, value in tags.items():
-        if not _DB_TRACK_PROPS[key].write(track, value, delete_tags_v1):
-            # TODO: create the missing tag or entry, once we know exactly what Serato writes for a new track
-            logger.warning(
-                f"no {key} in the file's {TrackCuesV2.GEOB_KEY} tag (track not yet imported to Serato?), "
-                f"so it's only set in the database: {filepath}"
-            )
+        _DB_TRACK_PROPS[key].write(track, value, delete_tags_v1)
     track.save()
 
 

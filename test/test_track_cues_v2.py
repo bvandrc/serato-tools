@@ -2,6 +2,8 @@
 import dataclasses
 import unittest
 import os
+import tempfile
+import shutil
 import io
 from contextlib import redirect_stdout
 
@@ -94,6 +96,34 @@ class TestCase(unittest.TestCase):
         data = tags._raw_data  # pylint: disable=protected-access
         assert data is not None
         self.assertTrue(TrackCuesV2(data).is_beatgrid_locked(), "serialized")
+
+    def untagged_mp3(self) -> str:
+        """A copy of the test mp3 with no Serato Markers2 tag, as for a track Serato hasn't analyzed."""
+        tmp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp_dir.cleanup)
+        path = os.path.join(tmp_dir.name, "untagged.mp3")
+        shutil.copy("test/data/test_mp3.mp3", path)
+        tags = TrackCuesV2(path)
+        tags.delete()
+        tags.save()
+        return path
+
+    def test_setting_a_missing_color_or_lock_adds_it(self):
+        tags = TrackCuesV2(self.untagged_mp3())
+        tags.set_track_color(TrackCuesV2.TrackColors.RED)
+        self.assertEqual(tags.get_track_color(), TrackCuesV2.TrackColors.RED.value)
+
+        tags = TrackCuesV2(self.untagged_mp3())
+        tags.set_beatgrid_locked(True)
+        self.assertTrue(tags.is_beatgrid_locked())
+
+    def test_a_tag_added_from_scratch_matches_what_serato_writes(self):
+        # track_cues_v2_analyzed.bin is the tag Serato wrote for a newly analyzed track: white, unlocked
+        tags = TrackCuesV2(self.untagged_mp3())
+        tags.set_track_color(TrackCuesV2.TrackColors.WHITE)
+        tags.set_beatgrid_locked(False)
+        with open("test/data/track_cues_v2_analyzed.bin", "rb") as f:
+            self.assertEqual(tags._raw_data, f.read())
 
     def test_snap_position_to_beat(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
