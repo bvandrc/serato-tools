@@ -23,7 +23,7 @@ class DbTrackTags(TypedDict, total=False):
 @dataclass(frozen=True)
 class _DbTrackProp[T]:
     db_field: DatabaseV2.Fields
-    to_db: Callable[[T], SeratoBinFile.BasicValue]
+    to_db_val: Callable[[T], SeratoBinFile.BasicValue]
     # sets the value in the track's tags (taking delete_tags_v1), returning False if the file has nowhere to put it yet
     write: Callable[[Track, T, bool], bool]
 
@@ -85,4 +85,4 @@ def write_db_track_tags_to_file(filepath: str, tags: DbTrackTags, delete_tags_v1
 def to_db_values(tags: DbTrackTags) -> dict[DatabaseV2.Fields, SeratoBinFile.BasicValue]:
     """The database fields and values that hold `tags`."""
     check_db_track_tags(tags)
-    return {_DB_TRACK_PROPS[key].db_field: _DB_TRACK_PROPS[key].to_db(value) for key, value in tags.items()}
+    return {_DB_TRACK_PROPS[key].db_field: _DB_TRACK_PROPS[key].to_db_val(value) for key, value in tags.items()}
