@@ -31,13 +31,13 @@ def open_tagfile(file: ID3FileOrPath) -> ID3File:
         raise
     raise ValueError(f"unsupported file type (only .mp3, .aiff, and .aif are supported): {file}")
 
+
 def del_tag(tagfile: ID3File, key: str) -> bool:
     """Deletes the file's frame `key` (e.g. `GEOB:Serato Markers_`), in memory; returns whether it had one."""
     if key in tagfile:
         del tagfile[key]
         return True
     return False
-
 
 
 def get_geob(tagfile: ID3File, geob_key: str) -> bytes | None:
@@ -57,6 +57,7 @@ def set_geob(tagfile: ID3File, geob_key: str, data: bytes):
         desc=geob_key,
         data=data,
     )
+
 
 def del_geob(tagfile: ID3File, geob_key: str) -> bool:
     """Deletes the file's GEOB frame named `geob_key`, in memory; returns whether it had one."""
