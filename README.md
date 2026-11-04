@@ -138,6 +138,8 @@ db.modify_and_save(
 >>> serato_usb_export --drive E --crate_matcher "*house*" "*techno*" --root_crate="Dave USB"
 ```
 
+On macOS, pass the drive's folder, e.g. `--drive /Volumes/USB`.
+
 ### Analyzing and setting a dynamic beatgrid
 
  Rekordbox has Dynamic Beatgrid Analysis but Serato doesn't. This analyzes a non-consistent BPM across a track, such as a track with live drums, and snaps a beatgrid marker to each beat.
