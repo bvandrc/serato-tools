@@ -105,11 +105,11 @@ class Library:
                 os.remove(filepath)
                 logger.info(f"deleted {filepath}")
 
-    def set_track_tags(self, filepath: str, *, delete_tags_v1: bool = True, **tags: Unpack["DbTrackTags"]) -> bool:
-        """Sets values in the track file's tags and in the database, as set_tracks_tags does for many tracks."""
-        return self.set_tracks_tags({filepath: tags}, delete_tags_v1=delete_tags_v1)
+    def set_db_track_tags(self, filepath: str, *, delete_tags_v1: bool = True, **tags: Unpack["DbTrackTags"]) -> bool:
+        """Sets values in the track file's tags and in the database, as set_db_tracks_tags does for many tracks."""
+        return self.set_db_tracks_tags({filepath: tags}, delete_tags_v1=delete_tags_v1)
 
-    def set_tracks_tags(self, tracks: Mapping[str, "DbTrackTags"], delete_tags_v1: bool = True) -> bool:
+    def set_db_tracks_tags(self, tracks: Mapping[str, "DbTrackTags"], delete_tags_v1: bool = True) -> bool:
         """Sets values in each track file's tags and in the database, so Serato shows them right away.
 
         Needs the `track_tags` extra (raising ImportError without it), and only ID3 files (.mp3, .aiff, .aif) are
@@ -120,9 +120,9 @@ class Library:
         """
         props = _db_track_props()
         for tags in tracks.values():
-            props.check_track_tags(tags)
+            props.check_db_track_tags(tags)
         for filepath, tags in tracks.items():
-            props.write_file_tags(filepath, tags, delete_tags_v1)
+            props.write_db_track_tags_to_file(filepath, tags, delete_tags_v1)
 
         # each field's new value per track; modify passes rules the track's path as Serato stores it, matched by case
         values_by_field: dict[DatabaseV2.Fields, dict[str, SeratoBinFile.BasicValue]] = {}

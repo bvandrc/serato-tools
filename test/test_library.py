@@ -144,13 +144,13 @@ class TestCase(unittest.TestCase):
         """Each saved database track's value of `field`, by path, for the tracks that have it."""
         return {t.relpath: t.get_value(field) for t in DatabaseV2(self.db_file).get_tracks() if field in t.fields}
 
-    def test_set_track_tags(self):
+    def test_set_db_track_tags(self):
         track = self.copy_analyzed_track("Colored.mp3")
         other = self.copy_analyzed_track("Other.mp3")
         self.add_to_database(track, other)
 
         saved = self.saved_file_names()
-        changed = Library(self.serato_dir).set_track_tags(
+        changed = Library(self.serato_dir).set_db_track_tags(
             track, color=TrackCuesV2.TrackColors.PURPLE, beatgrid_locked=True
         )
 
@@ -167,12 +167,12 @@ class TestCase(unittest.TestCase):
         self.assertNotIn(other_relpath, locks, "other track's lock left alone")
         self.assertEqual(TrackCuesV2(other).get_track_color(), b"\xbb\xbb\xbb", "other track's file left alone")
 
-    def test_set_tracks_tags_sets_each_its_own_values(self):
+    def test_set_db_tracks_tags_sets_each_its_own_values(self):
         red, blue = self.copy_analyzed_track("Red.mp3"), self.copy_analyzed_track("Blue.mp3")
         self.add_to_database(red, blue)
 
         saved = self.saved_file_names()
-        Library(self.serato_dir).set_tracks_tags(
+        Library(self.serato_dir).set_db_tracks_tags(
             {red: {"color": TrackCuesV2.TrackColors.RED}, blue: {"color": TrackCuesV2.TrackColors.BLUE1}}
         )
 
@@ -183,17 +183,17 @@ class TestCase(unittest.TestCase):
         self.assertEqual(TrackCuesV2(red).get_track_color(), TrackCuesV2.TrackColors.RED.value)
         self.assertEqual(TrackCuesV2(blue).get_track_color(), TrackCuesV2.TrackColors.BLUE1.value)
 
-    def test_set_track_tags_unchanged_skips_saving(self):
+    def test_set_db_track_tags_unchanged_skips_saving(self):
         track = self.copy_analyzed_track("Grey.mp3")
         self.add_to_database(track)
         library = Library(self.serato_dir)
-        library.set_track_tags(track, color=TrackCuesV2.TrackColors.GREY)
+        library.set_db_track_tags(track, color=TrackCuesV2.TrackColors.GREY)
 
         saved = self.saved_file_names()
-        self.assertFalse(library.set_track_tags(track, color=TrackCuesV2.TrackColors.GREY))
+        self.assertFalse(library.set_db_track_tags(track, color=TrackCuesV2.TrackColors.GREY))
         self.assertEqual(saved, [], "database not saved")
 
-    def test_set_track_tags_not_yet_imported_sets_only_the_database(self):
+    def test_set_db_track_tags_not_yet_imported_sets_only_the_database(self):
         track = self.copy_analyzed_track("New.mp3")
         tags = TrackCuesV2(track)
         tags.delete()
@@ -201,25 +201,25 @@ class TestCase(unittest.TestCase):
         self.add_to_database(track)
 
         with self.assertLogs(level="WARNING") as logs:
-            Library(self.serato_dir).set_track_tags(track, color=TrackCuesV2.TrackColors.RED)
+            Library(self.serato_dir).set_db_track_tags(track, color=TrackCuesV2.TrackColors.RED)
 
         self.assertIn("not yet imported", "\n".join(logs.output))
         self.assertIsNone(TrackCuesV2(track).get_track_color(), "tag not created")
         self.assertEqual(self.db_values(DatabaseV2.Fields.COLOR)[DatabaseV2.get_relative_path(track)], 0xFF9999)
 
-    def test_set_track_tags_unknown_key_changes_nothing(self):
+    def test_set_db_track_tags_unknown_key_changes_nothing(self):
         track = self.copy_analyzed_track("Track.mp3")
         self.add_to_database(track)
 
         saved = self.saved_file_names()
         with self.assertRaises(ValueError):
-            Library(self.serato_dir).set_tracks_tags(
+            Library(self.serato_dir).set_db_tracks_tags(
                 {track: {"color": TrackCuesV2.TrackColors.RED, "title": "x"}}  # type: ignore[typeddict-unknown-key]
             )
         self.assertEqual(saved, [], "database not saved")
         self.assertEqual(TrackCuesV2(track).get_track_color(), b"\xbb\xbb\xbb", "file not changed")
 
-    def test_set_track_tags_without_track_tags_extra(self):
+    def test_set_db_track_tags_without_track_tags_extra(self):
         # a fresh interpreter, with mutagen blocked as if the track_tags extra weren't installed
         code = """if True:
             import sys
@@ -228,7 +228,7 @@ class TestCase(unittest.TestCase):
             library = Library(sys.argv[1])
             library.database  # the rest of Library still works
             try:
-                library.set_track_tags("track.mp3", beatgrid_locked=True)
+                library.set_db_track_tags("track.mp3", beatgrid_locked=True)
             except ImportError as error:
                 print(error)
         """

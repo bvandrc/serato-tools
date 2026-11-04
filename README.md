@@ -193,7 +193,7 @@ from serato_tools.library import Library
 from serato_tools.track_cues_v2 import TrackCuesV2
 
 library = Library()
-library.set_track_tags(
+library.set_db_track_tags(
     '/Users/Username/Music/Dubstep/Raaket - ILL.mp3',
     color=TrackCuesV2.TrackColors.PURPLE,
     beatgrid_locked=True,
@@ -201,7 +201,7 @@ library.set_track_tags(
     delete_tags_v1=True,
 )
 # many tracks at once, saving the database only once
-library.set_tracks_tags({
+library.set_db_tracks_tags({
     '/Users/Username/Music/Dubstep/Raaket - ILL.mp3': {'color': TrackCuesV2.TrackColors.PURPLE},
     '/Users/Username/Music/Dubstep/Other.mp3': {'color': TrackCuesV2.TrackColors.BLUE1, 'beatgrid_locked': False},
 })

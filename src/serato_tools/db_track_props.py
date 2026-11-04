@@ -1,4 +1,4 @@
-"""The track values that live both in a track file's tags and in the library database, for `Library.set_track_tags`.
+"""The track values that live both in a track file's tags and in the library database, for `Library.set_db_track_tags`.
 
 Needs the `track_tags` extra. Only ID3 files (.mp3, .aiff, .aif) are currently supported.
 """
@@ -14,14 +14,14 @@ from serato_tools.utils import logger
 
 
 class DbTrackTags(TypedDict, total=False):
-    """Values to set on a track with `Library.set_track_tags`; a key that's left out is left unchanged."""
+    """Values to set on a track with `Library.set_db_track_tags`; a key that's left out is left unchanged."""
 
     color: TrackCuesV2.TrackColors
     beatgrid_locked: bool
 
 
 @dataclass(frozen=True)
-class _TrackProperty[T]:
+class _DbTrackProp[T]:
     db_field: DatabaseV2.Fields
     to_db: Callable[[T], SeratoBinFile.BasicValue]
     # sets the value in the track's tags (taking delete_tags_v1), returning False if the file has nowhere to put it yet
@@ -44,36 +44,36 @@ def _write_beatgrid_locked(track: Track, locked: bool, delete_tags_v1: bool) -> 
 
 
 # keyed by DbTrackTags' keys
-_TRACK_PROPERTIES: dict[str, _TrackProperty[Any]] = {
+_DB_TRACK_PROPS: dict[str, _DbTrackProp[Any]] = {
     # the database holds the color as 0xRRGGBB, the same bytes as the tags hold, as an int
-    "color": _TrackProperty[TrackCuesV2.TrackColors](
+    "color": _DbTrackProp[TrackCuesV2.TrackColors](
         DatabaseV2.Fields.COLOR, lambda color: int.from_bytes(color.value, "big"), _write_color
     ),
-    "beatgrid_locked": _TrackProperty[bool](
+    "beatgrid_locked": _DbTrackProp[bool](
         DatabaseV2.Fields.BEATGRID_LOCKED, lambda locked: locked, _write_beatgrid_locked
     ),
 }
-assert set(_TRACK_PROPERTIES) == DbTrackTags.__optional_keys__, "every DbTrackTags key needs a property, and only those"
+assert set(_DB_TRACK_PROPS) == DbTrackTags.__optional_keys__, "every DbTrackTags key needs a property, and only those"
 
 
-def check_track_tags(tags: DbTrackTags):
+def check_db_track_tags(tags: DbTrackTags):
     """Raises ValueError if `tags` has a key that isn't one of DbTrackTags'."""
     unknown = set(tags) - DbTrackTags.__optional_keys__
     if unknown:
-        raise ValueError(f"unknown track tags: {sorted(unknown)}, expected some of {sorted(_TRACK_PROPERTIES)}")
+        raise ValueError(f"unknown track tags: {sorted(unknown)}, expected some of {sorted(_DB_TRACK_PROPS)}")
 
 
-def write_file_tags(filepath: str, tags: DbTrackTags, delete_tags_v1: bool = True):
+def write_db_track_tags_to_file(filepath: str, tags: DbTrackTags, delete_tags_v1: bool = True):
     """Sets `tags` in the track file's own tags, and saves it if anything changed.
 
     A value the file has nowhere to put yet, since Serato hasn't imported the track, is skipped with a warning.
     See TrackCuesV2.set_track_color for `delete_tags_v1`.
     """
-    check_track_tags(tags)
+    check_db_track_tags(tags)
     # every property so far lives in Serato Markers2, so parse only that
     track = Track(filepath, cues_v1=False, beatgrid=False, autotags=False, gain=False)
     for key, value in tags.items():
-        if not _TRACK_PROPERTIES[key].write(track, value, delete_tags_v1):
+        if not _DB_TRACK_PROPS[key].write(track, value, delete_tags_v1):
             # TODO: create the missing tag or entry, once we know exactly what Serato writes for a new track
             logger.warning(
                 f"no {key} in the file's {TrackCuesV2.GEOB_KEY} tag (track not yet imported to Serato?), "
@@ -84,5 +84,5 @@ def write_file_tags(filepath: str, tags: DbTrackTags, delete_tags_v1: bool = Tru
 
 def to_db_values(tags: DbTrackTags) -> dict[DatabaseV2.Fields, SeratoBinFile.BasicValue]:
     """The database fields and values that hold `tags`."""
-    check_track_tags(tags)
-    return {_TRACK_PROPERTIES[key].db_field: _TRACK_PROPERTIES[key].to_db(value) for key, value in tags.items()}
+    check_db_track_tags(tags)
+    return {_DB_TRACK_PROPS[key].db_field: _DB_TRACK_PROPS[key].to_db(value) for key, value in tags.items()}
