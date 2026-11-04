@@ -2,6 +2,10 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.5.0] - 2026-11-04
+
+- `TrackCuesV2.set_track_color` and `set_beatgrid_locked` now add the entry, and the `Serato Markers2` tag, when the track doesn't have them yet, as Serato writes them, instead of leaving the value unset
+
 ## [5.4.0] - 2026-11-04
 
 - Add `Track` (`serato_tools.track`), which reads a track file's Serato tags (`cues_v2`, `cues_v1`, `beatgrid`, `autotags`, `gain`, and, if asked for, `waveform`) from one open file, and saves all of their changes in a single write, skipping it when nothing changed
