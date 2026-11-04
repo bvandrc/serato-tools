@@ -15,7 +15,6 @@ from serato_tools.utils import (
     logger,
     SERATO_DIR_NAME,
     SERATO_DIR as LOCAL_SERATO_DIR,
-    SERATO_DRIVE as LOCAL_SERATO_DRIVE,
 )
 
 # TODO: put in folders if there are different locations locally for the same basename
@@ -33,8 +32,17 @@ def _uniq_by_basename(paths: list[str]):
 
 
 def copy_crates_to_usb(
-    crate_files: list[str], dest_drive_dir: str, dest_tracks_dir: str, root_crate: Optional[str] = None
+    crate_files: list[str],
+    dest_drive_dir: str,
+    dest_tracks_dir: str,
+    root_crate: Optional[str] = None,
+    source_serato_dir: str = LOCAL_SERATO_DIR,
 ):
+    """Copies the crates' tracks into one folder on the drive, with a library there that points at them.
+
+    `source_serato_dir` is the `_Serato_` folder of the library the crates belong to, which is the home library unless
+    exporting from a library on another drive. Its database, crate order, and stems crate are copied too.
+    """
     if not os.path.isdir(dest_drive_dir):
         raise FileNotFoundError(f"destination drive directory does not exist: {dest_drive_dir}")
 
@@ -51,10 +59,14 @@ def copy_crates_to_usb(
     os.makedirs(crate_dir, exist_ok=True)
 
     def change_track_path(track_path: str):
-        return Crate.get_relative_path(os.path.join(dest_tracks_dir, os.path.basename(track_path)))
+        # relative to the destination drive, where its library is, not to the source library's drive: the result is
+        # relative, so the source track's set_path keeps it as it is
+        dest_path = os.path.join(dest_drive_dir, dest_tracks_dir, os.path.basename(track_path))
+        return Crate.get_relative_path(dest_path, dest_drive_dir)
 
     def modify_crate_track(track: Crate.Track) -> Crate.Track:
-        tracks_to_copy.append(track.relpath)
+        # the full path, since the track's path is relative to the drive the source library is on
+        tracks_to_copy.append(track.get_full_path())
         track.set_path(change_track_path(track.relpath))
         return track
 
@@ -90,14 +102,14 @@ def copy_crates_to_usb(
         logger.info(f"copied crate {new_crate_file}")
 
     # create the db file
-    db = DatabaseV2()
+    db = DatabaseV2(os.path.join(source_serato_dir, DatabaseV2.FILENAME))
     tracks_to_copy = [os.path.normpath(f) for f in tracks_to_copy]
     tracks_to_copy = _uniq_by_basename(tracks_to_copy)
     # a set: both filters below test against it per track
     tracks_to_copy_basenames = {os.path.basename(f) for f in tracks_to_copy}
 
     def modify_db_track(track: DatabaseV2.Track) -> DatabaseV2.Track:
-        track.set_path(os.path.join(dest_tracks_dir, os.path.basename(track.relpath)))
+        track.set_path(change_track_path(track.relpath))
         track.set_value(DatabaseV2.Fields.PLAYED, False)
         return track
 
@@ -111,7 +123,7 @@ def copy_crates_to_usb(
 
     # copy crate order file, modify if needed
     NEW_ORDER_FILE = "neworder.pref"
-    LOCAL_NEW_ORDER_FILEPATH = os.path.join(LOCAL_SERATO_DIR, NEW_ORDER_FILE)
+    LOCAL_NEW_ORDER_FILEPATH = os.path.join(source_serato_dir, NEW_ORDER_FILE)
     if os.path.isfile(LOCAL_NEW_ORDER_FILEPATH):
         with open(LOCAL_NEW_ORDER_FILEPATH, "r", encoding="utf-8") as f:
             lines = f.read().splitlines()
@@ -136,7 +148,7 @@ def copy_crates_to_usb(
         logger.warning(f"no order file to copy: {LOCAL_NEW_ORDER_FILEPATH}")
 
     # copy stems crate
-    LOCAL_STEMS_CRATE = os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
+    LOCAL_STEMS_CRATE = os.path.join(source_serato_dir, Crate.SERATO_STEMS_CRATE_PATH)
     if os.path.exists(LOCAL_STEMS_CRATE):
         DEST_STEMS_CRATE = os.path.join(DEST_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
         os.makedirs(os.path.dirname(DEST_STEMS_CRATE), exist_ok=True)
@@ -154,9 +166,6 @@ def copy_crates_to_usb(
 
     # copy files
     logger.info("copying files over...")
-
-    root = LOCAL_SERATO_DRIVE + os.sep if LOCAL_SERATO_DRIVE else os.sep
-    tracks_to_copy = [os.path.join(root, t) for t in tracks_to_copy]
 
     not_found: list[str] = []
 
@@ -215,13 +224,14 @@ def copy_crates_to_usb(
         logger.warning(f"ERROR: does not exist - {n}")
 
 
-def get_crate_files(pattern: str):
+def get_crate_files(pattern: str, serato_dir: str = LOCAL_SERATO_DIR):
     # the classes' get_crate_files check the crate extension, so stray files in the folders
     # (e.g. .DS_Store) are never matched; a missing folder just means no crates of that kind
     filepaths: list[str] = []
     for crate_class in (Crate, SmartCrate):
-        if os.path.isdir(crate_class.DIR_PATH):
-            filepaths += crate_class.get_crate_files()
+        crates_dir = os.path.join(serato_dir, crate_class.DIR)
+        if os.path.isdir(crates_dir):
+            filepaths += crate_class.get_crate_files(crates_dir)
 
     # try the pattern as a glob first: most globs (e.g. "house*") are also valid regexes, so
     # checking re.compile first would silently give glob-looking patterns regex semantics
@@ -241,6 +251,7 @@ def main():
     @dataclass
     class Args:
         dest_dir: str
+        source_dir: str
         crate_matcher: list[str]
         root_crate: str | None
 
@@ -253,6 +264,16 @@ def main():
         type=str,
         required=True,
         help='Directory of the destination drive. Example: "E" on Windows, "/Volumes/USB" on macOS',
+    )
+    parser.add_argument(
+        "-s",
+        "--source",
+        "--source_dir",
+        dest="source_dir",
+        type=str,
+        required=False,
+        default=LOCAL_SERATO_DIR,
+        help="The _Serato_ folder of the library to export from. Defaults to the home library, ~/Music/_Serato_",
     )
     parser.add_argument(
         "-c",
@@ -276,7 +297,7 @@ def main():
 
     crate_files: list[str] = []
     for cm in args.crate_matcher:
-        crate_files += get_crate_files(cm)
+        crate_files += get_crate_files(cm, args.source_dir)
 
     if platform.system() == "Windows" and len(args.dest_dir) == 1:
         args.dest_dir += ":\\"
@@ -286,6 +307,7 @@ def main():
         dest_drive_dir=args.dest_dir,
         dest_tracks_dir="Tracks",
         root_crate=args.root_crate,
+        source_serato_dir=args.source_dir,
     )
 
 

@@ -2,6 +2,12 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.4.0] - 2026-11-04
+
+- Add support for libraries on an external drive (e.g. `E:\_Serato_` or `/Volumes/USB/_Serato_`): their track paths are relative to that drive's root, as Serato stores them, instead of the home library's drive
+  - Each database and crate finds that root from where its file is, in `track_path_root`, and `get_relative_path` / `get_full_path` take it as an optional `root`
+- USB export: add `--source` (`source_serato_dir`) to export from a library on another drive instead of the home library
+
 ## [5.3.2] - 2026-11-04
 
 - Fix type checkers (pyright, mypy, etc.) ignoring the package's type hints: it now ships the `py.typed` marker that tells them the hints are there

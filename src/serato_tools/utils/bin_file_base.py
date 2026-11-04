@@ -9,7 +9,7 @@ from enum import StrEnum
 import json
 from typing import Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
 
-from serato_tools.utils import logger, SERATO_DRIVE, DataTypeError, DeeplyNestedListError
+from serato_tools.utils import logger, HOME_TRACK_PATH_ROOT, DataTypeError, DeeplyNestedListError, get_track_path_root
 
 
 class SeratoBinFile:
@@ -98,6 +98,8 @@ class SeratoBinFile:
 
     def __init__(self, file: str):
         self.filepath = os.path.abspath(file)
+        # the folder this file's track paths are relative to
+        self.track_path_root = get_track_path_root(self.filepath)
 
         self.entries: SeratoBinFile.EntryList
         self.version: str
@@ -290,25 +292,35 @@ class SeratoBinFile:
             return [(f, self.get_value(f)) for f in self.fields]
 
     class Track(EntryListCls):
-        def __init__(self, entries: "SeratoBinFile.EntryList", path_key: str):
+        def __init__(self, entries: "SeratoBinFile.EntryList", path_key: str, root: str = HOME_TRACK_PATH_ROOT):
+            """`root` is the folder the track's path is relative to, the home library's drive root if not given."""
             super().__init__(entries)
 
             self.path_key = path_key
+            self.root = root
             relative_path = self.get_value(path_key)
             if not isinstance(relative_path, str):
                 raise DataTypeError(relative_path, str, path_key)
             self.relpath: str = relative_path
 
         def set_path(self, path: str):
-            relpath = SeratoBinFile.get_relative_path(path)
+            relpath = SeratoBinFile.get_relative_path(path, self.root)
             self.set_value(self.path_key, relpath)
             self.relpath = relpath
 
         def get_full_path(self):
-            return SeratoBinFile.get_full_path(self.relpath)
+            return SeratoBinFile.get_full_path(self.relpath, self.root)
 
     def _get_track(self, entries: "SeratoBinFile.EntryList"):
-        return SeratoBinFile.Track(entries, path_key=self.TRACK_PATH_KEY)
+        return SeratoBinFile.Track(entries, path_key=self.TRACK_PATH_KEY, root=self.track_path_root)
+
+    def _relative_path(self, filepath: str) -> str:
+        """`filepath` in the form this file stores track paths in, relative to its own `track_path_root`."""
+        return SeratoBinFile.get_relative_path(filepath, self.track_path_root)
+
+    def _full_path(self, filepath: str) -> str:
+        """The absolute form of a track path stored in this file, resolved from its own `track_path_root`."""
+        return SeratoBinFile.get_full_path(filepath, self.track_path_root)
 
     @staticmethod
     def _get_entry_value(entries: "SeratoBinFile.EntryList", field: str) -> "SeratoBinFile.ValueOrNone":
@@ -426,7 +438,7 @@ class SeratoBinFile:
         Given `files`, only those tracks are passed to `func`, and the rest are skipped after reading just their path,
         which is much faster on a large library.
         """
-        relpaths = None if files is None else {SeratoBinFile.get_relative_path(f).upper() for f in files}
+        relpaths = None if files is None else {self._relative_path(f).upper() for f in files}
         changed = False
         for i, (field, value) in enumerate(self.entries):
             if field == SeratoBinFile.Fields.TRACK:
@@ -467,7 +479,7 @@ class SeratoBinFile:
 
     def remove_tracks(self, filepaths: Iterable[str]) -> bool:
         """Removes every track whose path is in `filepaths`, in one pass, and returns whether any was removed."""
-        relpaths = {SeratoBinFile.get_relative_path(f) for f in filepaths}
+        relpaths = {self._relative_path(f) for f in filepaths}
         return self.filter_tracks(lambda track: track.relpath not in relpaths)
 
     def remove_duplicates(self) -> bool:
@@ -528,23 +540,33 @@ class SeratoBinFile:
             )
 
     @staticmethod
-    def get_relative_path(filepath: str) -> str:
-        filepath = os.path.splitdrive(filepath)[1]
-        relpath = os.path.normpath(filepath).replace(os.path.sep, "/").lstrip("/")
-        return relpath
+    def get_relative_path(filepath: str, root: str = HOME_TRACK_PATH_ROOT) -> str:
+        """The form Serato stores a track path in: relative to `root`, with forward slashes.
+
+        `root` is the folder the library's track paths are relative to, which is an instance's `track_path_root`, and
+        defaults to the home library's drive root. A path outside `root` just has its drive dropped.
+        """
+        filepath = os.path.normpath(filepath)
+        # with a trailing separator, so "/Volumes/USB" doesn't match "/Volumes/USB2/..."
+        root_prefix = os.path.join(os.path.normpath(root), "")
+        if os.path.normcase(filepath).startswith(os.path.normcase(root_prefix)):
+            filepath = filepath[len(root_prefix) :]
+        return os.path.splitdrive(filepath)[1].replace(os.path.sep, "/").lstrip("/")
 
     @staticmethod
-    def get_full_path(filepath: str) -> str:
+    def get_full_path(filepath: str, root: str = HOME_TRACK_PATH_ROOT) -> str:
         """Get the absolute, normalized form of a track path.
 
         - A path with a drive or UNC share keeps it.
-        - A path without one, which is how Serato stores track paths, is resolved from the root of `SERATO_DRIVE`.
+        - A path without one, which is how Serato stores track paths, is resolved from `root`: the folder the library's
+          track paths are relative to, which is an instance's `track_path_root`. Defaults to the home library's drive
+          root.
 
         Doesn't check that the file exists.
         """
         # with no drive, splitdrive's path half is the whole of filepath, so filepath serves both branches
         drive = os.path.splitdrive(filepath)[0]
-        return os.path.normpath(filepath if drive else os.path.join(SERATO_DRIVE, os.sep, filepath))
+        return os.path.normpath(filepath if drive else os.path.join(root, filepath))
 
     def get_entries(self) -> Generator[EntryFull, None, None]:
         """Get entry fieldnames."""
@@ -561,7 +583,7 @@ class SeratoBinFile:
                 if track_matcher and field == SeratoBinFile.Fields.TRACK:
                     if not isinstance(value, list):
                         raise DataTypeError(value, list, field)
-                    track = self.__class__.Track(value, path_key=self.TRACK_PATH_KEY)
+                    track = self._get_track(value)
                     if not bool(re.search(track_matcher, track.relpath, re.IGNORECASE)):
                         continue
 
@@ -598,7 +620,7 @@ class SeratoBinFile:
         rules = [cast("SeratoBinFile.ModifyRule", dict(rule)) for rule in rules]
         for rule in rules:
             if "files" in rule:
-                rule["files"] = [SeratoBinFile.get_relative_path(file).upper() for file in rule["files"]]
+                rule["files"] = [self._relative_path(file).upper() for file in rule["files"]]
 
         # if every rule is limited to certain files, no other track can change, so skip them entirely
         every_rule_limited = all("files" in rule for rule in rules)
@@ -618,9 +640,9 @@ class SeratoBinFile:
             if field == self.TRACK_PATH_KEY:
                 if not isinstance(maybe_new_value, str):
                     raise DataTypeError(maybe_new_value, str, field)
-                if not os.path.exists(SeratoBinFile.get_full_path(maybe_new_value)):
+                if not os.path.exists(self._full_path(maybe_new_value)):
                     raise FileNotFoundError(f"set track location to {maybe_new_value}, but doesn't exist")
-                maybe_new_value = SeratoBinFile.get_relative_path(maybe_new_value)
+                maybe_new_value = self._relative_path(maybe_new_value)
 
             field_name = self.get_field_name(field)
             logger.info(f"Set {field}({field_name})={str(maybe_new_value)} in library for {track_relpath}")
