@@ -14,6 +14,7 @@
 - [Examples](#examples)
   - [Renaming or removing track files across the library](#renaming-or-removing-track-files-across-the-library)
   - [Modifying the database file](#modifying-the-database-file)
+  - [Listing corrupt tracks](#listing-corrupt-tracks)
   - [Exporting crates to USB](#exporting-crates-to-usb)
   - [Analyzing and setting a dynamic beatgrid](#analyzing-and-setting-a-dynamic-beatgrid)
   - [Setting track color](#setting-track-color)
@@ -43,9 +44,11 @@
 
 **Library:**
 - Rename or delete a track file while updating the database, crates, and smart crates as well, so that it doesn't go missing.
+- Set a track's color in its tags and the database at once, so Serato shows it right away.
 
 **Database:**
 - After changing a track's metadata, modify database values for a specific track so that you don't have to "Reload Id3 Tags" in Serato, the change appears in Serato instantly.
+- List the tracks Serato marked corrupt, and why.
 
 **Crate:**
 - Read a crate's tracks
@@ -130,6 +133,15 @@ db.modify_and_save(
 )
 ```
 
+### Listing corrupt tracks
+
+```cmd
+>>> python -m serato_tools.database_v2 --list_corrupt
+/Users/Username/Music/Dubstep/Raaket - ILL.mp3: Corrupt file: This file contains invalid audio data
+```
+
+Or `DatabaseV2().get_corrupt_tracks()`, which returns each track's full path with its reason.
+
 ### Exporting crates to USB
 
 **NOTE: replaces existing crates on flash drive! (but does not delete existing track files) (TODO: ability to merge with existing)**
@@ -162,6 +174,15 @@ tags.set_track_color(
     # delete_tags_v1 (the default) deletes the legacy "Serato Markers_" tag, since a stale one stops the new color from appearing in Serato. No issues have been found from deleting it, but use caution with versions of Serato before 3, which may still read it.
 )
 tags.save()
+```
+
+That only changes the tags, which Serato reads again the next time it loads the track's tags. To also set it in the library database, so Serato shows it right away, use `Library` (close Serato first):
+
+```python
+from serato_tools.library import Library
+from serato_tools.track_cues_v2 import TrackCuesV2
+
+Library().set_track_color('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', TrackCuesV2.TrackColors.PURPLE)
 ```
 
 ### Snapping cue positions to the beatgrid

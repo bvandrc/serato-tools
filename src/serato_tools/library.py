@@ -3,6 +3,7 @@
 import os
 import sys
 from functools import cached_property
+from typing import TYPE_CHECKING
 
 if __package__ is None:
     sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
@@ -12,6 +13,9 @@ from serato_tools.database_v2 import DatabaseV2
 from serato_tools.smart_crate import SmartCrate
 from serato_tools.utils.bin_file_base import SeratoBinFile
 from serato_tools.utils import logger, SERATO_DIR
+
+if TYPE_CHECKING:
+    from serato_tools.track_cues_v2 import TrackCuesV2
 
 
 class Library:
@@ -86,3 +90,21 @@ class Library:
             if os.path.exists(filepath):
                 os.remove(filepath)
                 logger.info(f"deleted {filepath}")
+
+    def set_track_color(self, filepath: str, color: "TrackCuesV2.TrackColors", delete_tags_v1: bool = True):
+        """Sets the track's color in its tags and in the database, so Serato shows it right away and the file keeps it.
+
+        Needs the `track_tags` extra. A track whose tags have no color yet (one Serato hasn't analyzed) only gets it in
+        the database. See TrackCuesV2.set_track_color for `delete_tags_v1`.
+        """
+        # imported here, since only this needs the optional track_tags extra
+        from serato_tools.track_cues_v2 import TrackCuesV2  # pylint: disable=import-outside-toplevel
+
+        tags = TrackCuesV2(filepath)
+        tags.set_track_color(color, delete_tags_v1=delete_tags_v1)
+        if tags.get_track_color() is None:
+            logger.warning(f"no track color in the tags to change, so only set in the database: {filepath}")
+        tags.save()
+
+        rgb = int.from_bytes(color.value, "big")
+        self.database.modify_and_save([{"field": DatabaseV2.Fields.COLOR, "files": [filepath], "func": lambda *_: rgb}])

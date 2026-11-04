@@ -27,6 +27,16 @@ class DatabaseV2(SeratoBinFile):
             raise FileNotFoundError(f"file does not exist: {file}")
         super().__init__(file=file)
 
+    def get_corrupt_tracks(self) -> dict[str, str]:
+        """The full path of each track Serato marked corrupt, with the reason Serato gives, or "" if it gave none."""
+        fields = SeratoBinFile.Fields
+        corrupt: dict[str, str] = {}
+        for track in self.get_tracks():
+            if fields.CORRUPT in track.fields and track.get_value(fields.CORRUPT):
+                reason = track.get_value(fields.CORRUPT_REASON) if fields.CORRUPT_REASON in track.fields else ""
+                corrupt[track.get_full_path()] = str(reason)
+        return corrupt
+
     def rename_track_file(self, src: str, dest: str):
         """Deprecated, to be removed in the next major version: use Library.rename_track_file(), which this calls."""
         warnings.warn(
@@ -50,10 +60,12 @@ if __name__ == "__main__":
     class Args:
         file: str
         find_missing: bool
+        list_corrupt: bool
 
     parser = argparse.ArgumentParser()
     parser.add_argument("file", nargs="?", default=DatabaseV2.DEFAULT_DATABASE_FILE)
     parser.add_argument("--find_missing", action="store_true", help="List files that do not exist")
+    parser.add_argument("--list_corrupt", action="store_true", help="List tracks Serato marked corrupt, and why")
     args = Args(**vars(parser.parse_args()))
 
     db = DatabaseV2(args.file)
@@ -61,5 +73,8 @@ if __name__ == "__main__":
     if args.find_missing:
         # TODO: actually look for that missing flag.
         db.find_missing()
+    elif args.list_corrupt:
+        for path, reason in db.get_corrupt_tracks().items():
+            print(f"{path}: {reason}")
     else:
         print(db)

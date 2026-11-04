@@ -16,18 +16,18 @@ otrk (Track)
     tadd (Date Added): 1747196346
     tkey (Key): 9A
     uadd (Date Added): 1747196346
-    ulbl (Unknown Field): 10092441
+    ulbl (Color): 10092441
     utme (Time): 1747137260
-    utpc (Unknown Field): 2
+    utpc (Play Count): 2
     sbav (Unknown Field): 0
     bhrt (Unknown Field): True
     bmis (Missing): False
     bply (Played): False
     blop (Unknown Field): False
     bitu (Unknown Field): False
-    bovc (Unknown Field): True
+    bovc (Overview Built): True
     bcrt (Corrupt): False
-    biro (Unknown Field): False
+    biro (Read Only): False
     bwlb (Unknown Field): False
     bwll (Unknown Field): False
     buns (Unknown Field): False
@@ -50,18 +50,18 @@ otrk (Track)
     tadd (Date Added): 1747196346
     tkey (Key): 9A
     uadd (Date Added): 1747196346
-    ulbl (Unknown Field): 10092441
+    ulbl (Color): 10092441
     utme (Time): 1746051304
-    utpc (Unknown Field): 2
+    utpc (Play Count): 2
     sbav (Unknown Field): 0
     bhrt (Unknown Field): True
     bmis (Missing): False
     bply (Played): False
     blop (Unknown Field): False
     bitu (Unknown Field): False
-    bovc (Unknown Field): True
+    bovc (Overview Built): True
     bcrt (Corrupt): False
-    biro (Unknown Field): False
+    biro (Read Only): False
     bwlb (Unknown Field): False
     bwll (Unknown Field): False
     buns (Unknown Field): False
@@ -85,18 +85,18 @@ otrk (Track)
     tadd (Date Added): 1747196346
     tkey (Key): 4A
     uadd (Date Added): 1747196346
-    ulbl (Unknown Field): 10092441
+    ulbl (Color): 10092441
     utme (Time): 1747137258
-    utpc (Unknown Field): 5
+    utpc (Play Count): 5
     sbav (Unknown Field): 0
     bhrt (Unknown Field): True
     bmis (Missing): False
     bply (Played): False
     blop (Unknown Field): False
     bitu (Unknown Field): False
-    bovc (Unknown Field): True
+    bovc (Overview Built): True
     bcrt (Corrupt): False
-    biro (Unknown Field): False
+    biro (Read Only): False
     bwlb (Unknown Field): False
     bwll (Unknown Field): False
     buns (Unknown Field): False
@@ -119,18 +119,18 @@ otrk (Track)
     tadd (Date Added): 1747196350
     tkey (Key): 9A
     uadd (Date Added): 1747196350
-    ulbl (Unknown Field): 10092441
+    ulbl (Color): 10092441
     utme (Time): 1746051304
-    utpc (Unknown Field): 2
+    utpc (Play Count): 2
     sbav (Unknown Field): 0
     bhrt (Unknown Field): True
     bmis (Missing): False
     bply (Played): False
     blop (Unknown Field): False
     bitu (Unknown Field): False
-    bovc (Unknown Field): True
+    bovc (Overview Built): True
     bcrt (Corrupt): False
-    biro (Unknown Field): False
+    biro (Read Only): False
     bwlb (Unknown Field): False
     bwll (Unknown Field): False
     buns (Unknown Field): False
@@ -153,18 +153,18 @@ otrk (Track)
     tadd (Date Added): 1747196350
     tkey (Key): 3A
     uadd (Date Added): 1747196350
-    ulbl (Unknown Field): 10092441
+    ulbl (Color): 10092441
     utme (Time): 1746051286
-    utpc (Unknown Field): 1
+    utpc (Play Count): 1
     sbav (Unknown Field): 0
     bhrt (Unknown Field): True
     bmis (Missing): False
     bply (Played): False
     blop (Unknown Field): False
     bitu (Unknown Field): False
-    bovc (Unknown Field): True
+    bovc (Overview Built): True
     bcrt (Corrupt): False
-    biro (Unknown Field): False
+    biro (Read Only): False
     bwlb (Unknown Field): False
     bwll (Unknown Field): False
     buns (Unknown Field): False
@@ -187,7 +187,7 @@ otrk (Track)
     tadd (Date Added): 1747196350
     tkey (Key): 11A
     uadd (Date Added): 1747196350
-    ulbl (Unknown Field): 10092441
+    ulbl (Color): 10092441
     utme (Time): 1746051286
     sbav (Unknown Field): 0
     bhrt (Unknown Field): True
@@ -195,9 +195,9 @@ otrk (Track)
     bply (Played): False
     blop (Unknown Field): False
     bitu (Unknown Field): False
-    bovc (Unknown Field): True
+    bovc (Overview Built): True
     bcrt (Corrupt): False
-    biro (Unknown Field): False
+    biro (Read Only): False
     bwlb (Unknown Field): False
     bwll (Unknown Field): False
     buns (Unknown Field): False

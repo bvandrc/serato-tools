@@ -23,6 +23,8 @@ class SmartCrate(CrateBase):
         SMARTCRATE_RULE = "rurt"
         SMARTCRATE_LIVE_UPDATE = "rlut"
         SMARTCRATE_MATCH_ALL = "rart"
+        # the on/off value inside SMARTCRATE_MATCH_ALL and SMARTCRATE_LIVE_UPDATE
+        SETTING_VALUE = "brut"
         RULE_VALUE_TEXT = "trpt"
         RULE_VALUE_DATE = "trtt"
         RULE_VALUE_INTEGER = "urpt"
@@ -79,8 +81,8 @@ class SmartCrate(CrateBase):
 
     DEFAULT_ENTRIES = [
         (CrateBase.Fields.VERSION, "1.0/Serato ScratchLive Smart Crate"),
-        (RuleFields.SMARTCRATE_MATCH_ALL, [("brut", False)]),
-        (RuleFields.SMARTCRATE_LIVE_UPDATE, [("brut", False)]),
+        (RuleFields.SMARTCRATE_MATCH_ALL, [(RuleFields.SETTING_VALUE, False)]),
+        (RuleFields.SMARTCRATE_LIVE_UPDATE, [(RuleFields.SETTING_VALUE, False)]),
         (CrateBase.Fields.SORTING, [(CrateBase.Fields.COLUMN_NAME, "key"), (CrateBase.Fields.REVERSE_ORDER, False)]),
         (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "song"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
         (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "playCount"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
