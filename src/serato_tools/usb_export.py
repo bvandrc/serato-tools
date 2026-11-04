@@ -1,8 +1,8 @@
 import sys
 import os
 import filecmp
+import fnmatch
 import shutil
-import glob
 import re
 import platform
 from typing import Optional
@@ -219,30 +219,22 @@ def copy_crates_to_usb(
 
 
 def get_crate_files(pattern: str):
-    try:
-        regex = re.compile(pattern)
+    # the classes' get_crate_files check the crate extension, so stray files in the folders
+    # (e.g. .DS_Store) are never matched; a missing folder just means no crates of that kind
+    filepaths: list[str] = []
+    for crate_class in (Crate, SmartCrate):
+        if os.path.isdir(crate_class.DIR_PATH):
+            filepaths += crate_class.get_crate_files()
 
-        def get_files_by_regex(folder_path: str) -> list[str]:
-            matched_files = []
-            for filename in os.listdir(folder_path):
-                full_path = os.path.join(folder_path, filename)
-                if os.path.isfile(full_path) and regex.search(filename):
-                    matched_files.append(full_path)
-            return matched_files
-
-        func = get_files_by_regex
-    except re.error:
-
-        def get_files_by_glob(folder_path: str) -> list[str]:
-            return glob.glob(pattern, root_dir=folder_path, recursive=False)
-
-        func = get_files_by_glob
-
-    files: list[str] = []
-    for dir in [Crate.DIR, SmartCrate.DIR]:
-        root_dir = os.path.join(LOCAL_SERATO_DIR, dir)
-        files += [os.path.join(root_dir, f) for f in func(root_dir)]
-    files = [i for i in files if os.path.isfile(i)]  # remove dirs
+    # try the pattern as a glob first: most globs (e.g. "house*") are also valid regexes, so
+    # checking re.compile first would silently give glob-looking patterns regex semantics
+    files = [f for f in filepaths if fnmatch.fnmatch(os.path.basename(f), pattern)]
+    if not files:
+        try:
+            regex = re.compile(pattern)
+        except re.error:
+            return []
+        files = [f for f in filepaths if regex.search(os.path.basename(f))]
     return files
 
 
