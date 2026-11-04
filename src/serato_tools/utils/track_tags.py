@@ -52,9 +52,11 @@ class SeratoTrack:
     def _write_to_tagfile(self) -> bool:
         """Puts this object's unsaved changes into `tagfile` without saving the file; returns whether it had any.
 
-        Lets `Track` save the changes of every tag sharing one file in a single write.
+        Lets `Track` save the changes of every tag sharing one file in a single write. Each tag class implements it.
         """
-        return False
+        # raises rather than returning False, so a tag class that doesn't implement it fails loudly in Track.save()
+        # instead of having its changes silently dropped
+        raise NotImplementedError(f"{type(self).__name__} doesn't implement _write_to_tagfile")
 
     def _del_tag(self, key: str):
         """
