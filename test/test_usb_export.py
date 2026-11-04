@@ -12,23 +12,19 @@ class GetCrateFilesTestCase(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        self.crate_dir = os.path.join(tmp.name, usb_export.Crate.DIR)
-        self.smart_crate_dir = os.path.join(tmp.name, usb_export.SmartCrate.DIR)
+        # stands in for a library's _Serato_ folder
+        self.serato_dir = tmp.name
+        self.crate_dir = os.path.join(self.serato_dir, usb_export.Crate.DIR)
+        self.smart_crate_dir = os.path.join(self.serato_dir, usb_export.SmartCrate.DIR)
         os.makedirs(self.crate_dir)
         os.makedirs(self.smart_crate_dir)
-        for patch in (
-            mock.patch.object(usb_export.Crate, "DIR_PATH", self.crate_dir),
-            mock.patch.object(usb_export.SmartCrate, "DIR_PATH", self.smart_crate_dir),
-        ):
-            patch.start()
-            self.addCleanup(patch.stop)
 
     def _add_file(self, name: str, smart: bool = False):
         with open(os.path.join(self.smart_crate_dir if smart else self.crate_dir, name), "w", encoding="utf-8"):
             pass
 
     def _matched_names(self, pattern: str) -> set[str]:
-        return {os.path.basename(f) for f in usb_export.get_crate_files(pattern)}
+        return {os.path.basename(f) for f in usb_export.get_crate_files(pattern, self.serato_dir)}
 
     def test_glob_is_tried_before_regex(self):
         # "house*" is also a valid regex whose .search() would match "housing"

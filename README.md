@@ -147,6 +147,7 @@ Or `DatabaseV2().get_corrupt_tracks()`, which returns each track's full path wit
 
 ```cmd
 >>> serato_usb_export --drive E --crate_matcher "*house*" "*techno*" --root_crate="Dave USB"
+>>> serato_usb_export --drive E --crate_matcher "*house*" --source "D:\_Serato_"  # export from a library on another drive instead of the home library
 ```
 
 On macOS, pass the drive's folder, e.g. `--drive /Volumes/USB`.
