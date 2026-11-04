@@ -18,7 +18,7 @@ from mutagen.mp3 import HeaderNotFoundError
 
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils import get_enum_key_from_value
-from serato_tools.utils.track_tags import SeratoGeobTag
+from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
 from serato_tools.track_beatgrid import TrackBeatgrid
 
 
@@ -466,7 +466,7 @@ class TrackCuesV2(SeratoGeobTag):
         # only delete the v1 tag once we know a change is actually being made
         if delete_tags_v1 and self.tagfile:
             # TODO: keep Serato Markers_ in sync with Markers2 instead of deleting it
-            super(SeratoGeobTag, self)._del_geob(TrackCuesV1.GEOB_KEY)  # pylint: disable=bad-super-call
+            del_geob(self.tagfile, TrackCuesV1.GEOB_KEY)
         self.entries = new_track.to_entries()
         self._serialize()
 

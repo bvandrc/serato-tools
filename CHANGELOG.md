@@ -6,10 +6,11 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Add `Track` (`serato_tools.track`), which reads each of a track file's Serato tags (`cues_v2`, `cues_v1`, `beatgrid`, `autotags`, `waveform`, and `gain`) from one open file, and saves all of their changes in a single write, skipping it when nothing changed
 - Add `TrackGain.set`, which sets the gain and/or peak without saving, like `TrackAutotags.set`
-- Rename the tag base classes in `serato_tools.utils.track_tags`, since `SeratoTrack` was the base for a single tag, not a track: `SeratoTrack` is now `SeratoTagBase`, and `SeratoTag`, the base for GEOB tags, is now `SeratoGeobTag`. The old names still work, with a `DeprecationWarning`, until the next major version
-- Add `open_tagfile` to `serato_tools.utils.track_tags`, which opens a track file with mutagen
 - `TrackGain.delete` now also sets `gain` and `peak` to `None`, matching the deleted frame
 - `TrackGain.save` now writes `gain` and `peak` when they were changed directly, rather than only through `set_and_save`
+- Rename the tag base classes in `serato_tools.utils.track_tags`: `SeratoTrack` is now `ID3FileTag`, and `SeratoTag` is now `SeratoGeobTag`. The old names still work, with a `DeprecationWarning`, until the next major version
+  - `SeratoTrack.Tagfile` and `SeratoTrack.FileArg` are now `ID3File` and `ID3FileOrPath`, in the same module
+- Add `open_tagfile`, which opens a track file with mutagen, and `get_geob`, `set_geob`, `del_geob`, and `del_tag`, which read and write a frame on any open file, to `serato_tools.utils.track_tags`
 
 ## [5.3.2] - 2026-11-04
 

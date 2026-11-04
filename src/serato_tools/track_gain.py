@@ -4,17 +4,17 @@ from dataclasses import dataclass
 from mutagen.id3._frames import RVA2
 
 
-from serato_tools.utils.track_tags import SeratoTagBase
+from serato_tools.utils.track_tags import ID3FileOrPath, ID3FileTag, del_tag
 
 
-class TrackGain(SeratoTagBase):
+class TrackGain(ID3FileTag):
     # Serato stores gain in ID3 files as an RVA2 (relative volume adjustment, ID3v2.4 section 4.11) frame
     # with this description: see this repo's test/data/test_mp3.mp3, or the report of Serato DJ's manual
     # gain writing RVA2:SeratoGain in https://invent.kde.org/multimedia/kid3/-/issues/511
     RVA2_DESC = "SeratoGain"
     RVA2_KEY = f"RVA2:{RVA2_DESC}"
 
-    def __init__(self, file: SeratoTagBase.FileArg):
+    def __init__(self, file: ID3FileOrPath):
         super().__init__(file)
         frame = self.tagfile.get(TrackGain.RVA2_KEY, None)
         self.gain: float | None = frame.gain if frame is not None else None
@@ -45,7 +45,7 @@ class TrackGain(SeratoTagBase):
         if (self.gain, self.peak) == self._saved:
             return False
         if self.gain is None and self.peak is None:
-            self._del_tag(TrackGain.RVA2_KEY)
+            del_tag(self.tagfile, TrackGain.RVA2_KEY)
         elif self.gain is None or self.peak is None:
             raise ValueError("both gain and peak must be set (file had no existing SeratoGain tag)")
         else:
@@ -61,7 +61,7 @@ class TrackGain(SeratoTagBase):
         """Deletes the SeratoGain frame in memory, leaving gain and peak None; returns whether there was one."""
         self.gain = None
         self.peak = None
-        return self._del_tag(TrackGain.RVA2_KEY)
+        return del_tag(self.tagfile, TrackGain.RVA2_KEY)
 
 
 if __name__ == "__main__":
