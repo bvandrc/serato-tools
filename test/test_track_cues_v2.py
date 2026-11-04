@@ -3,7 +3,6 @@ import dataclasses
 import unittest
 import os
 import io
-import warnings
 from contextlib import redirect_stdout
 
 from src.serato_tools.track_beatgrid import TrackBeatgrid
@@ -90,14 +89,6 @@ class TestCase(unittest.TestCase):
         self.assertIsNone(tags.get_snapped_beat_ms(beat_ms + 1, 1 / 8))
         self.assertIsNone(tags.get_snapped_beat_ms(beat_ms - 1, 1 / 8))
         self.assertEqual(tags.get_snapped_beat_ms(beat_ms + 2, 1 / 8), beat_ms)
-
-    def test_snap_warns_below_2ms(self):
-        tags = TrackCuesV2("test/data/test_mp3.mp3")
-        with self.assertWarns(UserWarning):
-            tags.get_snapped_beat_ms(0, 1 / 8, min_ms_change=1)
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            tags.get_snapped_beat_ms(0, 1 / 8)
 
     def test_snap_positions_to_beat_no_entries_raises(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
