@@ -13,7 +13,7 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 from serato_tools.utils import logger
 
 
-class TrackTags(TypedDict, total=False):
+class DbTrackTags(TypedDict, total=False):
     """Values to set on a track with `Library.set_track_tags`; a key that's left out is left unchanged."""
 
     color: TrackCuesV2.TrackColors
@@ -43,7 +43,7 @@ def _write_beatgrid_locked(track: Track, locked: bool, delete_tags_v1: bool) -> 
     return True
 
 
-# keyed by TrackTags' keys
+# keyed by DbTrackTags' keys
 _TRACK_PROPERTIES: dict[str, _TrackProperty[Any]] = {
     # the database holds the color as 0xRRGGBB, the same bytes as the tags hold, as an int
     "color": _TrackProperty[TrackCuesV2.TrackColors](
@@ -53,17 +53,17 @@ _TRACK_PROPERTIES: dict[str, _TrackProperty[Any]] = {
         DatabaseV2.Fields.BEATGRID_LOCKED, lambda locked: locked, _write_beatgrid_locked
     ),
 }
-assert set(_TRACK_PROPERTIES) == TrackTags.__optional_keys__, "every TrackTags key needs a property, and only those"
+assert set(_TRACK_PROPERTIES) == DbTrackTags.__optional_keys__, "every DbTrackTags key needs a property, and only those"
 
 
-def check_track_tags(tags: TrackTags):
-    """Raises ValueError if `tags` has a key that isn't one of TrackTags'."""
-    unknown = set(tags) - TrackTags.__optional_keys__
+def check_track_tags(tags: DbTrackTags):
+    """Raises ValueError if `tags` has a key that isn't one of DbTrackTags'."""
+    unknown = set(tags) - DbTrackTags.__optional_keys__
     if unknown:
         raise ValueError(f"unknown track tags: {sorted(unknown)}, expected some of {sorted(_TRACK_PROPERTIES)}")
 
 
-def write_file_tags(filepath: str, tags: TrackTags, delete_tags_v1: bool = True):
+def write_file_tags(filepath: str, tags: DbTrackTags, delete_tags_v1: bool = True):
     """Sets `tags` in the track file's own tags, and saves it if anything changed.
 
     A value the file has nowhere to put yet, since Serato hasn't imported the track, is skipped with a warning.
@@ -82,7 +82,7 @@ def write_file_tags(filepath: str, tags: TrackTags, delete_tags_v1: bool = True)
     track.save()
 
 
-def to_db_values(tags: TrackTags) -> dict[DatabaseV2.Fields, SeratoBinFile.BasicValue]:
+def to_db_values(tags: DbTrackTags) -> dict[DatabaseV2.Fields, SeratoBinFile.BasicValue]:
     """The database fields and values that hold `tags`."""
     check_track_tags(tags)
     return {_TRACK_PROPERTIES[key].db_field: _TRACK_PROPERTIES[key].to_db(value) for key, value in tags.items()}

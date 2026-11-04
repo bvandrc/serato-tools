@@ -12,7 +12,7 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 from serato_tools.utils import logger, SERATO_DIR
 
 if TYPE_CHECKING:
-    from serato_tools.db_track_props import TrackTags
+    from serato_tools.db_track_props import DbTrackTags
 
 
 def _db_track_props():  # return type left to pyright, which infers the module and so checks its attributes
@@ -105,15 +105,15 @@ class Library:
                 os.remove(filepath)
                 logger.info(f"deleted {filepath}")
 
-    def set_track_tags(self, filepath: str, *, delete_tags_v1: bool = True, **tags: Unpack["TrackTags"]) -> bool:
+    def set_track_tags(self, filepath: str, *, delete_tags_v1: bool = True, **tags: Unpack["DbTrackTags"]) -> bool:
         """Sets values in the track file's tags and in the database, as set_tracks_tags does for many tracks."""
         return self.set_tracks_tags({filepath: tags}, delete_tags_v1=delete_tags_v1)
 
-    def set_tracks_tags(self, tracks: Mapping[str, "TrackTags"], delete_tags_v1: bool = True) -> bool:
+    def set_tracks_tags(self, tracks: Mapping[str, "DbTrackTags"], delete_tags_v1: bool = True) -> bool:
         """Sets values in each track file's tags and in the database, so Serato shows them right away.
 
         Needs the `track_tags` extra (raising ImportError without it), and only ID3 files (.mp3, .aiff, .aif) are
-        currently supported. `tracks` maps each file's path to the values to set (see TrackTags). A value the file has
+        currently supported. `tracks` maps each file's path to the values to set (see DbTrackTags). A value the file has
         nowhere to put yet, since Serato hasn't imported the track, is only set in the database, with a warning. Every
         file is written before the database is, in a single save, so a file that fails to be written leaves the
         database unchanged. Returns whether the database changed. See TrackCuesV2.set_track_color for `delete_tags_v1`.
