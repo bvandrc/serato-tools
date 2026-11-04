@@ -1,7 +1,5 @@
 """A track file's Serato tags, read from one open file and saved in one write. Needs the `track_tags` extra."""
 
-from functools import cached_property
-
 from serato_tools.track_autotags import TrackAutotags
 from serato_tools.track_beatgrid import TrackBeatgrid
 from serato_tools.track_cues_v1 import TrackCuesV1
@@ -14,47 +12,70 @@ from serato_tools.utils.track_tags import ID3FileOrPath, ID3FileTag, open_tagfil
 class Track:
     """A track file's Serato tags, read from one open file and saved in one write.
 
-    Each tag is read the first time it's used, then kept. Change tags through their own methods (e.g.
-    `track.cues_v2.set_track_color(...)`), then call this class's `save()` once, rather than each tag's own `save()`,
-    which writes the whole file every time. Only ID3 files (.mp3, .aiff, .aif) are currently supported.
+    Change tags through their own methods (e.g. `track.cues_v2.set_beatgrid_locked(...)`), then call this class's
+    `save()` once, rather than each tag's own `save()`, which writes the whole file every time. Only ID3 files (.mp3,
+    .aiff, .aif) are currently supported.
     """
 
-    # the cached_property names below, which save() looks through for the tags that have been read
-    _TAG_NAMES = ("cues_v2", "cues_v1", "beatgrid", "autotags", "waveform", "gain")
+    def __init__(
+        self,
+        file: ID3FileOrPath,
+        *,
+        cues_v2: bool = True,
+        cues_v1: bool = True,
+        beatgrid: bool = True,
+        autotags: bool = True,
+        waveform: bool = False,
+        gain: bool = True,
+    ):
+        """Opens the track file at `file`, or uses `file` if it's an already open mutagen file, and parses its tags.
 
-    def __init__(self, file: ID3FileOrPath):
-        """Opens the track file at `file`, or uses `file` if it's an already open mutagen file."""
+        Each tag passed False isn't parsed or saved, and using it raises ValueError. `waveform` is False by default,
+        since it's display data that's rarely changed, and it raises ValueError if Serato hasn't built it yet.
+        """
         self.tagfile = open_tagfile(file)
+        self._cues_v2 = TrackCuesV2(self.tagfile) if cues_v2 else None
+        self._cues_v1 = TrackCuesV1(self.tagfile) if cues_v1 else None
+        self._beatgrid = TrackBeatgrid(self.tagfile) if beatgrid else None
+        self._autotags = TrackAutotags(self.tagfile) if autotags else None
+        self._waveform = TrackWaveform(self.tagfile) if waveform else None
+        self._gain = TrackGain(self.tagfile) if gain else None
 
-    @cached_property
+    @staticmethod
+    def _parsed[T](tag: T | None, name: str) -> T:
+        if tag is None:
+            raise ValueError(f"the track's {name} wasn't parsed: pass {name}=True to Track")
+        return tag
+
+    @property
     def cues_v2(self) -> TrackCuesV2:
         """`Serato Markers2`: hot cues, loops, flips, track color, and beatgrid lock."""
-        return TrackCuesV2(self.tagfile)
+        return self._parsed(self._cues_v2, "cues_v2")
 
-    @cached_property
+    @property
     def cues_v1(self) -> TrackCuesV1:
         """`Serato Markers_`: the legacy equivalent of `cues_v2`."""
-        return TrackCuesV1(self.tagfile)
+        return self._parsed(self._cues_v1, "cues_v1")
 
-    @cached_property
+    @property
     def beatgrid(self) -> TrackBeatgrid:
         """`Serato BeatGrid`."""
-        return TrackBeatgrid(self.tagfile)
+        return self._parsed(self._beatgrid, "beatgrid")
 
-    @cached_property
+    @property
     def autotags(self) -> TrackAutotags:
         """`Serato Autotags`: BPM, autogain, and gain."""
-        return TrackAutotags(self.tagfile)
+        return self._parsed(self._autotags, "autotags")
 
-    @cached_property
+    @property
     def waveform(self) -> TrackWaveform:
-        """`Serato Overview`; raises ValueError if Serato hasn't built the track's waveform yet."""
-        return TrackWaveform(self.tagfile)
+        """`Serato Overview`."""
+        return self._parsed(self._waveform, "waveform")
 
-    @cached_property
+    @property
     def gain(self) -> TrackGain:
         """The `RVA2:SeratoGain` frame: the gain set in Serato."""
-        return TrackGain(self.tagfile)
+        return self._parsed(self._gain, "gain")
 
     def get_track_color(self) -> bytes | None:
         """The track's color as the bytes of a `TrackCuesV2.TrackColors` value, or None if its tags have none yet.
@@ -88,7 +109,8 @@ class Track:
 
     def save(self) -> bool:
         """Writes every tag's changes to the file in one write, and returns whether there were any to write."""
-        tags: list[ID3FileTag] = [tag for name in self._TAG_NAMES if (tag := self.__dict__.get(name)) is not None]
+        parsed = (self._cues_v2, self._cues_v1, self._beatgrid, self._autotags, self._waveform, self._gain)
+        tags: list[ID3FileTag] = [tag for tag in parsed if tag is not None]
         # a set built in full, not any() over a generator, so that every tag puts its changes in before the one write
         # pylint: disable-next=protected-access
         changed = {tag._write_to_tagfile() for tag in tags}
