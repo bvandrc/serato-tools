@@ -516,6 +516,20 @@ class TrackCuesV2(SeratoGeobTag):
 
         self.modify_entries(rule, delete_tags_v1)
 
+    def set_beatgrid_locked(self, locked: bool, delete_tags_v1: bool = True):
+        """Locks or unlocks the track's beatgrid in memory; call `save()` to write it to the file.
+
+        Leaves it unchanged if the tag has no existing BPM lock entry. See `set_track_color` for `delete_tags_v1`.
+        """
+
+        def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
+            # TODO: add the entry when it's missing, once we've checked where Serato puts it among the others
+            if track.bpm_lock is None or track.bpm_lock.enabled == locked:
+                return None
+            return dataclasses.replace(track, bpm_lock=TrackCuesV2.BpmLockEntry(enabled=locked))
+
+        self.modify_entries(rule, delete_tags_v1)
+
     def get_snapped_beat_ms(self, postion_ms: int, tolerance_beats: float, min_ms_change: int = 2) -> int | None:
         """Returns the ms position to snap `postion_ms` to, or `None` if it shouldn't move.
 

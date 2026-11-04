@@ -70,6 +70,12 @@ class ID3FileTag:
     def __init__(self, file: ID3FileOrPath):
         self.tagfile: ID3File = open_tagfile(file)
 
+    def _write_to_tagfile(self) -> bool:
+        """Puts this tag's unsaved changes into `tagfile` without saving the file; returns whether it had any."""
+        # raises rather than returning False, so a tag class that doesn't implement it fails loudly instead of having
+        # its changes silently dropped
+        raise NotImplementedError(f"{type(self).__name__} doesn't implement _write_to_tagfile")
+
 
 class SeratoGeobTag(ID3FileTag):
     """One of Serato's GEOB tags, such as `Serato Markers2`: parsed from, and serialized back to, its frame's bytes."""
@@ -92,6 +98,8 @@ class SeratoGeobTag(ID3FileTag):
         else:
             super().__init__(file=file_or_data)
             self._raw_data = self._get_geob()
+        # the data the tagfile holds, saved to disk or not, so _write_to_tagfile can tell if there's anything to write
+        self._tagged_raw_data = self._raw_data
 
     def __repr__(self) -> str:
         return str(self._raw_data)
@@ -154,13 +162,25 @@ class SeratoGeobTag(ID3FileTag):
         self._raw_data = None
         return was_deleted
 
-    def save(self):
-        if not self.tagfile:
-            raise Exception("no tagfile, no saving")
+    def _put_in_tagfile(self):
         if self._raw_data:
             self._set_geob()
         else:
             self._del_geob()
+        self._tagged_raw_data = self._raw_data
+
+    def _write_to_tagfile(self) -> bool:
+        # compared with what was read rather than with the tagfile, so an unchanged tag doesn't restore a frame that
+        # another tag sharing the tagfile deleted (TrackCuesV2 deleting a stale Serato Markers_)
+        if self._raw_data == self._tagged_raw_data:
+            return False
+        self._put_in_tagfile()
+        return True
+
+    def save(self):
+        if not self.tagfile:
+            raise Exception("no tagfile, no saving")
+        self._put_in_tagfile()
         self.tagfile.save()
 
 
