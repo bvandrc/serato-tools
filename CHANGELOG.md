@@ -4,7 +4,8 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [5.4.0] - 2026-11-04
 
-- Add `Library.set_track_color`, which sets a track's color in its tags and in the database, so Serato shows it right away
+- Add `Library.set_track_tags` and `set_tracks_tags`, which set a track's color and beatgrid lock in its tags and in the database at once, so Serato shows the change right away, without rescanning file tags. ID3 files (.mp3, .aiff, .aif) only, for now
+- Add `TrackCuesV2.set_beatgrid_locked`
 
 ## [5.3.1] - 2026-11-04
 

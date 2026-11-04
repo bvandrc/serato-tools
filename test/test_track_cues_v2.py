@@ -90,6 +90,19 @@ class TestCase(unittest.TestCase):
         self.assertIsNone(tags.get_snapped_beat_ms(beat_ms - 1, 1 / 8))
         self.assertEqual(tags.get_snapped_beat_ms(beat_ms + 2, 1 / 8), beat_ms)
 
+    def test_set_beatgrid_locked(self):
+        tags = TrackCuesV2("test/data/test_mp3.mp3")
+        self.assertFalse(tags.is_beatgrid_locked())
+        tags.set_beatgrid_locked(False)
+        self.assertFalse(tags.modified, "already unlocked, so no change")
+        assert tags.tagfile is not None
+        self.assertIn("GEOB:Serato Markers_", tags.tagfile, "v1 tag kept, since nothing changed")
+        tags.set_beatgrid_locked(True)
+        self.assertTrue(tags.modified)
+        data = tags._raw_data  # pylint: disable=protected-access
+        assert data is not None
+        self.assertTrue(TrackCuesV2(data).is_beatgrid_locked(), "serialized")
+
     def test_snap_positions_to_beat_no_entries_raises(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
         tags.entries = []

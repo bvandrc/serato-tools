@@ -3,7 +3,7 @@
 import os
 import sys
 from functools import cached_property
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Mapping, Unpack
 
 if __package__ is None:
     sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
@@ -15,7 +15,7 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 from serato_tools.utils import logger, SERATO_DIR
 
 if TYPE_CHECKING:
-    from serato_tools.track_cues_v2 import TrackCuesV2
+    from serato_tools.track_properties import TrackTags
 
 
 class Library:
@@ -91,20 +91,43 @@ class Library:
                 os.remove(filepath)
                 logger.info(f"deleted {filepath}")
 
-    def set_track_color(self, filepath: str, color: "TrackCuesV2.TrackColors", delete_tags_v1: bool = True):
-        """Sets the track's color in its tags and in the database, so Serato shows it right away and the file keeps it.
+    def set_track_tags(self, filepath: str, *, delete_tags_v1: bool = True, **tags: Unpack["TrackTags"]) -> bool:
+        """Sets values in the track file's tags and in the database, so Serato shows them right away; see set_tracks_tags."""
+        return self.set_tracks_tags({filepath: tags}, delete_tags_v1=delete_tags_v1)
 
-        Needs the `track_tags` extra. A track whose tags have no color yet (one Serato hasn't analyzed) only gets it in
-        the database. See TrackCuesV2.set_track_color for `delete_tags_v1`.
+    def set_tracks_tags(self, tracks: Mapping[str, "TrackTags"], delete_tags_v1: bool = True) -> bool:
+        """Sets values in each track file's tags and in the database, so Serato shows them right away.
+
+        Needs the `track_tags` extra, and only ID3 files (.mp3, .aiff, .aif) are supported. `tracks` maps each file's
+        path to the values to set (see TrackTags). A value the file has nowhere to put yet, since Serato hasn't imported
+        the track, is only set in the database, with a warning. Every file is written before the database is, in a
+        single save, so a file that fails to be written leaves the database unchanged. Returns whether the database
+        changed. See TrackCuesV2.set_track_color for `delete_tags_v1`.
         """
         # imported here, since only this needs the optional track_tags extra
-        from serato_tools.track_cues_v2 import TrackCuesV2  # pylint: disable=import-outside-toplevel
+        # pylint: disable-next=import-outside-toplevel
+        from serato_tools.track_properties import check_track_tags, to_db_values, write_file_tags
 
-        tags = TrackCuesV2(filepath)
-        tags.set_track_color(color, delete_tags_v1=delete_tags_v1)
-        if tags.get_track_color() is None:
-            logger.warning(f"no track color in the tags to change, so only set in the database: {filepath}")
-        tags.save()
+        for tags in tracks.values():
+            check_track_tags(tags)
+        for filepath, tags in tracks.items():
+            write_file_tags(filepath, tags, delete_tags_v1)
 
-        rgb = int.from_bytes(color.value, "big")
-        self.database.modify_and_save([{"field": DatabaseV2.Fields.COLOR, "files": [filepath], "func": lambda *_: rgb}])
+        # each field's new value per track; modify passes rules the track's path as Serato stores it, matched by case
+        values_by_field: dict[DatabaseV2.Fields, dict[str, SeratoBinFile.BasicValue]] = {}
+        for filepath, tags in tracks.items():
+            relpath = DatabaseV2.get_relative_path(filepath).upper()
+            for field, value in to_db_values(tags).items():
+                values_by_field.setdefault(field, {})[relpath] = value
+        rules: list[SeratoBinFile.ModifyRule] = [
+            {
+                "field": field,
+                "files": list(values),
+                "func": lambda relpath, _, values=values: values.get(relpath.upper()),
+            }
+            for field, values in values_by_field.items()
+        ]
+        changed = self.database.modify(rules) if rules else False
+        if changed:
+            self.database.save()
+        return changed

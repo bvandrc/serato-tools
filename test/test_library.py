@@ -133,20 +133,89 @@ class TestCase(unittest.TestCase):
             self.assertEqual(self.track_paths(crate), [kept_path], f"{crate.filepath} has only the kept track")
         self.assertEqual(self.track_paths(library.smart_crates[0]), [], "missing track removed from smart crate")
 
-    def test_set_track_color(self):
-        track = os.path.join(self.music_dir, "Colored.mp3")
-        shutil.copy("test/data/test_mp3.mp3", track)
-        other = self.make_track("Other.mp3")
+    def copy_analyzed_track(self, name: str) -> str:
+        path = os.path.join(self.music_dir, name)
+        shutil.copy("test/data/test_mp3.mp3", path)
+        return path
+
+    def db_values(self, field: DatabaseV2.Fields) -> dict[str, SeratoBinFile.Value]:
+        """Each saved database track's value of `field`, by path, for the tracks that have it."""
+        return {t.relpath: t.get_value(field) for t in DatabaseV2(self.db_file).get_tracks() if field in t.fields}
+
+    def test_set_track_tags(self):
+        track = self.copy_analyzed_track("Colored.mp3")
+        other = self.copy_analyzed_track("Other.mp3")
         self.add_to_database(track, other)
 
-        library = Library(self.serato_dir)
-        library.set_track_color(track, TrackCuesV2.TrackColors.PURPLE)
+        saved = self.saved_file_names()
+        changed = Library(self.serato_dir).set_track_tags(
+            track, color=TrackCuesV2.TrackColors.PURPLE, beatgrid_locked=True
+        )
 
-        self.assertEqual(TrackCuesV2(track).get_track_color(), TrackCuesV2.TrackColors.PURPLE.value, "tags set")
-        color = DatabaseV2.Fields.COLOR
-        colors = {t.relpath: t.get_value(color) for t in DatabaseV2(self.db_file).get_tracks() if color in t.fields}
-        self.assertEqual(colors[DatabaseV2.get_relative_path(track)], 0xBB99FF, "db set, as 0xRRGGBB")
-        self.assertIsNone(colors.get(DatabaseV2.get_relative_path(other)), "other track left alone")
+        self.assertTrue(changed)
+        self.assertEqual(saved, [DatabaseV2.FILENAME], "database saved once")
+        tags = TrackCuesV2(track)
+        self.assertEqual(tags.get_track_color(), TrackCuesV2.TrackColors.PURPLE.value, "color set in tags")
+        self.assertTrue(tags.is_beatgrid_locked(), "lock set in tags")
+        relpath, other_relpath = DatabaseV2.get_relative_path(track), DatabaseV2.get_relative_path(other)
+        colors, locks = self.db_values(DatabaseV2.Fields.COLOR), self.db_values(DatabaseV2.Fields.BEATGRID_LOCKED)
+        self.assertEqual(colors[relpath], 0xBB99FF, "color set in db, as 0xRRGGBB")
+        self.assertIs(locks[relpath], True, "lock set in db")
+        self.assertNotIn(other_relpath, colors, "other track's color left alone")
+        self.assertNotIn(other_relpath, locks, "other track's lock left alone")
+        self.assertEqual(TrackCuesV2(other).get_track_color(), b"\xbb\xbb\xbb", "other track's file left alone")
+
+    def test_set_tracks_tags_sets_each_its_own_values(self):
+        red, blue = self.copy_analyzed_track("Red.mp3"), self.copy_analyzed_track("Blue.mp3")
+        self.add_to_database(red, blue)
+
+        saved = self.saved_file_names()
+        Library(self.serato_dir).set_tracks_tags(
+            {red: {"color": TrackCuesV2.TrackColors.RED}, blue: {"color": TrackCuesV2.TrackColors.BLUE1}}
+        )
+
+        self.assertEqual(saved, [DatabaseV2.FILENAME], "database saved once for every track")
+        colors = self.db_values(DatabaseV2.Fields.COLOR)
+        self.assertEqual(colors[DatabaseV2.get_relative_path(red)], 0xFF9999)
+        self.assertEqual(colors[DatabaseV2.get_relative_path(blue)], 0x99BBFF)
+        self.assertEqual(TrackCuesV2(red).get_track_color(), TrackCuesV2.TrackColors.RED.value)
+        self.assertEqual(TrackCuesV2(blue).get_track_color(), TrackCuesV2.TrackColors.BLUE1.value)
+
+    def test_set_track_tags_unchanged_skips_saving(self):
+        track = self.copy_analyzed_track("Grey.mp3")
+        self.add_to_database(track)
+        library = Library(self.serato_dir)
+        library.set_track_tags(track, color=TrackCuesV2.TrackColors.GREY)
+
+        saved = self.saved_file_names()
+        self.assertFalse(library.set_track_tags(track, color=TrackCuesV2.TrackColors.GREY))
+        self.assertEqual(saved, [], "database not saved")
+
+    def test_set_track_tags_not_yet_imported_sets_only_the_database(self):
+        track = self.copy_analyzed_track("New.mp3")
+        tags = TrackCuesV2(track)
+        tags.delete()
+        tags.save()
+        self.add_to_database(track)
+
+        with self.assertLogs(level="WARNING") as logs:
+            Library(self.serato_dir).set_track_tags(track, color=TrackCuesV2.TrackColors.RED)
+
+        self.assertIn("not yet imported", "\n".join(logs.output))
+        self.assertIsNone(TrackCuesV2(track).get_track_color(), "tag not created")
+        self.assertEqual(self.db_values(DatabaseV2.Fields.COLOR)[DatabaseV2.get_relative_path(track)], 0xFF9999)
+
+    def test_set_track_tags_unknown_key_changes_nothing(self):
+        track = self.copy_analyzed_track("Track.mp3")
+        self.add_to_database(track)
+
+        saved = self.saved_file_names()
+        with self.assertRaises(ValueError):
+            Library(self.serato_dir).set_tracks_tags(
+                {track: {"color": TrackCuesV2.TrackColors.RED, "title": "x"}}  # type: ignore[typeddict-unknown-key]
+            )
+        self.assertEqual(saved, [], "database not saved")
+        self.assertEqual(TrackCuesV2(track).get_track_color(), b"\xbb\xbb\xbb", "file not changed")
 
 
 if __name__ == "__main__":
