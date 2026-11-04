@@ -119,10 +119,7 @@ class Library:
         database unchanged. Returns whether the database changed. See TrackCuesV2.set_track_color for `delete_tags_v1`.
         """
         props = _db_track_props()
-        for tags in tracks.values():
-            props.check_db_track_tags(tags)
-        for filepath, tags in tracks.items():
-            props.write_db_track_tags_to_file(filepath, tags, delete_tags_v1)
+        props.write_db_track_tags_to_files(tracks, delete_tags_v1)
 
         # each field's new value per track; modify passes rules the track's path as Serato stores it, matched by case
         values_by_field: dict[DatabaseV2.Fields, dict[str, SeratoBinFile.BasicValue]] = {}

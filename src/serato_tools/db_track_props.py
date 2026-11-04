@@ -4,7 +4,7 @@ Needs the `track_tags` extra. Only ID3 files (.mp3, .aiff, .aif) are currently s
 """
 
 from dataclasses import dataclass
-from typing import Any, Callable, TypedDict
+from typing import Any, Callable, Mapping, TypedDict
 
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.track import Track
@@ -44,27 +44,30 @@ _DB_TRACK_PROPS: dict[str, _DbTrackProp[Any]] = {
 assert set(_DB_TRACK_PROPS) == DbTrackTags.__optional_keys__, "every DbTrackTags key needs a property, and only those"
 
 
-def check_db_track_tags(tags: DbTrackTags):
+def _check_db_track_tags(tags: DbTrackTags):
     """Raises ValueError if `tags` has a key that isn't one of DbTrackTags'."""
     unknown = set(tags) - DbTrackTags.__optional_keys__
     if unknown:
         raise ValueError(f"unknown track tags: {sorted(unknown)}, expected some of {sorted(_DB_TRACK_PROPS)}")
 
 
-def write_db_track_tags_to_file(filepath: str, tags: DbTrackTags, delete_tags_v1: bool = True):
-    """Sets `tags` in the track file's own tags, and saves it if anything changed.
+def write_db_track_tags_to_files(tracks: Mapping[str, DbTrackTags], delete_tags_v1: bool = True):
+    """Sets each track's values in its file's own tags, saving each file that changed.
 
-    See TrackCuesV2.set_track_color for `delete_tags_v1`.
+    `tracks` maps each file's path to its values. Raises ValueError, before writing any file, if any of them has a key
+    that isn't one of DbTrackTags'. See TrackCuesV2.set_track_color for `delete_tags_v1`.
     """
-    check_db_track_tags(tags)
-    # every property so far lives in Serato Markers2, so parse only that
-    track = Track(filepath, cues_v1=False, beatgrid=False, autotags=False, gain=False)
-    for key, value in tags.items():
-        _DB_TRACK_PROPS[key].write(track, value, delete_tags_v1)
-    track.save()
+    for tags in tracks.values():
+        _check_db_track_tags(tags)
+    for filepath, tags in tracks.items():
+        # every property so far lives in Serato Markers2, so parse only that
+        track = Track(filepath, cues_v1=False, beatgrid=False, autotags=False, gain=False)
+        for key, value in tags.items():
+            _DB_TRACK_PROPS[key].write(track, value, delete_tags_v1)
+        track.save()
 
 
 def to_db_values(tags: DbTrackTags) -> dict[DatabaseV2.Fields, SeratoBinFile.BasicValue]:
     """The database fields and values that hold `tags`."""
-    check_db_track_tags(tags)
+    _check_db_track_tags(tags)
     return {_DB_TRACK_PROPS[key].db_field: _DB_TRACK_PROPS[key].to_db_val(value) for key, value in tags.items()}
