@@ -78,6 +78,14 @@ class Track:
         """
         return self.cues_v2.is_beatgrid_locked()
 
+    def set_beatgrid_locked(self, locked: bool, delete_tags_v1: bool = True):
+        """Locks or unlocks the track's beatgrid in memory; call `save()` to write it to the file.
+
+        Serato stores the lock in `Serato Markers2`, so this is `cues_v2.set_beatgrid_locked`: see it for
+        `delete_tags_v1`, and for a track whose tags have no lock yet.
+        """
+        self.cues_v2.set_beatgrid_locked(locked, delete_tags_v1=delete_tags_v1)
+
     def save(self) -> bool:
         """Writes every tag's changes to the file in one write, and returns whether there were any to write."""
         tags: list[ID3FileTag] = [tag for name in self._TAG_NAMES if (tag := self.__dict__.get(name)) is not None]

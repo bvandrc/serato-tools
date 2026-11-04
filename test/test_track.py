@@ -1,4 +1,3 @@
-import dataclasses
 import unittest
 from unittest import mock
 import os
@@ -68,13 +67,14 @@ class TestCase(unittest.TestCase):
 
         self.assertEqual(Track(self.path).get_track_color(), TrackCuesV2.TrackColors.RED.value)
 
-    def test_is_beatgrid_locked(self):
+    def test_beatgrid_lock(self):
         track = Track(self.path)
         self.assertFalse(track.is_beatgrid_locked(), "fixture is unlocked")
-        track.cues_v2.modify_entries(
-            lambda info: dataclasses.replace(info, bpm_lock=TrackCuesV2.BpmLockEntry(enabled=True))
-        )
+        track.set_beatgrid_locked(True)
         self.assertTrue(track.is_beatgrid_locked())
+        track.save()
+
+        self.assertTrue(Track(self.path).is_beatgrid_locked(), "saved")
 
     def test_save_keeps_a_deleted_tags_v1_deleted(self):
         track = Track(self.path)
