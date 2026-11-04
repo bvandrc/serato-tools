@@ -59,9 +59,9 @@ class Track:
     def save(self) -> bool:
         """Writes every tag's changes to the file in one write, and returns whether there were any to write."""
         tags: list[ID3FileTag] = [tag for name in self._TAG_NAMES if (tag := self.__dict__.get(name)) is not None]
-        # a list, not any(), so that every tag puts its changes in before the one write
+        # a set built in full, not any() over a generator, so that every tag puts its changes in before the one write
         # pylint: disable-next=protected-access
-        changed = [tag._write_to_tagfile() for tag in tags]
+        changed = {tag._write_to_tagfile() for tag in tags}
         if not any(changed):
             return False
         self.tagfile.save()
