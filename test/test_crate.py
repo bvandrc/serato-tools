@@ -4,7 +4,7 @@ import copy
 import os
 import tempfile
 
-from src.serato_tools.crate import Crate
+from serato_tools.crate import Crate
 
 with open("test/data/crate.txt", "r", encoding="utf-8") as f:
     base_expected = f.read()

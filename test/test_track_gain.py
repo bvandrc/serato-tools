@@ -4,7 +4,7 @@ import os
 import shutil
 import tempfile
 
-from src.serato_tools.track_gain import TrackGain
+from serato_tools.track_gain import TrackGain
 
 
 class TestCase(unittest.TestCase):

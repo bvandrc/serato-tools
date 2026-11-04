@@ -1,4 +1,3 @@
-import sys
 import os
 import filecmp
 import fnmatch
@@ -8,8 +7,6 @@ import platform
 from typing import Optional
 from dataclasses import dataclass
 
-if __package__ is None:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.crate import Crate

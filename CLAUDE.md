@@ -33,7 +33,7 @@ black .                                                           # format, line
 
 This is a Python repo with no package manager scripts, so `black .` is the "format script" the conventions require before every commit; CI enforces it with `psf/black@stable`.
 
-Tests import via `from src.serato_tools...`, so `python -m unittest` only works from the repo root.
+Tests import the installed `serato_tools` (editable locally, a regular install in CI) and open fixtures by paths relative to the repo root, so `python -m unittest` only works from there.
 
 CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pylint and pyright, plus black once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15. Lint runs on every version because neither tool pins one: both check against the running interpreter, so 3.12 catches use of anything newer and later versions catch deprecations and removals. The `main` ruleset requires these checks by name, so renaming a job or matrix entry means updating the ruleset too. Tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `unittest.skipUnless` / `skipIf`, with a matching test for the other OS family.
 
@@ -89,7 +89,7 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
 
 ### CLI conventions
 
-Console scripts are declared in `[project.scripts]` in `pyproject.toml` and point at `main()` / `main_analyze()` in the module. Each entry point defines a local `@dataclass Args` and constructs it with `Args(**vars(parser.parse_args()))` to get a typed view of argparse output — follow that pattern when adding a CLI. Modules also start with `if __package__ is None: sys.path.append(...)` so they can be run directly as scripts.
+Console scripts are declared in `[project.scripts]` in `pyproject.toml` and point at `main()` / `main_analyze()` in the module. Each entry point defines a local `@dataclass Args` and constructs it with `Args(**vars(parser.parse_args()))` to get a typed view of argparse output — follow that pattern when adding a CLI. To run a module directly, use `python -m serato_tools.<module>`.
 
 ## Repository layout notes
 
