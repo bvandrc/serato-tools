@@ -72,6 +72,10 @@ The lifecycle is `parse → self.entries → mutate → to_bytes() → save()`:
 
 Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`SeratoTag.FileOrData`). The bytes path is what lets tests feed the `.bin` fixtures in `test/data/` without an audio file, and it's why `self.tagfile` may be `None` — `save()` raises in that case.
 
+`TrackGain` (`track_gain.py`) is the odd one out: it subclasses `SeratoTrack` directly, since Serato stores gain as an ID3 `RVA2:SeratoGain` frame rather than a GEOB.
+
+`Track` (`track.py`) reads each of these, and `TrackGain`, from one open mutagen file, each as a `cached_property` (`cues_v2`, `cues_v1`, `beatgrid`, `autotags`, `waveform`, `gain`), and its `save()` writes every change in one `tagfile.save()`, skipping it when nothing changed. Each tag class implements `_write_to_tagfile()`, which puts its unsaved changes into the shared tagfile without saving and returns whether it had any; a `SeratoTag` compares its data with what it read rather than with the tagfile, so an unchanged `Serato Markers_` that `TrackCuesV2` deleted isn't put back. A new tag class has to implement `_write_to_tagfile()` and be added to `Track` and its `_TAG_NAMES`.
+
 **v1/v2 interaction:** current Serato reads `Serato Markers2`, but a stale `Serato Markers_` shadows changes made to it. That's why the mutating APIs (`TrackCuesV2.modify_entries`, `set_track_color`) take `delete_tags_v1=True` by default — they delete the v1 tag rather than keeping the two in sync.
 
 `TrackCuesV2` exposes each entry kind (`CueEntry`, `LoopEntry`, `ColorEntry`, `FlipEntry`, `BpmLockEntry`) as a dataclass, aggregated into `TrackCuesInfo`; `modify_entries(callback)` hands the callback the whole `TrackCuesInfo` and expects a new one back (use `dataclasses.replace`) or `None` for no change. Each entry class (and `TrackCuesV1.Entry`) converts with `_parse()` / `_serialize()`, which are internal to its module: callers go through `modify_entries` and `save()`, so the tag class and its CLI are the only users. Pylint's `protected-access` is disabled per function where they're called.

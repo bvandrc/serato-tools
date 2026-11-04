@@ -17,6 +17,7 @@
   - [Listing corrupt tracks](#listing-corrupt-tracks)
   - [Exporting crates to USB](#exporting-crates-to-usb)
   - [Analyzing and setting a dynamic beatgrid](#analyzing-and-setting-a-dynamic-beatgrid)
+  - [Changing several of a track's tags at once](#changing-several-of-a-tracks-tags-at-once)
   - [Setting track color](#setting-track-color)
   - [Snapping cue positions to the beatgrid](#snapping-cue-positions-to-the-beatgrid)
   - [Modifying track metadata / hot cues](#modifying-track-metadata--hot-cues)
@@ -160,6 +161,23 @@ _NOTE: This feature has only been tested on a couple of tracks. Recommend review
 ```cmd
 >>> serato_analyze_beatgrid "/Users/Username/Music/Dubstep/Raaket - ILL.mp3"
 ```
+
+### Changing several of a track's tags at once
+
+`Track` opens the file once and reads each Serato tag the first time you use it; `save()` then writes all of your changes in a single write, instead of rewriting the whole file once per tag:
+
+```python
+from serato_tools.track import Track
+from serato_tools.track_cues_v2 import TrackCuesV2
+
+track = Track('/Users/Username/Music/Dubstep/Raaket - ILL.mp3')
+track.cues_v2.set_track_color(TrackCuesV2.TrackColors.PURPLE)
+track.autotags.set(bpm=128)
+track.gain.set(gain=-2.5)
+track.save()  # one write; returns False, without writing, if nothing changed
+```
+
+Its tags are `cues_v2`, `cues_v1`, `beatgrid`, `autotags`, `waveform`, and `gain`: the same classes as below, so use their own methods to change them, and `Track.save()` rather than theirs.
 
 ### Setting track color
 

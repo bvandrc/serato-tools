@@ -49,6 +49,13 @@ class SeratoTrack:
             data=data,
         )
 
+    def _write_to_tagfile(self) -> bool:
+        """Puts this object's unsaved changes into `tagfile` without saving the file; returns whether it had any.
+
+        Lets `Track` save the changes of every tag sharing one file in a single write.
+        """
+        return False
+
     def _del_tag(self, key: str):
         """
         Returns True if was deleted, False if no change
@@ -112,6 +119,8 @@ class SeratoTag(SeratoTrack):
         else:
             super().__init__(file=file_or_data)
             self._raw_data = self._get_geob()
+        # the data as the file holds it, so _write_to_tagfile can tell whether there's anything to write
+        self._saved_raw_data = self._raw_data
 
     def __repr__(self) -> str:
         return str(self._raw_data)
@@ -151,11 +160,23 @@ class SeratoTag(SeratoTrack):
         self._raw_data = None
         return was_deleted
 
-    def save(self):
-        if not self.tagfile:
-            raise Exception("no tagfile, no saving")
+    def _put_in_tagfile(self):
         if self._raw_data:
             self._tag_geob()
         else:
             self._del_geob()
+        self._saved_raw_data = self._raw_data
+
+    def _write_to_tagfile(self) -> bool:
+        # compared with what was read rather than with the tagfile, so an unchanged tag doesn't restore one that
+        # another tag deleted from the shared tagfile (TrackCuesV2 deleting a stale Serato Markers_)
+        if self._raw_data == self._saved_raw_data:
+            return False
+        self._put_in_tagfile()
+        return True
+
+    def save(self):
+        if not self.tagfile:
+            raise Exception("no tagfile, no saving")
+        self._put_in_tagfile()
         self.tagfile.save()

@@ -2,6 +2,13 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.4.0] - 2026-11-04
+
+- Add `Track` (`serato_tools.track`), which reads each of a track file's Serato tags (`cues_v2`, `cues_v1`, `beatgrid`, `autotags`, `waveform`, and `gain`) from one open file, and saves all of their changes in a single write, skipping it when nothing changed
+- Add `TrackGain.set`, which sets the gain and/or peak without saving, like `TrackAutotags.set`
+- `TrackGain.delete` now also sets `gain` and `peak` to `None`, matching the deleted frame
+- `TrackGain.save` now writes `gain` and `peak` when they were changed directly, rather than only through `set_and_save`
+
 ## [5.3.1] - 2026-11-04
 
 - Fix cue snapping moving almost every cue by 1 ms: 5.1.1 started snapping cues exactly `min_ms_change` away, and the default of 1 caught the 1 ms gap Serato commonly leaves between a cue and the rounded beat. The default `min_ms_change` is now 2, so 1 ms differences are left alone again, and passing less than 2 warns

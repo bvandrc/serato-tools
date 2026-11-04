@@ -39,6 +39,17 @@ class TestCase(unittest.TestCase):
             self.assertAlmostEqual(tags_readback.gain or 0.0, -3.5, places=2, msg="gain saved and read back")
             self.assertEqual(tags_readback.peak, 0.0, "unset peak keeps its previous value")
 
+    def test_set_waits_for_save(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_file = os.path.join(tmp_dir, "test.mp3")
+            shutil.copy(os.path.abspath("test/data/test_mp3.mp3"), tmp_file)
+
+            tags = TrackGain(tmp_file)
+            tags.set(gain=-3.5)
+            self.assertEqual(TrackGain(tmp_file).gain, 0.0, "not written until saved")
+            tags.save()
+            self.assertAlmostEqual(TrackGain(tmp_file).gain or 0.0, -3.5, places=2, msg="written on save")
+
     def test_delete(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_file = os.path.join(tmp_dir, "test.mp3")
