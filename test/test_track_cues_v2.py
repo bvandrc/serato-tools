@@ -5,6 +5,7 @@ import os
 import io
 from contextlib import redirect_stdout
 
+from src.serato_tools.track_beatgrid import TrackBeatgrid
 from src.serato_tools.track_cues_v2 import TrackCuesV2
 
 
@@ -79,6 +80,15 @@ class TestCase(unittest.TestCase):
             tags.snap_positions_to_beat(1 / 16, 2)
         output = buf.getvalue()
         self.assertIn("Snapped by 42 ms", output)
+
+    def test_snap_ignores_1ms_by_default(self):
+        tags = TrackCuesV2("test/data/test_mp3.mp3")
+        beat = TrackBeatgrid("test/data/test_mp3.mp3").find_nearest_beat(tags._from_entries().cues[0].position, 1)
+        assert beat is not None
+        beat_ms = round(beat)
+        self.assertIsNone(tags.get_snapped_beat_ms(beat_ms + 1, 1 / 8))
+        self.assertIsNone(tags.get_snapped_beat_ms(beat_ms - 1, 1 / 8))
+        self.assertEqual(tags.get_snapped_beat_ms(beat_ms + 2, 1 / 8), beat_ms)
 
     def test_snap_positions_to_beat_no_entries_raises(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
