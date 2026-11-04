@@ -4,17 +4,17 @@ from dataclasses import dataclass
 from mutagen.id3._frames import RVA2
 
 
-from serato_tools.utils.track_tags import SeratoTrack
+from serato_tools.utils.track_tags import ID3FileOrPath, ID3FileTag, del_tag
 
 
-class TrackGain(SeratoTrack):
+class TrackGain(ID3FileTag):
     # Serato stores gain in ID3 files as an RVA2 (relative volume adjustment, ID3v2.4 section 4.11) frame
     # with this description: see this repo's test/data/test_mp3.mp3, or the report of Serato DJ's manual
     # gain writing RVA2:SeratoGain in https://invent.kde.org/multimedia/kid3/-/issues/511
     RVA2_DESC = "SeratoGain"
     RVA2_KEY = f"RVA2:{RVA2_DESC}"
 
-    def __init__(self, file: SeratoTrack.FileArg):
+    def __init__(self, file: ID3FileOrPath):
         super().__init__(file)
         frame = self.tagfile.get(TrackGain.RVA2_KEY, None)
         self.gain: float | None = frame.gain if frame is not None else None
@@ -38,7 +38,7 @@ class TrackGain(SeratoTrack):
         self.tagfile.save()
 
     def delete(self):
-        return self._del_tag(TrackGain.RVA2_KEY)
+        return del_tag(self.tagfile, TrackGain.RVA2_KEY)
 
 
 if __name__ == "__main__":

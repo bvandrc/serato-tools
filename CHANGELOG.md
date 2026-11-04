@@ -2,6 +2,12 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.4.0] - 2026-11-04
+
+- Rename the tag base classes in `serato_tools.utils.track_tags`: `SeratoTrack` is now `ID3FileTag`, and `SeratoTag` is now `SeratoGeobTag`. The old names still work, with a `DeprecationWarning`, until the next major version
+  - `SeratoTrack.Tagfile` and `SeratoTrack.FileArg` are now `ID3File` and `ID3FileOrPath`, in the same module
+- Add `open_tagfile`, which opens a track file with mutagen, and `get_geob`, `set_geob`, `del_geob`, and `del_tag`, which read and write a frame on any open file, to `serato_tools.utils.track_tags`
+
 ## [5.3.2] - 2026-11-04
 
 - Fix type checkers (pyright, mypy, etc.) ignoring the package's type hints: it now ships the `py.typed` marker that tells them the hints are there
