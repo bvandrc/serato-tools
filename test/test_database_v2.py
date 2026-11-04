@@ -311,6 +311,24 @@ class TestCase(unittest.TestCase):
 
         self.assertFalse(db.remove_duplicates(), "nothing left to remove")
 
+    def test_get_corrupt_tracks(self):
+        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        self.assertEqual(db.get_corrupt_tracks(), {}, "no corrupt tracks in the test database")
+
+        fields = DatabaseV2.Fields
+        db.entries += [
+            (
+                fields.TRACK,
+                [(fields.FILE_PATH, "Music/Bad.mp3"), (fields.CORRUPT, True), (fields.CORRUPT_REASON, "why")],
+            ),
+            (fields.TRACK, [(fields.FILE_PATH, "Music/No Reason.mp3"), (fields.CORRUPT, True)]),
+            (fields.TRACK, [(fields.FILE_PATH, "Music/Fine.mp3"), (fields.CORRUPT, False)]),
+        ]
+        self.assertEqual(
+            db.get_corrupt_tracks(),
+            {DatabaseV2.get_full_path("Music/Bad.mp3"): "why", DatabaseV2.get_full_path("Music/No Reason.mp3"): ""},
+        )
+
     def test_to_json_object(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
 

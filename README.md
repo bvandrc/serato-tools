@@ -14,6 +14,7 @@
 - [Examples](#examples)
   - [Renaming or removing track files across the library](#renaming-or-removing-track-files-across-the-library)
   - [Modifying the database file](#modifying-the-database-file)
+  - [Listing corrupt tracks](#listing-corrupt-tracks)
   - [Exporting crates to USB](#exporting-crates-to-usb)
   - [Analyzing and setting a dynamic beatgrid](#analyzing-and-setting-a-dynamic-beatgrid)
   - [Setting track color](#setting-track-color)
@@ -46,6 +47,7 @@
 
 **Database:**
 - After changing a track's metadata, modify database values for a specific track so that you don't have to "Reload Id3 Tags" in Serato, the change appears in Serato instantly.
+- List the tracks Serato marked corrupt, and why.
 
 **Crate:**
 - Read a crate's tracks
@@ -129,6 +131,15 @@ db.modify_and_save(
     ]
 )
 ```
+
+### Listing corrupt tracks
+
+```cmd
+>>> python -m serato_tools.database_v2 --list_corrupt
+/Users/Username/Music/Dubstep/Raaket - ILL.mp3: Corrupt file: This file contains invalid audio data
+```
+
+Or `DatabaseV2().get_corrupt_tracks()`, which returns each track's full path with its reason.
 
 ### Exporting crates to USB
 

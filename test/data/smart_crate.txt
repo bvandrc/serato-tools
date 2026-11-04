@@ -1,6 +1,6 @@
 vrsn (Version): 1.0/Serato ScratchLive Smart Crate
-rart (SmartCrate Match All): [ brut (Unknown Field): True ]
-rlut (SmartCrate Live Update): [ brut (Unknown Field): True ]
+rart (SmartCrate Match All): [ brut (Setting Value): True ]
+rlut (SmartCrate Live Update): [ brut (Setting Value): True ]
 rurt (SmartCrate Rule): [ trft (Rule Comparison): cond_aft_time (TIME_IS_AFTER) ], [ urkt (Rule Field): 25 (added) ], [ trtt (Rule Value Date): 5/13/2020 ]
 rurt (SmartCrate Rule): [ trft (Rule Comparison): cond_dnc_str (STR_DOES_NOT_CONTAIN) ], [ urkt (Rule Field): 19 (grouping) ], [ trpt (Rule Value Text): GRP ]
 rurt (SmartCrate Rule): [ trft (Rule Comparison): cond_is_str (STR_IS) ], [ urkt (Rule Field): 23 (year) ], [ trpt (Rule Value Text): 2000 ]

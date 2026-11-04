@@ -36,13 +36,31 @@ class SeratoBinFile:
         PUBLISHER = "tlbl"
         COMPOSER = "tcmp"
         YEAR = "ttyr"
+        COMMENT = "tcom"
+        REMIXER = "trmx"
+        TRACK_NUMBER = "utkn"
+        DISC_NUMBER = "udsc"
         DATE_ADDED_T = "tadd"
         DATE_ADDED_U = "uadd"
+        PLAY_COUNT = "utpc"
+        # the track color, as 0xRRGGBB: the same color as the track's tags, so a TrackCuesV2.TrackColors value as an int
+        COLOR = "ulbl"
         BEATGRID_LOCKED = "bbgl"
         CORRUPT = "bcrt"
+        CORRUPT_REASON = "tcor"
         MISSING = "bmis"
         HAS_STEMS = "bstm"
+        # set on the last played track only
         PLAYED = "bply"
+        READ_ONLY = "biro"
+        OVERVIEW_BUILT = "bovc"
+        # Unnamed, since what they hold is only a guess. On every track, and the same on every track of a large library:
+        # - bitu (False): from iTunes?
+        # - buns (False): unsupported?
+        # - bwlb (False): white label?
+        # - blop (False): loop?
+        # - bhrt (True), bkrk (False), bwll (False): unknown
+        # Also unnamed: ufsb, maybe the file size in bytes when Serato last read the file, which retagging changes.
         # Crates
         SORTING = "osrt"
         REVERSE_ORDER = "brev"
