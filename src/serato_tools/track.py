@@ -56,6 +56,14 @@ class Track:
         """The `RVA2:SeratoGain` frame: the gain set in Serato."""
         return TrackGain(self.tagfile)
 
+    def set_track_color(self, color: TrackCuesV2.TrackColors, delete_tags_v1: bool = True):
+        """Sets the track's color in memory; call `save()` to write it to the file.
+
+        Serato stores the color in `Serato Markers2`, so this is `cues_v2.set_track_color`: see it for
+        `delete_tags_v1`, and for a track whose tags have no color yet.
+        """
+        self.cues_v2.set_track_color(color, delete_tags_v1=delete_tags_v1)
+
     def save(self) -> bool:
         """Writes every tag's changes to the file in one write, and returns whether there were any to write."""
         tags: list[ID3FileTag] = [tag for name in self._TAG_NAMES if (tag := self.__dict__.get(name)) is not None]

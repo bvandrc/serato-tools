@@ -171,7 +171,7 @@ from serato_tools.track import Track
 from serato_tools.track_cues_v2 import TrackCuesV2
 
 track = Track('/Users/Username/Music/Dubstep/Raaket - ILL.mp3')
-track.cues_v2.set_track_color(TrackCuesV2.TrackColors.PURPLE)
+track.set_track_color(TrackCuesV2.TrackColors.PURPLE)  # Serato stores it in cues_v2
 track.autotags.set(bpm=128)
 track.gain.set(gain=-2.5)
 track.save()  # one write; returns False, without writing, if nothing changed

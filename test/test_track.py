@@ -59,6 +59,13 @@ class TestCase(unittest.TestCase):
         self.assertEqual(saved.autotags.bpm, 128)
         self.assertAlmostEqual(saved.gain.gain or 0.0, -2.5, places=2)
 
+    def test_set_track_color(self):
+        track = Track(self.path)
+        track.set_track_color(TrackCuesV2.TrackColors.RED)
+        track.save()
+
+        self.assertEqual(Track(self.path).cues_v2.get_track_color(), TrackCuesV2.TrackColors.RED.value)
+
     def test_save_keeps_a_deleted_tags_v1_deleted(self):
         track = Track(self.path)
         self.assertIsNotNone(track.cues_v1.entries, "fixture has the v1 tag, read before it's deleted")
