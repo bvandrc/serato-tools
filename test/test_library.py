@@ -6,7 +6,7 @@ import subprocess
 import sys
 import tempfile
 
-from src.serato_tools.library import Library
+from serato_tools.library import Library
 
 # library.py imports the installed package's classes, so build fixtures and patch with those
 from serato_tools.crate import Crate

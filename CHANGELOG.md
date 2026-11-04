@@ -7,6 +7,10 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Add `Library.set_track_tags` and `set_tracks_tags`, which set a track's color and beatgrid lock in its tags and in the database at once, so Serato shows the change right away, without rescanning file tags. Only ID3 files (.mp3, .aiff, .aif) are currently supported
 - Add `TrackCuesV2.set_beatgrid_locked`
 
+## [5.3.2] - 2026-11-04
+
+- Fix type checkers (pyright, mypy, etc.) ignoring the package's type hints: it now ships the `py.typed` marker that tells them the hints are there
+
 ## [5.3.1] - 2026-11-04
 
 - Fix cue snapping moving almost every cue by 1 ms: 5.1.1 started snapping cues exactly `min_ms_change` away, and the default of 1 caught the 1 ms gap Serato commonly leaves between a cue and the rounded beat. The default `min_ms_change` is now 2, so 1 ms differences are left alone again, and passing less than 2 warns

@@ -4,7 +4,6 @@ import ast
 import base64
 import configparser
 import io
-import os
 import struct
 import sys
 import warnings
@@ -16,8 +15,6 @@ from dataclasses import dataclass, field
 
 from mutagen.mp3 import HeaderNotFoundError
 
-if __package__ is None:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils import get_enum_key_from_value

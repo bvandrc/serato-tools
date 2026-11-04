@@ -4,8 +4,6 @@ import os
 import sys
 from dataclasses import dataclass
 
-if __package__ is None:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from serato_tools.utils.crate_base import CrateBase
 from serato_tools.utils import SERATO_DIR

@@ -1,12 +1,9 @@
 #!/usr/bin/python
 # This is from this repo: https://github.com/sharst/seratopy
 import os
-import sys
 import warnings
 from typing import Optional, Iterable
 
-if __package__ is None:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from serato_tools.utils.bin_file_base import SeratoBinFile
 

@@ -3,8 +3,6 @@
 import collections
 import io
 import struct
-import os
-import sys
 from typing import cast, overload, TypeVar, Unpack
 from dataclasses import dataclass
 
@@ -12,8 +10,6 @@ from mutagen._file import FileType
 from mutagen.mp3 import HeaderNotFoundError
 from mutagen.id3 import ID3
 
-if __package__ is None:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from serato_tools.utils.track_tags import SeratoTag
 from serato_tools.utils import logger

@@ -4,8 +4,6 @@ from typing import cast
 from enum import StrEnum, IntEnum
 from dataclasses import dataclass
 
-if __package__ is None:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from serato_tools.utils.crate_base import CrateBase
 from serato_tools.utils import get_enum_key_from_value, parse_cli_keys_and_values, SERATO_DIR, DataTypeError

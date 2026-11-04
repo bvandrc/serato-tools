@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os
-import sys
 import warnings
 from dataclasses import dataclass
 
-if __package__ is None:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from serato_tools.utils.bin_file_base import SeratoBinFile
 from serato_tools.utils import SERATO_DIR
@@ -47,9 +44,7 @@ class DatabaseV2(SeratoBinFile):
         # imported here since library imports this module
         from serato_tools.library import Library  # pylint: disable=import-outside-toplevel
 
-        # pyright sees this file as src.serato_tools.database_v2 but library's import as serato_tools.database_v2,
-        # two names for the same class
-        library = Library(os.path.dirname(self.filepath), database=self)  # pyright: ignore[reportArgumentType]
+        library = Library(os.path.dirname(self.filepath), database=self)
         library.rename_track_file(src, dest)
 
 

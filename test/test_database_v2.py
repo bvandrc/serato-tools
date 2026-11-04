@@ -7,8 +7,8 @@ import json
 import shutil
 import tempfile
 
-from src.serato_tools.database_v2 import DatabaseV2
-from src.serato_tools.utils.bin_file_base import SeratoBinFile
+from serato_tools.database_v2 import DatabaseV2
+from serato_tools.utils.bin_file_base import SeratoBinFile
 
 # bin_file_base raises the installed package's DataTypeError, so catch that one
 from serato_tools.utils import DataTypeError

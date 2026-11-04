@@ -3,7 +3,6 @@
 
 import base64
 import os
-import sys
 from dataclasses import dataclass
 
 import mutagen._file
@@ -13,8 +12,6 @@ import mutagen.mp3
 import mutagen.mp4
 import mutagen.oggvorbis
 
-if __package__ is None:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from serato_tools.utils.track_tags import SeratoTrack
 from serato_tools.utils import logger

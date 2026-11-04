@@ -5,8 +5,8 @@ import os
 import io
 from contextlib import redirect_stdout
 
-from src.serato_tools.track_beatgrid import TrackBeatgrid
-from src.serato_tools.track_cues_v2 import TrackCuesV2
+from serato_tools.track_beatgrid import TrackBeatgrid
+from serato_tools.track_cues_v2 import TrackCuesV2
 
 
 class TestCase(unittest.TestCase):
