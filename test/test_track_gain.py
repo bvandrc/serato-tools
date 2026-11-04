@@ -13,6 +13,20 @@ class TestCase(unittest.TestCase):
         self.assertEqual(tags.gain, 0.0, "gain read from RVA2:SeratoGain frame")
         self.assertEqual(tags.peak, 0.0, "peak read from RVA2:SeratoGain frame")
 
+    def test_read_without_frame(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_file = os.path.join(tmp_dir, "test.mp3")
+            shutil.copy(os.path.abspath("test/data/test_mp3.mp3"), tmp_file)
+            tags = TrackGain(tmp_file)
+            tags.delete()
+            tags.save()
+
+            tags_readback = TrackGain(tmp_file)
+            self.assertIsNone(tags_readback.gain, "no frame reads as no gain")
+            self.assertIsNone(tags_readback.peak, "no frame reads as no peak")
+            with self.assertRaises(ValueError, msg="needs both values to create the frame"):
+                tags_readback.set_and_save(gain=-3.5)
+
     def test_set_and_save_roundtrip(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_file = os.path.join(tmp_dir, "test.mp3")
