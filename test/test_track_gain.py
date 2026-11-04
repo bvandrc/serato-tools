@@ -1,5 +1,6 @@
 # pylint: disable=protected-access
 import unittest
+from unittest import mock
 import os
 import shutil
 import tempfile
@@ -38,6 +39,14 @@ class TestCase(unittest.TestCase):
             tags_readback = TrackGain(tmp_file)
             self.assertAlmostEqual(tags_readback.gain or 0.0, -3.5, places=2, msg="gain saved and read back")
             self.assertEqual(tags_readback.peak, 0.0, "unset peak keeps its previous value")
+
+    def test_save_skips_writing_when_unchanged(self):
+        tags = TrackGain(os.path.abspath("test/data/test_mp3.mp3"))
+        with mock.patch.object(tags.tagfile, "save") as write:
+            tags.save()
+            write.assert_not_called()
+            tags.save(force=True)
+            write.assert_called_once()
 
     def test_set_waits_for_save(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
