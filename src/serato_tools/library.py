@@ -109,7 +109,7 @@ class Library:
                 logger.info(f"deleted {filepath}")
 
     def set_track_tags(self, filepath: str, *, delete_tags_v1: bool = True, **tags: Unpack["TrackTags"]) -> bool:
-        """Sets values in the track file's tags and in the database, so Serato shows them right away; see set_tracks_tags."""
+        """Sets values in the track file's tags and in the database, as set_tracks_tags does for many tracks."""
         return self.set_tracks_tags({filepath: tags}, delete_tags_v1=delete_tags_v1)
 
     def set_tracks_tags(self, tracks: Mapping[str, "TrackTags"], delete_tags_v1: bool = True) -> bool:
