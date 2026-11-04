@@ -544,13 +544,22 @@ class SeratoBinFile:
         """The form Serato stores a track path in: relative to `root`, with forward slashes.
 
         `root` is the folder the library's track paths are relative to, which is an instance's `track_path_root`, and
-        defaults to the home library's drive root. A path outside `root` just has its drive dropped.
+        defaults to the home library's drive root. A relative path is taken as already relative to `root`.
+
+        Raises `ValueError` for an absolute path outside a library on an external drive, since that library can only
+        point at tracks on its own drive. For the home library, a path on another drive just has its drive dropped.
         """
         filepath = os.path.normpath(filepath)
+        root = os.path.normpath(root)
         # with a trailing separator, so "/Volumes/USB" doesn't match "/Volumes/USB2/..."
-        root_prefix = os.path.join(os.path.normpath(root), "")
+        root_prefix = os.path.join(root, "")
         if os.path.normcase(filepath).startswith(os.path.normcase(root_prefix)):
             filepath = filepath[len(root_prefix) :]
+        else:
+            # on Windows, a path is only somewhere definite with its drive: "\Music\..." is on whatever drive is current
+            absolute = bool(os.path.splitdrive(filepath)[0]) if os.name == "nt" else os.path.isabs(filepath)
+            if absolute and os.path.normcase(root) != os.path.normcase(os.path.normpath(HOME_TRACK_PATH_ROOT)):
+                raise ValueError(f"track isn't on the library's drive ({root}): {filepath}")
         return os.path.splitdrive(filepath)[1].replace(os.path.sep, "/").lstrip("/")
 
     @staticmethod

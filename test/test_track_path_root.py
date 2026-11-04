@@ -57,10 +57,20 @@ class TestCase(unittest.TestCase):
 
         # a sibling folder whose name starts with the root's isn't inside it
         sibling_track = os.path.join(self.drive + "2", "Music", "Track.mp3")
+        with self.assertRaises(ValueError, msg="outside the root"):
+            DatabaseV2.get_relative_path(sibling_track, self.drive)
+
+    def test_relative_path_is_taken_as_relative_to_root(self):
         self.assertEqual(
-            DatabaseV2.get_relative_path(sibling_track, self.drive),
-            DatabaseV2.get_relative_path(sibling_track),
-            "outside root, only the drive is dropped",
+            DatabaseV2.get_relative_path(os.path.join("Music", "Track.mp3"), self.drive), "Music/Track.mp3"
+        )
+
+    @unittest.skipUnless(os.name == "nt", "only Windows has paths outside the home library's root, on another drive")
+    def test_home_library_drops_another_drive(self):
+        # unlike an external library, the home library keeps the old behavior for a path on another drive
+        other_drive = "Z:" if not HOME_TRACK_PATH_ROOT.upper().startswith("Z") else "Y:"
+        self.assertEqual(
+            DatabaseV2.get_relative_path(f"{other_drive}\\Music\\Track.mp3", HOME_TRACK_PATH_ROOT), "Music/Track.mp3"
         )
 
     @unittest.skipUnless(os.name == "nt", "Windows drive letters")
@@ -98,6 +108,14 @@ class TestCase(unittest.TestCase):
         library.remove_track_files([new])
         self.assertEqual(Crate(crate.filepath).get_track_paths(), ["Music/Kept.mp3"], "removed")
         self.assertFalse(os.path.exists(new), "file deleted")
+
+    def test_external_drive_library_rejects_track_on_another_drive(self):
+        self.as_mount(self.drive)
+        crate = Crate(os.path.join(self.serato_dir, Crate.DIR, "USB.crate"))
+        other_drive_track = os.path.join(os.path.dirname(self.drive), "Other", "Music", "Track.mp3")
+        with self.assertRaises(ValueError):
+            crate.add_tracks([other_drive_track])
+        self.assertEqual(crate.get_track_paths(), [], "nothing added")
 
 
 if __name__ == "__main__":
