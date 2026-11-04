@@ -263,7 +263,7 @@ def main():
         dest="dest_dir",
         type=str,
         required=True,
-        help='Directory of the destination drive. Example: "E" on Windows',
+        help='Directory of the destination drive. Example: "E" on Windows, "/Volumes/USB" on macOS',
     )
     parser.add_argument(
         "-c",
@@ -290,7 +290,7 @@ def main():
         crate_files += get_crate_files(cm)
 
     if platform.system() == "Windows" and len(args.dest_dir) == 1:
-        args.dest_dir += ":\\\\"
+        args.dest_dir += ":\\"
 
     copy_crates_to_usb(
         crate_files=crate_files,
