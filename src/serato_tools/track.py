@@ -56,6 +56,13 @@ class Track:
         """The `RVA2:SeratoGain` frame: the gain set in Serato."""
         return TrackGain(self.tagfile)
 
+    def get_track_color(self) -> bytes | None:
+        """The track's color as the bytes of a `TrackCuesV2.TrackColors` value, or None if its tags have none yet.
+
+        Serato stores the color in `Serato Markers2`, so this is `cues_v2.get_track_color`.
+        """
+        return self.cues_v2.get_track_color()
+
     def set_track_color(self, color: TrackCuesV2.TrackColors, delete_tags_v1: bool = True):
         """Sets the track's color in memory; call `save()` to write it to the file.
 
@@ -63,6 +70,13 @@ class Track:
         `delete_tags_v1`, and for a track whose tags have no color yet.
         """
         self.cues_v2.set_track_color(color, delete_tags_v1=delete_tags_v1)
+
+    def is_beatgrid_locked(self) -> bool:
+        """Whether the track's beatgrid is locked.
+
+        Serato stores the lock in `Serato Markers2`, not `Serato BeatGrid`, so this is `cues_v2.is_beatgrid_locked`.
+        """
+        return self.cues_v2.is_beatgrid_locked()
 
     def save(self) -> bool:
         """Writes every tag's changes to the file in one write, and returns whether there were any to write."""

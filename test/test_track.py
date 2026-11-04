@@ -1,3 +1,4 @@
+import dataclasses
 import unittest
 from unittest import mock
 import os
@@ -59,12 +60,21 @@ class TestCase(unittest.TestCase):
         self.assertEqual(saved.autotags.bpm, 128)
         self.assertAlmostEqual(saved.gain.gain or 0.0, -2.5, places=2)
 
-    def test_set_track_color(self):
+    def test_track_color(self):
         track = Track(self.path)
+        self.assertEqual(track.get_track_color(), TrackCuesV2(self.path).get_track_color(), "read from cues_v2")
         track.set_track_color(TrackCuesV2.TrackColors.RED)
         track.save()
 
-        self.assertEqual(Track(self.path).cues_v2.get_track_color(), TrackCuesV2.TrackColors.RED.value)
+        self.assertEqual(Track(self.path).get_track_color(), TrackCuesV2.TrackColors.RED.value)
+
+    def test_is_beatgrid_locked(self):
+        track = Track(self.path)
+        self.assertFalse(track.is_beatgrid_locked(), "fixture is unlocked")
+        track.cues_v2.modify_entries(
+            lambda info: dataclasses.replace(info, bpm_lock=TrackCuesV2.BpmLockEntry(enabled=True))
+        )
+        self.assertTrue(track.is_beatgrid_locked())
 
     def test_save_keeps_a_deleted_tags_v1_deleted(self):
         track = Track(self.path)
