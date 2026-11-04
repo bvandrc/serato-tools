@@ -12,24 +12,24 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 from serato_tools.utils import logger, SERATO_DIR
 
 if TYPE_CHECKING:
-    from serato_tools.track_properties import TrackTags
+    from serato_tools.db_track_props import TrackTags
 
 
-def _track_properties():  # return type left to pyright, which infers the module and so checks its attributes
-    """The track_properties module, for the methods that change track files.
+def _db_track_props():  # return type left to pyright, which infers the module and so checks its attributes
+    """The db_track_props module, for the methods that change track files.
 
     Raises ImportError, saying how to install it, without the optional track_tags extra, so the rest of Library works
     without it.
     """
     try:
-        from serato_tools import track_properties  # pylint: disable=import-outside-toplevel
+        from serato_tools import db_track_props  # pylint: disable=import-outside-toplevel
     except ModuleNotFoundError as error:
         if (error.name or "").split(".")[0] != "mutagen":
             raise
         raise ImportError(
             'changing track files needs the track_tags extra: pip install "serato-tools[track_tags]"'
         ) from error
-    return track_properties
+    return db_track_props
 
 
 class Library:
@@ -118,7 +118,7 @@ class Library:
         file is written before the database is, in a single save, so a file that fails to be written leaves the
         database unchanged. Returns whether the database changed. See TrackCuesV2.set_track_color for `delete_tags_v1`.
         """
-        props = _track_properties()
+        props = _db_track_props()
         for tags in tracks.values():
             props.check_track_tags(tags)
         for filepath, tags in tracks.items():
