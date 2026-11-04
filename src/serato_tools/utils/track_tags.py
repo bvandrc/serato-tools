@@ -10,6 +10,24 @@ from mutagen.id3._frames import GEOB
 from serato_tools.utils import logger
 
 
+def open_tagfile(file: "SeratoTagBase.FileArg") -> "SeratoTagBase.Tagfile":
+    """Opens the track file at `file` with mutagen, or returns `file` if it's already open.
+
+    Raises ValueError for a file type other than .mp3, .aiff, or .aif.
+    """
+    if not isinstance(file, str):
+        return file
+    try:
+        if file.lower().endswith(".mp3"):
+            return MP3(file)
+        if file.lower().endswith((".aiff", ".aif")):
+            return AIFF(file)
+    except:
+        logger.error(f"Mutagen error for file {file}")
+        raise
+    raise ValueError(f"unsupported file type (only .mp3, .aiff, and .aif are supported): {file}")
+
+
 class SeratoTagBase:
     """A value Serato stores in a track file's tags, read from and written to `tagfile`, which tags can share.
 
@@ -173,24 +191,6 @@ class SeratoGeobTag(SeratoTagBase):
             raise Exception("no tagfile, no saving")
         self._put_in_tagfile()
         self.tagfile.save()
-
-
-def open_tagfile(file: SeratoTagBase.FileArg) -> SeratoTagBase.Tagfile:
-    """Opens the track file at `file` with mutagen, or returns `file` if it's already open.
-
-    Raises ValueError for a file type other than .mp3, .aiff, or .aif.
-    """
-    if not isinstance(file, str):
-        return file
-    try:
-        if file.lower().endswith(".mp3"):
-            return MP3(file)
-        if file.lower().endswith((".aiff", ".aif")):
-            return AIFF(file)
-    except:
-        logger.error(f"Mutagen error for file {file}")
-        raise
-    raise ValueError(f"unsupported file type (only .mp3, .aiff, and .aif are supported): {file}")
 
 
 # the classes' names before 5.4.0, kept until the next major version
