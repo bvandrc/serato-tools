@@ -31,6 +31,14 @@ def open_tagfile(file: ID3FileOrPath) -> ID3File:
         raise
     raise ValueError(f"unsupported file type (only .mp3, .aiff, and .aif are supported): {file}")
 
+def del_tag(tagfile: ID3File, key: str) -> bool:
+    """Deletes the file's frame `key` (e.g. `GEOB:Serato Markers_`), in memory; returns whether it had one."""
+    if key in tagfile:
+        del tagfile[key]
+        return True
+    return False
+
+
 
 def get_geob(tagfile: ID3File, geob_key: str) -> bytes | None:
     """The data of the file's GEOB frame named `geob_key`, or None if it has none."""
@@ -41,7 +49,7 @@ def get_geob(tagfile: ID3File, geob_key: str) -> bytes | None:
         return None
 
 
-def tag_geob(tagfile: ID3File, geob_key: str, data: bytes):
+def set_geob(tagfile: ID3File, geob_key: str, data: bytes):
     """Sets the file's GEOB frame named `geob_key` to `data`, in memory."""
     tagfile[f"GEOB:{geob_key}"] = GEOB(
         encoding=0,
@@ -49,15 +57,6 @@ def tag_geob(tagfile: ID3File, geob_key: str, data: bytes):
         desc=geob_key,
         data=data,
     )
-
-
-def del_tag(tagfile: ID3File, key: str) -> bool:
-    """Deletes the file's frame `key` (e.g. `GEOB:Serato Markers_`), in memory; returns whether it had one."""
-    if key in tagfile:
-        del tagfile[key]
-        return True
-    return False
-
 
 def del_geob(tagfile: ID3File, geob_key: str) -> bool:
     """Deletes the file's GEOB frame named `geob_key`, in memory; returns whether it had one."""
@@ -117,10 +116,10 @@ class SeratoGeobTag(ID3FileTag):
     def _get_geob(self):
         return get_geob(self._require_tagfile(), self.GEOB_KEY)
 
-    def _tag_geob(self):
+    def _set_geob(self):
         if self._raw_data is None:
             return
-        tag_geob(self._require_tagfile(), self.GEOB_KEY, self._raw_data)
+        set_geob(self._require_tagfile(), self.GEOB_KEY, self._raw_data)
 
     def _del_geob(self):
         return del_geob(self._require_tagfile(), self.GEOB_KEY)
@@ -161,7 +160,7 @@ class SeratoGeobTag(ID3FileTag):
         if not self.tagfile:
             raise Exception("no tagfile, no saving")
         if self._raw_data:
-            self._tag_geob()
+            self._set_geob()
         else:
             self._del_geob()
         self.tagfile.save()
