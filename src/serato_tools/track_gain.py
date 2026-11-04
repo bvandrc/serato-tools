@@ -1,12 +1,8 @@
-import os
-import sys
 from typing import Optional
 from dataclasses import dataclass
 
 from mutagen.id3._frames import RVA2
 
-if __package__ is None:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from serato_tools.utils.track_tags import SeratoTrack
 

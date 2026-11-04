@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os
-import sys
 from functools import cached_property
 
-if __package__ is None:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2

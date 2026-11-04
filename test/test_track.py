@@ -4,11 +4,11 @@ import os
 import shutil
 import tempfile
 
-from src.serato_tools.track import Track
-from src.serato_tools.track_autotags import TrackAutotags
-from src.serato_tools.track_cues_v1 import TrackCuesV1
-from src.serato_tools.track_cues_v2 import TrackCuesV2
-from src.serato_tools.track_gain import TrackGain
+from serato_tools.track import Track
+from serato_tools.track_autotags import TrackAutotags
+from serato_tools.track_cues_v1 import TrackCuesV1
+from serato_tools.track_cues_v2 import TrackCuesV2
+from serato_tools.track_gain import TrackGain
 
 
 class TestCase(unittest.TestCase):

@@ -2,7 +2,7 @@
 import unittest
 import os
 
-from src.serato_tools.track_beatgrid import TrackBeatgrid
+from serato_tools.track_beatgrid import TrackBeatgrid
 
 
 class TestCase(unittest.TestCase):

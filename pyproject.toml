@@ -55,9 +55,8 @@ serato_crate = "serato_tools.crate:main"
 serato_snap_cues_v2 = "serato_tools.track_cues_v2:main"
 
 [tool.setuptools.packages.find]
-where = ["src"] 
-include = ["serato_tools*"]  
-exclude = ["test*"]  
+where = ["src"]
+include = ["serato_tools*"]
 
 [tool.black]
 line-length = 120

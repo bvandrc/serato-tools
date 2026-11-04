@@ -2,7 +2,7 @@
 import unittest
 import os
 
-from src.serato_tools.track_autotags import TrackAutotags
+from serato_tools.track_autotags import TrackAutotags
 
 
 class TestCase(unittest.TestCase):

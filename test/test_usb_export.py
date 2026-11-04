@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from src.serato_tools import usb_export
+from serato_tools import usb_export
 
 
 class GetCrateFilesTestCase(unittest.TestCase):
@@ -16,7 +16,6 @@ class GetCrateFilesTestCase(unittest.TestCase):
         self.smart_crate_dir = os.path.join(tmp.name, usb_export.SmartCrate.DIR)
         os.makedirs(self.crate_dir)
         os.makedirs(self.smart_crate_dir)
-        # patch the classes usb_export actually references, not the src.-prefixed twins
         for patch in (
             mock.patch.object(usb_export.Crate, "DIR_PATH", self.crate_dir),
             mock.patch.object(usb_export.SmartCrate, "DIR_PATH", self.smart_crate_dir),

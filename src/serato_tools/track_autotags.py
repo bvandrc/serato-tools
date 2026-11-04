@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import io
-import os
 import sys
 from typing import Optional
 from dataclasses import dataclass
 
 from mutagen.mp3 import HeaderNotFoundError
 
-if __package__ is None:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from serato_tools.utils.track_tags import SeratoTag
 from serato_tools.utils import logger
