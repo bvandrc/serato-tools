@@ -51,7 +51,7 @@ Subclasses (`DatabaseV2`, `CrateBase` → `Crate` / `SmartCrate`) must define `T
 
 The lifecycle is `parse → self.entries → mutate → to_bytes() → save()`:
 
-- The file's bytes aren't stored. Each `to_bytes()` call serializes `entries` from scratch, so mutations cost nothing and each `save()` pays for one serialization. Edit `entries` however you like, in place or by assignment. (The `SeratoTag` classes below do store theirs, in `_raw_data`; the read-only `raw_data` getter is deprecated for removal in the next major version.)
+- The file's bytes aren't stored. Each `to_bytes()` call serializes `entries` from scratch, so mutations cost nothing and each `save()` pays for one serialization. Edit `entries` however you like, in place or by assignment. (The `SeratoGeobTag` classes below do store theirs, in `_raw_data`; the read-only `raw_data` getter is deprecated for removal in the next major version.)
 - `modify_tracks`, `modify`, `change_track_path`, `filter_tracks`, `remove_tracks`, and `remove_duplicates` return whether anything changed. Methods that save on the caller's behalf (`modify_and_save`, `find_missing`, and `Library`'s methods) use that to skip writing an unchanged file. `save()` itself always writes, since it doubles as "save as".
 - `modify()` takes a list of `ModifyRule` dicts (`{"field": ..., "func": (filename, prev_val) -> new_val | None, "files": [...]}`); returning `None` from `func` means "leave unchanged".
 - `modify_tracks(func, files=...)` and `modify()` with every rule limited to `files` skip every other track after reading only its path, which keeps single-track edits fast on a large library.
@@ -60,7 +60,7 @@ The lifecycle is `parse → self.entries → mutate → to_bytes() → save()`:
 
 ### 2. GEOB tags inside audio files — `utils/track_tags.py`
 
-`SeratoTrack` wraps a mutagen file and reads/writes `GEOB:<key>` frames. `SeratoTag` subclasses it, one class per GEOB tag, each declaring `GEOB_KEY` and `VERSION` and implementing `_parse` / `_serialize`:
+`SeratoTagBase` is a value Serato stores in a track file's tags: it holds the mutagen file (opened by `open_tagfile`, which tags can share) and the frame helpers (`_get_geob`, `_tag_geob`, `_del_tag`, ...). `SeratoGeobTag` subclasses it, one class per GEOB tag, each declaring `GEOB_KEY` and `VERSION` and implementing `_parse` / `_serialize`:
 
 | Class | GEOB tag | Module |
 | --- | --- | --- |
@@ -70,11 +70,11 @@ The lifecycle is `parse → self.entries → mutate → to_bytes() → save()`:
 | `TrackAutotags` | `Serato Autotags` — BPM/gain | `track_autotags.py` |
 | `TrackWaveform` | `Serato Overview` | `track_waveform.py` |
 
-Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`SeratoTag.FileOrData`). The bytes path is what lets tests feed the `.bin` fixtures in `test/data/` without an audio file, and it's why `self.tagfile` may be `None` — `save()` raises in that case.
+Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`SeratoGeobTag.FileOrData`). The bytes path is what lets tests feed the `.bin` fixtures in `test/data/` without an audio file, and it's why `self.tagfile` may be `None` — `save()` raises in that case.
 
-`TrackGain` (`track_gain.py`) is the odd one out: it subclasses `SeratoTrack` directly, since Serato stores gain as an ID3 `RVA2:SeratoGain` frame rather than a GEOB.
+`TrackGain` (`track_gain.py`) is the odd one out: it subclasses `SeratoTagBase` directly, since Serato stores gain as an ID3 `RVA2:SeratoGain` frame rather than a GEOB.
 
-`Track` (`track.py`) reads each of these, and `TrackGain`, from one open mutagen file, each as a `cached_property` (`cues_v2`, `cues_v1`, `beatgrid`, `autotags`, `waveform`, `gain`), and its `save()` writes every change in one `tagfile.save()`, skipping it when nothing changed. Each tag class implements `_write_to_tagfile()`, which puts its unsaved changes into the shared tagfile without saving and returns whether it had any; a `SeratoTag` compares its data with what it read rather than with the tagfile, so an unchanged `Serato Markers_` that `TrackCuesV2` deleted isn't put back. A new tag class has to implement `_write_to_tagfile()` and be added to `Track` and its `_TAG_NAMES`.
+`Track` (`track.py`) isn't a tag itself (no base class): it reads each of these, and `TrackGain`, from one open mutagen file, each as a `cached_property` (`cues_v2`, `cues_v1`, `beatgrid`, `autotags`, `waveform`, `gain`), and its `save()` writes every change in one `tagfile.save()`, skipping it when nothing changed. Each tag class implements `_write_to_tagfile()`, which puts its unsaved changes into the shared tagfile without saving and returns whether it had any; a `SeratoGeobTag` compares its data with what it read rather than with the tagfile, so an unchanged `Serato Markers_` that `TrackCuesV2` deleted isn't put back. A new tag class has to implement `_write_to_tagfile()` (the base raises `NotImplementedError`, rather than being an ABC, because `track_tagdump.py` instantiates `SeratoTagBase` itself) and be added to `Track` and its `_TAG_NAMES`. The two bases were named `SeratoTrack` and `SeratoTag` before 5.4.0; a module `__getattr__` in `utils/track_tags.py` still gives the old names, with a `DeprecationWarning`, until the next major version.
 
 **v1/v2 interaction:** current Serato reads `Serato Markers2`, but a stale `Serato Markers_` shadows changes made to it. That's why the mutating APIs (`TrackCuesV2.modify_entries`, `set_track_color`) take `delete_tags_v1=True` by default — they delete the v1 tag rather than keeping the two in sync.
 
@@ -82,7 +82,7 @@ Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`
 
 ### Version gating
 
-Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `vrsn` not in `TESTED_VERSIONS`, and `SeratoTag._check_version` rejects any tag version != `VERSION`. This is deliberate — writing a misparsed file would corrupt a user's library. Adding support for a new version means adding the version string *and* a fixture + round-trip test, not just widening the check.
+Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `vrsn` not in `TESTED_VERSIONS`, and `SeratoGeobTag._check_version` rejects any tag version != `VERSION`. This is deliberate — writing a misparsed file would corrupt a user's library. Adding support for a new version means adding the version string *and* a fixture + round-trip test, not just widening the check.
 
 ### Cross-module dependencies
 

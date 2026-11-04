@@ -11,7 +11,8 @@ from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_waveform import TrackWaveform
 from serato_tools.track_autotags import TrackAutotags
-from serato_tools.utils.track_tags import SeratoTrack
+from serato_tools.utils import track_tags
+from serato_tools.utils.track_tags import SeratoGeobTag, SeratoTagBase
 
 
 class TestCase(unittest.TestCase):
@@ -24,7 +25,7 @@ class TestCase(unittest.TestCase):
 
         self.assertIsNone(TrackCuesV2(tagfile)._get_geob())
         self.assertIsNone(TrackCuesV1(tagfile)._get_geob())
-        self.assertIsNone(SeratoTrack(tagfile)._get_geob(TrackWaveform.GEOB_KEY))
+        self.assertIsNone(SeratoTagBase(tagfile)._get_geob(TrackWaveform.GEOB_KEY))
         self.assertIsNone(TrackAutotags(tagfile)._get_geob())
 
     def test_delete_then_save_persists_deletion(self):
@@ -39,6 +40,11 @@ class TestCase(unittest.TestCase):
 
             self.assertNotIn(f"GEOB:{TrackAutotags.GEOB_KEY}", MP3(tmp_file), "deletion should be saved to the file")
 
+    def test_old_class_names_still_work_but_warn(self):
+        for old, new in (("SeratoTrack", SeratoTagBase), ("SeratoTag", SeratoGeobTag)):
+            with self.subTest(old), self.assertWarns(DeprecationWarning):
+                self.assertIs(getattr(track_tags, old), new)
+
     def test_unsupported_file_type_raises(self):
         with self.assertRaises(ValueError):
-            SeratoTrack("some_file.flac")
+            SeratoTagBase("some_file.flac")

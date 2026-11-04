@@ -10,28 +10,17 @@ from mutagen.id3._frames import GEOB
 from serato_tools.utils import logger
 
 
-class SeratoTrack:
+class SeratoTagBase:
+    """A value Serato stores in a track file's tags, read from and written to `tagfile`, which tags can share.
+
+    `SeratoGeobTag` is the base for the ones stored as a GEOB frame; `TrackGain` subclasses this directly.
+    """
+
     type Tagfile = ID3FileType | ID3 | AIFF
     type FileArg = str | Tagfile
 
     def __init__(self, file: FileArg):
-        self.tagfile: SeratoTrack.Tagfile
-
-        if isinstance(file, str):
-            try:
-                if file.lower().endswith(".mp3"):
-                    self.tagfile = MP3(file)
-                elif file.lower().endswith((".aiff", ".aif")):
-                    self.tagfile = AIFF(file)
-                else:
-                    raise ValueError(f"unsupported file type (only .mp3, .aiff, and .aif are supported): {file}")
-            except ValueError:
-                raise
-            except:
-                logger.error(f"Mutagen error for file {file}")
-                raise
-        else:
-            self.tagfile = file
+        self.tagfile: SeratoTagBase.Tagfile = open_tagfile(file)
 
     def _get_geob(self, geob_key: str) -> bytes | None:
         geob_key = f"GEOB:{geob_key}"
@@ -79,7 +68,7 @@ class SeratoTrack:
 
     @staticmethod
     def _check_version(given: bytes, expected: Version):
-        given_version: SeratoTrack.Version = struct.unpack(SeratoTrack.VERSION_FORMAT, given)
+        given_version: SeratoTagBase.Version = struct.unpack(SeratoTagBase.VERSION_FORMAT, given)
         if given_version != expected:
             raise ValueError(f"""
                 ERROR: Untested Serato tag version: {str(given_version)}
@@ -92,7 +81,7 @@ class SeratoTrack:
 
     @staticmethod
     def _pack_version(version: Version):
-        return struct.pack(SeratoTrack.VERSION_FORMAT, *version)
+        return struct.pack(SeratoTagBase.VERSION_FORMAT, *version)
 
     @staticmethod
     def _readbytes_gen(fp: io.BytesIO):
@@ -103,17 +92,19 @@ class SeratoTrack:
 
     @staticmethod
     def _readbytes(fp: io.BytesIO):
-        return b"".join(SeratoTrack._readbytes_gen(fp))
+        return b"".join(SeratoTagBase._readbytes_gen(fp))
 
 
-class SeratoTag(SeratoTrack):
+class SeratoGeobTag(SeratoTagBase):
+    """One of Serato's GEOB tags, such as `Serato Markers2`: parsed from, and serialized back to, its frame's bytes."""
+
     GEOB_KEY: str
-    VERSION: SeratoTrack.Version
+    VERSION: SeratoTagBase.Version
 
-    type FileOrData = SeratoTrack.FileArg | bytes
+    type FileOrData = SeratoTagBase.FileArg | bytes
 
     def __init__(self, file_or_data: FileOrData):
-        self.tagfile: SeratoTrack.Tagfile | None = None  # pyright: ignore[reportIncompatibleVariableOverride]
+        self.tagfile: SeratoTagBase.Tagfile | None = None  # pyright: ignore[reportIncompatibleVariableOverride]
         self._raw_data: bytes | None = None
 
         if isinstance(file_or_data, (bytes, bytearray, memoryview)):
@@ -182,3 +173,37 @@ class SeratoTag(SeratoTrack):
             raise Exception("no tagfile, no saving")
         self._put_in_tagfile()
         self.tagfile.save()
+
+
+def open_tagfile(file: SeratoTagBase.FileArg) -> SeratoTagBase.Tagfile:
+    """Opens the track file at `file` with mutagen, or returns `file` if it's already open.
+
+    Raises ValueError for a file type other than .mp3, .aiff, or .aif.
+    """
+    if not isinstance(file, str):
+        return file
+    try:
+        if file.lower().endswith(".mp3"):
+            return MP3(file)
+        if file.lower().endswith((".aiff", ".aif")):
+            return AIFF(file)
+    except:
+        logger.error(f"Mutagen error for file {file}")
+        raise
+    raise ValueError(f"unsupported file type (only .mp3, .aiff, and .aif are supported): {file}")
+
+
+# the classes' names before 5.4.0, kept until the next major version
+_DEPRECATED_NAMES = {"SeratoTrack": SeratoTagBase, "SeratoTag": SeratoGeobTag}
+
+
+def __getattr__(name: str):
+    if name in _DEPRECATED_NAMES:
+        new = _DEPRECATED_NAMES[name]
+        warnings.warn(
+            f"{name} is deprecated and will be removed in version 6, use {new.__name__} instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return new
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

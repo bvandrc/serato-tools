@@ -18,11 +18,11 @@ from mutagen.mp3 import HeaderNotFoundError
 
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils import get_enum_key_from_value
-from serato_tools.utils.track_tags import SeratoTag
+from serato_tools.utils.track_tags import SeratoGeobTag
 from serato_tools.track_beatgrid import TrackBeatgrid
 
 
-class TrackCuesV2(SeratoTag):
+class TrackCuesV2(SeratoGeobTag):
     GEOB_KEY = "Serato Markers2"
     VERSION = (0x01, 0x01)
 
@@ -69,7 +69,7 @@ class TrackCuesV2(SeratoTag):
         GREY = b"\xbb\xbb\xbb"
         BLACK = b"\x99\x99\x99"
 
-    def __init__(self, file_or_data: SeratoTag.FileOrData):
+    def __init__(self, file_or_data: SeratoGeobTag.FileOrData):
         self._raw_data: bytes | None = None
         super().__init__(file_or_data)
 
@@ -320,7 +320,7 @@ class TrackCuesV2(SeratoTag):
         while True:
             if num_entries >= MAX_PARSE_ENTRIES:
                 raise ValueError(f"cue payload has more than {MAX_PARSE_ENTRIES} entries; malformed or unsupported")
-            entry_name = SeratoTag._readbytes(fp).decode("utf-8")
+            entry_name = SeratoGeobTag._readbytes(fp).decode("utf-8")
             if not entry_name:
                 break
             entry_len = struct.unpack(">I", fp.read(4))[0]
@@ -466,7 +466,7 @@ class TrackCuesV2(SeratoTag):
         # only delete the v1 tag once we know a change is actually being made
         if delete_tags_v1 and self.tagfile:
             # TODO: keep Serato Markers_ in sync with Markers2 instead of deleting it
-            super(SeratoTag, self)._del_geob(TrackCuesV1.GEOB_KEY)  # pylint: disable=bad-super-call
+            super(SeratoGeobTag, self)._del_geob(TrackCuesV1.GEOB_KEY)  # pylint: disable=bad-super-call
         self.entries = new_track.to_entries()
         self._serialize()
 
@@ -561,7 +561,7 @@ class TrackCuesV2(SeratoTag):
             if prev is not None and c.position != prev:
                 print(f"Snapped by {c.position - prev} ms")
 
-    def _get_beatgrid(self, file_or_data: SeratoTag.FileOrData | None = None) -> TrackBeatgrid:
+    def _get_beatgrid(self, file_or_data: SeratoGeobTag.FileOrData | None = None) -> TrackBeatgrid:
         if file_or_data is None:
             if not self.tagfile:
                 raise ValueError("No tagfile set, or must pass beatgrid")
@@ -571,7 +571,7 @@ class TrackCuesV2(SeratoTag):
         return self.beatgrid
 
     def get_beat_position(
-        self, entry: "TrackCuesV2.CueEntry", file_or_data: SeratoTag.FileOrData | None = None
+        self, entry: "TrackCuesV2.CueEntry", file_or_data: SeratoGeobTag.FileOrData | None = None
     ) -> float:
         beatgrid = self.beatgrid or self._get_beatgrid(file_or_data)
         return beatgrid.get_beat_position(entry.position)

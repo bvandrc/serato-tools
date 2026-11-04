@@ -8,10 +8,10 @@ from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_gain import TrackGain
 from serato_tools.track_waveform import TrackWaveform
-from serato_tools.utils.track_tags import SeratoTrack
+from serato_tools.utils.track_tags import SeratoTagBase, open_tagfile
 
 
-class Track(SeratoTrack):
+class Track:
     """A track file's Serato tags, read from one open file and saved in one write.
 
     Each tag is read the first time it's used, then kept. Change tags through their own methods (e.g.
@@ -21,6 +21,10 @@ class Track(SeratoTrack):
 
     # the cached_property names below, which save() looks through for the tags that have been read
     _TAG_NAMES = ("cues_v2", "cues_v1", "beatgrid", "autotags", "waveform", "gain")
+
+    def __init__(self, file: SeratoTagBase.FileArg):
+        """Opens the track file at `file`, or uses `file` if it's an already open mutagen file."""
+        self.tagfile = open_tagfile(file)
 
     @cached_property
     def cues_v2(self) -> TrackCuesV2:
@@ -54,7 +58,7 @@ class Track(SeratoTrack):
 
     def save(self) -> bool:
         """Writes every tag's changes to the file in one write, and returns whether there were any to write."""
-        tags: list[SeratoTrack] = [tag for name in self._TAG_NAMES if (tag := self.__dict__.get(name)) is not None]
+        tags: list[SeratoTagBase] = [tag for name in self._TAG_NAMES if (tag := self.__dict__.get(name)) is not None]
         # a list, not any(), so that every tag puts its changes in before the one write
         # pylint: disable-next=protected-access
         changed = [tag._write_to_tagfile() for tag in tags]

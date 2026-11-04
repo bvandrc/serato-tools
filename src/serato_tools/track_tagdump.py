@@ -13,7 +13,7 @@ import mutagen.mp4
 import mutagen.oggvorbis
 
 
-from serato_tools.utils.track_tags import SeratoTrack
+from serato_tools.utils.track_tags import SeratoTagBase
 from serato_tools.utils import logger
 
 
@@ -24,7 +24,7 @@ def get_serato_tagdata(tagfile: mutagen._file.FileType, decode: bool = False):
         raise Exception("no tags")
 
     if isinstance(tagfile, (mutagen.mp3.MP3, mutagen.aiff.AIFF)):
-        tf = SeratoTrack(tagfile)
+        tf = SeratoTagBase(tagfile)
         for tagname in tagfile.tags.keys():
             tagname = str(tagname)
             if tagname.startswith("GEOB:Serato"):
