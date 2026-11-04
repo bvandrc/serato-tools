@@ -29,6 +29,13 @@ class TestCase(unittest.TestCase):
 
     def test_format_filepath(self):
         self.assertEqual(
+            DatabaseV2.get_relative_path("Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
+            "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
+        )
+
+    @unittest.skipUnless(os.name == "nt", "Windows drive letters and backslash separators")
+    def test_format_windows_filepath(self):
+        self.assertEqual(
             DatabaseV2.get_relative_path("C:\\Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3"),
             "Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
         )
@@ -40,14 +47,23 @@ class TestCase(unittest.TestCase):
             DatabaseV2.get_relative_path("C:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
             "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
         )
+
+    @unittest.skipIf(os.name == "nt", "POSIX paths")
+    def test_format_posix_filepath(self):
         self.assertEqual(
-            DatabaseV2.get_relative_path("Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
-            "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
+            DatabaseV2.get_relative_path("/Users/Username/Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
+            "Users/Username/Music/DJ Tracks/Tripp St. - Enlighten.mp3",
         )
 
+    @unittest.skipUnless(os.name == "nt", "Windows drive letters")
     def test_full_path_keeps_given_drive(self):
         path = "D:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
         self.assertEqual(DatabaseV2.get_full_path(path), os.path.normpath(path))
+
+    @unittest.skipIf(os.name == "nt", "POSIX paths")
+    def test_full_path_keeps_absolute_posix_path(self):
+        path = "/Volumes/USB/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
+        self.assertEqual(DatabaseV2.get_full_path(path), path)
 
     def test_full_path_without_drive_is_absolute(self):
         # Serato stores track paths with no drive or leading separator
@@ -114,9 +130,18 @@ class TestCase(unittest.TestCase):
                     "field": DatabaseV2.Fields.GENRE,
                     "func": lambda *args: "NEW_GENRE",
                     "files": [
-                        "Users\\bvand\\Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3",
-                        "C:/Users/bvand/Music/DJ Tracks/Tripp St. - Enlighten.mp3",
-                    ],
+                        "Users/bvand/Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
+                        os.path.join(os.sep, "Users", "bvand", "Music", "DJ Tracks", "Tripp St. - Enlighten.mp3"),
+                    ]
+                    # backslashes and drive letters only mean something on Windows
+                    + (
+                        [
+                            "Users\\bvand\\Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3",
+                            "C:/Users/bvand/Music/DJ Tracks/Tripp St. - Enlighten.mp3",
+                        ]
+                        if os.name == "nt"
+                        else []
+                    ),
                 },
             ]
         )

@@ -13,6 +13,13 @@ with open("test/data/crate.txt", "r", encoding="utf-8") as f:
 class TestCase(unittest.TestCase):
     def test_format_filepath(self):
         self.assertEqual(
+            Crate.get_relative_path("Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
+            "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
+        )
+
+    @unittest.skipUnless(os.name == "nt", "Windows drive letters and backslash separators")
+    def test_format_windows_filepath(self):
+        self.assertEqual(
             Crate.get_relative_path("C:\\Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3"),
             "Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
         )
@@ -24,9 +31,12 @@ class TestCase(unittest.TestCase):
             Crate.get_relative_path("C:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
             "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
         )
+
+    @unittest.skipIf(os.name == "nt", "POSIX paths")
+    def test_format_posix_filepath(self):
         self.assertEqual(
-            Crate.get_relative_path("Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
-            "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
+            Crate.get_relative_path("/Users/Username/Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
+            "Users/Username/Music/DJ Tracks/Tripp St. - Enlighten.mp3",
         )
 
     def test_parse_and_modify_and_serialize(self):
@@ -43,22 +53,30 @@ class TestCase(unittest.TestCase):
 
         self.assertEqual(crate.__str__(), expected, "parse")
 
-        crate.add_tracks(["C:\\Users\\bvand\\Music\\DJ Tracks\\Soulacybin - Zeu.mp3"])
+        # absolute in this OS's form: C:\Users\... on Windows, /Users/... elsewhere
+        full_track_path = os.path.join(
+            os.path.splitdrive(os.getcwd())[0], os.sep, "Users", "bvand", "Music", "DJ Tracks", "Soulacybin - Zeu.mp3"
+        )
+        crate.add_tracks([full_track_path])
         expected += "\notrk (Track): [ ptrk (Track Path): Users/bvand/Music/DJ Tracks/Soulacybin - Zeu.mp3 ]"
         self.assertEqual(crate.__str__(), expected, "track added")
 
-        crate.add_tracks(
-            [
+        same_track_paths = [
+            full_track_path,
+            "Users/bvand/Music/DJ Tracks/Soulacybin - Zeu.mp3",
+            "/Users/bvand/Music/DJ Tracks/Soulacybin - Zeu.mp3",
+        ]
+        if os.name == "nt":
+            # backslashes are only separators on Windows
+            same_track_paths += [
                 "C:\\Users\\bvand\\Music\\DJ Tracks\\Soulacybin - Zeu.mp3",
                 "Users\\bvand\\Music\\DJ Tracks\\Soulacybin - Zeu.mp3",
                 "C:/Users/bvand/Music/DJ Tracks/Soulacybin - Zeu.mp3",
-                "Users/bvand/Music/DJ Tracks/Soulacybin - Zeu.mp3",
-                "/Users/bvand/Music/DJ Tracks/Soulacybin - Zeu.mp3",
             ]
-        )
+        crate.add_tracks(same_track_paths)
         self.assertEqual(crate.__str__(), expected, "duplicate tracks not added")
 
-        crate.add_tracks(["C:/Users/bvand/Music/DJ Tracks/Thundercat - Them Changes.mp3"])
+        crate.add_tracks([os.path.join(os.path.dirname(full_track_path), "Thundercat - Them Changes.mp3")])
         expected += "\notrk (Track): [ ptrk (Track Path): Users/bvand/Music/DJ Tracks/Thundercat - Them Changes.mp3 ]"
         self.assertEqual(crate.__str__(), expected, "track added")
 
