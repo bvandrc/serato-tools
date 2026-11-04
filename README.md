@@ -205,7 +205,7 @@ library.set_tracks_tags({
 
 Only ID3 files (.mp3, .aiff, .aif) are currently supported. A track Serato hasn't imported yet has no color or lock in its tags, so it's only set in the database, with a warning.
 
-Avoid `TrackCuesV2.set_track_color` / `set_beatgrid_locked`, or `DatabaseV2.modify` on the `COLOR` / `BEATGRID_LOCKED` fields, on their own, since each changes only one of the two.
+Avoid `Track.set_track_color` / `set_beatgrid_locked` (or `TrackCuesV2`'s), or `DatabaseV2.modify` on the `COLOR` / `BEATGRID_LOCKED` fields, on their own, since each changes only one of the two.
 
 ### Snapping cue positions to the beatgrid
 
