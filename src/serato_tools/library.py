@@ -18,6 +18,23 @@ if TYPE_CHECKING:
     from serato_tools.track_properties import TrackTags
 
 
+def _track_properties():  # return type left to pyright, which infers the module and so checks its attributes
+    """The track_properties module, for the methods that change track files.
+
+    Raises ImportError, saying how to install it, without the optional track_tags extra, so the rest of Library works
+    without it.
+    """
+    try:
+        from serato_tools import track_properties  # pylint: disable=import-outside-toplevel
+    except ModuleNotFoundError as error:
+        if (error.name or "").split(".")[0] != "mutagen":
+            raise
+        raise ImportError(
+            'changing track files needs the track_tags extra: pip install "serato-tools[track_tags]"'
+        ) from error
+    return track_properties
+
+
 class Library:
     """A Serato library: its database, crates, and smart crates, for changes that have to reach all of them.
 
@@ -98,26 +115,23 @@ class Library:
     def set_tracks_tags(self, tracks: Mapping[str, "TrackTags"], delete_tags_v1: bool = True) -> bool:
         """Sets values in each track file's tags and in the database, so Serato shows them right away.
 
-        Needs the `track_tags` extra, and only ID3 files (.mp3, .aiff, .aif) are supported. `tracks` maps each file's
+        Needs the `track_tags` extra (raising ImportError without it), and only ID3 files (.mp3, .aiff, .aif) are supported. `tracks` maps each file's
         path to the values to set (see TrackTags). A value the file has nowhere to put yet, since Serato hasn't imported
         the track, is only set in the database, with a warning. Every file is written before the database is, in a
         single save, so a file that fails to be written leaves the database unchanged. Returns whether the database
         changed. See TrackCuesV2.set_track_color for `delete_tags_v1`.
         """
-        # imported here, since only this needs the optional track_tags extra
-        # pylint: disable-next=import-outside-toplevel
-        from serato_tools.track_properties import check_track_tags, to_db_values, write_file_tags
-
+        props = _track_properties()
         for tags in tracks.values():
-            check_track_tags(tags)
+            props.check_track_tags(tags)
         for filepath, tags in tracks.items():
-            write_file_tags(filepath, tags, delete_tags_v1)
+            props.write_file_tags(filepath, tags, delete_tags_v1)
 
         # each field's new value per track; modify passes rules the track's path as Serato stores it, matched by case
         values_by_field: dict[DatabaseV2.Fields, dict[str, SeratoBinFile.BasicValue]] = {}
         for filepath, tags in tracks.items():
             relpath = DatabaseV2.get_relative_path(filepath).upper()
-            for field, value in to_db_values(tags).items():
+            for field, value in props.to_db_values(tags).items():
                 values_by_field.setdefault(field, {})[relpath] = value
         rules: list[SeratoBinFile.ModifyRule] = [
             {

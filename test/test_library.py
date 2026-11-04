@@ -2,6 +2,8 @@ import unittest
 from unittest import mock
 import os
 import shutil
+import subprocess
+import sys
 import tempfile
 
 from src.serato_tools.library import Library
@@ -216,6 +218,24 @@ class TestCase(unittest.TestCase):
             )
         self.assertEqual(saved, [], "database not saved")
         self.assertEqual(TrackCuesV2(track).get_track_color(), b"\xbb\xbb\xbb", "file not changed")
+
+    def test_set_track_tags_without_track_tags_extra(self):
+        # a fresh interpreter, with mutagen blocked as if the track_tags extra weren't installed
+        code = """if True:
+            import sys
+            sys.modules["mutagen"] = None
+            from serato_tools.library import Library
+            library = Library(sys.argv[1])
+            library.database  # the rest of Library still works
+            try:
+                library.set_track_tags("track.mp3", beatgrid_locked=True)
+            except ImportError as error:
+                print(error)
+        """
+        result = subprocess.run(
+            [sys.executable, "-c", code, self.serato_dir], capture_output=True, text=True, check=True
+        )
+        self.assertIn('pip install "serato-tools[track_tags]"', result.stdout)
 
 
 if __name__ == "__main__":
