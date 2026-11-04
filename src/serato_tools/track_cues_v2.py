@@ -7,6 +7,7 @@ import io
 import os
 import struct
 import sys
+import warnings
 from typing import Callable, ClassVar, Sequence
 from enum import Enum
 import dataclasses
@@ -518,7 +519,18 @@ class TrackCuesV2(SeratoTag):
 
         self.modify_entries(rule, delete_tags_v1)
 
-    def get_snapped_beat_ms(self, postion_ms: int, tolerance_beats: float, min_ms_change: int = 1) -> int | None:
+    def get_snapped_beat_ms(self, postion_ms: int, tolerance_beats: float, min_ms_change: int = 2) -> int | None:
+        """Returns the ms position to snap `postion_ms` to, or `None` if it shouldn't move.
+
+        It shouldn't move when no beat is within `tolerance_beats`, or the nearest one is less than `min_ms_change` away.
+        The default of 2 leaves 1 ms differences alone: Serato stores cues in whole ms, often 1 ms off the rounded beat.
+        Below 2, it warns, since that moves nearly every cue Serato placed.
+        """
+        if min_ms_change < 2:
+            warnings.warn(
+                f"min_ms_change={min_ms_change} snaps cues that are 1 ms off the beat, which is most cues Serato placed",
+                stacklevel=2,
+            )
         beatgrid = self.beatgrid or self._get_beatgrid()
         snapped_ms = beatgrid.find_nearest_beat(postion_ms, tolerance_beats)
         if snapped_ms is None:  # NOTE: don't do `if not`, 0.0 is valid
@@ -526,7 +538,7 @@ class TrackCuesV2(SeratoTag):
         snapped_ms = int(round(snapped_ms))
         return snapped_ms if abs(snapped_ms - postion_ms) >= min_ms_change else None
 
-    def snap_positions_to_beat_rule(self, tolerance_beats: float, min_ms_change: int = 1) -> ModifyCallback:
+    def snap_positions_to_beat_rule(self, tolerance_beats: float, min_ms_change: int = 2) -> ModifyCallback:
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
             new_cues = []
             for cue in track.cues:
@@ -540,7 +552,7 @@ class TrackCuesV2(SeratoTag):
 
         return rule
 
-    def snap_positions_to_beat(self, tolerance_beats: float, min_ms_change: int = 1) -> None:
+    def snap_positions_to_beat(self, tolerance_beats: float, min_ms_change: int = 2) -> None:
         if not self.entries:
             raise ValueError("No entries set")
         track_before = self._from_entries()
