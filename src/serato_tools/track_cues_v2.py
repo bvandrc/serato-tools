@@ -7,6 +7,7 @@ import io
 import os
 import struct
 import sys
+import warnings
 from typing import Callable, ClassVar, Sequence
 from enum import Enum
 import dataclasses
@@ -523,7 +524,13 @@ class TrackCuesV2(SeratoTag):
 
         It shouldn't move when no beat is within `tolerance_beats`, or the nearest one is less than `min_ms_change` away.
         The default of 2 leaves 1 ms differences alone: Serato stores cues in whole ms, often 1 ms off the rounded beat.
+        Below 2, it warns, since that moves nearly every cue Serato placed.
         """
+        if min_ms_change < 2:
+            warnings.warn(
+                f"min_ms_change={min_ms_change} snaps cues that are 1 ms off the beat, which is most cues Serato placed",
+                stacklevel=2,
+            )
         beatgrid = self.beatgrid or self._get_beatgrid()
         snapped_ms = beatgrid.find_nearest_beat(postion_ms, tolerance_beats)
         if snapped_ms is None:  # NOTE: don't do `if not`, 0.0 is valid
