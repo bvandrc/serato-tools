@@ -1,9 +1,9 @@
 import os
 import shutil
-from typing import Optional
+from typing import Mapping, Optional
 
 
-def ui_ask(question: str, choices: dict, default: Optional[str] = None):
+def ui_ask(question: str, choices: Mapping[str, str], default: Optional[str] = None):
     choices_str = "/".join(x.upper() if x == default else x for x in (*choices.keys(), "?"))
     text = f"{question} [{choices_str}]? "
 

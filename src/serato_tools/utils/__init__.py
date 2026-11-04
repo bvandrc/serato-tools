@@ -12,13 +12,6 @@ SERATO_DIR = os.path.join(os.path.expanduser("~"), "Music", SERATO_DIR_NAME)
 SERATO_DRIVE = os.path.splitdrive(SERATO_DIR)[0]
 
 
-def get_key_from_value(value: T, dict: dict[str, T]) -> str:
-    for key, v in dict.items():
-        if v == value:
-            return key
-    raise ValueError(f"no key for value {value}")
-
-
 def parse_cli_keys_and_values(args: list[str]):
     keys_and_values: dict[str, list[str | int]] = {}
     key = None
