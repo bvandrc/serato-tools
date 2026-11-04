@@ -65,10 +65,7 @@ def del_geob(tagfile: ID3File, geob_key: str) -> bool:
 
 
 class ID3FileTag:
-    """A value stored in an ID3 file's tags, read from and written to `tagfile`, which tags can share.
-
-    `SeratoGeobTag` is the base for Serato's tags stored as a GEOB frame; `TrackGain` subclasses this directly.
-    """
+    """A value stored in an ID3 file's tags, read from and written to `tagfile`, which tags can share."""
 
     def __init__(self, file: ID3FileOrPath):
         self.tagfile: ID3File = open_tagfile(file)
