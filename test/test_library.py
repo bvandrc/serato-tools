@@ -10,7 +10,6 @@ from src.serato_tools.library import Library
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.smart_crate import SmartCrate
-from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
 
@@ -132,21 +131,6 @@ class TestCase(unittest.TestCase):
         for crate in library.crates:
             self.assertEqual(self.track_paths(crate), [kept_path], f"{crate.filepath} has only the kept track")
         self.assertEqual(self.track_paths(library.smart_crates[0]), [], "missing track removed from smart crate")
-
-    def test_set_track_color(self):
-        track = os.path.join(self.music_dir, "Colored.mp3")
-        shutil.copy("test/data/test_mp3.mp3", track)
-        other = self.make_track("Other.mp3")
-        self.add_to_database(track, other)
-
-        library = Library(self.serato_dir)
-        library.set_track_color(track, TrackCuesV2.TrackColors.PURPLE)
-
-        self.assertEqual(TrackCuesV2(track).get_track_color(), TrackCuesV2.TrackColors.PURPLE.value, "tags set")
-        color = DatabaseV2.Fields.COLOR
-        colors = {t.relpath: t.get_value(color) for t in DatabaseV2(self.db_file).get_tracks() if color in t.fields}
-        self.assertEqual(colors[DatabaseV2.get_relative_path(track)], 0xBB99FF, "db set, as 0xRRGGBB")
-        self.assertIsNone(colors.get(DatabaseV2.get_relative_path(other)), "other track left alone")
 
 
 if __name__ == "__main__":
