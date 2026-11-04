@@ -4,8 +4,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [5.2.1] - 2026-11-03
 
-- Fix `TrackGain`, which never read or wrote anything: Serato stores a track's gain as an `RVA2` ID3 frame named `SeratoGain`, not the `replaygain_SeratoGain_gain` / `_peak` keys it looked up, so `gain` and `peak` were always `None` and `set_and_save` raised
-  - Breaking, though they never worked: `TrackGain.REPLAY_GAIN_GAIN_KEY` and `REPLAY_GAIN_PEAK_KEY` are replaced by `RVA2_KEY`
+- Fix `TrackGain`, which never read or wrote anything: Serato stores a track's gain as an `RVA2` ID3 frame named `SeratoGain`, not the `replaygain_SeratoGain_gain` / `_peak` keys we had before
   - **If you delete gain when `gain` or `peak` isn't `None`, check that code**: Serato writes the frame on most analyzed tracks, with a gain of `0.0` unless one was set, so it's now `0.0` rather than `None` for them
 
 ## [5.2.0] - 2026-11-03
