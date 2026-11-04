@@ -19,8 +19,8 @@ class TrackGain(ID3FileTag):
         frame = self.tagfile.get(TrackGain.RVA2_KEY, None)
         self.gain: float | None = frame.gain if frame is not None else None
         self.peak: float | None = frame.peak if frame is not None else None
-        # the values as the file holds them, so _write_to_tagfile can tell whether there's anything to write
-        self._saved = (self.gain, self.peak)
+        # the values the tagfile holds, saved to disk or not, so _write_to_tagfile can tell if there's anything to write
+        self._tagged = (self.gain, self.peak)
 
     def __str__(self) -> str:
         return f"gain: {self.gain}\npeak: {self.peak}"
@@ -42,7 +42,7 @@ class TrackGain(ID3FileTag):
         self.save()
 
     def _write_to_tagfile(self) -> bool:
-        if (self.gain, self.peak) == self._saved:
+        if (self.gain, self.peak) == self._tagged:
             return False
         if self.gain is None and self.peak is None:
             del_tag(self.tagfile, TrackGain.RVA2_KEY)
@@ -50,7 +50,7 @@ class TrackGain(ID3FileTag):
             raise ValueError("both gain and peak must be set (file had no existing SeratoGain tag)")
         else:
             self.tagfile[TrackGain.RVA2_KEY] = RVA2(desc=TrackGain.RVA2_DESC, channel=1, gain=self.gain, peak=self.peak)
-        self._saved = (self.gain, self.peak)
+        self._tagged = (self.gain, self.peak)
         return True
 
     def save(self, force: bool = False):

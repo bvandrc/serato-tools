@@ -98,8 +98,8 @@ class SeratoGeobTag(ID3FileTag):
         else:
             super().__init__(file=file_or_data)
             self._raw_data = self._get_geob()
-        # the data as the file holds it, so _write_to_tagfile can tell whether there's anything to write
-        self._saved_raw_data = self._raw_data
+        # the data the tagfile holds, saved to disk or not, so _write_to_tagfile can tell if there's anything to write
+        self._tagged_raw_data = self._raw_data
 
     def __repr__(self) -> str:
         return str(self._raw_data)
@@ -167,12 +167,12 @@ class SeratoGeobTag(ID3FileTag):
             self._set_geob()
         else:
             self._del_geob()
-        self._saved_raw_data = self._raw_data
+        self._tagged_raw_data = self._raw_data
 
     def _write_to_tagfile(self) -> bool:
         # compared with what was read rather than with the tagfile, so an unchanged tag doesn't restore a frame that
         # another tag sharing the tagfile deleted (TrackCuesV2 deleting a stale Serato Markers_)
-        if self._raw_data == self._saved_raw_data:
+        if self._raw_data == self._tagged_raw_data:
             return False
         self._put_in_tagfile()
         return True
