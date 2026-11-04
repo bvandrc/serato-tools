@@ -13,7 +13,7 @@ import mutagen.mp4
 import mutagen.oggvorbis
 
 
-from serato_tools.utils.track_tags import SeratoTrack
+from serato_tools.utils.track_tags import get_geob
 from serato_tools.utils import logger
 
 
@@ -24,11 +24,10 @@ def get_serato_tagdata(tagfile: mutagen._file.FileType, decode: bool = False):
         raise Exception("no tags")
 
     if isinstance(tagfile, (mutagen.mp3.MP3, mutagen.aiff.AIFF)):
-        tf = SeratoTrack(tagfile)
         for tagname in tagfile.tags.keys():
             tagname = str(tagname)
             if tagname.startswith("GEOB:Serato"):
-                tagvalue = tf._get_geob(tagname[len("GEOB:") :])  # pylint: disable=protected-access
+                tagvalue = get_geob(tagfile, tagname[len("GEOB:") :])
                 if not tagvalue:
                     raise ValueError(f"no value for {tagname}")
                 yield tagname[5:], tagvalue

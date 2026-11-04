@@ -73,6 +73,28 @@ class TestCase(unittest.TestCase):
             tags._raw_data, expected_modified_data, "modified data serialize"
         )  # pylint: disable=protected-access
 
+    def test_changing_deletes_tags_v1_unless_told_not_to(self):
+        for delete_tags_v1 in (True, False):
+            with self.subTest(delete_tags_v1=delete_tags_v1):
+                tags = TrackCuesV2("test/data/test_mp3.mp3")
+                assert tags.tagfile is not None
+                self.assertIn("GEOB:Serato Markers_", tags.tagfile, "fixture has the v1 tag")
+                tags.set_track_color(TrackCuesV2.TrackColors.RED, delete_tags_v1=delete_tags_v1)
+                self.assertEqual("GEOB:Serato Markers_" in tags.tagfile, not delete_tags_v1)
+
+    def test_set_beatgrid_locked(self):
+        tags = TrackCuesV2("test/data/test_mp3.mp3")
+        self.assertFalse(tags.is_beatgrid_locked())
+        tags.set_beatgrid_locked(False)
+        self.assertFalse(tags.modified, "already unlocked, so no change")
+        assert tags.tagfile is not None
+        self.assertIn("GEOB:Serato Markers_", tags.tagfile, "v1 tag kept, since nothing changed")
+        tags.set_beatgrid_locked(True)
+        self.assertTrue(tags.modified)
+        data = tags._raw_data  # pylint: disable=protected-access
+        assert data is not None
+        self.assertTrue(TrackCuesV2(data).is_beatgrid_locked(), "serialized")
+
     def test_snap_position_to_beat(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
         buf = io.StringIO()
@@ -89,19 +111,6 @@ class TestCase(unittest.TestCase):
         self.assertIsNone(tags.get_snapped_beat_ms(beat_ms + 1, 1 / 8))
         self.assertIsNone(tags.get_snapped_beat_ms(beat_ms - 1, 1 / 8))
         self.assertEqual(tags.get_snapped_beat_ms(beat_ms + 2, 1 / 8), beat_ms)
-
-    def test_set_beatgrid_locked(self):
-        tags = TrackCuesV2("test/data/test_mp3.mp3")
-        self.assertFalse(tags.is_beatgrid_locked())
-        tags.set_beatgrid_locked(False)
-        self.assertFalse(tags.modified, "already unlocked, so no change")
-        assert tags.tagfile is not None
-        self.assertIn("GEOB:Serato Markers_", tags.tagfile, "v1 tag kept, since nothing changed")
-        tags.set_beatgrid_locked(True)
-        self.assertTrue(tags.modified)
-        data = tags._raw_data  # pylint: disable=protected-access
-        assert data is not None
-        self.assertTrue(TrackCuesV2(data).is_beatgrid_locked(), "serialized")
 
     def test_snap_positions_to_beat_no_entries_raises(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")

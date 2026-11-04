@@ -9,10 +9,10 @@ from dataclasses import dataclass
 from mutagen.mp3 import HeaderNotFoundError
 
 
-from serato_tools.utils.track_tags import SeratoTag
+from serato_tools.utils.track_tags import SeratoGeobTag
 
 
-class TrackCuesV1(SeratoTag):
+class TrackCuesV1(SeratoGeobTag):
     GEOB_KEY = "Serato Markers_"
     VERSION = (0x02, 0x05)
 
@@ -21,7 +21,7 @@ class TrackCuesV1(SeratoTag):
         CUE = 1
         LOOP = 3
 
-    def __init__(self, file_or_data: SeratoTag.FileOrData):
+    def __init__(self, file_or_data: SeratoGeobTag.FileOrData):
         self._raw_data: bytes | None
         super().__init__(file_or_data)
 

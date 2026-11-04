@@ -51,7 +51,7 @@ Subclasses (`DatabaseV2`, `CrateBase` → `Crate` / `SmartCrate`) must define `T
 
 The lifecycle is `parse → self.entries → mutate → to_bytes() → save()`:
 
-- The file's bytes aren't stored. Each `to_bytes()` call serializes `entries` from scratch, so mutations cost nothing and each `save()` pays for one serialization. Edit `entries` however you like, in place or by assignment. (The `SeratoTag` classes below do store theirs, in `_raw_data`; the read-only `raw_data` getter is deprecated for removal in the next major version.)
+- The file's bytes aren't stored. Each `to_bytes()` call serializes `entries` from scratch, so mutations cost nothing and each `save()` pays for one serialization. Edit `entries` however you like, in place or by assignment. (The `SeratoGeobTag` classes below do store theirs, in `_raw_data`; the read-only `raw_data` getter is deprecated for removal in the next major version.)
 - `modify_tracks`, `modify`, `change_track_path`, `filter_tracks`, `remove_tracks`, and `remove_duplicates` return whether anything changed. Methods that save on the caller's behalf (`modify_and_save`, `find_missing`, and `Library`'s methods) use that to skip writing an unchanged file. `save()` itself always writes, since it doubles as "save as".
 - `modify()` takes a list of `ModifyRule` dicts (`{"field": ..., "func": (filename, prev_val) -> new_val | None, "files": [...]}`); returning `None` from `func` means "leave unchanged".
 - `modify_tracks(func, files=...)` and `modify()` with every rule limited to `files` skip every other track after reading only its path, which keeps single-track edits fast on a large library.
@@ -60,7 +60,7 @@ The lifecycle is `parse → self.entries → mutate → to_bytes() → save()`:
 
 ### 2. GEOB tags inside audio files — `utils/track_tags.py`
 
-`SeratoTrack` wraps a mutagen file and reads/writes `GEOB:<key>` frames. `SeratoTag` subclasses it, one class per GEOB tag, each declaring `GEOB_KEY` and `VERSION` and implementing `_parse` / `_serialize`:
+`ID3File` is the open mutagen file type (an `ID3FileType` such as `MP3`, an `AIFF`, or bare `ID3` tags; none is a subclass of another). `ID3FileTag` is a value stored in an `ID3File`'s tags: it only holds the file (`tagfile`, opened by `open_tagfile`), and has nothing Serato-specific. Module functions (`get_geob`, `set_geob`, `del_geob`, `del_tag`) read and write frames on any open file, for code that needs a frame other than its own (`TrackCuesV2` deleting `Serato Markers_`, `track_tagdump.py`). `SeratoGeobTag` subclasses it, holding everything GEOB-specific (its own frame, the version check and packing, `_readbytes`), one class per GEOB tag, each declaring `GEOB_KEY` and `VERSION` and implementing `_parse` / `_serialize`:
 
 | Class | GEOB tag | Module |
 | --- | --- | --- |
@@ -70,7 +70,11 @@ The lifecycle is `parse → self.entries → mutate → to_bytes() → save()`:
 | `TrackAutotags` | `Serato Autotags` — BPM/gain | `track_autotags.py` |
 | `TrackWaveform` | `Serato Overview` | `track_waveform.py` |
 
-Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`SeratoTag.FileOrData`). The bytes path is what lets tests feed the `.bin` fixtures in `test/data/` without an audio file, and it's why `self.tagfile` may be `None` — `save()` raises in that case.
+Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`SeratoGeobTag.FileOrData`). The bytes path is what lets tests feed the `.bin` fixtures in `test/data/` without an audio file, and it's why `self.tagfile` may be `None` — `save()` raises in that case.
+
+`TrackGain` (`track_gain.py`) subclasses `ID3FileTag` directly, since Serato stores gain as an ID3 `RVA2:SeratoGain` frame rather than a GEOB. The two bases were named `SeratoTrack` and `SeratoTag` before 5.4.0 (and their file types `SeratoTrack.Tagfile` / `FileArg`); a module `__getattr__` in `utils/track_tags.py` still gives the old names, with a `DeprecationWarning`, until the next major version.
+
+`Track` (`track.py`) isn't a tag itself (no base class): it reads each of these, and `TrackGain`, from one open `ID3File`, each as a `cached_property` (`cues_v2`, `cues_v1`, `beatgrid`, `autotags`, `waveform`, `gain`), and its `save()` writes every change in one `tagfile.save()`, skipping it when nothing changed. Each tag class implements `_write_to_tagfile()`, which puts its unsaved changes into the shared tagfile without saving and returns whether it had any; a `SeratoGeobTag` compares its data with what it read rather than with the tagfile, so an unchanged `Serato Markers_` that `TrackCuesV2` deleted isn't put back. A new tag class has to implement `_write_to_tagfile()` (`ID3FileTag`'s raises `NotImplementedError`; it isn't an ABC, so it, and the deprecated `SeratoTrack`, can still be instantiated) and be added to `Track` and its `_TAG_NAMES`.
 
 **v1/v2 interaction:** current Serato reads `Serato Markers2`, but a stale `Serato Markers_` shadows changes made to it. That's why the mutating APIs (`TrackCuesV2.modify_entries`, `set_track_color`, `set_beatgrid_locked`) take `delete_tags_v1=True` by default — they delete the v1 tag rather than keeping the two in sync.
 
@@ -78,13 +82,13 @@ Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`
 
 ### Version gating
 
-Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `vrsn` not in `TESTED_VERSIONS`, and `SeratoTag._check_version` rejects any tag version != `VERSION`. This is deliberate — writing a misparsed file would corrupt a user's library. Adding support for a new version means adding the version string *and* a fixture + round-trip test, not just widening the check.
+Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `vrsn` not in `TESTED_VERSIONS`, and `SeratoGeobTag._check_version` rejects any tag version != `VERSION`. This is deliberate — writing a misparsed file would corrupt a user's library. Adding support for a new version means adding the version string *and* a fixture + round-trip test, not just widening the check.
 
 ### Cross-module dependencies
 
 - `TrackCuesV2` cue snapping reads the track's `TrackBeatgrid` to find beat positions.
 - `Library` (`library.py`) holds one library folder's `DatabaseV2`, `Crate`s, and `SmartCrate`s, each parsed on first use and then kept. Its `rename_track_file` and `remove_track_files` change the files on disk and update every one of them that contains the track, saving only those. Smart crates are included because Serato re-adds a missing path from a smart crate to the database as a blank "?" entry. The deprecated `DatabaseV2.rename_track_file` calls it with its own database. New operations that have to reach the whole library (database and every crate) belong on `Library`, not on `DatabaseV2`; pass `Library(database=...)` an already-loaded database so the two don't overwrite each other's saves.
-  - `set_track_tags` / `set_tracks_tags` set values that live both in the track file's tags and in the database (Serato shows the database, and only rescans a file's tags when the track is loaded or on "Rescan File Tags"). The values are the keys of the `TrackTags` TypedDict in `track_properties.py`, each backed by an entry in its `_TRACK_PROPERTIES` table giving the database field, the conversion to the database's form (e.g. a `TrackCuesV2.TrackColors` value as a `0xRRGGBB` int for `COLOR`), and how to write it into the opened file; adding a value means adding to both. Each file is opened once and every file is written before the database, which is saved once. A Serato GEOB value the file has nowhere to put yet (track not yet imported) is only set in the database, with a warning. `Library` reaches `track_properties` only through `_track_properties()`, which imports it on first use and raises an ImportError naming the extra without it, so the rest of `Library` doesn't need the optional `track_tags` extra.
+  - `set_track_tags` / `set_tracks_tags` set values that live both in the track file's tags and in the database (Serato shows the database, and only rescans a file's tags when the track is loaded or on "Rescan File Tags"). The values are the keys of the `TrackTags` TypedDict in `track_properties.py`, each backed by an entry in its `_TRACK_PROPERTIES` table giving the database field, the conversion to the database's form (e.g. a `TrackCuesV2.TrackColors` value as a `0xRRGGBB` int for `COLOR`), and how to write it through the file's `Track`; adding a value means adding to both. Each file is opened once, as a `Track`, and written with its one `save()`; every file is written before the database, which is saved once. A Serato GEOB value the file has nowhere to put yet (track not yet imported) is only set in the database, with a warning. `Library` reaches `track_properties` only through `_track_properties()`, which imports it on first use and raises an ImportError naming the extra without it, so the rest of `Library` doesn't need the optional `track_tags` extra.
 - `usb_export.py` composes `Crate`, `SmartCrate`, and `DatabaseV2`: it flattens all tracks into one folder on the drive, dedupes by basename, rewrites crate/database paths to the new layout, and copies only changed files.
 - `SERATO_DIR` (`~/Music/_Serato_`) in `utils/__init__.py` is the default root for all library lookups.
 
