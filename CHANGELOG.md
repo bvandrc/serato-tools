@@ -12,6 +12,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - **If you use track tags (cues, beatgrid, waveform, etc.), the beatgrid analysis, or waveform drawing, install with the matching extra**, e.g. `pip install "serato-tools[track_tags]"`, or `pip install "serato-tools[all]"` for everything
   - `waveform_drawing` and `beatgrid_analysis` now also install `mutagen`, since they read the track's tags through it
 - Fix the `serato_snap_cues_v2` command failing with `ImportError: cannot import name 'main'`
+- Fix `TrackCuesV2.CueColors.LIMEGREEN3`, which held seafoam's `#00CC88` instead of `#00CC44`, so setting a cue to it gave it the wrong color, and `SEAFOAM` was missing when iterating over `CueColors`
 - Add the MIT `LICENSE` file the package metadata already declared, with the notices of the projects it's derived from
 
 ## [5.1.2] - 2026-11-03

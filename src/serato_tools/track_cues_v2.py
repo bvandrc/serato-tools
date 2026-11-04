@@ -8,7 +8,7 @@ import os
 import struct
 import sys
 from typing import Callable, ClassVar, Sequence
-from enum import Enum
+from enum import Enum, unique
 import dataclasses
 from dataclasses import dataclass, field
 
@@ -28,6 +28,7 @@ class TrackCuesV2(SeratoTag):
     GEOB_KEY = "Serato Markers2"
     VERSION = (0x01, 0x01)
 
+    @unique
     class CueColors(Enum):
         RED = b"\xcc\x00\x00"
         ORANGE = b"\xcc\x44\x00"
@@ -36,7 +37,7 @@ class TrackCuesV2(SeratoTag):
         LIMEGREEN1 = b"\x88\xcc\x00"
         DARKGREEN = b"\x44\xcc\x00"
         LIMEGREEN2 = b"\x00\xcc\x00"
-        LIMEGREEN3 = b"\x00\xcc\x88"
+        LIMEGREEN3 = b"\x00\xcc\x44"
         SEAFOAM = b"\x00\xcc\x88"
         CYAN = b"\x00\xcc\xcc"
         LIGHTBLUE = b"\x00\x88\xcc"
@@ -48,6 +49,7 @@ class TrackCuesV2(SeratoTag):
         MAGENTA = b"\xcc\x00\x88"
         PINKRED = b"\xcc\x00\x44"
 
+    @unique
     class TrackColors(Enum):
         PINK = b"\xff\x99\xff"
         DARKPINK = b"\xff\x99\xdd"

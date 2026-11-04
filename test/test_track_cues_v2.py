@@ -72,6 +72,15 @@ class TestCase(unittest.TestCase):
             tags._raw_data, expected_modified_data, "modified data serialize"
         )  # pylint: disable=protected-access
 
+    def test_cue_colors_match_serato_palette(self):
+        # Serato's 18 hot cue colors, in color picker order (docs/colors.md)
+        palette = [
+            "CC0000", "CC4400", "CC8800", "CCCC00", "88CC00", "44CC00",
+            "00CC00", "00CC44", "00CC88", "00CCCC", "0088CC", "0044CC",
+            "0000CC", "4400CC", "8800CC", "CC00CC", "CC0088", "CC0044",
+        ]  # fmt: skip
+        self.assertEqual([c.value.hex().upper() for c in TrackCuesV2.CueColors], palette)
+
     def test_snap_position_to_beat(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
         buf = io.StringIO()
