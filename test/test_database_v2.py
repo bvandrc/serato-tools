@@ -130,9 +130,18 @@ class TestCase(unittest.TestCase):
                     "field": DatabaseV2.Fields.GENRE,
                     "func": lambda *args: "NEW_GENRE",
                     "files": [
-                        "Users\\bvand\\Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3",
-                        "C:/Users/bvand/Music/DJ Tracks/Tripp St. - Enlighten.mp3",
-                    ],
+                        "Users/bvand/Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
+                        os.path.join(os.sep, "Users", "bvand", "Music", "DJ Tracks", "Tripp St. - Enlighten.mp3"),
+                    ]
+                    # backslashes and drive letters only mean something on Windows
+                    + (
+                        [
+                            "Users\\bvand\\Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3",
+                            "C:/Users/bvand/Music/DJ Tracks/Tripp St. - Enlighten.mp3",
+                        ]
+                        if os.name == "nt"
+                        else []
+                    ),
                 },
             ]
         )
