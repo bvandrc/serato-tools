@@ -2,15 +2,18 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.2.1] - 2026-11-03
+
+- Fix `TrackGain`, which never read or wrote anything: Serato stores a track's gain as an `RVA2` ID3 frame named `SeratoGain`, not the `replaygain_SeratoGain_gain` / `_peak` keys it looked up, so `gain` and `peak` were always `None` and `set_and_save` raised
+  - Breaking, though they never worked: `TrackGain.REPLAY_GAIN_GAIN_KEY` and `REPLAY_GAIN_PEAK_KEY` are replaced by `RVA2_KEY`
+  - **If you delete gain when `gain` or `peak` isn't `None`, check that code**: Serato writes the frame on most analyzed tracks, with a gain of `0.0` unless one was set, so it's now `0.0` rather than `None` for them
+
 ## [5.2.0] - 2026-11-03
 
 - Add `Library`, which renames or removes track files and updates the database, crates, and smart crates to match, so the track isn't left missing in Serato
   - It also speeds up an app that makes many library changes: each file is parsed only once, the first time it's needed, then kept for every later change. Use `library.database` for other database changes too, so they share that one parse
   - `DatabaseV2.rename_track_file` is deprecated in favor of `Library.rename_track_file`, and will be removed in the next major version. It now also updates smart crates, and looks for crates next to the database instead of in the default `_Serato_` folder
 - Fix track paths resolving to a broken path on macOS and Linux
-- Fix `TrackGain`, which never read or wrote anything: Serato stores a track's gain as an `RVA2` ID3 frame named `SeratoGain`, not the `replaygain_SeratoGain_gain` / `_peak` keys it looked up, so `gain` and `peak` were always `None` and `set_and_save` raised
-  - Breaking, though they never worked: `TrackGain.REPLAY_GAIN_GAIN_KEY` and `REPLAY_GAIN_PEAK_KEY` are replaced by `RVA2_KEY`
-  - **If you delete gain when `gain` or `peak` isn't `None`, check that code**: Serato writes the frame on most analyzed tracks, with a gain of `0.0` unless one was set, so it's now `0.0` rather than `None` for them
 - Fix: `pip install serato-tools` no longer installs the optional deps (about 430 MB): they're only installed by the extra whose feature needs them, as the README always described
   - **If you use track tags (cues, beatgrid, waveform, etc.), the beatgrid analysis, or waveform drawing, install with the matching extra**, e.g. `pip install "serato-tools[track_tags]"`, or `pip install "serato-tools[all]"` for everything
   - `waveform_drawing` and `beatgrid_analysis` now also install `mutagen`, since they read the track's tags through it
