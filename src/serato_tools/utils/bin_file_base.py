@@ -7,7 +7,7 @@ import base64
 import warnings
 from enum import StrEnum
 import json
-from typing import Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
+from typing import Iterable, Mapping, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
 
 from serato_tools.utils import logger, SERATO_DRIVE, DataTypeError, DeeplyNestedListError
 
@@ -504,7 +504,7 @@ class SeratoBinFile:
         # look up in a map built once per class (vars(cls), so a subclass with its own FIELD_ENUMS doesn't
         # inherit the base's map): scanning the enums and re-deriving the name costs too much when printing
         # or JSON-dumping every field of a large database
-        names: dict[str, str] | None = vars(cls).get("_field_names")
+        names: Mapping[str, str] | None = vars(cls).get("_field_names")
         if names is None:
             names = {}
             for field_enum in cls.FIELD_ENUMS:
