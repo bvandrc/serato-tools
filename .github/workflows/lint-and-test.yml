@@ -8,19 +8,23 @@ on:
   workflow_dispatch:
 
 jobs:
-  # once, on the oldest supported Python: the results don't depend on the OS, and pyright checks against the running
-  # version, so 3.12 is what catches use of anything newer
+  # on every Python version, since pylint and pyright check against the running one (3.12 catches use of anything newer,
+  # later versions catch deprecations and removals), but on one OS, since the results don't depend on it
   lint:
-    name: "Lint"
+    name: "Lint (${{ matrix.python-version }})"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14", "3.15"]
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Set up Python 3.12
+    - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
-        python-version: "3.12"
+        python-version: ${{ matrix.python-version }}
 
     - name: Install Dependencies
       run: |
@@ -35,7 +39,9 @@ jobs:
       with:
         working-directory: .
 
+    # black's output doesn't depend on the Python version
     - name: Format Check (Black)
+      if: matrix.python-version == '3.12'
       uses: psf/black@stable
 
   test:
