@@ -9,8 +9,12 @@ from mutagen.id3._frames import GEOB
 
 from serato_tools.utils import logger
 
+# an open track file whose tags can be read and written: an ID3 file (.mp3), an AIFF file, or a file's bare ID3 tags
+type ID3File = ID3FileType | ID3 | AIFF
+type ID3FileOrPath = str | ID3File
 
-def open_tagfile(file: "SeratoTagBase.FileArg") -> "SeratoTagBase.Tagfile":
+
+def open_tagfile(file: ID3FileOrPath) -> ID3File:
     """Opens the track file at `file` with mutagen, or returns `file` if it's already open.
 
     Raises ValueError for a file type other than .mp3, .aiff, or .aif.
@@ -28,7 +32,7 @@ def open_tagfile(file: "SeratoTagBase.FileArg") -> "SeratoTagBase.Tagfile":
     raise ValueError(f"unsupported file type (only .mp3, .aiff, and .aif are supported): {file}")
 
 
-def get_geob(tagfile: "SeratoTagBase.Tagfile", geob_key: str) -> bytes | None:
+def get_geob(tagfile: ID3File, geob_key: str) -> bytes | None:
     """The data of the file's GEOB frame named `geob_key`, or None if it has none."""
     try:
         return tagfile[f"GEOB:{geob_key}"].data
@@ -37,7 +41,7 @@ def get_geob(tagfile: "SeratoTagBase.Tagfile", geob_key: str) -> bytes | None:
         return None
 
 
-def tag_geob(tagfile: "SeratoTagBase.Tagfile", geob_key: str, data: bytes):
+def tag_geob(tagfile: ID3File, geob_key: str, data: bytes):
     """Sets the file's GEOB frame named `geob_key` to `data`, in memory."""
     tagfile[f"GEOB:{geob_key}"] = GEOB(
         encoding=0,
@@ -47,7 +51,7 @@ def tag_geob(tagfile: "SeratoTagBase.Tagfile", geob_key: str, data: bytes):
     )
 
 
-def del_tag(tagfile: "SeratoTagBase.Tagfile", key: str) -> bool:
+def del_tag(tagfile: ID3File, key: str) -> bool:
     """Deletes the file's frame `key` (e.g. `GEOB:Serato Markers_`), in memory; returns whether it had one."""
     if key in tagfile:
         del tagfile[key]
@@ -55,25 +59,22 @@ def del_tag(tagfile: "SeratoTagBase.Tagfile", key: str) -> bool:
     return False
 
 
-def del_geob(tagfile: "SeratoTagBase.Tagfile", geob_key: str) -> bool:
+def del_geob(tagfile: ID3File, geob_key: str) -> bool:
     """Deletes the file's GEOB frame named `geob_key`, in memory; returns whether it had one."""
     return del_tag(tagfile, f"GEOB:{geob_key}")
 
 
-class SeratoTagBase:
-    """A value Serato stores in a track file's tags, read from and written to `tagfile`, which tags can share.
+class ID3FileTag:
+    """A value stored in an ID3 file's tags, read from and written to `tagfile`, which tags can share.
 
-    `SeratoGeobTag` is the base for the ones stored as a GEOB frame; `TrackGain` subclasses this directly.
+    `SeratoGeobTag` is the base for Serato's tags stored as a GEOB frame; `TrackGain` subclasses this directly.
     """
 
-    type Tagfile = ID3FileType | ID3 | AIFF
-    type FileArg = str | Tagfile
-
-    def __init__(self, file: FileArg):
-        self.tagfile: SeratoTagBase.Tagfile = open_tagfile(file)
+    def __init__(self, file: ID3FileOrPath):
+        self.tagfile: ID3File = open_tagfile(file)
 
 
-class SeratoGeobTag(SeratoTagBase):
+class SeratoGeobTag(ID3FileTag):
     """One of Serato's GEOB tags, such as `Serato Markers2`: parsed from, and serialized back to, its frame's bytes."""
 
     GEOB_KEY: str
@@ -83,10 +84,10 @@ class SeratoGeobTag(SeratoTagBase):
     type Version = tuple[int, int]
     VERSION: Version
 
-    type FileOrData = SeratoTagBase.FileArg | bytes
+    type FileOrData = ID3FileOrPath | bytes
 
     def __init__(self, file_or_data: FileOrData):
-        self.tagfile: SeratoTagBase.Tagfile | None = None  # pyright: ignore[reportIncompatibleVariableOverride]
+        self.tagfile: ID3File | None = None  # pyright: ignore[reportIncompatibleVariableOverride]
         self._raw_data: bytes | None = None
 
         if isinstance(file_or_data, (bytes, bytearray, memoryview)):
@@ -108,7 +109,7 @@ class SeratoGeobTag(SeratoTagBase):
         )
         return self._raw_data
 
-    def _require_tagfile(self) -> SeratoTagBase.Tagfile:
+    def _require_tagfile(self) -> ID3File:
         if not self.tagfile:
             raise Exception("no tagfile, no saving")
         return self.tagfile
@@ -167,7 +168,7 @@ class SeratoGeobTag(SeratoTagBase):
 
 
 # the classes' names before 5.4.0, kept until the next major version
-_DEPRECATED_NAMES = {"SeratoTrack": SeratoTagBase, "SeratoTag": SeratoGeobTag}
+_DEPRECATED_NAMES = {"SeratoTrack": ID3FileTag, "SeratoTag": SeratoGeobTag}
 
 
 def __getattr__(name: str):

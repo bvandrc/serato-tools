@@ -4,8 +4,9 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [5.4.0] - 2026-11-04
 
-- Rename the tag base classes in `serato_tools.utils.track_tags`, since `SeratoTrack` was the base for a single tag, not a track: `SeratoTrack` is now `SeratoTagBase`, and `SeratoTag`, the base for GEOB tags, is now `SeratoGeobTag`. The old names still work, with a `DeprecationWarning`, until the next major version
-  - `SeratoTagBase` now only holds the open file; the GEOB-specific helpers (version check and packing, reading null-terminated strings) moved to `SeratoGeobTag`, since `TrackGain` isn't a GEOB tag
+- Rename the tag base classes in `serato_tools.utils.track_tags`, since `SeratoTrack` was the base for a single tag, not a track, with nothing Serato-specific, and `SeratoTag` only ever a GEOB tag: `SeratoTrack` is now `ID3FileTag`, and `SeratoTag` is now `SeratoGeobTag`. The old names still work, with a `DeprecationWarning`, until the next major version
+  - `ID3FileTag` now only holds the open file; the GEOB-specific helpers (version check and packing, reading null-terminated strings) moved to `SeratoGeobTag`, since `TrackGain` isn't a GEOB tag
+  - The open file types move from the class to the module, as `ID3File` (was `SeratoTrack.Tagfile`) and `ID3FileOrPath` (was `SeratoTrack.FileArg`)
 - Add `open_tagfile`, which opens a track file with mutagen, and `get_geob`, `tag_geob`, `del_geob`, and `del_tag`, which read and write a frame on any open file, to `serato_tools.utils.track_tags`
 
 ## [5.3.2] - 2026-11-04

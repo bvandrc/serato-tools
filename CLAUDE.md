@@ -60,7 +60,7 @@ The lifecycle is `parse → self.entries → mutate → to_bytes() → save()`:
 
 ### 2. GEOB tags inside audio files — `utils/track_tags.py`
 
-`SeratoTagBase` is a value Serato stores in a track file's tags: it only holds the mutagen file (`tagfile`, opened by `open_tagfile`). Module functions (`get_geob`, `tag_geob`, `del_geob`, `del_tag`) read and write frames on any open file, for code that needs a frame other than its own (`TrackCuesV2` deleting `Serato Markers_`, `track_tagdump.py`). `SeratoGeobTag` subclasses it, holding everything GEOB-specific (its own frame, the version check and packing, `_readbytes`), one class per GEOB tag, each declaring `GEOB_KEY` and `VERSION` and implementing `_parse` / `_serialize`:
+`ID3File` is the open mutagen file type (an `ID3FileType` such as `MP3`, an `AIFF`, or bare `ID3` tags; none is a subclass of another). `ID3FileTag` is a value stored in an `ID3File`'s tags: it only holds the file (`tagfile`, opened by `open_tagfile`), and has nothing Serato-specific. Module functions (`get_geob`, `tag_geob`, `del_geob`, `del_tag`) read and write frames on any open file, for code that needs a frame other than its own (`TrackCuesV2` deleting `Serato Markers_`, `track_tagdump.py`). `SeratoGeobTag` subclasses it, holding everything GEOB-specific (its own frame, the version check and packing, `_readbytes`), one class per GEOB tag, each declaring `GEOB_KEY` and `VERSION` and implementing `_parse` / `_serialize`:
 
 | Class | GEOB tag | Module |
 | --- | --- | --- |
@@ -72,7 +72,7 @@ The lifecycle is `parse → self.entries → mutate → to_bytes() → save()`:
 
 Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`SeratoGeobTag.FileOrData`). The bytes path is what lets tests feed the `.bin` fixtures in `test/data/` without an audio file, and it's why `self.tagfile` may be `None` — `save()` raises in that case.
 
-`TrackGain` (`track_gain.py`) subclasses `SeratoTagBase` directly, since Serato stores gain as an ID3 `RVA2:SeratoGain` frame rather than a GEOB. The two bases were named `SeratoTrack` and `SeratoTag` before 5.4.0; a module `__getattr__` in `utils/track_tags.py` still gives the old names, with a `DeprecationWarning`, until the next major version.
+`TrackGain` (`track_gain.py`) subclasses `ID3FileTag` directly, since Serato stores gain as an ID3 `RVA2:SeratoGain` frame rather than a GEOB. The two bases were named `SeratoTrack` and `SeratoTag` before 5.4.0 (and their file types `SeratoTrack.Tagfile` / `FileArg`); a module `__getattr__` in `utils/track_tags.py` still gives the old names, with a `DeprecationWarning`, until the next major version.
 
 **v1/v2 interaction:** current Serato reads `Serato Markers2`, but a stale `Serato Markers_` shadows changes made to it. That's why the mutating APIs (`TrackCuesV2.modify_entries`, `set_track_color`) take `delete_tags_v1=True` by default — they delete the v1 tag rather than keeping the two in sync.
 
