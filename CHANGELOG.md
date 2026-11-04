@@ -2,6 +2,10 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.5.0] - 2026-11-04
+
+- Add `Library.save`, which writes every changed library file once. Pass `save=False` to `rename_track_file` and `remove_track_files` when making many changes, then call `save()`, instead of rewriting the database and crates for every track. It also saves changes made directly to `library.database` or the crates
+
 ## [5.4.1] - 2026-11-04
 
 - Fix `TrackCuesV2.set_track_color` and `set_beatgrid_locked` doing nothing on a track whose tags don't have a color or lock yet: they now add the entry, and the `Serato Markers2` tag, as Serato writes them

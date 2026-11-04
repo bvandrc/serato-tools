@@ -132,6 +132,60 @@ class TestCase(unittest.TestCase):
             self.assertEqual(self.track_paths(crate), [kept_path], f"{crate.filepath} has only the kept track")
         self.assertEqual(self.track_paths(library.smart_crates[0]), [], "missing track removed from smart crate")
 
+    def test_save_writes_batched_changes_once(self):
+        first, second = self.make_track("First.mp3"), self.make_track("Second.mp3")
+        removed = self.make_track("Removed.mp3")
+        self.add_to_database(first, second, removed)
+        self.make_crate(Crate, "With", [first, second])
+        self.make_crate(Crate, "Without", [removed])
+
+        saved = self.saved_file_names()
+        library = Library(self.serato_dir)
+        new_first, new_second = (os.path.join(self.music_dir, name) for name in ["New First.mp3", "New Second.mp3"])
+        library.rename_track_file(first, new_first, save=False)
+        library.rename_track_file(second, new_second, save=False)
+        library.remove_track_files([removed], save=False)
+
+        self.assertEqual(saved, [], "nothing written yet")
+        self.assertTrue(os.path.exists(new_first), "track file renamed right away")
+        self.assertFalse(os.path.exists(removed), "track file deleted right away")
+
+        written = library.save()
+
+        self.assertCountEqual(saved, [DatabaseV2.FILENAME, "With.crate", "Without.crate"], "each file written once")
+        self.assertCountEqual([os.path.basename(p) for p in written], saved, "returns the files written")
+        new_paths = [DatabaseV2.get_relative_path(p) for p in [new_first, new_second]]
+        db_paths = self.track_paths(library.database)
+        for path in new_paths:
+            self.assertIn(path, db_paths, "db path updated")
+        self.assertNotIn(DatabaseV2.get_relative_path(removed), db_paths, "track removed from db")
+        self.assertEqual(self.track_paths(library.crates[0]), new_paths, "crate paths updated")
+
+    def test_save_writes_direct_changes(self):
+        track = self.make_track("Track.mp3")
+        self.add_to_database(track)
+
+        saved = self.saved_file_names()
+        library = Library(self.serato_dir)
+        library.database.modify([{"field": DatabaseV2.Fields.GENRE, "files": [track], "func": lambda *args: "House"}])
+        library.save()
+
+        self.assertEqual(saved, [DatabaseV2.FILENAME])
+        tracks = {t.relpath: t for t in DatabaseV2(self.db_file).get_tracks()}
+        self.assertEqual(tracks[DatabaseV2.get_relative_path(track)].get_value(DatabaseV2.Fields.GENRE), "House")
+
+    def test_save_skips_unchanged_and_unparsed_files(self):
+        self.make_crate(Crate, "Crate", [self.make_track("Track.mp3")])
+
+        saved = self.saved_file_names()
+        library = Library(self.serato_dir)
+        self.assertEqual(library.save(), [], "nothing parsed")
+        self.assertNotIn("database", vars(library), "save doesn't parse anything")
+
+        _ = library.database, library.crates
+        self.assertEqual(library.save(), [], "nothing changed")
+        self.assertEqual(saved, [])
+
 
 if __name__ == "__main__":
     unittest.main()

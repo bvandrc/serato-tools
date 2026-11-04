@@ -99,6 +99,14 @@ library.rename_track_file(
 library.remove_track_files(["/Users/Username/Music/Dubstep/Raaket - ILL (Radio Edit).mp3"])  # deletes the files too
 ```
 
+Each of those writes the library files that contain the track. For many changes, pass `save=False` and call `save()` once at the end, which writes each changed file once. It also saves changes made directly to `library.database` or the crates. The track files themselves still change right away, so make sure `save()` runs:
+
+```python
+for src, dest in renames:
+    library.rename_track_file(src, dest, save=False)
+library.save()
+```
+
 ### Modifying the database file
 
 _NOTE: Close Serato first. It keeps the library in memory, and saves it over any changes made while it's open._
