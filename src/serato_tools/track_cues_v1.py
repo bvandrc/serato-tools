@@ -78,8 +78,9 @@ class TrackCuesV1(SeratoGeobTag):
                 raise ValueError(f"{cls.__name__} entry is {len(data)} bytes, not {info_size}")
             info = struct.unpack(cls.FORMAT, data)
             fields: dict[str, object] = dict(zip(cls.FIELDS, info))
-            # every tag Serato DJ Pro 2 was seen writing passes these checks, so a tag that doesn't is one this class
-            # may not understand, and rewriting it could corrupt it
+            # the checks Mixxx makes: every tag Serato DJ Pro 2 was seen writing passes them, so a tag that doesn't is
+            # one this class may not understand, and rewriting it could corrupt it
+            # https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers.cpp
             for set_field, position_field in (
                 ("start_position_set", "start_position"),
                 ("end_position_set", "end_position"),
