@@ -233,8 +233,8 @@ class TrackCuesV2(SeratoGeobTag):
         endposition: int  # milliseconds
         field5: bytes
         field6: bytes
-        # 27AAE1 for every loop in the captures in data/, which are from Serato DJ Pro 2 (2019-2020), where loops have
-        # no color of their own. Later versions may set it.
+        # 27AAE1 for every loop in the captures in data/, which are from Serato DJ Pro 2 (2019-2020); Mixxx's
+        # src/track/serato/markers2.cpp notes "Serato's Loops don't have a color". Later versions may set it.
         color: bytes
         locked: bool
         name: str
