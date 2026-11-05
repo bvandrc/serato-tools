@@ -1,7 +1,7 @@
 import os
 import sys
 from typing import cast
-from enum import StrEnum, IntEnum
+from enum import StrEnum, IntEnum, unique
 from dataclasses import dataclass
 
 
@@ -15,6 +15,7 @@ class SmartCrate(CrateBase):
     DIR = "SmartCrates"
     DIR_PATH = os.path.join(SERATO_DIR, DIR)
 
+    @unique
     class RuleFields(StrEnum):
         """The fields only a smart crate holds, which extend the common `Fields` of the other bin files."""
 
@@ -48,6 +49,7 @@ class SmartCrate(CrateBase):
         "uint": RuleFields.RULE_VALUE_INTEGER,
     }
 
+    @unique
     class RuleField(IntEnum):
         ADDED = 25
         ALBUM = 8
@@ -65,6 +67,7 @@ class SmartCrate(CrateBase):
         SONG = 6
         YEAR = 23
 
+    @unique
     class RuleComparison(StrEnum):
         STR_CONTAINS = "cond_con_str"
         STR_DOES_NOT_CONTAIN = "cond_dnc_str"

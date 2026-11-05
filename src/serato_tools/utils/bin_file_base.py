@@ -5,7 +5,7 @@ import copy
 import struct
 import base64
 import warnings
-from enum import StrEnum
+from enum import StrEnum, unique
 import json
 from typing import Iterable, Mapping, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
 
@@ -14,6 +14,7 @@ from serato_tools.utils import logger, SERATO_DRIVE, DataTypeError, DeeplyNested
 
 class SeratoBinFile:
 
+    @unique
     class Fields(StrEnum):
         # Database & Crate
         VERSION = "vrsn"
