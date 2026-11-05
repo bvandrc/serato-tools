@@ -8,7 +8,7 @@ import struct
 import sys
 import warnings
 from typing import Callable, ClassVar, Sequence
-from enum import Enum
+from enum import Enum, unique
 import dataclasses
 from dataclasses import dataclass, field
 
@@ -26,6 +26,8 @@ class TrackCuesV2(SeratoGeobTag):
     GEOB_KEY = "Serato Markers2"
     VERSION = (0x01, 0x01)
 
+    # the colors Serato stores; Serato DJ Pro and Lite show each one a little differently (see docs/colors.md)
+    @unique
     class CueColors(Enum):
         RED = b"\xcc\x00\x00"
         ORANGE = b"\xcc\x44\x00"
@@ -34,7 +36,7 @@ class TrackCuesV2(SeratoGeobTag):
         LIMEGREEN1 = b"\x88\xcc\x00"
         DARKGREEN = b"\x44\xcc\x00"
         LIMEGREEN2 = b"\x00\xcc\x00"
-        LIMEGREEN3 = b"\x00\xcc\x88"
+        LIMEGREEN3 = b"\x00\xcc\x44"
         SEAFOAM = b"\x00\xcc\x88"
         CYAN = b"\x00\xcc\xcc"
         LIGHTBLUE = b"\x00\x88\xcc"
@@ -46,6 +48,9 @@ class TrackCuesV2(SeratoGeobTag):
         MAGENTA = b"\xcc\x00\x88"
         PINKRED = b"\xcc\x00\x44"
 
+    # the colors in Serato DJ Pro's track color picker, named for how they look there: the library column shows each
+    # one differently, e.g. WHITE as 333333 (see docs/colors.md)
+    @unique
     class TrackColors(Enum):
         PINK = b"\xff\x99\xff"
         DARKPINK = b"\xff\x99\xdd"
@@ -65,6 +70,7 @@ class TrackCuesV2(SeratoGeobTag):
         BLUE2 = b"\x99\x99\xff"
         PURPLE = b"\xbb\x99\xff"
         MAGENTA = b"\xdd\x99\xff"
+        # also what Serato writes for a newly analyzed track
         WHITE = b"\xff\xff\xff"
         GREY = b"\xbb\xbb\xbb"
         BLACK = b"\x99\x99\x99"
@@ -227,6 +233,9 @@ class TrackCuesV2(SeratoGeobTag):
         endposition: int  # milliseconds
         field5: bytes
         field6: bytes
+        # 27AAE1 for every loop in the captures in data/, which are from Serato DJ Pro 2 (2019-2020). Later versions
+        # may set it. Mixxx notes "Serato's Loops don't have a color":
+        # https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp
         color: bytes
         locked: bool
         name: str
@@ -242,7 +251,8 @@ class TrackCuesV2(SeratoGeobTag):
             "locked",
             "name",
         )
-        _FORMAT: ClassVar[str] = ">cBII4s4sB?"
+        # the x is a byte that's always 00, so it isn't a field: it's skipped on parse and written as 00
+        _FORMAT: ClassVar[str] = ">cBII4sc3sx?"
 
         @classmethod
         def _parse(cls, data: bytes) -> "TrackCuesV2.LoopEntry":
@@ -349,25 +359,25 @@ class TrackCuesV2(SeratoGeobTag):
                 )
             contents.append(data)
 
-        payload = b"".join(contents)
-        payload_base64 = bytearray(base64.b64encode(payload).replace(b"=", b"A"))
+        # Serato ends the payload with a null byte, then drops the base64 padding along with the last character before
+        # it: the dropped bits only ever belong to that null byte, so _parse() still reads every entry
+        payload = b"".join(contents) + b"\x00"
+        payload_base64 = base64.b64encode(payload).rstrip(b"=")
+        if len(payload) % 3:
+            payload_base64 = payload_base64[:-1]
+        lines = [payload_base64[i : i + 72] for i in range(0, len(payload_base64), 72)]
 
-        MAX_LINE_WRAPS = 10_000
-        wrap_count = 0
-        i = 72
-        while i < len(payload_base64):
-            if wrap_count >= MAX_LINE_WRAPS:
-                raise ValueError(
-                    f"base64 payload line wrapping exceeded {MAX_LINE_WRAPS} iterations; payload too large or malformed"
-                )
-            wrap_count += 1
-            payload_base64.insert(i, 0x0A)
-            i += 73
-
-        data = version
-        data += payload_base64
-
-        new_raw_data = data.ljust(470, b"\x00")
+        # Serato keeps the size the tag already had (at least 470 bytes), padding it with nulls, rather than shrinking it.
+        # How much Serato grows a tag whose content doesn't fit isn't known, so it grows to one null byte past it,
+        # keeping the null byte every tag Serato writes ends with, as Mixxx does:
+        # https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp
+        content = version + b"\n".join(lines)
+        if len(lines[-1]) == 72:
+            content += b"\n"  # Serato ends every full line with one, even the last
+        size = max(470, len(self._raw_data or b""))
+        if len(content) >= size:
+            size = len(content) + 1
+        new_raw_data = content.ljust(size, b"\x00")
 
         self.modified = new_raw_data != self._raw_data  # pylint: disable=access-member-before-definition
         self._raw_data = new_raw_data
@@ -450,8 +460,9 @@ class TrackCuesV2(SeratoGeobTag):
                 result.append(self.color)
             result.extend(self.cues)
             result.extend(self.loops)
-            # Serato's order: BPMLOCK before the flips, as in data/id3/flips and as Mixxx writes them (markers2.cpp: "new
-            # entry types are appended when Serato decides to add a new type. For FLIP entries, this holds true")
+            # Serato's order: BPMLOCK before the flips, as in data/id3/flips and as Mixxx writes them. Mixxx: "new
+            # entry types are appended when Serato decides to add a new type. For FLIP entries, this holds true"
+            # https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp
             if self.bpm_lock is not None:
                 result.append(self.bpm_lock)
             result.extend(self.flips)
