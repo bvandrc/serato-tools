@@ -74,7 +74,6 @@ _DB_TRACK_PROPS: dict[str, _DbTrackProp[Any]] = {
     "grouping": _text_frame_prop(DatabaseV2.Fields.GROUPING, "TIT1"),
     "label": _text_frame_prop(DatabaseV2.Fields.PUBLISHER, "TPUB"),
     "composer": _text_frame_prop(DatabaseV2.Fields.COMPOSER, "TCOM"),
-    # the frame EasyID3 calls "date"
     "year": _text_frame_prop(DatabaseV2.Fields.YEAR, "TDRC"),
     "remixer": _text_frame_prop(DatabaseV2.Fields.REMIXER, "TPE4"),
     "bpm": _DbTrackProp[float](

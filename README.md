@@ -45,7 +45,7 @@
 
 **Library:**
 - Rename or delete a track file while updating the database, crates, and smart crates as well, so that it doesn't go missing.
-- Set a track's color, beatgrid lock, or metadata (title, artist, BPM, ...) in its tags and the database at once, so Serato shows it right away.
+- Set a track's color, beatgrid lock, or metadata (title, artist, grouping, ...) in its tags and the database at once, so Serato shows it right away.
 
 **Database:**
 - After changing a track's metadata, modify database values for a specific track so that you don't have to "Reload Id3 Tags" in Serato, the change appears in Serato instantly.
