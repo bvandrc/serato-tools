@@ -21,8 +21,8 @@ from serato_tools.utils import get_enum_key_from_value
 from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
 from serato_tools.track_beatgrid import TrackBeatgrid
 
-# Every entry check below is one Mixxx makes: every tag Serato DJ Pro 2 was seen writing passes them, so an entry that
-# doesn't is one this class may not understand, and rewriting it could corrupt the tag.
+# Every tag Serato DJ Pro 2 was seen writing passes the entry checks below, so an entry that doesn't is one this class
+# may not understand, and rewriting it could corrupt the tag. Mixxx's parser checks the same fields, with comments on them:
 # https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp
 
 
