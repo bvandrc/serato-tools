@@ -450,9 +450,10 @@ class TrackCuesV2(SeratoGeobTag):
                 result.append(self.color)
             result.extend(self.cues)
             result.extend(self.loops)
-            result.extend(self.flips)
+            # the order Serato writes them in, in every data/ capture: BPMLOCK comes before the flips
             if self.bpm_lock is not None:
                 result.append(self.bpm_lock)
+            result.extend(self.flips)
             result.extend(self.unknown)
             return result
 
