@@ -21,6 +21,26 @@ from serato_tools.utils import get_enum_key_from_value
 from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
 from serato_tools.track_beatgrid import TrackBeatgrid
 
+# Every entry check below is one Mixxx makes (markers2.cpp): every tag Serato writes passes them, so an entry that
+# doesn't is one this class doesn't understand, and rewriting it could corrupt the tag.
+
+
+def _check_len(entry_name: str, data: bytes, expected: int):
+    if len(data) != expected:
+        raise ValueError(f"{entry_name} entry is {len(data)} bytes, not {expected}")
+
+
+def _check_fixed(entry_name: str, field: str, value: bytes, expected: bytes):
+    if value != expected:
+        raise ValueError(f"{entry_name} entry's {field} isn't {expected!r}: {value!r}")
+
+
+def _parse_name(entry_name: str, data: bytes) -> str:
+    name, nullbyte, other = data.partition(b"\x00")
+    if nullbyte != b"\x00" or other != b"":
+        raise ValueError(f"{entry_name} entry's name isn't followed by a null byte and nothing else: {data!r}")
+    return name.decode("utf-8")
+
 
 class TrackCuesV2(SeratoGeobTag):
     GEOB_KEY = "Serato Markers2"
@@ -145,6 +165,7 @@ class TrackCuesV2(SeratoGeobTag):
 
         @classmethod
         def _parse(cls, data: bytes) -> "TrackCuesV2.BpmLockEntry":
+            _check_len(cls.NAME, data, struct.calcsize(cls._FORMAT))
             return cls(*struct.unpack(cls._FORMAT, data))
 
         def _serialize(self) -> bytes:
@@ -162,7 +183,10 @@ class TrackCuesV2(SeratoGeobTag):
 
         @classmethod
         def _parse(cls, data: bytes) -> "TrackCuesV2.ColorEntry":
-            return cls(*struct.unpack(cls._FORMAT, data))
+            _check_len(cls.NAME, data, struct.calcsize(cls._FORMAT))
+            field1, color = struct.unpack(cls._FORMAT, data)
+            _check_fixed(cls.NAME, "field1", field1, b"\x00")
+            return cls(field1, color)
 
         def _serialize(self) -> bytes:
             return struct.pack(self._FORMAT, self.field1, self.color)
@@ -194,10 +218,10 @@ class TrackCuesV2(SeratoGeobTag):
         def _parse(cls, data: bytes) -> "TrackCuesV2.CueEntry":
             info_size = struct.calcsize(cls._FORMAT)
             field1, index, position, field4, color, field6 = struct.unpack(cls._FORMAT, data[:info_size])
-            name, nullbyte, other = data[info_size:].partition(b"\x00")
-            assert nullbyte == b"\x00"
-            assert other == b""
-            return cls(field1, index, position, field4, color, field6, name.decode("utf-8"))
+            _check_fixed(cls.NAME, "field1", field1, b"\x00")
+            _check_fixed(cls.NAME, "field4", field4, b"\x00")
+            _check_fixed(cls.NAME, "field6", field6, b"\x00\x00")
+            return cls(field1, index, position, field4, color, field6, _parse_name(cls.NAME, data[info_size:]))
 
         def _serialize(self) -> bytes:
             position = max(0, min(self.position, 0xFFFFFFFF))
@@ -243,7 +267,7 @@ class TrackCuesV2(SeratoGeobTag):
             "locked",
             "name",
         )
-        # the x is a byte that's always 00, so it isn't a field: it's skipped on parse and written as 00
+        # the x is a byte that's always 00, so it isn't a field: it's checked on parse and written as 00
         _FORMAT: ClassVar[str] = ">cBII4sc3sx?"
 
         @classmethod
@@ -259,10 +283,12 @@ class TrackCuesV2(SeratoGeobTag):
                 color,
                 locked,
             ) = struct.unpack(cls._FORMAT, data[:info_size])
-            name, nullbyte, other = data[info_size:].partition(b"\x00")
-            assert nullbyte == b"\x00"
-            assert other == b""
-            return cls(field1, index, startposition, endposition, field5, field6, color, locked, name.decode("utf-8"))
+            _check_fixed(cls.NAME, "field1", field1, b"\x00")
+            _check_fixed(cls.NAME, "field5", field5, b"\xff\xff\xff\xff")
+            _check_fixed(cls.NAME, "field6", field6, b"\x00")
+            _check_fixed(cls.NAME, "byte 18", data[info_size - 2 : info_size - 1], b"\x00")
+            name = _parse_name(cls.NAME, data[info_size:])
+            return cls(field1, index, startposition, endposition, field5, field6, color, locked, name)
 
         def _serialize(self) -> bytes:
             startposition = max(0, min(self.startposition, 0xFFFFFFFF))
