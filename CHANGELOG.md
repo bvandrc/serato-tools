@@ -7,6 +7,10 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `Library.set_db_track_tags` / `set_db_tracks_tags` also set a track's metadata in its ID3 text frames and the database: `title`, `artist`, `album`, `genre`, `key`, `grouping`, `label`, `composer`, `year`, `remixer`, `bpm`, `track_number`, and `disc_number`
 - Add `TrackTextFrames` (`serato_tools.track_text_frames`), which reads and sets a track file's ID3 text frames, and `Track.text_frames`
 
+## [5.5.1] - 2026-11-05
+
+- Changing a track's cues keeps its BPM lock before its flips, the order Serato writes them in
+
 ## [5.5.0] - 2026-11-04
 
 - Add `Library.set_db_track_tags` and `set_db_tracks_tags`, which set a track's color and beatgrid lock in its tags and in the database at once, so Serato shows the change right away, without rescanning file tags. Only ID3 files (.mp3, .aiff, .aif) are currently supported
