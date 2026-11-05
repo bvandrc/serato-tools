@@ -8,7 +8,7 @@ The tag contains a two-byte tag header, followed by base64-encoded binary data. 
 This happens because Serato appends a null byte to the data before encoding it, then drops the base64 padding along with the character before it, which only ever holds bits of that null byte (this is also how [Mixxx](https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp) writes it).
 
 The minimum length of this tag seems to be 470 bytes, and shorter contents are padded with null bytes.
-When Serato rewrites the tag, it seems to keep the length the tag already had, padding shorter contents with null bytes (Mixxx does the same). How much it grows the tag by when the contents no longer fit isn't known; Mixxx grows it to one null byte past the contents.
+When Serato rewrites the tag, it seems to keep the length the tag already had, padding shorter contents with null bytes. The evidence is in `data/id3`: `very-long-names` is a 93142-byte tag that its contents nearly fill, and `bpmlock-enabled`, apparently the same track later, is still 93142 bytes, although its contents take up only 42 of them. Mixxx keeps the length too, citing disk fragmentation (`markers2.cpp`). How much Serato grows the tag by when the contents no longer fit isn't known (Mixxx: "TODO: Find out how Serato chooses the allocation sizes"); Mixxx grows it to one null byte past the contents.
 
 | Offset   |            Length | Raw Value                 | Decoded Value | Type                    | Description
 | -------- | ----------------- | ------------------------- | ------------- | ----------------------- | -----------
