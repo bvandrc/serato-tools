@@ -88,7 +88,9 @@ class TrackBeatgrid(SeratoGeobTag):
                 beats_till_next_marker = struct.unpack(">I", data)[0]
                 yield TrackBeatgrid.NonTerminalBeatgridMarker(position_s, beats_till_next_marker)
 
-        # TODO: What's the meaning of the footer byte?
+        # The footer byte's meaning is unknown. Mixxx (beatgrid.cpp) found it "changes even when entering Serato's
+        # "Edit Grid" mode and then leaving it immediately without making any changes", so it's kept only to write
+        # it back as read.
         footer_byte = fp.read(1)
         footer_value = struct.unpack("B", footer_byte)[0] if len(footer_byte) == 1 else 0
         yield TrackBeatgrid.Footer(footer_value)
@@ -296,6 +298,10 @@ class TrackBeatgrid(SeratoGeobTag):
         bpm = float(str(self.tagfile["TBPM"]))
         filename = cast(str, self.tagfile.filename)
 
+        # Serato's beatgrid positions are times in audio as Serato's own MP3 decoder decodes it. Other decoders start
+        # MP3s at a different point, and Mixxx (tags.cpp, guessTimingOffsetMillis) corrects Serato's times for its
+        # own: by -26 ms at 44.1 kHz and -24 ms at 48 kHz with FFmpeg or libmad, and -12 to -60 ms with CoreAudio. The
+        # analysis below doesn't correct for its decoder, so an MP3's grid may be off by about that much.
         logger.info("Analyzing beat grid...")
         analyzed_breatgrid = analyze_beatgrid(filename, bpm_helper=bpm)
         if not analyzed_breatgrid.downbeats:

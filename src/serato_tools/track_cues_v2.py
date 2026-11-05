@@ -26,6 +26,7 @@ class TrackCuesV2(SeratoGeobTag):
     GEOB_KEY = "Serato Markers2"
     VERSION = (0x01, 0x01)
 
+    # the colors Serato stores; Serato DJ Pro and Lite show each one a little differently (see docs/colors.md)
     class CueColors(Enum):
         RED = b"\xcc\x00\x00"
         ORANGE = b"\xcc\x44\x00"
@@ -34,7 +35,7 @@ class TrackCuesV2(SeratoGeobTag):
         LIMEGREEN1 = b"\x88\xcc\x00"
         DARKGREEN = b"\x44\xcc\x00"
         LIMEGREEN2 = b"\x00\xcc\x00"
-        LIMEGREEN3 = b"\x00\xcc\x88"
+        LIMEGREEN3 = b"\x00\xcc\x44"
         SEAFOAM = b"\x00\xcc\x88"
         CYAN = b"\x00\xcc\xcc"
         LIGHTBLUE = b"\x00\x88\xcc"
@@ -46,6 +47,8 @@ class TrackCuesV2(SeratoGeobTag):
         MAGENTA = b"\xcc\x00\x88"
         PINKRED = b"\xcc\x00\x44"
 
+    # the colors in Serato DJ Pro's track color picker, named for how they look there: the library column shows each
+    # one differently, e.g. WHITE as 333333 (see docs/colors.md)
     class TrackColors(Enum):
         PINK = b"\xff\x99\xff"
         DARKPINK = b"\xff\x99\xdd"
@@ -65,6 +68,7 @@ class TrackCuesV2(SeratoGeobTag):
         BLUE2 = b"\x99\x99\xff"
         PURPLE = b"\xbb\x99\xff"
         MAGENTA = b"\xdd\x99\xff"
+        # also what Serato writes for a newly analyzed track
         WHITE = b"\xff\xff\xff"
         GREY = b"\xbb\xbb\xbb"
         BLACK = b"\x99\x99\x99"

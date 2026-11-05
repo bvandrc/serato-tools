@@ -40,7 +40,9 @@ class SeratoBinFile:
         REMIXER = "trmx"
         TRACK_NUMBER = "utkn"
         DISC_NUMBER = "udsc"
+        # the same time as DATE_ADDED_U, as text
         DATE_ADDED_T = "tadd"
+        # when the track was added, as a Unix timestamp
         DATE_ADDED_U = "uadd"
         PLAY_COUNT = "utpc"
         # the track color, as 0xRRGGBB: the same color as the track's tags, so a TrackCuesV2.TrackColors value as an int
