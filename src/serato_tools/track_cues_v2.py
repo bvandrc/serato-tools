@@ -231,6 +231,8 @@ class TrackCuesV2(SeratoGeobTag):
         endposition: int  # milliseconds
         field5: bytes
         field6: bytes
+        # 27AAE1 for every loop in the captures in data/ and Mixxx's tests, which are from Serato DJ Pro 2 (2019-2020);
+        # Mixxx notes "Serato's Loops don't have a color". Later versions may set it.
         color: bytes
         locked: bool
         name: str
@@ -246,7 +248,8 @@ class TrackCuesV2(SeratoGeobTag):
             "locked",
             "name",
         )
-        _FORMAT: ClassVar[str] = ">cBII4s4sB?"
+        # the x is a byte that's always 00, so it isn't a field: it's skipped on parse and written as 00
+        _FORMAT: ClassVar[str] = ">cBII4sc3sx?"
 
         @classmethod
         def _parse(cls, data: bytes) -> "TrackCuesV2.LoopEntry":

@@ -5,7 +5,8 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [5.5.1] - 2026-11-05
 
 - Changing a track's cues keeps its BPM lock before its flips, the order Serato writes them in
-- Fix `TrackCuesV2.CueColors.LIMEGREEN3`, which was `00CC88`, the same as `SEAFOAM`: it's now `00CC44`, the color between `LIMEGREEN2` and `SEAFOAM` in Serato's palette, so a cue with that color can be read
+- Fix a saved loop's `color` (`TrackCuesV2.LoopEntry.color`) reading and setting the wrong byte: it's now the loop's color, as 3 bytes like a cue's
+- Fix reading a cue whose color is Serato's lime green `00CC44`, which raised: `TrackCuesV2.CueColors.LIMEGREEN3` had `SEAFOAM`'s value, `00CC88`, by mistake
 
 ## [5.5.0] - 2026-11-04
 
