@@ -5,6 +5,7 @@ from serato_tools.track_beatgrid import TrackBeatgrid
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_gain import TrackGain
+from serato_tools.track_text_frames import TrackTextFrames
 from serato_tools.track_waveform import TrackWaveform
 from serato_tools.utils.track_tags import ID3FileOrPath, ID3FileTag, open_tagfile
 
@@ -27,6 +28,7 @@ class Track:
         autotags: bool = True,
         waveform: bool = False,
         gain: bool = True,
+        text_frames: bool = True,
     ):
         """Opens the track file at `file`, or uses `file` if it's an already open mutagen file, and parses its tags.
 
@@ -40,6 +42,7 @@ class Track:
         self._autotags = TrackAutotags(self.tagfile) if autotags else None
         self._waveform = TrackWaveform(self.tagfile) if waveform else None
         self._gain = TrackGain(self.tagfile) if gain else None
+        self._text_frames = TrackTextFrames(self.tagfile) if text_frames else None
 
     @staticmethod
     def _parsed[T](tag: T | None, name: str) -> T:
@@ -77,6 +80,11 @@ class Track:
         """The `RVA2:SeratoGain` frame: the gain set in Serato."""
         return self._parsed(self._gain, "gain")
 
+    @property
+    def text_frames(self) -> TrackTextFrames:
+        """The ID3 text frames, such as `TIT2` (title)."""
+        return self._parsed(self._text_frames, "text_frames")
+
     def get_track_color(self) -> bytes | None:
         """The track's color as the bytes of a `TrackCuesV2.TrackColors` value, or None if its tags have none yet.
 
@@ -109,7 +117,15 @@ class Track:
 
     def save(self) -> bool:
         """Writes every tag's changes to the file in one write, and returns whether there were any to write."""
-        parsed = (self._cues_v2, self._cues_v1, self._beatgrid, self._autotags, self._waveform, self._gain)
+        parsed = (
+            self._cues_v2,
+            self._cues_v1,
+            self._beatgrid,
+            self._autotags,
+            self._waveform,
+            self._gain,
+            self._text_frames,
+        )
         tags: list[ID3FileTag] = [tag for tag in parsed if tag is not None]
         # a set built in full, not any() over a generator, so that every tag puts its changes in before the one write
         # pylint: disable-next=protected-access
