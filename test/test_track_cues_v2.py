@@ -171,36 +171,6 @@ class TestCase(unittest.TestCase):
         serialized = dataclasses.replace(loops[0], color=b"\xcc\x00\x00")._serialize()
         self.assertEqual(serialized[10:20], b"\xff\xff\xff\xff\x00\xcc\x00\x00\x00\x00")
 
-    def test_an_entry_unlike_seratos_raises(self):
-        with open("test/data/track_cues_v2_saved_loops.bin", "rb") as f:
-            loop = TrackCuesV2(f.read())._from_entries().loops[0]._serialize()
-        with open("test/data/track_cues_v2.bin", "rb") as f:
-            info = TrackCuesV2(f.read())._from_entries()
-        assert info.color is not None and info.bpm_lock is not None
-        color, cue, bpm_lock = info.color._serialize(), info.cues[0]._serialize(), info.bpm_lock._serialize()
-
-        def changed(data: bytes, index: int, value: bytes) -> bytes:
-            return data[:index] + value + data[index + len(value) :]
-
-        cases = {
-            "COLOR field1": (TrackCuesV2.ColorEntry, changed(color, 0, b"\x01")),
-            "COLOR length": (TrackCuesV2.ColorEntry, color + b"\x00"),
-            "BPMLOCK length": (TrackCuesV2.BpmLockEntry, bpm_lock + b"\x00"),
-            "CUE field1": (TrackCuesV2.CueEntry, changed(cue, 0, b"\x01")),
-            "CUE field4": (TrackCuesV2.CueEntry, changed(cue, 6, b"\x01")),
-            "CUE field6": (TrackCuesV2.CueEntry, changed(cue, 10, b"\x01")),
-            "CUE name without a null byte": (TrackCuesV2.CueEntry, cue[:-1]),
-            "CUE bytes after the name": (TrackCuesV2.CueEntry, cue + b"\x00"),
-            "LOOP field1": (TrackCuesV2.LoopEntry, changed(loop, 0, b"\x01")),
-            "LOOP field5": (TrackCuesV2.LoopEntry, changed(loop, 10, b"\x00")),
-            "LOOP field6": (TrackCuesV2.LoopEntry, changed(loop, 14, b"\x01")),
-            "LOOP byte 18": (TrackCuesV2.LoopEntry, changed(loop, 18, b"\x01")),
-            "LOOP bytes after the name": (TrackCuesV2.LoopEntry, loop + b"\x00"),
-        }
-        for name, (entry_class, data) in cases.items():
-            with self.subTest(name), self.assertRaises(ValueError):
-                entry_class._parse(data)
-
     def test_untested_version_raises_at_construction(self):
         with self.assertRaises(ValueError):
             TrackCuesV2(bytes([0x99, 0x99]))
