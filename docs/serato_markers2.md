@@ -4,9 +4,11 @@ This tag stores various kinds of track "markers" like Cue Points, Saved Loops, F
 
 Note that some of this information is also stored in [`Serato Markers_`](serato_markers_.md), and Serato will prefer that data over the information stored in `Serato Markers2` if it is present.
 
-The tag contains a two-byte tag header, followed by base64-encoded binary data. If the content is very long, a linefeed character (`0a`) is inserted into the base64 string every 72 bytes. For some unknown reason, Serato may produce a base64 string that is 1 byte longer than a multiple of 4 (i.e. an invalid base64 string). In that case, you can just append an `A` (of `A==` if you use padding) before decoding it.
+The tag contains a two-byte tag header, followed by base64-encoded binary data. If the content is very long, a linefeed character (`0a`) is inserted into the base64 string every 72 bytes. Serato may produce a base64 string that is 1 byte longer than a multiple of 4 (i.e. an invalid base64 string). In that case, you can just append an `A` (of `A==` if you use padding) before decoding it.
+This happens because Serato appends a null byte to the data before encoding it, then drops the base64 padding along with the character before it, which only ever holds bits of that null byte (this is also how [Mixxx](https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp) writes it).
 
 The minimum length of this tag seems to be 470 bytes, and shorter contents are padded with null bytes.
+When Serato rewrites the tag, it keeps the length the tag already had, padding shorter contents with null bytes, so the tag only ever grows.
 
 | Offset   |            Length | Raw Value                 | Decoded Value | Type                    | Description
 | -------- | ----------------- | ------------------------- | ------------- | ----------------------- | -----------

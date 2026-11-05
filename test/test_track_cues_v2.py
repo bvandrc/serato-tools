@@ -125,6 +125,25 @@ class TestCase(unittest.TestCase):
         with open("test/data/track_cues_v2_analyzed.bin", "rb") as f:
             self.assertEqual(tags._raw_data, f.read())
 
+    def test_rewriting_keeps_seratos_bytes(self):
+        # tags Serato wrote: saved_loops's base64 ends in a character Serato drops, and 514_bytes is longer than 470 bytes
+        for name in ("track_cues_v2_saved_loops.bin", "track_cues_v2_514_bytes.bin"):
+            with self.subTest(name), open(f"test/data/{name}", "rb") as f:
+                data = f.read()
+                tags = TrackCuesV2(data)
+                tags.modify_entries(dataclasses.replace)
+                self.assertEqual(tags._raw_data, data)
+
+    def test_shrinking_keeps_the_tags_size(self):
+        with open("test/data/track_cues_v2_514_bytes.bin", "rb") as f:
+            tags = TrackCuesV2(f.read())
+        # track_cues_v2_514_bytes.bin has cues and loops: without them, it needs well under 470 bytes
+        tags.modify_entries(lambda info: dataclasses.replace(info, cues=[], loops=[]))
+        rewritten = tags._raw_data
+        assert rewritten is not None
+        self.assertEqual(len(rewritten), 514)
+        self.assertEqual(TrackCuesV2(rewritten).entries, tags.entries)
+
     def test_snap_position_to_beat(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
         buf = io.StringIO()
