@@ -358,8 +358,8 @@ class TrackCuesV2(SeratoGeobTag):
         lines = [payload_base64[i : i + 72] for i in range(0, len(payload_base64), 72)]
 
         # Serato keeps the size the tag already had (at least 470 bytes), padding it with nulls, rather than shrinking it.
-        # Content that doesn't fit grows the tag to one null byte past it, as Mixxx does: how much Serato grows it by
-        # isn't known.
+        # How much Serato grows a tag whose content doesn't fit isn't known, so it grows to one null byte past it,
+        # keeping the null byte every tag Serato writes ends with.
         content = version + b"\n".join(lines)
         size = max(470, len(self._raw_data or b""))
         if len(content) >= size:
