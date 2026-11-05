@@ -125,6 +125,17 @@ class TestCase(unittest.TestCase):
         with open("test/data/track_cues_v2_analyzed.bin", "rb") as f:
             self.assertEqual(tags._raw_data, f.read())
 
+    def test_changing_entries_keeps_seratos_order(self):
+        # track_cues_v2_flips.bin is a tag Serato wrote with cues, a BPM lock, and then flips
+        with open("test/data/track_cues_v2_flips.bin", "rb") as f:
+            data = f.read()
+        tags = TrackCuesV2(data)
+        tags.modify_entries(dataclasses.replace)
+        # compared parsed rather than as bytes: Serato pads a tag this long in a way _serialize doesn't reproduce
+        rewritten = tags._raw_data
+        assert rewritten is not None
+        self.assertEqual(TrackCuesV2(rewritten).entries, TrackCuesV2(data).entries)
+
     def test_snap_position_to_beat(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
         buf = io.StringIO()
