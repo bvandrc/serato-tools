@@ -54,6 +54,7 @@ class TrackBeatgrid(SeratoGeobTag):
                 entries = None
             if entries:
                 self.entries = cast(TrackBeatgrid.EntryList, entries)
+                self._check_markers(*self._check_and_split(self.entries)[:2])
                 self.enhanced_entries = self._enhance_entries(self.entries)
 
         self.beats: list[TrackBeatgrid.BeatPoint] | None = None
@@ -130,9 +131,31 @@ class TrackBeatgrid(SeratoGeobTag):
         assert isinstance(entries[-2], TrackBeatgrid.TerminalBeatgridMarker), "last item should be a terminal marker"
         return (nonterminal_markers, terminal_markers[0], footers[0])
 
+    @staticmethod
+    def _check_markers(
+        nonterminal_markers: "list[TrackBeatgrid.NonTerminalBeatgridMarker]",
+        terminal_marker: "TrackBeatgrid.TerminalBeatgridMarker",
+    ):
+        # Every grid Serato DJ Pro 2 was seen writing passes these checks, so one that doesn't is a grid this class may
+        # misread, or one Serato can't use. A negative position isn't rejected, since a grid whose first beat comes
+        # before the track starts seems possible.
+        previous_position_s = None
+        for marker in nonterminal_markers:
+            if marker.beats_till_next_marker <= 0:
+                raise ValueError(f"beatgrid marker at {marker.position_s} s has {marker.beats_till_next_marker} beats")
+        for marker in (*nonterminal_markers, terminal_marker):
+            if previous_position_s is not None and marker.position_s <= previous_position_s:
+                raise ValueError(
+                    f"beatgrid marker at {marker.position_s} s doesn't come after the one at {previous_position_s} s"
+                )
+            previous_position_s = marker.position_s
+        if not terminal_marker.bpm > 0:
+            raise ValueError(f"beatgrid's last marker has a BPM of {terminal_marker.bpm}")
+
     def _serialize(self):
         entries = self._check_and_split()
         nonterminal_markers, terminal_marker, footer = entries
+        self._check_markers(nonterminal_markers, terminal_marker)
         markers = (*nonterminal_markers, terminal_marker)
 
         fp = io.BytesIO()
