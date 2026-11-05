@@ -4,7 +4,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [5.5.1] - 2026-11-05
 
-- Fix changing a track's cues moving its BPM lock after its flips: Serato writes the lock before them
+- Changing a track's cues keeps its BPM lock before its flips, the order Serato writes them in
 
 ## [5.5.0] - 2026-11-04
 

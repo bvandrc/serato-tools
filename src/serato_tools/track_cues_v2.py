@@ -450,7 +450,8 @@ class TrackCuesV2(SeratoGeobTag):
                 result.append(self.color)
             result.extend(self.cues)
             result.extend(self.loops)
-            # the order Serato writes them in, in every data/ capture: BPMLOCK comes before the flips
+            # Serato's order: BPMLOCK before the flips, as in data/id3/flips and as Mixxx writes them (markers2.cpp: "new
+            # entry types are appended when Serato decides to add a new type. For FLIP entries, this holds true")
             if self.bpm_lock is not None:
                 result.append(self.bpm_lock)
             result.extend(self.flips)
