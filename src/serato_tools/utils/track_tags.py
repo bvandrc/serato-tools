@@ -42,8 +42,8 @@ def del_tag(tagfile: ID3File, key: str) -> bool:
 
 def get_geob(tagfile: ID3File, geob_key: str) -> bytes | None:
     """The data of the file's GEOB frame named `geob_key`, or None if it has none."""
-    # matched exactly, as mutagen keys frames. Mixxx (trackmetadata_id3v2.cpp) matches the name in any case, and of
-    # several frames with the name, takes the first that isn't empty; whether Serato ever writes either isn't known.
+    # matched exactly, as mutagen keys frames; whether Serato ever writes a name in another case, or two frames with
+    # the same name, isn't known
     try:
         return tagfile[f"GEOB:{geob_key}"].data
     except KeyError:

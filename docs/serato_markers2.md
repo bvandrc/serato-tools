@@ -84,7 +84,7 @@ Each `CUE` entry contains information about a [cue point](https://support.serato
 | `13`     |                `01` | `00`                      | False         | `uint8_t` (boolean)     | Locked
 | `14`     | `01` <= X <= `7fec` | `00`                      | ``            | UTF-8 (null-terminated) | Name
 
-Mixxx skips two kinds of entry when importing, which its comments say a Mixxx bug ([mixxxdj/mixxx#11283](https://github.com/mixxxdj/mixxx/issues/11283)) likely wrote, rather than Serato: a `LOOP` that ends at position 0, and a black (`00 00 00`) `CUE` at position 0.
+Tags written by other software can hold two kinds of entry Serato doesn't write: a `LOOP` that ends at position 0, and a black (`00 00 00`) `CUE` at position 0.
 
 
 ### `FLIP` entries
