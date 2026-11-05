@@ -361,6 +361,8 @@ class TrackCuesV2(SeratoGeobTag):
         # How much Serato grows a tag whose content doesn't fit isn't known, so it grows to one null byte past it,
         # keeping the null byte every tag Serato writes ends with.
         content = version + b"\n".join(lines)
+        if len(lines[-1]) == 72:
+            content += b"\n"  # Serato ends every full line with one, even the last
         size = max(470, len(self._raw_data or b""))
         if len(content) >= size:
             size = len(content) + 1
