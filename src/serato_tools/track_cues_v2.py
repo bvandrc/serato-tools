@@ -359,25 +359,25 @@ class TrackCuesV2(SeratoGeobTag):
                 )
             contents.append(data)
 
-        payload = b"".join(contents)
-        payload_base64 = bytearray(base64.b64encode(payload).replace(b"=", b"A"))
+        # Serato ends the payload with a null byte, then drops the base64 padding along with the last character before
+        # it: the dropped bits only ever belong to that null byte, so _parse() still reads every entry
+        payload = b"".join(contents) + b"\x00"
+        payload_base64 = base64.b64encode(payload).rstrip(b"=")
+        if len(payload) % 3:
+            payload_base64 = payload_base64[:-1]
+        lines = [payload_base64[i : i + 72] for i in range(0, len(payload_base64), 72)]
 
-        MAX_LINE_WRAPS = 10_000
-        wrap_count = 0
-        i = 72
-        while i < len(payload_base64):
-            if wrap_count >= MAX_LINE_WRAPS:
-                raise ValueError(
-                    f"base64 payload line wrapping exceeded {MAX_LINE_WRAPS} iterations; payload too large or malformed"
-                )
-            wrap_count += 1
-            payload_base64.insert(i, 0x0A)
-            i += 73
-
-        data = version
-        data += payload_base64
-
-        new_raw_data = data.ljust(470, b"\x00")
+        # Serato keeps the size the tag already had (at least 470 bytes), padding it with nulls, rather than shrinking it.
+        # How much Serato grows a tag whose content doesn't fit isn't known, so it grows to one null byte past it,
+        # keeping the null byte every tag Serato writes ends with, as Mixxx does:
+        # https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp
+        content = version + b"\n".join(lines)
+        if len(lines[-1]) == 72:
+            content += b"\n"  # Serato ends every full line with one, even the last
+        size = max(470, len(self._raw_data or b""))
+        if len(content) >= size:
+            size = len(content) + 1
+        new_raw_data = content.ljust(size, b"\x00")
 
         self.modified = new_raw_data != self._raw_data  # pylint: disable=access-member-before-definition
         self._raw_data = new_raw_data
