@@ -24,6 +24,7 @@ class TrackCuesV1(SeratoGeobTag):
     GEOB_KEY = "Serato Markers_"
     VERSION = (0x02, 0x05)
 
+    @enum.unique
     class EntryType(enum.IntEnum):
         INVALID = 0
         CUE = 1
