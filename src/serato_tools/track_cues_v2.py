@@ -359,7 +359,8 @@ class TrackCuesV2(SeratoGeobTag):
 
         # Serato keeps the size the tag already had (at least 470 bytes), padding it with nulls, rather than shrinking it.
         # How much Serato grows a tag whose content doesn't fit isn't known, so it grows to one null byte past it,
-        # keeping the null byte every tag Serato writes ends with.
+        # keeping the null byte every tag Serato writes ends with, as Mixxx does:
+        # https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp
         content = version + b"\n".join(lines)
         if len(lines[-1]) == 72:
             content += b"\n"  # Serato ends every full line with one, even the last
