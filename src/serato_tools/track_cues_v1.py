@@ -11,6 +11,14 @@ from mutagen.mp3 import HeaderNotFoundError
 
 from serato_tools.utils.track_tags import SeratoGeobTag
 
+# the bytes Serato writes for a position that isn't set
+_NO_POSITION = b"\x7f\x7f\x7f\x7f"
+# the bytes Serato writes in every entry's field5, whose meaning is unknown
+_FIELD5 = b"\x00\x7f\x7f\x7f\x7f\x7f"
+# Serato always writes this many cue entries, then this many loop entries, whether they're set or not
+_NUM_CUES = 5
+_NUM_LOOPS = 9
+
 
 class TrackCuesV1(SeratoGeobTag):
     GEOB_KEY = "Serato Markers_"
@@ -65,7 +73,22 @@ class TrackCuesV1(SeratoGeobTag):
                 return struct.pack("BBB", a, b, c)
 
             info_size = struct.calcsize(cls.FORMAT)
-            info = struct.unpack(cls.FORMAT, data[:info_size])
+            if len(data) != info_size:
+                raise ValueError(f"{cls.__name__} entry is {len(data)} bytes, not {info_size}")
+            info = struct.unpack(cls.FORMAT, data)
+            fields: dict[str, object] = dict(zip(cls.FIELDS, info))
+            # the checks Mixxx makes (markers.cpp): every tag Serato writes passes them, so a tag that doesn't is one
+            # this class doesn't understand, and rewriting it could corrupt it
+            for set_field, position_field in (
+                ("start_position_set", "start_position"),
+                ("end_position_set", "end_position"),
+            ):
+                if set_field in fields and fields[set_field] == 0x7F and fields[position_field] != _NO_POSITION:
+                    raise ValueError(f"unset {position_field} isn't {_NO_POSITION!r}: {fields[position_field]!r}")
+            if "field5" in fields and fields["field5"] != _FIELD5:
+                raise ValueError(f"field5 isn't {_FIELD5!r}: {fields['field5']!r}")
+            if fields.get("is_locked") and fields["type"] != TrackCuesV1.EntryType.LOOP:
+                raise ValueError("only a loop can be locked")
             entry_data = []
 
             start_position_set = None
@@ -123,12 +146,12 @@ class TrackCuesV1(SeratoGeobTag):
                     value = _encode_bytes_32(value)
                 elif field == "start_position":
                     if value is None:
-                        value = 0x7F7F7F7F
+                        value = _NO_POSITION
                     else:
                         value = _encode_bytes_32(struct.pack(">I", value)[1:])
                 elif field == "end_position":
                     if value is None:
-                        value = 0x7F7F7F7F
+                        value = _NO_POSITION
                     else:
                         value = _encode_bytes_32(struct.pack(">I", value)[1:])
                 elif field == "type":
@@ -147,11 +170,15 @@ class TrackCuesV1(SeratoGeobTag):
         self._check_version(fp.read(self.VERSION_LEN))
 
         num_entries = struct.unpack(">I", fp.read(4))[0]
-        for i in range(num_entries):  # pylint: disable=unused-variable
-            entry_data = fp.read(0x16)
-            assert len(entry_data) == 0x16
-
-            entry = TrackCuesV1.Entry._parse(entry_data)
+        if num_entries != _NUM_CUES + _NUM_LOOPS:
+            raise ValueError(f"tag has {num_entries} entries, not {_NUM_CUES + _NUM_LOOPS}")
+        for i in range(num_entries):
+            entry = TrackCuesV1.Entry._parse(fp.read(0x16))
+            # an unset cue has type INVALID, but an unset loop keeps type LOOP
+            if i < _NUM_CUES and entry.type not in (TrackCuesV1.EntryType.INVALID, TrackCuesV1.EntryType.CUE):
+                raise ValueError(f"entry {i} should be a cue, but has type {entry.type!r}")
+            if i >= _NUM_CUES and entry.type != TrackCuesV1.EntryType.LOOP:
+                raise ValueError(f"entry {i} should be a loop, but has type {entry.type!r}")
             yield entry
 
         yield TrackCuesV1.Color._parse(fp.read())
