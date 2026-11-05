@@ -233,8 +233,9 @@ class TrackCuesV2(SeratoGeobTag):
         endposition: int  # milliseconds
         field5: bytes
         field6: bytes
-        # 27AAE1 for every loop in the captures in data/, which are from Serato DJ Pro 2 (2019-2020); Mixxx's
-        # src/track/serato/markers2.cpp notes "Serato's Loops don't have a color". Later versions may set it.
+        # 27AAE1 for every loop in the captures in data/, which are from Serato DJ Pro 2 (2019-2020). Mixxx notes
+        # "Serato's Loops don't have a color" (https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp).
+        # Later versions may set it.
         color: bytes
         locked: bool
         name: str
@@ -459,7 +460,9 @@ class TrackCuesV2(SeratoGeobTag):
                 result.append(self.color)
             result.extend(self.cues)
             result.extend(self.loops)
-            # Serato's order, as in data/id3/flips: BPMLOCK before the flips, which Serato added later and appends
+            # Serato's order: BPMLOCK before the flips, as in data/id3/flips and as Mixxx writes them
+            # (https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp): "new entry types are appended when Serato decides to add a new type. For FLIP entries, this
+            # holds true"
             if self.bpm_lock is not None:
                 result.append(self.bpm_lock)
             result.extend(self.flips)
