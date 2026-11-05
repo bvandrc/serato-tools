@@ -5,6 +5,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [5.5.1] - 2026-11-05
 
 - Changing a track's cues keeps its BPM lock before its flips, the order Serato writes them in
+- `TrackBeatgrid` raises ValueError when reading or writing a beatgrid Serato wouldn't write: a marker with 0 beats, a marker that doesn't come after the one before it, or a BPM that isn't above 0
 
 ## [5.5.0] - 2026-11-04
 
