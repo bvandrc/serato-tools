@@ -125,16 +125,44 @@ class TestCase(unittest.TestCase):
         with open("test/data/track_cues_v2_analyzed.bin", "rb") as f:
             self.assertEqual(tags._raw_data, f.read())
 
-    def test_changing_entries_keeps_seratos_order(self):
-        # track_cues_v2_flips.bin is a tag Serato wrote with cues, a BPM lock, and then flips
-        with open("test/data/track_cues_v2_flips.bin", "rb") as f:
-            data = f.read()
-        tags = TrackCuesV2(data)
-        tags.modify_entries(dataclasses.replace)
-        # compared parsed rather than as bytes: Serato pads a tag this long in a way _serialize doesn't reproduce
+    def test_rewriting_keeps_seratos_bytes(self):
+        # tags Serato wrote: saved_loops's base64 ends in a character Serato drops, 514_bytes is longer than 470 bytes,
+        # flips has cues, a BPM lock, and then flips, in that order, and full_last_line's base64 ends in a full line
+        for name in (
+            "track_cues_v2_saved_loops.bin",
+            "track_cues_v2_514_bytes.bin",
+            "track_cues_v2_flips.bin",
+            "track_cues_v2_full_last_line.bin",
+        ):
+            with self.subTest(name), open(f"test/data/{name}", "rb") as f:
+                data = f.read()
+                tags = TrackCuesV2(data)
+                tags.modify_entries(dataclasses.replace)
+                self.assertEqual(tags._raw_data, data)
+
+    def test_shrinking_keeps_the_tags_size(self):
+        with open("test/data/track_cues_v2_514_bytes.bin", "rb") as f:
+            tags = TrackCuesV2(f.read())
+        # track_cues_v2_514_bytes.bin has cues and loops: without them, it needs well under 470 bytes
+        tags.modify_entries(lambda info: dataclasses.replace(info, cues=[], loops=[]))
         rewritten = tags._raw_data
         assert rewritten is not None
-        self.assertEqual(TrackCuesV2(rewritten).entries, TrackCuesV2(data).entries)
+        self.assertEqual(len(rewritten), 514)
+        self.assertEqual(TrackCuesV2(rewritten).entries, tags.entries)
+
+    def test_outgrowing_the_tags_size_ends_it_with_a_null_byte(self):
+        with open("test/data/track_cues_v2_514_bytes.bin", "rb") as f:
+            tags = TrackCuesV2(f.read())
+        # a long name on each cue makes the base64 well over 514 bytes
+        tags.modify_entries(
+            lambda info: dataclasses.replace(info, cues=[dataclasses.replace(cue, name="x" * 100) for cue in info.cues])
+        )
+        rewritten = tags._raw_data
+        assert rewritten is not None
+        self.assertGreater(len(rewritten), 514)
+        self.assertNotEqual(rewritten[-2:-1], b"\x00")
+        self.assertEqual(rewritten[-1:], b"\x00")
+        self.assertEqual(TrackCuesV2(rewritten).entries, tags.entries)
 
     def test_snap_position_to_beat(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
@@ -170,6 +198,14 @@ class TestCase(unittest.TestCase):
         # a loop's color is bytes 15-17, after 4 bytes of ff and one 00
         serialized = dataclasses.replace(loops[0], color=b"\xcc\x00\x00")._serialize()
         self.assertEqual(serialized[10:20], b"\xff\xff\xff\xff\x00\xcc\x00\x00\x00\x00")
+
+    def test_cue_colors_are_seratos_18(self):
+        # Serato DJ Intro's palette, which it displays as stored (docs/colors.md)
+        palette = (
+            "CC0000 CC4400 CC8800 CCCC00 88CC00 44CC00 00CC00 00CC44 00CC88 "
+            "00CCCC 0088CC 0044CC 0000CC 4400CC 8800CC CC00CC CC0088 CC0044"
+        )
+        self.assertEqual([color.value.hex().upper() for color in TrackCuesV2.CueColors], palette.split())
 
     def test_an_entry_unlike_seratos_raises(self):
         with open("test/data/track_cues_v2_saved_loops.bin", "rb") as f:
