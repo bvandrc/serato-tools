@@ -5,7 +5,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [5.5.1] - 2026-11-05
 
 - Changing a track's cues keeps its BPM lock before its flips, the order Serato writes them in
-- Fix `TrackCuesV2.LoopEntry`'s fields: `color` is now the loop's 3-byte color, which was in `field6`, and `field6` is the one `00` byte before it. Setting `color` used to write a byte that's always `00`
+- Fix a saved loop's `color` (`TrackCuesV2.LoopEntry.color`) reading and setting the wrong byte: it's now the loop's color, as 3 bytes like a cue's
 
 ## [5.5.0] - 2026-11-04
 
