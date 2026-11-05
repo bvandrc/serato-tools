@@ -38,13 +38,14 @@
 **Tracks:**
 - Change hot cue's text (i.e. change to all caps; change "c" to "CHORUS", etc.)
 - Set a hot cue's text based on its color (i.e. if RED, set to "EXIT")
-- Set a track's color (i.e. if has hot cues, change to BLUE)
+- Set a track's color (i.e. if has hot cues, change to BLUE); see [Setting track color](#setting-track-color) to set it in the database too
 - Set a piece of metadata due to a track's color (i.e. if track is green, set "grouping" to "TAGGED") (this is useful since can't create smart crates by track color in Serato)
 - Analyze a track's Dynamic Beatgrid and save it to the beatgrid Serato tag.
  - Snap cue points to the nearest beat with a configurable tolerance (e.g. 1/16, 1/8, 1/4 of a beat).
 
 **Library:**
 - Rename or delete a track file while updating the database, crates, and smart crates as well, so that it doesn't go missing.
+- Set a track's color or beatgrid lock in its tags and the database at once, so Serato shows it right away.
 
 **Database:**
 - After changing a track's metadata, modify database values for a specific track so that you don't have to "Reload Id3 Tags" in Serato, the change appears in Serato instantly.
@@ -185,17 +186,30 @@ track = Track('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', cues_v1=False, b
 
 ### Setting track color
 
+Set a track's color, or lock its beatgrid, with `Library`, which sets it in both the track file's tags and the library database. Serato shows the database, and only reads a file's tags again when the track is loaded or on "Rescan File Tags", so changing only one of the two leaves Serato showing a stale value, or the file losing the change. Close Serato first.
+
 ```python
+from serato_tools.library import Library
 from serato_tools.track_cues_v2 import TrackCuesV2
 
-tags = TrackCuesV2('/Users/Username/Music/Dubstep/Raaket - ILL.mp3')
-tags.set_track_color(
-    TrackCuesV2.TrackColors.PURPLE,
-    delete_tags_v1=True
+library = Library()
+library.set_db_track_tags(
+    '/Users/Username/Music/Dubstep/Raaket - ILL.mp3',
+    color=TrackCuesV2.TrackColors.PURPLE,
+    beatgrid_locked=True,
     # delete_tags_v1 (the default) deletes the legacy "Serato Markers_" tag, since a stale one stops the new color from appearing in Serato. No issues have been found from deleting it, but use caution with versions of Serato before 3, which may still read it.
+    delete_tags_v1=True,
 )
-tags.save()
+# many tracks at once, saving the database only once
+library.set_db_tracks_tags({
+    '/Users/Username/Music/Dubstep/Raaket - ILL.mp3': {'color': TrackCuesV2.TrackColors.PURPLE},
+    '/Users/Username/Music/Dubstep/Other.mp3': {'color': TrackCuesV2.TrackColors.BLUE1, 'beatgrid_locked': False},
+})
 ```
+
+Only ID3 files (.mp3, .aiff, .aif) are currently supported. A track Serato hasn't analyzed yet gets the color or lock added to its tags, as Serato writes them.
+
+Avoid `Track.set_track_color` / `set_beatgrid_locked` (or `TrackCuesV2`'s), or `DatabaseV2.modify` on the `COLOR` / `BEATGRID_LOCKED` fields, on their own, since each changes only one of the two.
 
 ### Snapping cue positions to the beatgrid
 
