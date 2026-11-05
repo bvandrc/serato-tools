@@ -126,8 +126,9 @@ class TestCase(unittest.TestCase):
             self.assertEqual(tags._raw_data, f.read())
 
     def test_rewriting_keeps_seratos_bytes(self):
-        # tags Serato wrote: saved_loops's base64 ends in a character Serato drops, and 514_bytes is longer than 470 bytes
-        for name in ("track_cues_v2_saved_loops.bin", "track_cues_v2_514_bytes.bin"):
+        # tags Serato wrote: saved_loops's base64 ends in a character Serato drops, 514_bytes is longer than 470 bytes,
+        # and flips has cues, a BPM lock, and then flips, in that order
+        for name in ("track_cues_v2_saved_loops.bin", "track_cues_v2_514_bytes.bin", "track_cues_v2_flips.bin"):
             with self.subTest(name), open(f"test/data/{name}", "rb") as f:
                 data = f.read()
                 tags = TrackCuesV2(data)

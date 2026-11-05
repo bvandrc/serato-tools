@@ -4,6 +4,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [5.5.1] - 2026-11-05
 
+- Changing a track's cues keeps its BPM lock before its flips, the order Serato writes them in
 - Changing a track's cues writes `Serato Markers2` the way Serato does: it keeps the tag's size rather than shrinking it to 470 bytes, and ends its base64 as Serato does
 
 ## [5.5.0] - 2026-11-04
