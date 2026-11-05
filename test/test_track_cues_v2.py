@@ -145,6 +145,20 @@ class TestCase(unittest.TestCase):
         self.assertEqual(len(rewritten), 514)
         self.assertEqual(TrackCuesV2(rewritten).entries, tags.entries)
 
+    def test_outgrowing_the_tags_size_ends_it_with_a_null_byte(self):
+        with open("test/data/track_cues_v2_514_bytes.bin", "rb") as f:
+            tags = TrackCuesV2(f.read())
+        # a long name on each cue makes the base64 well over 514 bytes
+        tags.modify_entries(
+            lambda info: dataclasses.replace(info, cues=[dataclasses.replace(cue, name="x" * 100) for cue in info.cues])
+        )
+        rewritten = tags._raw_data
+        assert rewritten is not None
+        self.assertGreater(len(rewritten), 514)
+        self.assertNotEqual(rewritten[-2:-1], b"\x00")
+        self.assertEqual(rewritten[-1:], b"\x00")
+        self.assertEqual(TrackCuesV2(rewritten).entries, tags.entries)
+
     def test_snap_position_to_beat(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
         buf = io.StringIO()

@@ -8,7 +8,7 @@ The tag contains a two-byte tag header, followed by base64-encoded binary data. 
 This happens because Serato appends a null byte to the data before encoding it, then drops the base64 padding along with the character before it, which only ever holds bits of that null byte (this is also how [Mixxx](https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp) writes it).
 
 The minimum length of this tag seems to be 470 bytes, and shorter contents are padded with null bytes.
-When Serato rewrites the tag, it keeps the length the tag already had, padding shorter contents with null bytes, so the tag only ever grows.
+When Serato rewrites the tag, it seems to keep the length the tag already had, padding shorter contents with null bytes (Mixxx does the same). How much it grows the tag by when the contents no longer fit isn't known; Mixxx grows it to one null byte past the contents.
 
 | Offset   |            Length | Raw Value                 | Decoded Value | Type                    | Description
 | -------- | ----------------- | ------------------------- | ------------- | ----------------------- | -----------
