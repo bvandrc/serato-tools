@@ -136,10 +136,9 @@ class TrackBeatgrid(SeratoGeobTag):
         nonterminal_markers: "list[TrackBeatgrid.NonTerminalBeatgridMarker]",
         terminal_marker: "TrackBeatgrid.TerminalBeatgridMarker",
     ):
-        # The checks Mixxx makes: every grid Serato DJ Pro 2 was seen writing passes them, so one that doesn't is a
-        # grid this class may misread, or one Serato can't use. Mixxx also rejects a negative position, which isn't
-        # checked here, since a grid whose first beat comes before the track starts seems possible.
-        # https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/beatgrid.cpp
+        # Every grid Serato DJ Pro 2 was seen writing passes these checks, so one that doesn't is a grid this class may
+        # misread, or one Serato can't use. A negative position isn't rejected, since a grid whose first beat comes
+        # before the track starts seems possible.
         previous_position_s = None
         for marker in nonterminal_markers:
             if marker.beats_till_next_marker <= 0:

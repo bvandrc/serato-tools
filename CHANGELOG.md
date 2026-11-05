@@ -7,7 +7,6 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Changing a track's cues keeps its BPM lock before its flips, the order Serato writes them in
 - Fix a saved loop's `color` (`TrackCuesV2.LoopEntry.color`) reading and setting the wrong byte: it's now the loop's color, as 3 bytes like a cue's
 - Fix setting a cue to `CueColors.LIMEGREEN3` giving it the sea foam color instead of lime green
-- `TrackBeatgrid` raises ValueError when reading or writing a beatgrid Serato wouldn't write: a marker with 0 beats, a marker that doesn't come after the one before it, or a BPM that isn't above 0
 
 ## [5.5.0] - 2026-11-04
 
