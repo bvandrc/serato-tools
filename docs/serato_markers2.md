@@ -80,7 +80,7 @@ Each `CUE` entry contains information about a [cue point](https://support.serato
 | `06`     |                `04` | `00 00 08 26`             | 2086          | `uint32_t`              | End Position in milliseconds
 | `0a`     |                `04` | `ff ff ff ff`             |               |                         |
 | `0e`     |                `04` | `00 27 aa e1`             | `#27aae1`     | 4-byte ARGB value       | Color
-| `12`     |                `03` | `00`                      |               |                         |
+| `12`     |                `01` | `00`                      |               |                         |
 | `13`     |                `01` | `00`                      | False         | `uint8_t` (boolean)     | Locked
 | `14`     | `01` <= X <= `7fec` | `00`                      | ``            | UTF-8 (null-terminated) | Name
 
