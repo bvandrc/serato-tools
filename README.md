@@ -210,7 +210,7 @@ library.set_db_tracks_tags({
 The same goes for a track's metadata, which Serato keeps both in the file's ID3 text frames and in the database: `title`, `artist`, `album`, `genre`, `key`, `grouping`, `label`, `composer`, `year`, `remixer`, `bpm`, `track_number`, and `disc_number`.
 
 ```python
-library.set_db_track_tags('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', grouping='TAGGED', bpm=140)
+library.set_db_track_tags('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', grouping='TAGGED', genre='Dubstep')
 ```
 
 Only ID3 files (.mp3, .aiff, .aif) are currently supported. A track Serato hasn't analyzed yet gets the color or lock added to its tags, as Serato writes them.
