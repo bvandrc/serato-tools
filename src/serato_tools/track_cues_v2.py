@@ -8,7 +8,7 @@ import struct
 import sys
 import warnings
 from typing import Callable, ClassVar, Sequence
-from enum import Enum
+from enum import Enum, unique
 import dataclasses
 from dataclasses import dataclass, field
 
@@ -27,6 +27,7 @@ class TrackCuesV2(SeratoGeobTag):
     VERSION = (0x01, 0x01)
 
     # the colors Serato stores; Serato DJ Pro and Lite show each one a little differently (see docs/colors.md)
+    @unique
     class CueColors(Enum):
         RED = b"\xcc\x00\x00"
         ORANGE = b"\xcc\x44\x00"
@@ -49,6 +50,7 @@ class TrackCuesV2(SeratoGeobTag):
 
     # the colors in Serato DJ Pro's track color picker, named for how they look there: the library column shows each
     # one differently, e.g. WHITE as 333333 (see docs/colors.md)
+    @unique
     class TrackColors(Enum):
         PINK = b"\xff\x99\xff"
         DARKPINK = b"\xff\x99\xdd"
