@@ -159,6 +159,18 @@ class TestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             tags.snap_positions_to_beat(1 / 8)
 
+    def test_loop_fields(self):
+        # track_cues_v2_saved_loops.bin is a tag Serato wrote with 4 loops, the second one locked
+        with open("test/data/track_cues_v2_saved_loops.bin", "rb") as f:
+            tags = TrackCuesV2(f.read())
+        loops = tags._from_entries().loops
+        self.assertEqual([loop.color for loop in loops], [b"\x27\xaa\xe1"] * 4)
+        self.assertEqual([loop.locked for loop in loops], [False, True, False, False])
+
+        # a loop's color is bytes 15-17, after 4 bytes of ff and one 00
+        serialized = dataclasses.replace(loops[0], color=b"\xcc\x00\x00")._serialize()
+        self.assertEqual(serialized[10:20], b"\xff\xff\xff\xff\x00\xcc\x00\x00\x00\x00")
+
     def test_untested_version_raises_at_construction(self):
         with self.assertRaises(ValueError):
             TrackCuesV2(bytes([0x99, 0x99]))
