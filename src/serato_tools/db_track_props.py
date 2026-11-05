@@ -18,6 +18,21 @@ class DbTrackTags(TypedDict, total=False):
 
     color: TrackCuesV2.TrackColors
     beatgrid_locked: bool
+    title: str
+    artist: str
+    album: str
+    genre: str
+    key: str
+    grouping: str
+    label: str
+    composer: str
+    year: str
+    remixer: str
+    bpm: float
+    track_number: int
+    disc_number: int
+    # TODO: comment (tcom), once we know which COMM frame (description and language) Serato reads and writes
+    # comment: str
 
 
 @dataclass(frozen=True)
@@ -26,6 +41,16 @@ class _DbTrackProp[T]:
     to_db_val: Callable[[T], SeratoBinFile.BasicValue]
     # sets the value in the track's tags, taking delete_tags_v1
     write: Callable[[Track, T, bool], None]
+
+
+def _text_frame_prop(db_field: DatabaseV2.Fields, frame_id: str) -> _DbTrackProp[str]:
+    # a value held as the same text in the database and in an ID3 text frame
+    return _DbTrackProp[str](db_field, lambda text: text, lambda track, text, _: track.text_frames.set(frame_id, text))
+
+
+def _bpm_frame_text(bpm: float) -> str:
+    # TBPM holds the BPM without trailing zeros (86, 128.5); the database holds it to 2 places
+    return f"{bpm:.2f}".rstrip("0").rstrip(".")
 
 
 # keyed by DbTrackTags' keys
@@ -40,6 +65,28 @@ _DB_TRACK_PROPS: dict[str, _DbTrackProp[Any]] = {
         DatabaseV2.Fields.BEATGRID_LOCKED,
         lambda locked: locked,
         lambda track, locked, delete_tags_v1: track.set_beatgrid_locked(locked, delete_tags_v1=delete_tags_v1),
+    ),
+    "title": _text_frame_prop(DatabaseV2.Fields.TITLE, "TIT2"),
+    "artist": _text_frame_prop(DatabaseV2.Fields.ARTIST, "TPE1"),
+    "album": _text_frame_prop(DatabaseV2.Fields.ALBUM, "TALB"),
+    "genre": _text_frame_prop(DatabaseV2.Fields.GENRE, "TCON"),
+    "key": _text_frame_prop(DatabaseV2.Fields.KEY, "TKEY"),
+    "grouping": _text_frame_prop(DatabaseV2.Fields.GROUPING, "TIT1"),
+    "label": _text_frame_prop(DatabaseV2.Fields.PUBLISHER, "TPUB"),
+    "composer": _text_frame_prop(DatabaseV2.Fields.COMPOSER, "TCOM"),
+    # the frame EasyID3 calls "date"
+    "year": _text_frame_prop(DatabaseV2.Fields.YEAR, "TDRC"),
+    "remixer": _text_frame_prop(DatabaseV2.Fields.REMIXER, "TPE4"),
+    "bpm": _DbTrackProp[float](
+        DatabaseV2.Fields.BPM,
+        lambda bpm: f"{bpm:.2f}",
+        lambda track, bpm, _: track.text_frames.set("TBPM", _bpm_frame_text(bpm)),
+    ),
+    "track_number": _DbTrackProp[int](
+        DatabaseV2.Fields.TRACK_NUMBER, lambda number: number, lambda track, n, _: track.text_frames.set("TRCK", str(n))
+    ),
+    "disc_number": _DbTrackProp[int](
+        DatabaseV2.Fields.DISC_NUMBER, lambda number: number, lambda track, n, _: track.text_frames.set("TPOS", str(n))
     ),
 }
 assert set(_DB_TRACK_PROPS) == DbTrackTags.__optional_keys__, "every DbTrackTags key needs a property, and only those"
@@ -65,7 +112,7 @@ def write_db_track_tags_to_files(tracks: Mapping[str, DbTrackTags], delete_tags_
     for filepath, tags in tracks.items():
         if not tags:
             continue
-        # every property so far lives in Serato Markers2, so parse only that
+        # every property lives in Serato Markers2 or a text frame, so parse only those
         track = Track(filepath, cues_v1=False, beatgrid=False, autotags=False, gain=False)
         for key, value in tags.items():
             _DB_TRACK_PROPS[key].write(track, value, delete_tags_v1)
