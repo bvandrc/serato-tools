@@ -8,7 +8,7 @@ import struct
 import sys
 import warnings
 from typing import Callable, ClassVar, Sequence
-from enum import Enum
+from enum import Enum, unique
 import dataclasses
 from dataclasses import dataclass, field
 
@@ -26,6 +26,8 @@ class TrackCuesV2(SeratoGeobTag):
     GEOB_KEY = "Serato Markers2"
     VERSION = (0x01, 0x01)
 
+    # the colors Serato stores; Serato DJ Pro and Lite show each one a little differently (see docs/colors.md)
+    @unique
     class CueColors(Enum):
         RED = b"\xcc\x00\x00"
         ORANGE = b"\xcc\x44\x00"
@@ -34,7 +36,7 @@ class TrackCuesV2(SeratoGeobTag):
         LIMEGREEN1 = b"\x88\xcc\x00"
         DARKGREEN = b"\x44\xcc\x00"
         LIMEGREEN2 = b"\x00\xcc\x00"
-        LIMEGREEN3 = b"\x00\xcc\x88"
+        LIMEGREEN3 = b"\x00\xcc\x44"
         SEAFOAM = b"\x00\xcc\x88"
         CYAN = b"\x00\xcc\xcc"
         LIGHTBLUE = b"\x00\x88\xcc"
@@ -46,6 +48,9 @@ class TrackCuesV2(SeratoGeobTag):
         MAGENTA = b"\xcc\x00\x88"
         PINKRED = b"\xcc\x00\x44"
 
+    # the colors in Serato DJ Pro's track color picker, named for how they look there: the library column shows each
+    # one differently, e.g. WHITE as 333333 (see docs/colors.md)
+    @unique
     class TrackColors(Enum):
         PINK = b"\xff\x99\xff"
         DARKPINK = b"\xff\x99\xdd"
@@ -65,6 +70,7 @@ class TrackCuesV2(SeratoGeobTag):
         BLUE2 = b"\x99\x99\xff"
         PURPLE = b"\xbb\x99\xff"
         MAGENTA = b"\xdd\x99\xff"
+        # also what Serato writes for a newly analyzed track
         WHITE = b"\xff\xff\xff"
         GREY = b"\xbb\xbb\xbb"
         BLACK = b"\x99\x99\x99"
@@ -227,8 +233,9 @@ class TrackCuesV2(SeratoGeobTag):
         endposition: int  # milliseconds
         field5: bytes
         field6: bytes
-        # 27AAE1 for every loop in the captures in data/ and Mixxx's tests, which are from Serato DJ Pro 2 (2019-2020);
-        # Mixxx notes "Serato's Loops don't have a color". Later versions may set it.
+        # 27AAE1 for every loop in the captures in data/, which are from Serato DJ Pro 2 (2019-2020). Later versions
+        # may set it. Mixxx notes "Serato's Loops don't have a color":
+        # https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp
         color: bytes
         locked: bool
         name: str
@@ -453,8 +460,9 @@ class TrackCuesV2(SeratoGeobTag):
                 result.append(self.color)
             result.extend(self.cues)
             result.extend(self.loops)
-            # Serato's order: BPMLOCK before the flips, as in data/id3/flips and as Mixxx writes them (markers2.cpp: "new
-            # entry types are appended when Serato decides to add a new type. For FLIP entries, this holds true")
+            # Serato's order: BPMLOCK before the flips, as in data/id3/flips and as Mixxx writes them. Mixxx: "new
+            # entry types are appended when Serato decides to add a new type. For FLIP entries, this holds true"
+            # https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp
             if self.bpm_lock is not None:
                 result.append(self.bpm_lock)
             result.extend(self.flips)

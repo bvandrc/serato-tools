@@ -171,6 +171,14 @@ class TestCase(unittest.TestCase):
         serialized = dataclasses.replace(loops[0], color=b"\xcc\x00\x00")._serialize()
         self.assertEqual(serialized[10:20], b"\xff\xff\xff\xff\x00\xcc\x00\x00\x00\x00")
 
+    def test_cue_colors_are_seratos_18(self):
+        # Serato DJ Intro's palette, which it displays as stored (docs/colors.md)
+        palette = (
+            "CC0000 CC4400 CC8800 CCCC00 88CC00 44CC00 00CC00 00CC44 00CC88 "
+            "00CCCC 0088CC 0044CC 0000CC 4400CC 8800CC CC00CC CC0088 CC0044"
+        )
+        self.assertEqual([color.value.hex().upper() for color in TrackCuesV2.CueColors], palette.split())
+
     def test_untested_version_raises_at_construction(self):
         with self.assertRaises(ValueError):
             TrackCuesV2(bytes([0x99, 0x99]))
