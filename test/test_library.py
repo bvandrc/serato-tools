@@ -83,8 +83,9 @@ class TestCase(unittest.TestCase):
 
         saved = self.saved_file_names()
         library = Library(self.serato_dir)
-        library.rename_track_file(src, dest)
+        renamed = library.rename_track_file(src, dest)
 
+        self.assertTrue(renamed, "returns that it renamed")
         self.assertTrue(os.path.exists(dest) and not os.path.exists(src), "file renamed")
         self.assertCountEqual(saved, [DatabaseV2.FILENAME, "With.crate", "Smart.scrate"], "only files with track saved")
         old_path, new_path = DatabaseV2.get_relative_path(src), DatabaseV2.get_relative_path(dest)
@@ -102,8 +103,9 @@ class TestCase(unittest.TestCase):
         saved = self.saved_file_names()
         # os.rename silently overwrites on POSIX, unlike on Windows, so test with that
         with mock.patch("os.rename", side_effect=os.replace):
-            Library(self.serato_dir).rename_track_file(src, dest)
+            renamed = Library(self.serato_dir).rename_track_file(src, dest)
 
+        self.assertFalse(renamed, "returns that it didn't rename")
         self.assertTrue(os.path.exists(src), "src left in place")
         self.assertEqual(saved, [], "nothing saved")
 

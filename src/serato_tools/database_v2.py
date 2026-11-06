@@ -34,7 +34,7 @@ class DatabaseV2(SeratoBinFile):
                 corrupt[track.get_full_path()] = str(reason)
         return corrupt
 
-    def rename_track_file(self, src: str, dest: str):
+    def rename_track_file(self, src: str, dest: str) -> bool:
         """Deprecated, to be removed in the next major version: use Library.rename_track_file(), which this calls."""
         warnings.warn(
             "DatabaseV2.rename_track_file is deprecated, use Library.rename_track_file instead",
@@ -45,7 +45,7 @@ class DatabaseV2(SeratoBinFile):
         from serato_tools.library import Library  # pylint: disable=import-outside-toplevel
 
         library = Library(os.path.dirname(self.filepath), database=self)
-        library.rename_track_file(src, dest)
+        return library.rename_track_file(src, dest)
 
 
 if __name__ == "__main__":
