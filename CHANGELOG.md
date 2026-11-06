@@ -2,10 +2,11 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [5.6.0] - 2026-11-06
+## [5.5.0] - 2026-11-06
 
 ### Features
 
+- Add `Library.set_db_track_tags` and `set_db_tracks_tags`, which set a track's color and beatgrid lock in its tags and in the database at once, so Serato shows the change right away, without rescanning file tags. Only ID3 files (.mp3, .aiff, .aif) are currently supported
 - `Library.rename_track_file` returns whether it renamed the file. It returns False when a different file already exists at `dest`, which it still only logs
 
 ### Fixes
@@ -14,10 +15,6 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Fix a saved loop's `color` (`TrackCuesV2.LoopEntry.color`) reading and setting the wrong byte: it's now the loop's color, as 3 bytes like a cue's
 - Fix setting a cue to `CueColors.LIMEGREEN3` giving it the sea foam color instead of lime green
 - `TrackCuesV2` raises ValueError for a `COLOR`, `BPMLOCK`, `CUE`, or `LOOP` entry unlike any Serato writes (e.g. a nonzero byte where Serato always writes `00`), rather than risk rewriting one it doesn't understand
-
-## [5.5.0] - 2026-11-04
-
-- Add `Library.set_db_track_tags` and `set_db_tracks_tags`, which set a track's color and beatgrid lock in its tags and in the database at once, so Serato shows the change right away, without rescanning file tags. Only ID3 files (.mp3, .aiff, .aif) are currently supported
 
 ## [5.4.1] - 2026-11-04
 
