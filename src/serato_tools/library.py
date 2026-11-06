@@ -68,28 +68,30 @@ class Library:
         # the database as blank "?" entries
         return [self.database, *self.crates, *self.smart_crates]
 
-    def rename_track_file(self, src: str, dest: str):
+    def rename_track_file(self, src: str, dest: str) -> bool:
         """Renames the file, and points the database and crates at the new path, so the track isn't missing in Serato.
 
-        Does nothing if a different file already exists at `dest`. Only the files that contain the track are saved.
+        Returns whether it renamed the file. It does nothing, and returns False, if a different file already exists at
+        `dest`. Only the files that contain the track are saved.
         """
         # os.rename only raises FileExistsError on Windows; on POSIX it silently overwrites, so check
         # first. A case-only rename is fine: on case-insensitive filesystems dest is then the same file.
         # If src is missing, samefile raises FileNotFoundError, just as the rename itself would.
         if os.path.exists(dest) and not os.path.samefile(src, dest):
             logger.error(f"File already exists with change: {src}")
-            return
+            return False
         try:
             os.rename(src=src, dst=dest)
             logger.info(f"renamed {src} to {dest}")
         except FileExistsError:
             # can't just do os.path.exists, doesn't pick up case changes for certain filesystems
             logger.error(f"File already exists with change: {src}")
-            return
+            return False
 
         for file in self._get_bin_files():
             if file.change_track_path(src, dest):
                 file.save()
+        return True
 
     def remove_track_files(self, filepaths: list[str]):
         """Removes the tracks from the database and crates, then deletes their files.
