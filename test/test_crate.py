@@ -2,6 +2,7 @@
 import unittest
 import copy
 import os
+import shutil
 import tempfile
 
 from serato_tools.crate import Crate
@@ -115,3 +116,40 @@ class TestCase(unittest.TestCase):
 
             self.assertEqual(Crate(file).get_track_paths(), crate.get_track_paths())
             self.assertEqual(len(crate.get_track_paths()), 1)
+
+    def test_has_changed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            file = os.path.join(tmp, "Test.crate")
+            shutil.copy("test/data/TestCrate.crate", file)
+            crate = Crate(file)
+            self.assertFalse(crate.has_changed, "as loaded")
+
+            crate.add_tracks(["/music/track1.mp3"])
+            self.assertTrue(crate.has_changed, "track added")
+            crate.save(os.path.join(tmp, "Copy.crate"))
+            self.assertTrue(crate.has_changed, "saving a copy elsewhere leaves its own file unsaved")
+            crate.save()
+            self.assertFalse(crate.has_changed, "saved")
+
+            sorting = crate.entries[1][1]
+            assert isinstance(sorting, list)
+            sorting.append((Crate.Fields.COLUMN_NAME, "edited in place"))
+            self.assertTrue(crate.has_changed, "nested entry edited in place")
+            sorting.pop()
+            self.assertFalse(crate.has_changed, "edited back")
+
+    def test_new_crate_has_changed_until_saved(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            crate = Crate(os.path.join(tmp, "New.crate"))
+            self.assertTrue(crate.has_changed, "saving creates the file")
+            crate.save()
+            self.assertFalse(crate.has_changed)
+
+    def test_crate_loaded_from_json_hasnt_changed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            json_file = os.path.join(tmp, "Test.json")
+            Crate("test/data/TestCrate.crate").write_json(json_file)
+            crate = Crate(json_file)
+            self.assertFalse(crate.has_changed)
+            crate.add_tracks(["/music/track1.mp3"])
+            self.assertTrue(crate.has_changed)

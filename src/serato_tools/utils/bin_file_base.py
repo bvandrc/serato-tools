@@ -99,6 +99,9 @@ class SeratoBinFile:
     # set once __init__ has parsed the file, so save() can refuse a half-built instance
     _parsed: bool = False
 
+    # a copy of the entries as loaded or last saved to the file's own path, for has_changed; None if it didn't exist
+    _saved_entries: "SeratoBinFile.EntryList | None" = None
+
     def __init__(self, file: str):
         self.filepath = os.path.abspath(file)
 
@@ -116,6 +119,7 @@ class SeratoBinFile:
             else:
                 with open(file, "rb") as f:
                     self.entries = list(self._parse_item(f.read()))
+            self._saved_entries = self._copy_entries(self.entries)
         else:
             logger.warning(f"File does not exist: {file}. Using default data to create an empty item.")
             # deep copy: nested values (osrt, ovct, ...) are lists too, and a shallow copy would leave every
@@ -411,6 +415,27 @@ class SeratoBinFile:
         """
         return self._serialize_entries(self.entries)
 
+    @staticmethod
+    def _copy_entries(entries: EntryList) -> EntryList:
+        # copies only the lists, the one mutable part of an entry, which is several times faster than copy.deepcopy
+        # on a large database
+        return [
+            (field, SeratoBinFile._copy_entries(value) if isinstance(value, list) else value)
+            for field, value in entries
+        ]
+
+    @property
+    def has_changed(self) -> bool:
+        """Whether the entries differ from the file's as loaded or last saved, in place or by assignment.
+
+        Compared with the entries as loaded or saved, not with the file on disk now, which this doesn't reread. A file
+        that didn't exist when loaded counts as changed, since saving creates it.
+        """
+        return self._saved_entries is None or self.entries != self._saved_entries
+
+    def _is_own_path(self, file: str) -> bool:
+        return os.path.normcase(os.path.abspath(file)) == os.path.normcase(self.filepath)
+
     def get_tracks(self) -> Generator[Track, None, None]:
         for field, value in self.entries:
             if field == SeratoBinFile.Fields.TRACK:
@@ -501,6 +526,9 @@ class SeratoBinFile:
         data = self.to_bytes()
         with open(file, "wb") as f:
             f.write(data)
+        # saving a copy elsewhere leaves this file's own changes unsaved
+        if self._is_own_path(file):
+            self._saved_entries = self._copy_entries(self.entries)
 
     @classmethod
     def get_field_name(cls, field: str) -> str:
@@ -651,8 +679,7 @@ class SeratoBinFile:
         Skips the save when nothing changed, unless `file` names somewhere other than this file's own path.
         """
         changed = self.modify(rules)
-        same_file = file is None or os.path.normcase(os.path.abspath(file)) == os.path.normcase(self.filepath)
-        if changed or not same_file:
+        if changed or not (file is None or self._is_own_path(file)):
             self.save(file)
 
     def change_track_path(self, src: str, dest: str) -> bool:

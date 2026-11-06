@@ -71,3 +71,13 @@ class TestCase(unittest.TestCase):
             tags_readback = TrackGain(tmp_file)
             self.assertIsNone(tags_readback.gain)
             self.assertIsNone(tags_readback.peak)
+
+    def test_has_changed(self):
+        tags = TrackGain(os.path.abspath("test/data/test_mp3.mp3"))
+        self.assertFalse(tags.has_changed, "as read")
+        tags.set(gain=-3.5)
+        self.assertTrue(tags.has_changed, "set")
+        tags.set(gain=0.0)
+        self.assertFalse(tags.has_changed, "set back")
+        tags.delete()
+        self.assertTrue(tags.has_changed, "deleted")

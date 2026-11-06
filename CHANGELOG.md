@@ -2,12 +2,14 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [5.5.1] - 2026-11-05
+## [5.6.0] - 2026-11-06
 
-- Changing a track's cues keeps its BPM lock before its flips, the order Serato writes them in
 - Fix a saved loop's `color` (`TrackCuesV2.LoopEntry.color`) reading and setting the wrong byte: it's now the loop's color, as 3 bytes like a cue's
-- Fix setting a cue to `CueColors.LIMEGREEN3` giving it the sea foam color instead of lime green
+- Fix `TrackCuesV2.save()` skipping the save, and losing a change, when an edit that changed nothing followed one that did
 - `TrackCuesV2` raises ValueError for a `COLOR`, `BPMLOCK`, `CUE`, or `LOOP` entry unlike any Serato writes (e.g. a nonzero byte where Serato always writes `00`), rather than risk rewriting one it doesn't understand
+- Add a read-only `has_changed` property to the library database, crates, smart crates, each track tag class, and `Track`, which says whether saving would write a change, without saving
+- Fix setting a cue to `CueColors.LIMEGREEN3` giving it the sea foam color instead of lime green
+- Changing a track's cues keeps its BPM lock before its flips, the order Serato writes them in
 
 ## [5.5.0] - 2026-11-04
 
