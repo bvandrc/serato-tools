@@ -2,6 +2,11 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.6.0] - 2026-11-06
+
+- Add a read-only `has_changed` property to the library database, crates, smart crates, each track tag class, and `Track`, which says whether saving would write a change, without saving
+- Fix `TrackCuesV2.save()` skipping the save, and losing a change, when an edit that changed nothing followed one that did
+
 ## [5.5.1] - 2026-11-05
 
 - Changing a track's cues keeps its BPM lock before its flips, the order Serato writes them in
