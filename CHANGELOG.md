@@ -2,13 +2,18 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [5.5.1] - 2026-11-05
+## [5.6.0] - 2026-11-06
+
+### Features
 
 - `Library.rename_track_file` returns whether it renamed the file. It returns False when a different file already exists at `dest`, which it still only logs
+- `TrackCuesV2` raises ValueError for a `COLOR`, `BPMLOCK`, `CUE`, or `LOOP` entry unlike any Serato writes (e.g. a nonzero byte where Serato always writes `00`), rather than risk rewriting one it doesn't understand
+
+### Fixes
+
 - Changing a track's cues keeps its BPM lock before its flips, the order Serato writes them in
 - Fix a saved loop's `color` (`TrackCuesV2.LoopEntry.color`) reading and setting the wrong byte: it's now the loop's color, as 3 bytes like a cue's
 - Fix setting a cue to `CueColors.LIMEGREEN3` giving it the sea foam color instead of lime green
-- `TrackCuesV2` raises ValueError for a `COLOR`, `BPMLOCK`, `CUE`, or `LOOP` entry unlike any Serato writes (e.g. a nonzero byte where Serato always writes `00`), rather than risk rewriting one it doesn't understand
 
 ## [5.5.0] - 2026-11-04
 
