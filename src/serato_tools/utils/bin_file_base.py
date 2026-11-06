@@ -99,8 +99,8 @@ class SeratoBinFile:
     # set once __init__ has parsed the file, so save() can refuse a half-built instance
     _parsed: bool = False
 
-    # the bytes the file was loaded from or last saved to its own path, for has_changed; None if it didn't exist
-    _saved_bytes: bytes | None = None
+    # a copy of the entries as loaded or last saved to the file's own path, for has_changed; None if it didn't exist
+    _saved_entries: "SeratoBinFile.EntryList | None" = None
 
     def __init__(self, file: str):
         self.filepath = os.path.abspath(file)
@@ -116,14 +116,10 @@ class SeratoBinFile:
             if file.lower().endswith(".json"):
                 with open(file, "r", encoding="utf-8") as f:
                     self.from_json_object(json.load(f))
-                self._saved_bytes = self.to_bytes()
             else:
                 with open(file, "rb") as f:
-                    data = f.read()
-                self.entries = list(self._parse_item(data))
-                # the bytes as read rather than re-serialized, which is free; a file that doesn't round-trip byte for
-                # byte then counts as changed, which it is, since saving would rewrite it
-                self._saved_bytes = data
+                    self.entries = list(self._parse_item(f.read()))
+            self._saved_entries = self._copy_entries(self.entries)
         else:
             logger.warning(f"File does not exist: {file}. Using default data to create an empty item.")
             # deep copy: nested values (osrt, ovct, ...) are lists too, and a shallow copy would leave every
@@ -419,15 +415,23 @@ class SeratoBinFile:
         """
         return self._serialize_entries(self.entries)
 
+    @staticmethod
+    def _copy_entries(entries: EntryList) -> EntryList:
+        # copies only the lists, the one mutable part of an entry, which is several times faster than copy.deepcopy
+        # on a large database
+        return [
+            (field, SeratoBinFile._copy_entries(value) if isinstance(value, list) else value)
+            for field, value in entries
+        ]
+
     @property
     def has_changed(self) -> bool:
-        """Whether the entries differ from the file as loaded or last saved, so that save() would change it.
+        """Whether the entries differ from the file's as loaded or last saved, in place or by assignment.
 
-        Compared with the bytes as read or written, not with the file on disk now, which this doesn't reread. Each call
-        serializes the whole file, as to_bytes() does. A file that didn't exist when loaded counts as changed, since
-        saving creates it, and a file loaded from JSON is compared with the entries it was loaded with.
+        Compared with the entries as loaded or saved, not with the file on disk now, which this doesn't reread. A file
+        that didn't exist when loaded counts as changed, since saving creates it.
         """
-        return self._saved_bytes is None or self.to_bytes() != self._saved_bytes
+        return self._saved_entries is None or self.entries != self._saved_entries
 
     def _is_own_path(self, file: str) -> bool:
         return os.path.normcase(os.path.abspath(file)) == os.path.normcase(self.filepath)
@@ -524,7 +528,7 @@ class SeratoBinFile:
             f.write(data)
         # saving a copy elsewhere leaves this file's own changes unsaved
         if self._is_own_path(file):
-            self._saved_bytes = data
+            self._saved_entries = self._copy_entries(self.entries)
 
     @classmethod
     def get_field_name(cls, field: str) -> str:
