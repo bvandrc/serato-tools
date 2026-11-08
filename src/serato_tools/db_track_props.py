@@ -5,7 +5,7 @@ Needs the `track_tags` extra. Only ID3 files (.mp3, .aiff, .aif) are currently s
 """
 
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, TypedDict
+from typing import Any, Callable, Mapping, Protocol, TypedDict
 
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.track import Track
@@ -20,12 +20,18 @@ class DbTrackTags(TypedDict, total=False):
     beatgrid_locked: bool
 
 
+class _WriteDbTrackProp[T](Protocol):
+    """Sets a value in the track's tags, in memory."""
+
+    # positional-only, so the lambdas below fit whatever they name their parameters
+    def __call__(self, track: Track, value: T, delete_tags_v1: bool, /) -> None: ...
+
+
 @dataclass(frozen=True)
 class _DbTrackProp[T]:
     db_field: DatabaseV2.Fields
     to_db_val: Callable[[T], SeratoBinFile.BasicValue]
-    # sets the value in the track's tags, taking delete_tags_v1
-    write: Callable[[Track, T, bool], None]
+    write: _WriteDbTrackProp[T]
 
 
 # keyed by DbTrackTags' keys

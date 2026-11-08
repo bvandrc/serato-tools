@@ -7,7 +7,7 @@ import base64
 import warnings
 from enum import StrEnum, unique
 import json
-from typing import Iterable, Mapping, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
+from typing import Iterable, Mapping, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired, Protocol
 
 from serato_tools.utils import logger, SERATO_DRIVE, DataTypeError, DeeplyNestedListError
 
@@ -581,10 +581,19 @@ class SeratoBinFile:
 
             yield field, self.get_field_name(field), value
 
+    class ModifyFunc(Protocol):
+        """A `ModifyRule`'s function, which gives a track's new value for the rule's field.
+
+        It's passed the track's path and the field's current value (None if the track has none), and returns the new
+        value, or None to leave it unchanged.
+        """
+
+        # positional-only, so a function with any parameter names, or *args, fits
+        def __call__(self, filename: str, prev_val: "SeratoBinFile.ValueOrNone", /) -> "SeratoBinFile.ValueOrNone": ...
+
     class ModifyRule(TypedDict):
         field: "SeratoBinFile.Fields"
-        func: Callable[[str, "SeratoBinFile.ValueOrNone"], "SeratoBinFile.ValueOrNone"]
-        """ (filename: str, prev_value: ValueType | None) -> new_value: ValueType | None """
+        func: "SeratoBinFile.ModifyFunc"
         files: NotRequired[list[str]]
 
     def modify(self, rules: list[ModifyRule]) -> bool:
