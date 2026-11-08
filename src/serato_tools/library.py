@@ -9,6 +9,7 @@ from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.smart_crate import SmartCrate
 from serato_tools.utils.bin_file_base import SeratoBinFile
+from serato_tools.utils.crate_base import CrateBase
 from serato_tools.utils import logger, SERATO_DIR
 
 if TYPE_CHECKING:
@@ -58,7 +59,7 @@ class Library:
     def smart_crates(self) -> list[SmartCrate]:
         return [SmartCrate(path) for path in self._get_crate_files(SmartCrate)]
 
-    def _get_crate_files(self, crate_class: type[Crate] | type[SmartCrate]) -> list[str]:
+    def _get_crate_files(self, crate_class: type[CrateBase]) -> list[str]:
         crates_dir = os.path.join(self.serato_dir, crate_class.DIR)
         # Serato only creates the folder once the first crate of its kind is made
         return crate_class.get_crate_files(crates_dir) if os.path.isdir(crates_dir) else []

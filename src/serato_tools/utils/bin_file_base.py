@@ -581,10 +581,12 @@ class SeratoBinFile:
 
             yield field, self.get_field_name(field), value
 
+    type ModifyFunc = Callable[[str, "SeratoBinFile.ValueOrNone"], "SeratoBinFile.ValueOrNone"]
+    """ (filename: str, prev_value: ValueType | None) -> new_value: ValueType | None """
+
     class ModifyRule(TypedDict):
         field: "SeratoBinFile.Fields"
-        func: Callable[[str, "SeratoBinFile.ValueOrNone"], "SeratoBinFile.ValueOrNone"]
-        """ (filename: str, prev_value: ValueType | None) -> new_value: ValueType | None """
+        func: "SeratoBinFile.ModifyFunc"
         files: NotRequired[list[str]]
 
     def modify(self, rules: list[ModifyRule]) -> bool:
