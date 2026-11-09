@@ -123,6 +123,8 @@ class TrackCuesV1(SeratoGeobTag):
                 elif field == "color":
                     value = _encode_bytes_32(value)
                 elif field == "start_position":
+                    # an unset position is stored as 7f bytes, as Serato writes it; FORMAT packs the field as 4s, so
+                    # it has to be bytes, not the int 0x7F7F7F7F
                     if value is None:
                         value = b"\x7f\x7f\x7f\x7f"
                     else:
