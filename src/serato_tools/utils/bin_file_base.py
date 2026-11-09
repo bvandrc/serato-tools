@@ -681,7 +681,7 @@ class SeratoBinFile:
         Skips the save when nothing changed, unless `file` names somewhere other than this file's own path.
         """
         changed = self.modify(rules)
-        if changed or not (file is None or self._is_own_path(file)):
+        if changed or (file is not None and not self._is_own_path(file)):
             self.save(file)
 
     def change_track_path(self, src: str, dest: str) -> bool:
