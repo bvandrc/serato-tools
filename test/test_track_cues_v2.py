@@ -3,6 +3,7 @@ import base64
 import dataclasses
 import struct
 import unittest
+from unittest import mock
 import os
 import tempfile
 import shutil
@@ -96,14 +97,39 @@ class TestCase(unittest.TestCase):
             tags.save()
             self.assertEqual(TrackCuesV2(tmp_file).get_track_color(), TrackCuesV2.TrackColors.RED.value)
 
+    def test_has_changed(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_file = os.path.join(tmp_dir, "test.mp3")
+            shutil.copy("test/data/test_mp3.mp3", tmp_file)
+            tags = TrackCuesV2(tmp_file)
+            original_color = TrackCuesV2.TrackColors(tags.get_track_color())
+            self.assertFalse(tags.has_changed, "as read")
+            tags.set_track_color(TrackCuesV2.TrackColors.RED)
+            self.assertTrue(tags.has_changed, "color changed")
+            tags.modify_entries(dataclasses.replace)
+            self.assertTrue(tags.has_changed, "an edit that changed nothing doesn't reset it")
+            tags.set_track_color(original_color)
+            self.assertFalse(tags.has_changed, "color changed back")
+            tags.set_track_color(TrackCuesV2.TrackColors.RED)
+            tags.save()
+            self.assertFalse(tags.has_changed, "saved")
+
+    def test_save_skips_writing_when_unchanged(self):
+        tags = TrackCuesV2("test/data/test_mp3.mp3")
+        assert tags.tagfile is not None
+        with mock.patch.object(tags.tagfile, "save") as write:
+            tags.save()
+            write.assert_not_called()
+            tags.save(force=True)
+            write.assert_called_once()
+
     def test_modified_is_deprecated(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
         with self.assertWarns(DeprecationWarning):
             self.assertFalse(tags.modified, "as read")
         tags.set_track_color(TrackCuesV2.TrackColors.RED)
-        tags.modify_entries(dataclasses.replace)
         with self.assertWarns(DeprecationWarning):
-            self.assertTrue(tags.modified, "an edit that changed nothing doesn't reset it")
+            self.assertTrue(tags.modified, "returns has_changed")
 
     def test_set_beatgrid_locked(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")

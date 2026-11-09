@@ -531,18 +531,26 @@ class TrackCuesV2(SeratoGeobTag):
         return was_deleted
 
     @property
+    def has_changed(self) -> bool:
+        """Whether the tag's bytes differ from the file's as read or last saved, so that saving would change them.
+
+        For a tag read from bytes, whether they differ from those bytes.
+        """
+        return self._raw_data != self._tagged_raw_data
+
+    @property
     def modified(self) -> bool:
-        """Deprecated, to be removed in the next major version: whether the tag changed since it was read or saved."""
+        """Deprecated, to be removed in the next major version: use `has_changed`, which this returns."""
         warnings.warn(
-            "modified is deprecated and will be removed in version 6, save() already skips writing an unchanged tag",
+            "modified is deprecated and will be removed in version 6, use has_changed instead",
             DeprecationWarning,
             stacklevel=2,
         )
-        return self._raw_data != self._tagged_raw_data
+        return self.has_changed
 
     def save(self, force: bool = False):
         """Writes the tag to the file, if it changed since it was read or last saved, or if `force`."""
-        if self._raw_data != self._tagged_raw_data or force:
+        if self.has_changed or force:
             super().save()
 
     def get_track_color(self) -> bytes | None:
