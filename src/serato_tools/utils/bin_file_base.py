@@ -3,6 +3,7 @@ import io
 import re
 import struct
 import base64
+import copy
 import hashlib
 import warnings
 from enum import StrEnum, unique
@@ -129,7 +130,7 @@ class SeratoBinFile:
             logger.warning(f"File does not exist: {file}. Using default data to create an empty item.")
             # copied down to the nested lists (osrt, ovct, ...): a shallow copy would leave every instance sharing —
             # and able to mutate — the class-level DEFAULT_ENTRIES sublists.
-            self.entries = self._copy_entries(self.DEFAULT_ENTRIES)
+            self.entries = copy.deepcopy(self.DEFAULT_ENTRIES)
             version_entry = self.entries[0]
             default_version = version_entry[1]
             if not isinstance(default_version, str):
@@ -419,15 +420,6 @@ class SeratoBinFile:
         Each call re-serializes the whole file, so call it once rather than in a loop.
         """
         return self._serialize_entries(self.entries)
-
-    @staticmethod
-    def _copy_entries(entries: EntryList) -> EntryList:
-        # copies only the lists, the one mutable part of an entry, which is several times faster than copy.deepcopy
-        # on a large database
-        return [
-            (field, SeratoBinFile._copy_entries(value) if isinstance(value, list) else value)
-            for field, value in entries
-        ]
 
     @staticmethod
     def _hash(data: bytes) -> bytes:
