@@ -6,7 +6,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Features
 
-- Add a read-only `TrackCuesV2.has_changed` property, which says whether saving would write a change, without saving
+- Add a read-only `has_changed` property to each track tag class and `Track`, which says whether saving would write a change, without saving
 
 ### Fixes
 

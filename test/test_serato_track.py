@@ -55,3 +55,22 @@ class TestCase(unittest.TestCase):
     def test_unsupported_file_type_raises(self):
         with self.assertRaises(ValueError):
             ID3FileTag("some_file.flac")
+
+    def test_has_changed(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_file = os.path.join(tmp_dir, "test.mp3")
+            shutil.copy(os.path.abspath("test/data/test_mp3.mp3"), tmp_file)
+            tags = TrackAutotags(tmp_file)
+            self.assertFalse(tags.has_changed, "as read")
+            tags.set(bpm=128)
+            self.assertTrue(tags.has_changed, "set")
+            tags.save()
+            self.assertFalse(tags.has_changed, "saved")
+            tags.delete()
+            self.assertTrue(tags.has_changed, "deleted")
+
+    def test_has_changed_from_bytes(self):
+        tags = TrackAutotags(TrackAutotags(os.path.abspath("test/data/test_mp3.mp3"))._raw_data or b"")
+        self.assertFalse(tags.has_changed, "as given")
+        tags.set(bpm=128)
+        self.assertTrue(tags.has_changed, "differs from the bytes given")

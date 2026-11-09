@@ -41,8 +41,13 @@ class TrackGain(ID3FileTag):
         self.set(gain, peak)
         self.save()
 
+    @property
+    def has_changed(self) -> bool:
+        """Whether the gain or peak differs from the file's as read or last saved, so that saving would change them."""
+        return (self.gain, self.peak) != self._tagged
+
     def _write_to_tagfile(self) -> bool:
-        if (self.gain, self.peak) == self._tagged:
+        if not self.has_changed:
             return False
         if self.gain is None and self.peak is None:
             del_tag(self.tagfile, TrackGain.RVA2_KEY)

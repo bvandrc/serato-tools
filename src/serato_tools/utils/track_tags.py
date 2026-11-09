@@ -72,6 +72,12 @@ class ID3FileTag:
     def __init__(self, file: ID3FileOrPath):
         self.tagfile: ID3File = open_tagfile(file)
 
+    @property
+    def has_changed(self) -> bool:
+        """Whether the tag has changes that saving would write to the file."""
+        # raises rather than returning False, as _write_to_tagfile does
+        raise NotImplementedError(f"{type(self).__name__} doesn't implement has_changed")
+
     def _write_to_tagfile(self) -> bool:
         """Puts this tag's unsaved changes into `tagfile` without saving the file; returns whether it had any."""
         # raises rather than returning False, so a tag class that doesn't implement it fails loudly instead of having
@@ -171,10 +177,18 @@ class SeratoGeobTag(ID3FileTag):
             self._del_geob()
         self._tagged_raw_data = self._raw_data
 
+    @property
+    def has_changed(self) -> bool:
+        """Whether the tag's bytes differ from the file's as read or last saved, so that saving would change them.
+
+        For a tag read from bytes, whether they differ from those bytes.
+        """
+        # compared with what was read rather than with the tagfile, so an unchanged tag doesn't count, or restore, a
+        # frame that another tag sharing the tagfile deleted (TrackCuesV2 deleting a stale Serato Markers_)
+        return self._raw_data != self._tagged_raw_data
+
     def _write_to_tagfile(self) -> bool:
-        # compared with what was read rather than with the tagfile, so an unchanged tag doesn't restore a frame that
-        # another tag sharing the tagfile deleted (TrackCuesV2 deleting a stale Serato Markers_)
-        if self._raw_data == self._tagged_raw_data:
+        if not self.has_changed:
             return False
         self._put_in_tagfile()
         return True
