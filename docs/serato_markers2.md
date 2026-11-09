@@ -8,7 +8,15 @@ The tag contains a two-byte tag header, followed by base64-encoded binary data. 
 This happens because Serato appends a null byte to the data before encoding it, then drops the base64 padding along with the character before it, which only ever holds bits of that null byte. [Mixxx's `markers2.cpp`](https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp) writes it the same way, except that it doesn't add the newline after a full last line.
 
 The minimum length of this tag seems to be 470 bytes, and shorter contents are padded with null bytes.
-When Serato rewrites the tag, it seems to keep the length the tag already had, padding shorter contents with null bytes. The evidence is in `data/id3`: `very-long-names` is a 93142-byte tag that its contents nearly fill, and `bpmlock-enabled`, apparently the same track later, is still 93142 bytes, although its contents take up only 42 of them. [Mixxx's `markers2.cpp`](https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp) keeps the length too, saying Serato does it "to reduce disk fragmentation". How much Serato grows the tag by when the contents no longer fit isn't known (Mixxx: "TODO: Find out how Serato chooses the allocation sizes"); Mixxx grows it to one null byte past the contents.
+When Serato rewrites the tag, it seems to keep the length the tag already had, padding shorter contents with null bytes. The evidence is in `data/id3`: `very-long-names` is a 93142-byte tag that its contents nearly fill, and `bpmlock-enabled`, apparently the same track later, is still 93142 bytes, although its contents take up only 42 of them. [Mixxx's `markers2.cpp`](https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp) keeps the length too, saying Serato does it "to reduce disk fragmentation".
+
+In an ID3 file, Serato sizes the tag in 512-byte steps past 470 bytes: 470, 982, 1494, ... When the contents no longer fit, it grows the tag to the smallest step that fits them with at least one null byte after them. Mixxx doesn't know this ("TODO: Find out how Serato chooses the allocation sizes"), and grows the tag to one null byte past the contents. The evidence:
+
+- Serato grew a 470-byte tag whose contents grew to 618 bytes to 982 bytes (`test/data/track_cues_v2_982_bytes.bin`).
+- Every tag larger than 470 bytes in `data/id3` is on a step: `flips` at 2006 bytes, and `very-long-names` at 93142.
+- Serato puts a tag that isn't on a step back on one. It rewrote tags that serato-tools had grown the way Mixxx does: 1314 and 1351 bytes up to 1494 (`test/data/track_cues_v2_1494_bytes.bin` is the first), and 1025 bytes, whose contents had shrunk to 956, down to 982. serato-tools keeps such a size instead, since the tag in other containers isn't on the steps (752 bytes in `data/flac` and `data/mp4`, and 514 in `data/mp4-decoded`).
+
+Whether Serato takes the next step when the contents fill a step exactly, leaving no null byte, isn't known.
 
 | Offset   |            Length | Raw Value                 | Decoded Value | Type                    | Description
 | -------- | ----------------- | ------------------------- | ------------- | ----------------------- | -----------
