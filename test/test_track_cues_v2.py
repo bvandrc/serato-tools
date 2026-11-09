@@ -8,6 +8,7 @@ import os
 import tempfile
 import shutil
 import io
+from typing import Callable
 from contextlib import redirect_stdout
 
 from serato_tools.track_beatgrid import TrackBeatgrid
@@ -78,19 +79,47 @@ class TestCase(unittest.TestCase):
             tags._raw_data, expected_modified_data, "modified data serialize"
         )  # pylint: disable=protected-access
 
+    def has_tags_v1_after(self, edit: Callable[[TrackCuesV2], None]) -> bool:
+        """Whether a copy of the test mp3, which has a Serato Markers_ tag, still has it once `edit` has run on it."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_file = os.path.join(tmp_dir, "test.mp3")
+            shutil.copy("test/data/test_mp3.mp3", tmp_file)
+            tags = TrackCuesV2(tmp_file)
+            assert tags.tagfile is not None
+            self.assertIn("GEOB:Serato Markers_", tags.tagfile, "fixture has the v1 tag")
+            edit(tags)
+            saved = TrackCuesV2(tmp_file).tagfile
+            assert saved is not None
+            return "GEOB:Serato Markers_" in saved
+
     def test_saving_a_change_deletes_tags_v1_unless_told_not_to(self):
-        for delete_tags_v1 in (True, False):
-            with self.subTest(delete_tags_v1=delete_tags_v1), tempfile.TemporaryDirectory() as tmp_dir:
-                tmp_file = os.path.join(tmp_dir, "test.mp3")
-                shutil.copy("test/data/test_mp3.mp3", tmp_file)
-                tags = TrackCuesV2(tmp_file)
-                assert tags.tagfile is not None
-                self.assertIn("GEOB:Serato Markers_", tags.tagfile, "fixture has the v1 tag")
-                tags.set_track_color(TrackCuesV2.TrackColors.RED, delete_tags_v1=delete_tags_v1)
-                tags.save()
-                saved = TrackCuesV2(tmp_file).tagfile
-                assert saved is not None
-                self.assertEqual("GEOB:Serato Markers_" in saved, not delete_tags_v1)
+        def edit_and_save(tags: TrackCuesV2, delete_tags_v1: bool):
+            tags.set_track_color(TrackCuesV2.TrackColors.RED)
+            tags.save(delete_tags_v1=delete_tags_v1)
+
+        self.assertFalse(self.has_tags_v1_after(lambda tags: edit_and_save(tags, True)))
+        self.assertTrue(self.has_tags_v1_after(lambda tags: edit_and_save(tags, False)))
+
+    def test_forced_save_deletes_tags_v1(self):
+        self.assertFalse(self.has_tags_v1_after(lambda tags: tags.save(force=True)))
+
+    def test_delete_tags_v1_on_an_edit_is_deprecated(self):
+        def edit(tags: TrackCuesV2):
+            with self.assertWarns(DeprecationWarning) as caught:
+                tags.set_track_color(TrackCuesV2.TrackColors.RED, delete_tags_v1=False)
+            self.assertEqual(caught.filename, __file__, "points at the caller")
+            tags.save()
+
+        self.assertTrue(self.has_tags_v1_after(edit), "False still keeps the v1 tag")
+
+    def test_deprecated_delete_tags_v1_false_loses_to_another_edit(self):
+        def edit(tags: TrackCuesV2):
+            tags.set_beatgrid_locked(True)
+            with self.assertWarns(DeprecationWarning):
+                tags.set_track_color(TrackCuesV2.TrackColors.RED, delete_tags_v1=False)
+            tags.save()
+
+        self.assertFalse(self.has_tags_v1_after(edit), "deleted, as when the earlier edit asked to delete it")
 
     def test_a_callback_may_edit_in_place(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
@@ -283,10 +312,7 @@ class TestCase(unittest.TestCase):
 
     def test_cue_colors_are_seratos_18(self):
         # Serato DJ Intro's palette, which it displays as stored (docs/colors.md)
-        palette = (
-            "CC0000 CC4400 CC8800 CCCC00 88CC00 44CC00 00CC00 00CC44 00CC88 "
-            "00CCCC 0088CC 0044CC 0000CC 4400CC 8800CC CC00CC CC0088 CC0044"
-        )
+        palette = "CC0000 CC4400 CC8800 CCCC00 88CC00 44CC00 00CC00 00CC44 00CC88 00CCCC 0088CC 0044CC 0000CC 4400CC 8800CC CC00CC CC0088 CC0044"
         self.assertEqual([color.value.hex().upper() for color in TrackCuesV2.CueColors], palette.split())
 
     def test_an_entry_unlike_seratos_raises(self):

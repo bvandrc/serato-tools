@@ -4,6 +4,7 @@ import ast
 import base64
 import configparser
 import io
+import os
 import struct
 import sys
 import warnings
@@ -27,6 +28,10 @@ _GROWTH_STEP = 512
 
 # cue 8: Serato numbers its cue pads from 0
 _MAX_CUE_INDEX = 7
+
+# the package's folder: a deprecation warning skips its frames, to point at the caller's code even when it came through
+# another of the package's methods (Track.set_track_color)
+_PACKAGE_DIR = os.path.dirname(__file__) + os.sep
 
 # Every tag Serato DJ Pro 2 was seen writing passes the entry checks below, so an entry that doesn't is one this class
 # may not understand, and rewriting it could corrupt the tag. Mixxx's parser checks the same fields, with comments on them:
@@ -119,8 +124,9 @@ class TrackCuesV2(SeratoGeobTag):
             self.entries = list(self._parse(self._raw_data))
 
         self.beatgrid: TrackBeatgrid | None = None
-        # set by an edit that asked to delete Serato Markers_, until this tag writes a change
-        self._delete_tags_v1 = False
+        # whether every edit since this tag last wrote passed the deprecated delete_tags_v1=False, which keeps Serato
+        # Markers_ as before it was deprecated; None when no edit has changed anything since
+        self._edits_keep_tags_v1: bool | None = None
 
     def __str__(self) -> str:
         return "\n".join(str(entry) for entry in self.entries)
@@ -515,24 +521,42 @@ class TrackCuesV2(SeratoGeobTag):
 
     type ModifyCallback = Callable[["TrackCuesInfo"], "TrackCuesInfo | None"]
 
-    def modify_entries(self, modify_callback: ModifyCallback, delete_tags_v1: bool = True) -> None:
+    def modify_entries(self, modify_callback: ModifyCallback, delete_tags_v1: bool | None = None) -> None:
+        """Replaces the entries with what `modify_callback` returns for them, or leaves them if it returns None.
+
+        `delete_tags_v1` is deprecated, to be removed in the next major version: pass it to `save()` instead. Until
+        then, passing False keeps `Serato Markers_` at the next save, unless another edit since the last save didn't pass
+        False.
+        """
+        if delete_tags_v1 is not None:
+            warnings.warn(
+                "passing delete_tags_v1 to an edit is deprecated and will be removed in version 6, pass it to save() instead",
+                DeprecationWarning,
+                skip_file_prefixes=(_PACKAGE_DIR,),
+            )
         track = self._from_entries()
         new_track = modify_callback(track)
         if new_track is None:
             return
-        # deleted when this tag next writes a change (_put_in_tagfile), not now: deleted from the shared tagfile for
-        # an edit that changed nothing, or was changed back, it would be written by another tag's save
-        if delete_tags_v1:
-            self._delete_tags_v1 = True
+        # any edit that didn't pass False deletes Serato Markers_, as it did when each edit chose
+        self._edits_keep_tags_v1 = delete_tags_v1 is False and self._edits_keep_tags_v1 is not False
         self.entries = new_track.to_entries()
         self._serialize()
 
-    def _put_in_tagfile(self):
+    def _put_in_tagfile(self, delete_tags_v1: bool = True):
         super()._put_in_tagfile()
-        if self._delete_tags_v1 and self.tagfile:
+        # deleted only here, when this tag writes, and not by the edit: deleted from the shared tagfile for an edit
+        # that changed nothing, or was changed back, it would be written by another tag's save
+        if delete_tags_v1 and not self._edits_keep_tags_v1 and self.tagfile:
             # TODO: keep Serato Markers_ in sync with Markers2 instead of deleting it
             del_geob(self.tagfile, TrackCuesV1.GEOB_KEY)
-            self._delete_tags_v1 = False
+        self._edits_keep_tags_v1 = None
+
+    def _write_to_tagfile(self, delete_tags_v1: bool = True) -> bool:
+        if not self.has_changed:
+            return False
+        self._put_in_tagfile(delete_tags_v1)
+        return True
 
     def delete(self):
         was_deleted = super().delete()
@@ -549,10 +573,19 @@ class TrackCuesV2(SeratoGeobTag):
         )
         return self.has_changed
 
-    def save(self, force: bool = False):
-        """Writes the tag to the file, if it changed since it was read or last saved, or if `force`."""
-        if self.has_changed or force:
-            super().save()
+    def save(self, force: bool = False, delete_tags_v1: bool = True):
+        """Writes the tag to the file, if it changed since it was read or last saved, or if `force`.
+
+        Args:
+            force: Write the tag even if it hasn't changed.
+            delete_tags_v1: When writing, delete the legacy `Serato Markers_` tag, because a stale one stops changes to this tag from appearing in Serato. No issues have been found from deleting it, but use caution with versions of Serato before 3, which may still read it.
+        """
+        if not (self.has_changed or force):
+            return
+        if not self.tagfile:
+            raise Exception("no tagfile, no saving")
+        self._put_in_tagfile(delete_tags_v1)
+        self.tagfile.save()
 
     def get_track_color(self) -> bytes | None:
         color_entry = next(
@@ -569,15 +602,11 @@ class TrackCuesV2(SeratoGeobTag):
             return None
         return self._get_track_color_key(color_bytes)
 
-    def set_track_color(self, color: TrackColors, delete_tags_v1: bool = True):
-        """
-        Set the track color in memory; call `save()` to write it to the file.
+    def set_track_color(self, color: TrackColors, delete_tags_v1: bool | None = None):
+        """Sets the track color in memory; call `save()` to write it to the file.
 
         Adds the color entry, and the tag itself, if the track doesn't have them yet, as Serato writes them.
-
-        Args:
-            color: The new track color.
-            delete_tags_v1: Delete the legacy `Serato Markers_` tag, because a stale one stops the new color from appearing in Serato. No issues have been found from deleting it, but use caution with versions of Serato before 3, which may still read it.
+        `delete_tags_v1` is deprecated: see `modify_entries`.
         """
 
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
@@ -591,11 +620,11 @@ class TrackCuesV2(SeratoGeobTag):
 
         self.modify_entries(rule, delete_tags_v1)
 
-    def set_beatgrid_locked(self, locked: bool, delete_tags_v1: bool = True):
+    def set_beatgrid_locked(self, locked: bool, delete_tags_v1: bool | None = None):
         """Locks or unlocks the track's beatgrid in memory; call `save()` to write it to the file.
 
-        Adds the BPM lock entry, and the tag itself, if the track doesn't have them yet, as Serato writes them. See
-        `set_track_color` for `delete_tags_v1`.
+        Adds the BPM lock entry, and the tag itself, if the track doesn't have them yet, as Serato writes them.
+        `delete_tags_v1` is deprecated: see `modify_entries`.
         """
 
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
@@ -643,7 +672,7 @@ class TrackCuesV2(SeratoGeobTag):
             raise ValueError("No entries set")
         track_before = self._from_entries()
         positions_before = {c.index: c.position for c in track_before.cues}
-        self.modify_entries(self.snap_positions_to_beat_rule(tolerance_beats, min_ms_change), delete_tags_v1=True)
+        self.modify_entries(self.snap_positions_to_beat_rule(tolerance_beats, min_ms_change))
         track_after = self._from_entries()
         for c in track_after.cues:
             prev = positions_before.get(c.index)
@@ -745,7 +774,7 @@ def main():
             raise NotImplementedError("Snap tolerance must be less than 1 beat. TODO: implement this to allow")
 
         tags.snap_positions_to_beat(tolerance_beats)
-        tags.save()
+        tags.save(delete_tags_v1=True)
         sys.exit()
 
     if args.edit:
@@ -767,7 +796,7 @@ def main():
                     {
                         "y": "edit this entry",
                         "n": "do not edit this entry",
-                        "q": ("quit; do not edit this entry or any of the " "remaining ones"),
+                        "q": "quit; do not edit this entry or any of the remaining ones",
                         "a": "edit this entry and all later entries in the file",
                         "b": "edit raw bytes",
                         "r": "remove this entry",
