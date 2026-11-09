@@ -3,6 +3,7 @@ import base64
 import dataclasses
 import struct
 import unittest
+from unittest import mock
 import os
 import tempfile
 import shutil
@@ -86,15 +87,60 @@ class TestCase(unittest.TestCase):
                 tags.set_track_color(TrackCuesV2.TrackColors.RED, delete_tags_v1=delete_tags_v1)
                 self.assertEqual("GEOB:Serato Markers_" in tags.tagfile, not delete_tags_v1)
 
+    def test_save_keeps_a_change_followed_by_an_edit_that_changes_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_file = os.path.join(tmp_dir, "test.mp3")
+            shutil.copy("test/data/test_mp3.mp3", tmp_file)
+            tags = TrackCuesV2(tmp_file)
+            tags.set_track_color(TrackCuesV2.TrackColors.RED)
+            tags.modify_entries(dataclasses.replace)
+            tags.save()
+            self.assertEqual(TrackCuesV2(tmp_file).get_track_color(), TrackCuesV2.TrackColors.RED.value)
+
+    def test_has_changed(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_file = os.path.join(tmp_dir, "test.mp3")
+            shutil.copy("test/data/test_mp3.mp3", tmp_file)
+            tags = TrackCuesV2(tmp_file)
+            original_color = TrackCuesV2.TrackColors(tags.get_track_color())
+            self.assertFalse(tags.has_changed, "as read")
+            tags.set_track_color(TrackCuesV2.TrackColors.RED)
+            self.assertTrue(tags.has_changed, "color changed")
+            tags.modify_entries(dataclasses.replace)
+            self.assertTrue(tags.has_changed, "an edit that changed nothing doesn't reset it")
+            tags.set_track_color(original_color)
+            self.assertFalse(tags.has_changed, "color changed back")
+            tags.set_track_color(TrackCuesV2.TrackColors.RED)
+            tags.save()
+            self.assertFalse(tags.has_changed, "saved")
+
+    def test_save_skips_writing_when_unchanged(self):
+        tags = TrackCuesV2("test/data/test_mp3.mp3")
+        assert tags.tagfile is not None
+        with mock.patch.object(tags.tagfile, "save") as write:
+            tags.save()
+            write.assert_not_called()
+            tags.save(force=True)
+            write.assert_called_once()
+
+    def test_modified_is_deprecated(self):
+        tags = TrackCuesV2("test/data/test_mp3.mp3")
+        with self.assertWarns(DeprecationWarning):
+            self.assertFalse(tags.modified, "as read")
+        tags.set_track_color(TrackCuesV2.TrackColors.RED)
+        with self.assertWarns(DeprecationWarning):
+            self.assertTrue(tags.modified, "returns has_changed")
+
     def test_set_beatgrid_locked(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
+        original_data = tags._raw_data  # pylint: disable=protected-access
         self.assertFalse(tags.is_beatgrid_locked())
         tags.set_beatgrid_locked(False)
-        self.assertFalse(tags.modified, "already unlocked, so no change")
+        data = tags._raw_data  # pylint: disable=protected-access
+        self.assertEqual(data, original_data, "already unlocked, so no change")
         assert tags.tagfile is not None
         self.assertIn("GEOB:Serato Markers_", tags.tagfile, "v1 tag kept, since nothing changed")
         tags.set_beatgrid_locked(True)
-        self.assertTrue(tags.modified)
         data = tags._raw_data  # pylint: disable=protected-access
         assert data is not None
         self.assertTrue(TrackCuesV2(data).is_beatgrid_locked(), "serialized")

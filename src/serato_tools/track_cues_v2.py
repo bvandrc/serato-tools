@@ -117,7 +117,6 @@ class TrackCuesV2(SeratoGeobTag):
         self.entries: list[TrackCuesV2.Entry] = []
         if self._raw_data is not None:
             self.entries = list(self._parse(self._raw_data))
-        self.modified: bool = False
 
         self.beatgrid: TrackBeatgrid | None = None
 
@@ -423,7 +422,6 @@ class TrackCuesV2(SeratoGeobTag):
             size = _MIN_SIZE + steps * _GROWTH_STEP
         new_raw_data = content.ljust(size, b"\x00")
 
-        self.modified = new_raw_data != self._raw_data  # pylint: disable=access-member-before-definition
         self._raw_data = new_raw_data
 
     @staticmethod
@@ -530,12 +528,29 @@ class TrackCuesV2(SeratoGeobTag):
     def delete(self):
         was_deleted = super().delete()
         self.entries = []
-        if was_deleted:
-            self.modified = True
         return was_deleted
 
+    @property
+    def has_changed(self) -> bool:
+        """Whether the tag's bytes differ from the file's as read or last saved, so that saving would change them.
+
+        For a tag read from bytes, whether they differ from those bytes.
+        """
+        return self._raw_data != self._tagged_raw_data
+
+    @property
+    def modified(self) -> bool:
+        """Deprecated, to be removed in the next major version: use `has_changed`, which this returns."""
+        warnings.warn(
+            "modified is deprecated and will be removed in version 6, use has_changed instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.has_changed
+
     def save(self, force: bool = False):
-        if self.modified or force:
+        """Writes the tag to the file, if it changed since it was read or last saved, or if `force`."""
+        if self.has_changed or force:
             super().save()
 
     def get_track_color(self) -> bytes | None:
