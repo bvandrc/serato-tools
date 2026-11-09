@@ -427,12 +427,12 @@ class SeratoBinFile:
 
     @property
     def has_changed(self) -> bool:
-        """Whether saving would change the file's bytes from those loaded or last saved, however the entries were edited.
+        """Whether saving would change the file's bytes from those loaded or last saved, however `entries` was edited.
 
         Sees edits made to `entries` directly, in place or by assignment, as well as through this class's methods.
-        Each call serializes the whole file, as `to_bytes()` does. Compared with the file as loaded or saved, not with
-        the file on disk now, which this doesn't reread. A file that didn't exist when loaded counts as changed, since
-        saving creates it.
+        Each call serializes the whole file, as `to_bytes()` does, and raises as it does for an invalid entry. Compared
+        with the file as loaded or saved, not with the file on disk now, which this doesn't reread. A file that didn't
+        exist when loaded counts as changed, since saving creates it.
         """
         return self._saved_hash is None or self._hash(self.to_bytes()) != self._saved_hash
 

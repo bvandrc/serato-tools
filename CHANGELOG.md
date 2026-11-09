@@ -11,7 +11,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixes
 
 - Fix `TrackCuesV2.save()` skipping the save, and losing a change, when an edit that changed nothing followed one that did
-- `TrackCuesV2.modify_entries` no longer deletes the `Serato Markers_` tag when its callback returns the cues unchanged, rather than `None`. The deletion could be written by saving another tag in the same file
+- `TrackCuesV2` deletes the `Serato Markers_` tag only when it writes a change to `Serato Markers2`. An edit that changed nothing, or was changed back, used to delete it from the file in memory, and saving another tag in the same file would write the deletion
 
 ### Deprecations
 
