@@ -8,6 +8,10 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Fix `TrackCuesV2.save()` skipping the save, and losing a change, when an edit that changed nothing followed one that did
 
+### Deprecations
+
+- `TrackCuesV2.modified` is deprecated, and will be removed in the next major version: `save()` already skips writing an unchanged tag. Until then it's read-only, and says whether the tag changed since it was read or saved: an edit that changes nothing no longer resets it
+
 ## [5.5.0] - 2026-11-06
 
 ### Features

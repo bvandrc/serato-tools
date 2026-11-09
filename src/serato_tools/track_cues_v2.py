@@ -117,7 +117,6 @@ class TrackCuesV2(SeratoGeobTag):
         self.entries: list[TrackCuesV2.Entry] = []
         if self._raw_data is not None:
             self.entries = list(self._parse(self._raw_data))
-        self.modified: bool = False
 
         self.beatgrid: TrackBeatgrid | None = None
 
@@ -423,7 +422,6 @@ class TrackCuesV2(SeratoGeobTag):
             size = _MIN_SIZE + steps * _GROWTH_STEP
         new_raw_data = content.ljust(size, b"\x00")
 
-        self.modified = new_raw_data != self._raw_data  # pylint: disable=access-member-before-definition
         self._raw_data = new_raw_data
 
     @staticmethod
@@ -530,14 +528,20 @@ class TrackCuesV2(SeratoGeobTag):
     def delete(self):
         was_deleted = super().delete()
         self.entries = []
-        if was_deleted:
-            self.modified = True
         return was_deleted
+
+    @property
+    def modified(self) -> bool:
+        """Deprecated, to be removed in the next major version: whether the tag changed since it was read or saved."""
+        warnings.warn(
+            "modified is deprecated and will be removed in version 6, save() already skips writing an unchanged tag",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._raw_data != self._tagged_raw_data
 
     def save(self, force: bool = False):
         """Writes the tag to the file, if it changed since it was read or last saved, or if `force`."""
-        # compared with what was read or saved, not `modified`, which only compares with the previous serialization: an
-        # edit that changed nothing, after one that did, resets it
         if self._raw_data != self._tagged_raw_data or force:
             super().save()
 

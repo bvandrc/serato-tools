@@ -96,15 +96,25 @@ class TestCase(unittest.TestCase):
             tags.save()
             self.assertEqual(TrackCuesV2(tmp_file).get_track_color(), TrackCuesV2.TrackColors.RED.value)
 
+    def test_modified_is_deprecated(self):
+        tags = TrackCuesV2("test/data/test_mp3.mp3")
+        with self.assertWarns(DeprecationWarning):
+            self.assertFalse(tags.modified, "as read")
+        tags.set_track_color(TrackCuesV2.TrackColors.RED)
+        tags.modify_entries(dataclasses.replace)
+        with self.assertWarns(DeprecationWarning):
+            self.assertTrue(tags.modified, "an edit that changed nothing doesn't reset it")
+
     def test_set_beatgrid_locked(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
+        original_data = tags._raw_data  # pylint: disable=protected-access
         self.assertFalse(tags.is_beatgrid_locked())
         tags.set_beatgrid_locked(False)
-        self.assertFalse(tags.modified, "already unlocked, so no change")
+        data = tags._raw_data  # pylint: disable=protected-access
+        self.assertEqual(data, original_data, "already unlocked, so no change")
         assert tags.tagfile is not None
         self.assertIn("GEOB:Serato Markers_", tags.tagfile, "v1 tag kept, since nothing changed")
         tags.set_beatgrid_locked(True)
-        self.assertTrue(tags.modified)
         data = tags._raw_data  # pylint: disable=protected-access
         assert data is not None
         self.assertTrue(TrackCuesV2(data).is_beatgrid_locked(), "serialized")
