@@ -27,16 +27,9 @@ class TestCase(unittest.TestCase):
                 self.assertIsNone(get_geob(MP3(path), tag_class.GEOB_KEY), "deletion saved")
 
     def test_untested_version_raises_at_construction(self):
-        for tag_class, data in (
-            (TrackCuesV2, bytes([0x99, 0x99])),
-            (TrackCuesV1, bytes([0x99, 0x99])),
-            (TrackBeatgrid, bytes([0x99, 0x99])),
-            (TrackAutotags, bytes([0x99, 0x99])),
-            # the waveform reads rows of 16 bytes past the version, so give it some
-            (TrackWaveform, bytes([0x99, 0x99]) + b"\x00" * 32),
-        ):
+        for tag_class in (TrackCuesV2, TrackCuesV1, TrackBeatgrid, TrackAutotags, TrackWaveform):
             with self.subTest(tag_class.__name__), self.assertRaisesRegex(ValueError, "Untested Serato tag version"):
-                tag_class(data)
+                tag_class(bytes([0x99, 0x99]))
 
     def test_tagdump_reads_each_geob(self):
         dumped = dict(get_serato_tagdata(MP3(TEST_MP3)))

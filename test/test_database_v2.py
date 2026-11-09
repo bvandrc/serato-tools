@@ -5,14 +5,13 @@ from unittest import mock
 import os
 import json
 import shutil
-import tempfile
 
 from serato_tools.database_v2 import DatabaseV2
 
 # bin_file_base raises the installed package's DataTypeError, so catch that one
 from serato_tools.utils import DataTypeError
 
-from test.helpers import read_bytes
+from test.helpers import read_bytes, temp_dir
 
 
 class TestCase(unittest.TestCase):
@@ -103,65 +102,65 @@ class TestCase(unittest.TestCase):
         self.assertEqual(library.serato_dir, os.path.dirname(db.filepath), "and in the crates beside it")
 
     def test_modify_and_save_skips_save_when_unchanged(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            db_file = os.path.join(tmp, "database V2")
-            shutil.copy("test/data/database_v2_test.bin", db_file)
-            db = DatabaseV2(db_file)
-            os.remove(db_file)  # so any save shows up as the file reappearing
+        tmp = temp_dir(self)
+        db_file = os.path.join(tmp, "database V2")
+        shutil.copy("test/data/database_v2_test.bin", db_file)
+        db = DatabaseV2(db_file)
+        os.remove(db_file)  # so any save shows up as the file reappearing
 
-            no_match: list[DatabaseV2.ModifyRule] = [
-                {"field": DatabaseV2.Fields.GROUPING, "files": ["Not In Library.mp3"], "func": lambda *args: "X"}
-            ]
-            db.modify_and_save(no_match)
-            self.assertFalse(os.path.exists(db_file), "unchanged, so not saved")
-            if os.name == "nt":  # paths are only case-insensitive on Windows
-                db.modify_and_save(no_match, db_file.upper())
-                self.assertFalse(os.path.exists(db_file), "same file in other case, unchanged, so not saved")
+        no_match: list[DatabaseV2.ModifyRule] = [
+            {"field": DatabaseV2.Fields.GROUPING, "files": ["Not In Library.mp3"], "func": lambda *args: "X"}
+        ]
+        db.modify_and_save(no_match)
+        self.assertFalse(os.path.exists(db_file), "unchanged, so not saved")
+        if os.name == "nt":  # paths are only case-insensitive on Windows
+            db.modify_and_save(no_match, db_file.upper())
+            self.assertFalse(os.path.exists(db_file), "same file in other case, unchanged, so not saved")
 
-            copy_file = os.path.join(tmp, "copy")
-            db.modify_and_save(no_match, copy_file)
-            self.assertTrue(os.path.exists(copy_file), "saved anyway when given another file")
+        copy_file = os.path.join(tmp, "copy")
+        db.modify_and_save(no_match, copy_file)
+        self.assertTrue(os.path.exists(copy_file), "saved anyway when given another file")
 
-            db.modify_and_save([{"field": DatabaseV2.Fields.GROUPING, "func": lambda *args: "X"}])
-            self.assertTrue(os.path.exists(db_file), "changed, so saved")
+        db.modify_and_save([{"field": DatabaseV2.Fields.GROUPING, "func": lambda *args: "X"}])
+        self.assertTrue(os.path.exists(db_file), "changed, so saved")
 
     def test_find_missing_skips_save_when_nothing_relocated(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            db_file = os.path.join(tmp, "database V2")
-            shutil.copy("test/data/database_v2_test.bin", db_file)
-            db = DatabaseV2(db_file)
-            os.remove(db_file)  # so any save shows up as the file reappearing
+        tmp = temp_dir(self)
+        db_file = os.path.join(tmp, "database V2")
+        shutil.copy("test/data/database_v2_test.bin", db_file)
+        db = DatabaseV2(db_file)
+        os.remove(db_file)  # so any save shows up as the file reappearing
 
-            # the fixture's tracks don't exist here, so each one prompts; "s" skips it
-            with mock.patch("builtins.input", return_value="s"), mock.patch("builtins.print"):
-                db.find_missing()
+        # the fixture's tracks don't exist here, so each one prompts; "s" skips it
+        with mock.patch("builtins.input", return_value="s"), mock.patch("builtins.print"):
+            db.find_missing()
 
-            self.assertFalse(os.path.exists(db_file), "nothing relocated, so not saved")
+        self.assertFalse(os.path.exists(db_file), "nothing relocated, so not saved")
 
     def test_save_leaves_file_as_it_was_on_error(self):
         orig = read_bytes("test/data/database_v2_test.bin")
 
-        with tempfile.TemporaryDirectory() as tmp:
-            db_file = os.path.join(tmp, "database V2")
-            shutil.copy("test/data/database_v2_test.bin", db_file)
+        tmp = temp_dir(self)
+        db_file = os.path.join(tmp, "database V2")
+        shutil.copy("test/data/database_v2_test.bin", db_file)
 
-            db = DatabaseV2(db_file)
-            db.entries.append((DatabaseV2.Fields.TRACK, "not a list"))
-            with self.assertRaises(DataTypeError):
-                db.save()
-            with open(db_file, "rb") as f:
-                self.assertEqual(f.read(), orig, "serialization error")
+        db = DatabaseV2(db_file)
+        db.entries.append((DatabaseV2.Fields.TRACK, "not a list"))
+        with self.assertRaises(DataTypeError):
+            db.save()
+        with open(db_file, "rb") as f:
+            self.assertEqual(f.read(), orig, "serialization error")
 
-            class SavesTooEarly(DatabaseV2):
-                def __init__(self, file: str):
-                    self.filepath = file
-                    self.save()
-                    super().__init__(file)
+        class SavesTooEarly(DatabaseV2):
+            def __init__(self, file: str):
+                self.filepath = file
+                self.save()
+                super().__init__(file)
 
-            with self.assertRaises(RuntimeError):
-                SavesTooEarly(db_file)
-            with open(db_file, "rb") as f:
-                self.assertEqual(f.read(), orig, "save before parse finished")
+        with self.assertRaises(RuntimeError):
+            SavesTooEarly(db_file)
+        with open(db_file, "rb") as f:
+            self.assertEqual(f.read(), orig, "save before parse finished")
 
     def test_mistyped_json_value_is_refused(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
@@ -172,12 +171,12 @@ class TestCase(unittest.TestCase):
         uadd = next(e for e in track if e["field"] == DatabaseV2.Fields.DATE_ADDED_U)
         uadd["value"], uadd["type"] = "not an int", "str"
 
-        with tempfile.TemporaryDirectory() as tmp:
-            json_file = os.path.join(tmp, "db.json")
-            with open(json_file, "w", encoding="utf-8") as f:
-                json.dump(json_obj, f)
-            with self.assertRaises(DataTypeError, msg="on load"):
-                DatabaseV2(json_file)
+        tmp = temp_dir(self)
+        json_file = os.path.join(tmp, "db.json")
+        with open(json_file, "w", encoding="utf-8") as f:
+            json.dump(json_obj, f)
+        with self.assertRaises(DataTypeError, msg="on load"):
+            DatabaseV2(json_file)
 
         with self.assertRaises(DataTypeError, msg="into an existing db"):
             db.from_json_object(json_obj)

@@ -1,19 +1,19 @@
 import os
-import tempfile
 import unittest
 from unittest import mock
 
 from serato_tools import usb_export
+
+from test.helpers import temp_dir
 
 
 class GetCrateFilesTestCase(unittest.TestCase):
     """get_crate_files matching, against temp Subcrates/SmartCrates folders."""
 
     def setUp(self):
-        tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp.cleanup)
-        self.crate_dir = os.path.join(tmp.name, usb_export.Crate.DIR)
-        self.smart_crate_dir = os.path.join(tmp.name, usb_export.SmartCrate.DIR)
+        tmp = temp_dir(self)
+        self.crate_dir = os.path.join(tmp, usb_export.Crate.DIR)
+        self.smart_crate_dir = os.path.join(tmp, usb_export.SmartCrate.DIR)
         os.makedirs(self.crate_dir)
         os.makedirs(self.smart_crate_dir)
         for patch in (

@@ -4,7 +4,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 import warnings
 
 from serato_tools.library import Library
@@ -17,15 +16,14 @@ from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
-from test.helpers import temp_mp3, untagged_mp3
+from test.helpers import temp_dir, temp_mp3, untagged_mp3
 
 
 class TestCase(unittest.TestCase):
     def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self._tmp.cleanup)
-        self.serato_dir = os.path.join(self._tmp.name, "_Serato_")
-        self.music_dir = os.path.join(self._tmp.name, "Music")
+        tmp = temp_dir(self)
+        self.serato_dir = os.path.join(tmp, "_Serato_")
+        self.music_dir = os.path.join(tmp, "Music")
         for d in [self.serato_dir, self.music_dir]:
             os.mkdir(d)
         self.db_file = os.path.join(self.serato_dir, DatabaseV2.FILENAME)
@@ -69,7 +67,7 @@ class TestCase(unittest.TestCase):
         return saved
 
     def test_files_are_parsed_when_first_needed(self):
-        library = Library(os.path.join(self._tmp.name, "does not exist"))
+        library = Library(os.path.join(self.serato_dir, "does not exist"))
         with self.assertRaises(FileNotFoundError, msg="database parsed on first access, not on init"):
             _ = library.database
 
@@ -99,6 +97,19 @@ class TestCase(unittest.TestCase):
         for crate in [*library.crates, *library.smart_crates]:
             if os.path.basename(crate.filepath) != "Without.crate":
                 self.assertEqual(self.track_paths(crate), [new_path], f"{crate.filepath} path updated")
+
+    def test_rename_track_file_in_a_given_database(self):
+        src, dest = self.make_track("Old.mp3"), os.path.join(self.music_dir, "New.mp3")
+        self.add_to_database(src)
+        db = DatabaseV2(self.db_file)
+        db.entries.append((DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, "Unsaved.mp3")]))
+
+        saved = self.saved_file_names()
+        Library(self.serato_dir, database=db).rename_track_file(src, dest)
+
+        self.assertIn(DatabaseV2.get_relative_path(dest), db.get_track_paths(), "the given database updated")
+        self.assertEqual(saved, [DatabaseV2.FILENAME], "and saved once")
+        self.assertIn("Unsaved.mp3", self.track_paths(db), "with its unsaved changes, rather than reparsed")
 
     def test_rename_track_file_refuses_to_overwrite(self):
         src, dest = self.make_track("Old.mp3"), self.make_track("Taken.mp3")

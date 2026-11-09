@@ -122,14 +122,9 @@ class TrackCuesV1(SeratoGeobTag):
                     value = 0x7F if not value else 0x00
                 elif field == "color":
                     value = _encode_bytes_32(value)
-                elif field == "start_position":
+                elif field in ("start_position", "end_position"):
                     # an unset position is stored as 7f bytes, as Serato writes it; FORMAT packs the field as 4s, so
                     # it has to be bytes, not the int 0x7F7F7F7F
-                    if value is None:
-                        value = b"\x7f\x7f\x7f\x7f"
-                    else:
-                        value = _encode_bytes_32(struct.pack(">I", value)[1:])
-                elif field == "end_position":
                     if value is None:
                         value = b"\x7f\x7f\x7f\x7f"
                     else:
