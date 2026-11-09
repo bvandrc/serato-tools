@@ -153,8 +153,9 @@ class TestCase(unittest.TestCase):
         self.assertEqual(TrackCuesV2(rewritten).entries, tags.entries)
 
     def test_outgrowing_the_tags_size_grows_it_as_serato_does(self):
-        # Serato wrote track_cues_v2_grown_by_serato.bin when its cues' long names outgrew a smaller tag: giving a
-        # 470-byte tag the same entries should give the same bytes
+        # Serato wrote track_cues_v2_grown_by_serato.bin at 1494 bytes, a 512-byte step past 470, when rewriting a
+        # 1314-byte tag. Its entries don't fit in 470 bytes, so giving a 470-byte tag the same entries should give the
+        # same bytes
         with open("test/data/track_cues_v2_grown_by_serato.bin", "rb") as f:
             grown = f.read()
         with open("test/data/track_cues_v2_analyzed.bin", "rb") as f:
