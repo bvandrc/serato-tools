@@ -1,3 +1,4 @@
+import dataclasses
 import unittest
 from unittest import mock
 import os
@@ -111,6 +112,25 @@ class TestCase(unittest.TestCase):
         track.save()
 
         self.assertNotIn(f"GEOB:{TrackCuesV1.GEOB_KEY}", Track(self.path).tagfile, "unchanged v1 tag not restored")
+
+    def test_an_unwritten_cue_edit_keeps_tags_v1_when_another_tag_saves(self):
+        def changed_back(cues: TrackCuesV2):
+            color = TrackCuesV2.TrackColors(cues.get_track_color())
+            cues.set_track_color(TrackCuesV2.TrackColors.RED)
+            cues.set_track_color(color)
+
+        for name, edit in (
+            ("changed nothing", lambda cues: cues.modify_entries(dataclasses.replace)),
+            ("changed back", changed_back),
+        ):
+            with self.subTest(name):
+                shutil.copy("test/data/test_mp3.mp3", self.path)
+                track = Track(self.path)
+                edit(track.cues_v2)
+                track.autotags.set(bpm=128)
+                track.save()
+
+                self.assertIn(f"GEOB:{TrackCuesV1.GEOB_KEY}", Track(self.path).tagfile)
 
     def test_save_writes_deletions(self):
         for name, key in (("autotags", f"GEOB:{TrackAutotags.GEOB_KEY}"), ("gain", TrackGain.RVA2_KEY)):

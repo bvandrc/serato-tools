@@ -119,6 +119,8 @@ class TrackCuesV2(SeratoGeobTag):
             self.entries = list(self._parse(self._raw_data))
 
         self.beatgrid: TrackBeatgrid | None = None
+        # set by an edit that asked to delete Serato Markers_, until this tag writes a change
+        self._delete_tags_v1 = False
 
     def __str__(self) -> str:
         return "\n".join(str(entry) for entry in self.entries)
@@ -518,12 +520,19 @@ class TrackCuesV2(SeratoGeobTag):
         new_track = modify_callback(track)
         if new_track is None:
             return
-        # only delete the v1 tag once we know a change is actually being made
-        if delete_tags_v1 and self.tagfile:
-            # TODO: keep Serato Markers_ in sync with Markers2 instead of deleting it
-            del_geob(self.tagfile, TrackCuesV1.GEOB_KEY)
+        # deleted when this tag next writes a change (_put_in_tagfile), not now: deleted from the shared tagfile for
+        # an edit that changed nothing, or was changed back, it would be written by another tag's save
+        if delete_tags_v1:
+            self._delete_tags_v1 = True
         self.entries = new_track.to_entries()
         self._serialize()
+
+    def _put_in_tagfile(self):
+        super()._put_in_tagfile()
+        if self._delete_tags_v1 and self.tagfile:
+            # TODO: keep Serato Markers_ in sync with Markers2 instead of deleting it
+            del_geob(self.tagfile, TrackCuesV1.GEOB_KEY)
+            self._delete_tags_v1 = False
 
     def delete(self):
         was_deleted = super().delete()

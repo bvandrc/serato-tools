@@ -2,15 +2,17 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [5.5.1] - 2026-11-09
+## [5.6.0] - 2026-11-09
 
 ### Features
 
 - Add a read-only `has_changed` property to the library database, crates, smart crates, each track tag class, and `Track`, which says whether saving would write a change, without saving
+  - NOTE: For the database and crates, each check serializes the file for `has_changed`, as saving does, which takes time over many files
 
 ### Fixes
 
 - Fix `TrackCuesV2.save()` skipping the save, and losing a change, when an edit that changed nothing followed one that did
+- `TrackCuesV2` deletes the `Serato Markers_` tag only when it writes a change to `Serato Markers2`. An edit that changed nothing, or was changed back, used to delete it from the file in memory, and saving another tag in the same file would write the deletion
 
 ### Deprecations
 

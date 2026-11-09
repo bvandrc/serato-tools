@@ -78,14 +78,35 @@ class TestCase(unittest.TestCase):
             tags._raw_data, expected_modified_data, "modified data serialize"
         )  # pylint: disable=protected-access
 
-    def test_changing_deletes_tags_v1_unless_told_not_to(self):
+    def test_saving_a_change_deletes_tags_v1_unless_told_not_to(self):
         for delete_tags_v1 in (True, False):
-            with self.subTest(delete_tags_v1=delete_tags_v1):
-                tags = TrackCuesV2("test/data/test_mp3.mp3")
+            with self.subTest(delete_tags_v1=delete_tags_v1), tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_file = os.path.join(tmp_dir, "test.mp3")
+                shutil.copy("test/data/test_mp3.mp3", tmp_file)
+                tags = TrackCuesV2(tmp_file)
                 assert tags.tagfile is not None
                 self.assertIn("GEOB:Serato Markers_", tags.tagfile, "fixture has the v1 tag")
                 tags.set_track_color(TrackCuesV2.TrackColors.RED, delete_tags_v1=delete_tags_v1)
-                self.assertEqual("GEOB:Serato Markers_" in tags.tagfile, not delete_tags_v1)
+                tags.save()
+                saved = TrackCuesV2(tmp_file).tagfile
+                assert saved is not None
+                self.assertEqual("GEOB:Serato Markers_" in saved, not delete_tags_v1)
+
+    def test_a_callback_may_edit_in_place(self):
+        tags = TrackCuesV2("test/data/test_mp3.mp3")
+        position = tags._from_entries().cues[0].position  # pylint: disable=protected-access
+
+        def rule(info: TrackCuesV2.TrackCuesInfo) -> TrackCuesV2.TrackCuesInfo:
+            info.cues[0].position += 1000
+            return info
+
+        tags.modify_entries(rule)
+        self.assertTrue(tags.has_changed)
+        data = tags._raw_data  # pylint: disable=protected-access
+        assert data is not None
+        self.assertEqual(
+            TrackCuesV2(data)._from_entries().cues[0].position, position + 1000
+        )  # pylint: disable=protected-access
 
     def test_save_keeps_a_change_followed_by_an_edit_that_changes_nothing(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
