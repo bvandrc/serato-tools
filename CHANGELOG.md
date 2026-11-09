@@ -8,10 +8,6 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Add a read-only `has_changed` property to each track tag class and `Track`, which says whether saving would write a change, without saving
 
-### Fixes
-
-- Fix `TrackCuesV2.save()` skipping the save, and losing a change, when an edit that changed nothing followed one that did
-
 ## [5.5.0] - 2026-11-06
 
 ### Features

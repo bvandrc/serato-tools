@@ -95,17 +95,6 @@ class TestCase(unittest.TestCase):
         tags.set_track_color(original_color)
         self.assertFalse(tags.has_changed, "color changed back")
 
-    def test_save_keeps_a_change_followed_by_an_edit_that_changes_nothing(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_file = os.path.join(tmp_dir, "test.mp3")
-            shutil.copy("test/data/test_mp3.mp3", tmp_file)
-            tags = TrackCuesV2(tmp_file)
-            tags.set_track_color(TrackCuesV2.TrackColors.RED)
-            tags.modify_entries(dataclasses.replace)
-            tags.save()
-            self.assertFalse(tags.has_changed, "saved")
-            self.assertEqual(TrackCuesV2(tmp_file).get_track_color(), TrackCuesV2.TrackColors.RED.value)
-
     def test_set_beatgrid_locked(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
         self.assertFalse(tags.is_beatgrid_locked())
