@@ -1,7 +1,6 @@
 import os
 import io
 import re
-import copy
 import struct
 import base64
 import warnings
@@ -99,6 +98,9 @@ class SeratoBinFile:
     # set once __init__ has parsed the file, so save() can refuse a half-built instance
     _parsed: bool = False
 
+    # a copy of the entries as loaded or last saved to the file's own path, for has_changed; None if it didn't exist
+    _saved_entries: "SeratoBinFile.EntryList | None" = None
+
     def __init__(self, file: str):
         self.filepath = os.path.abspath(file)
 
@@ -116,11 +118,12 @@ class SeratoBinFile:
             else:
                 with open(file, "rb") as f:
                     self.entries = list(self._parse_item(f.read()))
+            self._saved_entries = self._copy_entries(self.entries)
         else:
             logger.warning(f"File does not exist: {file}. Using default data to create an empty item.")
-            # deep copy: nested values (osrt, ovct, ...) are lists too, and a shallow copy would leave every
-            # instance sharing — and able to mutate — the class-level DEFAULT_ENTRIES sublists.
-            self.entries = copy.deepcopy(self.DEFAULT_ENTRIES)
+            # copied down to the nested lists (osrt, ovct, ...): a shallow copy would leave every instance sharing —
+            # and able to mutate — the class-level DEFAULT_ENTRIES sublists.
+            self.entries = self._copy_entries(self.DEFAULT_ENTRIES)
             version_entry = self.entries[0]
             default_version = version_entry[1]
             if not isinstance(default_version, str):
@@ -411,6 +414,34 @@ class SeratoBinFile:
         """
         return self._serialize_entries(self.entries)
 
+    @staticmethod
+    def _copy_entries(entries: EntryList) -> EntryList:
+        # copies only the lists, the one mutable part of an entry, which is several times faster than copy.deepcopy
+        # on a large database
+        return [
+            (field, SeratoBinFile._copy_entries(value) if isinstance(value, list) else value)
+            for field, value in entries
+        ]
+
+    @property
+    def has_changed(self) -> bool:
+        """Whether the entries differ from the file's as loaded or last saved, however they were edited.
+
+        Sees edits made to `entries` directly, in place or by assignment, as well as through this class's methods.
+        Compared with the entries as loaded or saved, not with the file on disk now, which this doesn't reread. A file
+        that didn't exist when loaded counts as changed, since saving creates it.
+        """
+        return self._saved_entries is None or self.entries != self._saved_entries
+
+    def _is_own_path(self, file: str) -> bool:
+        if os.path.normcase(os.path.abspath(file)) == os.path.normcase(self.filepath):
+            return True
+        # the same file by another name: a symlink or hard link, or another case on a case-insensitive filesystem
+        try:
+            return os.path.samefile(file, self.filepath)
+        except OSError:  # either doesn't exist, so they can't be the same file
+            return False
+
     def get_tracks(self) -> Generator[Track, None, None]:
         for field, value in self.entries:
             if field == SeratoBinFile.Fields.TRACK:
@@ -501,6 +532,9 @@ class SeratoBinFile:
         data = self.to_bytes()
         with open(file, "wb") as f:
             f.write(data)
+        # saving a copy elsewhere leaves this file's own changes unsaved
+        if self._is_own_path(file):
+            self._saved_entries = self._copy_entries(self.entries)
 
     @classmethod
     def get_field_name(cls, field: str) -> str:
@@ -653,8 +687,7 @@ class SeratoBinFile:
         Skips the save when nothing changed, unless `file` names somewhere other than this file's own path.
         """
         changed = self.modify(rules)
-        same_file = file is None or os.path.normcase(os.path.abspath(file)) == os.path.normcase(self.filepath)
-        if changed or not same_file:
+        if changed or (file is not None and not self._is_own_path(file)):
             self.save(file)
 
     def change_track_path(self, src: str, dest: str) -> bool:
