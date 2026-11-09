@@ -774,7 +774,7 @@ def main():
             raise NotImplementedError("Snap tolerance must be less than 1 beat. TODO: implement this to allow")
 
         tags.snap_positions_to_beat(tolerance_beats)
-        tags.save()
+        tags.save(delete_tags_v1=True)
         sys.exit()
 
     if args.edit:
