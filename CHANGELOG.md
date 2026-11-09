@@ -2,6 +2,12 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixes
+
+- A `Serato Markers2` tag whose cues no longer fit grows to the size Serato would grow it to, in 512-byte steps past 470 bytes, rather than to just fit them
+
 ## [5.5.0] - 2026-11-06
 
 ### Features

@@ -127,12 +127,14 @@ class TestCase(unittest.TestCase):
 
     def test_rewriting_keeps_seratos_bytes(self):
         # tags Serato wrote: saved_loops's base64 ends in a character Serato drops, 514_bytes is longer than 470 bytes,
-        # flips has cues, a BPM lock, and then flips, in that order, and full_last_line's base64 ends in a full line
+        # flips has cues, a BPM lock, and then flips, in that order, full_last_line's base64 ends in a full line, and
+        # grown_by_serato is 1494 bytes, the size Serato grew it to
         for name in (
             "track_cues_v2_saved_loops.bin",
             "track_cues_v2_514_bytes.bin",
             "track_cues_v2_flips.bin",
             "track_cues_v2_full_last_line.bin",
+            "track_cues_v2_grown_by_serato.bin",
         ):
             with self.subTest(name), open(f"test/data/{name}", "rb") as f:
                 data = f.read()
@@ -150,19 +152,15 @@ class TestCase(unittest.TestCase):
         self.assertEqual(len(rewritten), 514)
         self.assertEqual(TrackCuesV2(rewritten).entries, tags.entries)
 
-    def test_outgrowing_the_tags_size_ends_it_with_a_null_byte(self):
-        with open("test/data/track_cues_v2_514_bytes.bin", "rb") as f:
+    def test_outgrowing_the_tags_size_grows_it_as_serato_does(self):
+        # Serato wrote track_cues_v2_grown_by_serato.bin when its cues' long names outgrew a smaller tag: giving a
+        # 470-byte tag the same entries should give the same bytes
+        with open("test/data/track_cues_v2_grown_by_serato.bin", "rb") as f:
+            grown = f.read()
+        with open("test/data/track_cues_v2_analyzed.bin", "rb") as f:
             tags = TrackCuesV2(f.read())
-        # a long name on each cue makes the base64 well over 514 bytes
-        tags.modify_entries(
-            lambda info: dataclasses.replace(info, cues=[dataclasses.replace(cue, name="x" * 100) for cue in info.cues])
-        )
-        rewritten = tags._raw_data
-        assert rewritten is not None
-        self.assertGreater(len(rewritten), 514)
-        self.assertNotEqual(rewritten[-2:-1], b"\x00")
-        self.assertEqual(rewritten[-1:], b"\x00")
-        self.assertEqual(TrackCuesV2(rewritten).entries, tags.entries)
+        tags.modify_entries(lambda _: TrackCuesV2.TrackCuesInfo.from_entries(TrackCuesV2(grown).entries))
+        self.assertEqual(tags._raw_data, grown)
 
     def test_snap_position_to_beat(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")

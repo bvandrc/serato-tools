@@ -21,6 +21,10 @@ from serato_tools.utils import get_enum_key_from_value
 from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
 from serato_tools.track_beatgrid import TrackBeatgrid
 
+# the sizes Serato writes the tag at, in an ID3 file: 470 bytes, or larger by a multiple of 512
+_MIN_SIZE = 470
+_GROWTH_STEP = 512
+
 # Every tag Serato DJ Pro 2 was seen writing passes the entry checks below, so an entry that doesn't is one this class
 # may not understand, and rewriting it could corrupt the tag. Mixxx's parser checks the same fields, with comments on them:
 # https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp
@@ -395,15 +399,16 @@ class TrackCuesV2(SeratoGeobTag):
         lines = [payload_base64[i : i + 72] for i in range(0, len(payload_base64), 72)]
 
         # Serato keeps the size the tag already had (at least 470 bytes), padding it with nulls, rather than shrinking it.
-        # How much Serato grows a tag whose content doesn't fit isn't known, so it grows to one null byte past it,
-        # keeping the null byte every tag Serato writes ends with, as Mixxx does:
-        # https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp
+        # A tag whose content doesn't fit grows in 512-byte steps past 470 (see docs/serato_markers2.md), keeping at
+        # least the null byte every tag Serato writes ends with. Whether Serato takes the next step when the content
+        # fills a step exactly, with no null byte, isn't known.
         content = version + b"\n".join(lines)
         if len(lines[-1]) == 72:
             content += b"\n"  # Serato ends every full line with one, even the last
-        size = max(470, len(self._raw_data or b""))
+        size = max(_MIN_SIZE, len(self._raw_data or b""))
         if len(content) >= size:
-            size = len(content) + 1
+            steps = -(-(len(content) + 1 - _MIN_SIZE) // _GROWTH_STEP)  # rounded up
+            size = _MIN_SIZE + steps * _GROWTH_STEP
         new_raw_data = content.ljust(size, b"\x00")
 
         self.modified = new_raw_data != self._raw_data  # pylint: disable=access-member-before-definition
