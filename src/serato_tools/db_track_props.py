@@ -24,8 +24,8 @@ class DbTrackTags(TypedDict, total=False):
 class _DbTrackProp[T]:
     db_field: DatabaseV2.Fields
     to_db_val: Callable[[T], SeratoBinFile.BasicValue]
-    # sets the value in the track's tags, taking delete_tags_v1
-    write: Callable[[Track, T, bool], None]
+    # sets the value in the track's tags
+    write: Callable[[Track, T], None]
 
 
 # keyed by DbTrackTags' keys
@@ -34,12 +34,12 @@ _DB_TRACK_PROPS: dict[str, _DbTrackProp[Any]] = {
     "color": _DbTrackProp[TrackCuesV2.TrackColors](
         DatabaseV2.Fields.COLOR,
         lambda color: int.from_bytes(color.value, "big"),
-        lambda track, color, delete_tags_v1: track.set_track_color(color, delete_tags_v1=delete_tags_v1),
+        Track.set_track_color,
     ),
     "beatgrid_locked": _DbTrackProp[bool](
         DatabaseV2.Fields.BEATGRID_LOCKED,
         lambda locked: locked,
-        lambda track, locked, delete_tags_v1: track.set_beatgrid_locked(locked, delete_tags_v1=delete_tags_v1),
+        Track.set_beatgrid_locked,
     ),
 }
 assert set(_DB_TRACK_PROPS) == DbTrackTags.__optional_keys__, "every DbTrackTags key needs a property, and only those"
@@ -56,8 +56,8 @@ def write_db_track_tags_to_files(tracks: Mapping[str, DbTrackTags], delete_tags_
     """Sets each track's values in its file's own tags, saving each file that changed.
 
     `tracks` maps each file's path to its values. Every file is read and every value set before any file is saved, so
-    a bad key or value, or a file that can't be read, raises without changing any file. See
-    TrackCuesV2.set_track_color for `delete_tags_v1`.
+    a bad key or value, or a file that can't be read, raises without changing any file. See TrackCuesV2.save for
+    `delete_tags_v1`.
     """
     for tags in tracks.values():
         _check_db_track_tags(tags)
@@ -68,10 +68,10 @@ def write_db_track_tags_to_files(tracks: Mapping[str, DbTrackTags], delete_tags_
         # every property so far lives in Serato Markers2, so parse only that
         track = Track(filepath, cues_v1=False, beatgrid=False, autotags=False, gain=False)
         for key, value in tags.items():
-            _DB_TRACK_PROPS[key].write(track, value, delete_tags_v1)
+            _DB_TRACK_PROPS[key].write(track, value)
         changed_tracks.append(track)
     for track in changed_tracks:
-        track.save()
+        track.save(delete_tags_v1)
 
 
 def to_db_values(tags: DbTrackTags) -> dict[DatabaseV2.Fields, SeratoBinFile.BasicValue]:

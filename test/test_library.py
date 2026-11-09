@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import warnings
 
 from serato_tools.library import Library
 
@@ -12,6 +13,7 @@ from serato_tools.library import Library
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.smart_crate import SmartCrate
+from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
@@ -184,6 +186,22 @@ class TestCase(unittest.TestCase):
         self.assertEqual(colors[DatabaseV2.get_relative_path(blue)], 0x99BBFF)
         self.assertEqual(TrackCuesV2(red).get_track_color(), TrackCuesV2.TrackColors.RED.value)
         self.assertEqual(TrackCuesV2(blue).get_track_color(), TrackCuesV2.TrackColors.BLUE1.value)
+
+    def test_set_db_track_tags_deletes_tags_v1_unless_told_not_to(self):
+        for delete_tags_v1 in (True, False):
+            with self.subTest(delete_tags_v1=delete_tags_v1), warnings.catch_warnings():
+                # passed to each file's save, not to the deprecated parameter on its edits
+                warnings.simplefilter("error", DeprecationWarning)
+                track = self.copy_analyzed_track(f"Delete{delete_tags_v1}.mp3")
+                self.add_to_database(track)
+
+                Library(self.serato_dir).set_db_track_tags(
+                    track, color=TrackCuesV2.TrackColors.RED, delete_tags_v1=delete_tags_v1
+                )
+
+                tagfile = TrackCuesV2(track).tagfile
+                assert tagfile is not None
+                self.assertEqual(f"GEOB:{TrackCuesV1.GEOB_KEY}" in tagfile, not delete_tags_v1)
 
     def test_set_db_track_tags_unchanged_skips_saving(self):
         track = self.copy_analyzed_track("Grey.mp3")

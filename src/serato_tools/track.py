@@ -84,11 +84,11 @@ class Track:
         """
         return self.cues_v2.get_track_color()
 
-    def set_track_color(self, color: TrackCuesV2.TrackColors, delete_tags_v1: bool = True):
+    def set_track_color(self, color: TrackCuesV2.TrackColors, delete_tags_v1: bool | None = None):
         """Sets the track's color in memory; call `save()` to write it to the file.
 
-        Serato stores the color in `Serato Markers2`, so this is `cues_v2.set_track_color`: see it for
-        `delete_tags_v1`, and for a track whose tags have no color yet.
+        Serato stores the color in `Serato Markers2`, so this is `cues_v2.set_track_color`: see it for a track whose
+        tags have no color yet, and for the deprecated `delete_tags_v1`.
         """
         self.cues_v2.set_track_color(color, delete_tags_v1=delete_tags_v1)
 
@@ -99,11 +99,11 @@ class Track:
         """
         return self.cues_v2.is_beatgrid_locked()
 
-    def set_beatgrid_locked(self, locked: bool, delete_tags_v1: bool = True):
+    def set_beatgrid_locked(self, locked: bool, delete_tags_v1: bool | None = None):
         """Locks or unlocks the track's beatgrid in memory; call `save()` to write it to the file.
 
-        Serato stores the lock in `Serato Markers2`, so this is `cues_v2.set_beatgrid_locked`: see it for
-        `delete_tags_v1`, and for a track whose tags have no lock yet.
+        Serato stores the lock in `Serato Markers2`, so this is `cues_v2.set_beatgrid_locked`: see it for a track
+        whose tags have no lock yet, and for the deprecated `delete_tags_v1`.
         """
         self.cues_v2.set_beatgrid_locked(locked, delete_tags_v1=delete_tags_v1)
 
@@ -116,11 +116,18 @@ class Track:
         """Whether any parsed tag has changes, so that `save()` would write the file."""
         return any(tag.has_changed for tag in self._parsed_tags())
 
-    def save(self) -> bool:
-        """Writes every tag's changes to the file in one write, and returns whether there were any to write."""
+    def save(self, delete_tags_v1: bool = True) -> bool:
+        """Writes every tag's changes to the file in one write, and returns whether there were any to write.
+
+        See `TrackCuesV2.save` for `delete_tags_v1`, which applies when `cues_v2` has changes.
+        """
         # a set built in full, not any() over a generator, so that every tag puts its changes in before the one write
-        # pylint: disable-next=protected-access
-        changed = {tag._write_to_tagfile() for tag in self._parsed_tags()}
+        # pylint: disable=protected-access
+        changed = {
+            tag._write_to_tagfile(delete_tags_v1) if isinstance(tag, TrackCuesV2) else tag._write_to_tagfile()
+            for tag in self._parsed_tags()
+        }
+        # pylint: enable=protected-access
         if not any(changed):
             return False
         self.tagfile.save()

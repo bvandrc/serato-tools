@@ -123,7 +123,7 @@ class Library:
         - A bad key or value, or a file that can't be read, raises before any file or the database is changed.
         - Every file is written before the database, which is saved once.
         - A track that isn't in the database only has its file's tags set, with a warning.
-        - See TrackCuesV2.set_track_color for `delete_tags_v1`.
+        - See TrackCuesV2.save for `delete_tags_v1`.
         """
         props = _db_track_props()
         # converted before any file is written, so a value the database can't hold changes nothing
