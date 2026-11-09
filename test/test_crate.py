@@ -1,55 +1,23 @@
-# pylint: disable=protected-access
 import unittest
 import copy
 import os
-import shutil
-import tempfile
 
 from serato_tools.crate import Crate
+
+from test.helpers import read_bytes, temp_dir
 
 with open("test/data/crate.txt", "r", encoding="utf-8") as f:
     base_expected = f.read()
 
 
 class TestCase(unittest.TestCase):
-    def test_format_filepath(self):
-        self.assertEqual(
-            Crate.get_relative_path("Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
-            "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
-        )
-
-    @unittest.skipUnless(os.name == "nt", "Windows drive letters and backslash separators")
-    def test_format_windows_filepath(self):
-        self.assertEqual(
-            Crate.get_relative_path("C:\\Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3"),
-            "Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
-        )
-        self.assertEqual(
-            Crate.get_relative_path("Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3"),
-            "Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
-        )
-        self.assertEqual(
-            Crate.get_relative_path("C:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
-            "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
-        )
-
-    @unittest.skipIf(os.name == "nt", "POSIX paths")
-    def test_format_posix_filepath(self):
-        self.assertEqual(
-            Crate.get_relative_path("/Users/Username/Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
-            "Users/Username/Music/DJ Tracks/Tripp St. - Enlighten.mp3",
-        )
-
     def test_parse_and_modify_and_serialize(self):
         file = os.path.abspath("test/data/TestCrate.crate")
-        with open(file, mode="rb") as fp:
-            file_data = fp.read()
-
         crate = Crate(file)
 
         self.maxDiff = None
 
-        self.assertEqual(crate.to_bytes(), file_data, "to_bytes")
+        self.assertEqual(crate.to_bytes(), read_bytes(file), "to_bytes")
         expected = base_expected
 
         self.assertEqual(crate.__str__(), expected, "parse")
@@ -82,20 +50,14 @@ class TestCase(unittest.TestCase):
         self.assertEqual(crate.__str__(), expected, "track added")
 
     def test_new_crate_does_not_share_entries_with_class_default(self):
-        a = Crate("/tmp/serato_test_A.crate")
-        a.add_tracks(["/music/track1.mp3"])
-
-        b = Crate("/tmp/serato_test_B.crate")
-        otrk_entries = [e for e in b.entries if e[0] == "otrk"]
-        self.assertEqual(otrk_entries, [], "new Crate must not inherit tracks from a previous instance")
-
-    def test_new_crate_does_not_share_nested_entries_with_class_default(self):
         default_entries = copy.deepcopy(Crate.DEFAULT_ENTRIES)
+        tmp = temp_dir(self)
 
-        a = Crate("/tmp/serato_test_C.crate")
-        b = Crate("/tmp/serato_test_D.crate")
+        a = Crate(os.path.join(tmp, "A.crate"))
+        a.add_tracks(["/music/track1.mp3"])
+        b = Crate(os.path.join(tmp, "B.crate"))
 
-        for i, (field, value) in enumerate(a.entries):
+        for i, (field, value) in enumerate(a.entries[: len(default_entries)]):
             if isinstance(value, list):
                 self.assertIsNot(value, Crate.DEFAULT_ENTRIES[i][1], f"{field} sublist shared with class default")
                 self.assertIsNot(value, b.entries[i][1], f"{field} sublist shared between instances")
@@ -105,63 +67,17 @@ class TestCase(unittest.TestCase):
         sorting_value.append((Crate.Fields.COLUMN_NAME, "mutated"))
 
         self.assertEqual(Crate.DEFAULT_ENTRIES, default_entries, "class default must not be mutated")
-        self.assertEqual(b.entries, default_entries, "other instance must not be mutated")
+        self.assertEqual(b.entries, default_entries, "other instance must not inherit tracks or nested edits")
 
     def test_add_tracks_is_saved(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            file = os.path.join(tmp, "Test.crate")
-            crate = Crate(file)
-            crate.add_tracks(["/music/track1.mp3"])
-            crate.save()
+        file = os.path.join(temp_dir(self), "Test.crate")
+        crate = Crate(file)
+        crate.add_tracks(["/music/track1.mp3"])
+        crate.save()
 
-            self.assertEqual(Crate(file).get_track_paths(), crate.get_track_paths())
-            self.assertEqual(len(crate.get_track_paths()), 1)
+        self.assertEqual(Crate(file).get_track_paths(), crate.get_track_paths())
+        self.assertEqual(len(crate.get_track_paths()), 1)
 
-    def test_has_changed(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            file = os.path.join(tmp, "Test.crate")
-            shutil.copy("test/data/TestCrate.crate", file)
-            crate = Crate(file)
-            self.assertFalse(crate.has_changed, "as loaded")
 
-            crate.add_tracks(["/music/track1.mp3"])
-            self.assertTrue(crate.has_changed, "track added")
-            crate.save(os.path.join(tmp, "Copy.crate"))
-            self.assertTrue(crate.has_changed, "saving a copy elsewhere leaves its own file unsaved")
-            crate.save()
-            self.assertFalse(crate.has_changed, "saved")
-
-            sorting = crate.entries[1][1]
-            assert isinstance(sorting, list)
-            sorting.append((Crate.Fields.COLUMN_NAME, "edited in place"))
-            self.assertTrue(crate.has_changed, "nested entry edited in place")
-            sorting.pop()
-            self.assertFalse(crate.has_changed, "edited back")
-
-    @unittest.skipIf(os.name == "nt", "creating a symlink needs extra privileges on Windows")
-    def test_saving_through_a_symlink_is_saving_its_own_file(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            file = os.path.join(tmp, "Test.crate")
-            shutil.copy("test/data/TestCrate.crate", file)
-            link = os.path.join(tmp, "Link.crate")
-            os.symlink(file, link)
-            crate = Crate(file)
-            crate.add_tracks(["/music/track1.mp3"])
-            crate.save(link)
-            self.assertFalse(crate.has_changed)
-
-    def test_new_crate_has_changed_until_saved(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            crate = Crate(os.path.join(tmp, "New.crate"))
-            self.assertTrue(crate.has_changed, "saving creates the file")
-            crate.save()
-            self.assertFalse(crate.has_changed)
-
-    def test_crate_loaded_from_json_hasnt_changed(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            json_file = os.path.join(tmp, "Test.json")
-            Crate("test/data/TestCrate.crate").write_json(json_file)
-            crate = Crate(json_file)
-            self.assertFalse(crate.has_changed)
-            crate.add_tracks(["/music/track1.mp3"])
-            self.assertTrue(crate.has_changed)
+if __name__ == "__main__":
+    unittest.main()

@@ -17,6 +17,8 @@ from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
+from test.helpers import temp_mp3, untagged_mp3
+
 
 class TestCase(unittest.TestCase):
     def setUp(self):
@@ -140,9 +142,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(self.track_paths(library.smart_crates[0]), [], "missing track removed from smart crate")
 
     def copy_analyzed_track(self, name: str) -> str:
-        path = os.path.join(self.music_dir, name)
-        shutil.copy("test/data/test_mp3.mp3", path)
-        return path
+        return temp_mp3(self, name, self.music_dir)
 
     def db_values(self, field: DatabaseV2.Fields) -> dict[str, SeratoBinFile.Value]:
         """Each saved database track's value of `field`, by path, for the tracks that have it."""
@@ -214,10 +214,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(saved, [], "database not saved")
 
     def test_set_db_track_tags_creates_a_missing_tag(self):
-        track = self.copy_analyzed_track("New.mp3")
-        tags = TrackCuesV2(track)
-        tags.delete()
-        tags.save()
+        track = untagged_mp3(self, "New.mp3", self.music_dir)
         self.add_to_database(track)
 
         Library(self.serato_dir).set_db_track_tags(track, color=TrackCuesV2.TrackColors.RED, beatgrid_locked=True)

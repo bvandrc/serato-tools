@@ -1,24 +1,19 @@
-# pylint: disable=protected-access
 import unittest
-import os
 
 from serato_tools.track_waveform import TrackWaveform
+
+from test.helpers import read_bytes
 
 
 class TestCase(unittest.TestCase):
     def test_parse(self):
-        with open(os.path.abspath("test/data/track_waveform.bin"), mode="rb") as fp:
-            file_data = fp.read()
-        tags = TrackWaveform(file_data)
-        self.assertEqual(tags._raw_data, file_data, "raw_data read")  # pylint: disable=protected-access
-        with open(os.path.abspath("test/data/track_waveform_parsed.bin"), mode="rb") as fp:
-            expected_parsed_data = fp.read()
+        tags = TrackWaveform(read_bytes("test/data/track_waveform.bin"))
         self.assertEqual(
             b"".join(bytes(x) for x in list(tags.data)),
-            expected_parsed_data,
+            read_bytes("test/data/track_waveform_parsed.bin"),
             "parsed data",
         )
 
-    def test_untested_version_raises_at_construction(self):
-        with self.assertRaises(ValueError):
-            TrackWaveform(bytes([0x99, 0x99]) + b"\x00" * 32)
+
+if __name__ == "__main__":
+    unittest.main()

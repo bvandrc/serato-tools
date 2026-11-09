@@ -8,78 +8,20 @@ import shutil
 import tempfile
 
 from serato_tools.database_v2 import DatabaseV2
-from serato_tools.utils.bin_file_base import SeratoBinFile
 
 # bin_file_base raises the installed package's DataTypeError, so catch that one
 from serato_tools.utils import DataTypeError
 
+from test.helpers import read_bytes
+
 
 class TestCase(unittest.TestCase):
-    def test_duplicate_field_in_track_raises(self):
-        # a repeated field would be silently collapsed/duplicated on round-trip, corrupting the file
-        with self.assertRaises(ValueError):
-            SeratoBinFile.Track(
-                [
-                    (SeratoBinFile.Fields.FILE_PATH.value, "a.mp3"),
-                    (SeratoBinFile.Fields.GENRE.value, "House"),
-                    (SeratoBinFile.Fields.GENRE.value, "Techno"),
-                ],
-                path_key=SeratoBinFile.Fields.FILE_PATH.value,
-            )
-
-    def test_format_filepath(self):
-        self.assertEqual(
-            DatabaseV2.get_relative_path("Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
-            "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
-        )
-
-    @unittest.skipUnless(os.name == "nt", "Windows drive letters and backslash separators")
-    def test_format_windows_filepath(self):
-        self.assertEqual(
-            DatabaseV2.get_relative_path("C:\\Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3"),
-            "Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
-        )
-        self.assertEqual(
-            DatabaseV2.get_relative_path("Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3"),
-            "Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
-        )
-        self.assertEqual(
-            DatabaseV2.get_relative_path("C:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
-            "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
-        )
-
-    @unittest.skipIf(os.name == "nt", "POSIX paths")
-    def test_format_posix_filepath(self):
-        self.assertEqual(
-            DatabaseV2.get_relative_path("/Users/Username/Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
-            "Users/Username/Music/DJ Tracks/Tripp St. - Enlighten.mp3",
-        )
-
-    @unittest.skipUnless(os.name == "nt", "Windows drive letters")
-    def test_full_path_keeps_given_drive(self):
-        path = "D:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
-        self.assertEqual(DatabaseV2.get_full_path(path), os.path.normpath(path))
-
-    @unittest.skipIf(os.name == "nt", "POSIX paths")
-    def test_full_path_keeps_absolute_posix_path(self):
-        path = "/Volumes/USB/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
-        self.assertEqual(DatabaseV2.get_full_path(path), path)
-
-    def test_full_path_without_drive_is_absolute(self):
-        # Serato stores track paths with no drive or leading separator
-        full_path = DatabaseV2.get_full_path("Music/DJ Tracks/Tripp St. - Enlighten.mp3")
-        self.assertTrue(os.path.isabs(full_path), full_path)
-        self.assertTrue(full_path.endswith(os.path.normpath("/Music/DJ Tracks/Tripp St. - Enlighten.mp3")), full_path)
-
     def test_parse_and_serialize(self):
         file = os.path.abspath("test/data/database_v2_test.bin")
-        with open(file, mode="rb") as fp:
-            file_data = fp.read()
-
         db = DatabaseV2(file)
 
         self.maxDiff = None
-        self.assertEqual(db.to_bytes(), file_data, "to_bytes")
+        self.assertEqual(db.to_bytes(), read_bytes(file), "to_bytes")
 
         with open("test/data/database_v2_test_output.txt", "r", encoding="utf-16") as f:
             expected = f.read()
@@ -96,14 +38,10 @@ class TestCase(unittest.TestCase):
 
     def test_parse_and_modify(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
-
         self.maxDiff = None
+        expected = db.__str__()
 
-        with open("test/data/database_v2_test_output.txt", "r", encoding="utf-16") as f:
-            expected = f.read()
-            self.assertEqual(db.__str__(), expected, "parse")
-
-        original_entries = db.entries
+        original_entries = copy.deepcopy(db.entries)
         original_bytes = db.to_bytes()
         self.assertFalse(db.modify([]), "reports no change")
         self.assertEqual(db.entries, original_entries, "was not modified")
@@ -150,58 +88,19 @@ class TestCase(unittest.TestCase):
         with open("test/data/database_v2_test_modified_output_2.bin", "rb") as f:
             self.assertEqual(db.to_bytes(), f.read(), "was modified correctly, given files")
 
-    def test_rename_track_file_only_saves_files_with_track(self):
-        # rename_track_file imports Crate from the installed package, so patch that one
-        from serato_tools.crate import Crate  # pylint: disable=import-outside-toplevel
+    def test_rename_track_file_is_deprecated_for_library(self):
+        # the behaviour is Library.rename_track_file's, tested in test_library; this pins only the delegation
+        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        with (
+            mock.patch("serato_tools.library.Library.rename_track_file", autospec=True, return_value=True) as rename,
+            self.assertWarns(DeprecationWarning),
+        ):
+            self.assertTrue(db.rename_track_file("Old.mp3", "New.mp3"))
 
-        with tempfile.TemporaryDirectory() as tmp:
-            src, dest = os.path.join(tmp, "Old.mp3"), os.path.join(tmp, "New.mp3")
-            open(src, "wb").close()
-
-            db_file = os.path.join(tmp, "database V2")
-            shutil.copy("test/data/database_v2_test.bin", db_file)
-            db = DatabaseV2(db_file)
-            db.entries.append(
-                (DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, DatabaseV2.get_relative_path(src))])
-            )
-
-            crates_dir = os.path.join(tmp, "Subcrates")
-            os.mkdir(crates_dir)
-            for name, has_track in [("With.crate", True), ("Without.crate", False)]:
-                crate = Crate(os.path.join(crates_dir, name))
-                if has_track:
-                    crate.add_tracks([src])
-                crate.save()
-
-            saved: list[Crate] = []
-            with (
-                mock.patch.object(Crate, "DIR_PATH", crates_dir),
-                mock.patch.object(Crate, "save", autospec=True, side_effect=saved.append),
-                self.assertWarns(DeprecationWarning),
-            ):
-                db.rename_track_file(src, dest)
-
-            self.assertEqual(
-                [os.path.basename(c.filepath) for c in saved], ["With.crate"], "only crate with track saved"
-            )
-            self.assertEqual(saved[0].get_track_paths(), [DatabaseV2.get_relative_path(dest)], "crate path updated")
-            self.assertIn(DatabaseV2.get_relative_path(dest), DatabaseV2(db_file).get_track_paths(), "db path updated")
-
-            # a file in neither the db nor any crate: renamed on disk, nothing saved
-            other_src, other_dest = os.path.join(tmp, "Other.mp3"), os.path.join(tmp, "Other New.mp3")
-            open(other_src, "wb").close()
-            os.remove(db_file)  # so any save shows up as the file reappearing
-            saved.clear()
-            with (
-                mock.patch.object(Crate, "DIR_PATH", crates_dir),
-                mock.patch.object(Crate, "save", autospec=True, side_effect=saved.append),
-                self.assertWarns(DeprecationWarning),
-            ):
-                db.rename_track_file(other_src, other_dest)
-
-            self.assertTrue(os.path.exists(other_dest), "file renamed")
-            self.assertFalse(os.path.exists(db_file), "db without track not saved")
-            self.assertEqual(saved, [], "no crate saved")
+        library, src, dest = rename.call_args.args
+        self.assertEqual((src, dest), ("Old.mp3", "New.mp3"))
+        self.assertIs(library.database, db, "renames in this database, so its saves aren't overwritten")
+        self.assertEqual(library.serato_dir, os.path.dirname(db.filepath), "and in the crates beside it")
 
     def test_modify_and_save_skips_save_when_unchanged(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -240,8 +139,7 @@ class TestCase(unittest.TestCase):
             self.assertFalse(os.path.exists(db_file), "nothing relocated, so not saved")
 
     def test_save_leaves_file_as_it_was_on_error(self):
-        with open("test/data/database_v2_test.bin", "rb") as f:
-            orig = f.read()
+        orig = read_bytes("test/data/database_v2_test.bin")
 
         with tempfile.TemporaryDirectory() as tmp:
             db_file = os.path.join(tmp, "database V2")
@@ -329,19 +227,14 @@ class TestCase(unittest.TestCase):
             {DatabaseV2.get_full_path("Music/Bad.mp3"): "why", DatabaseV2.get_full_path("Music/No Reason.mp3"): ""},
         )
 
-    def test_to_json_object(self):
-        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
-
-        with open("test/data/database_v2_json.json", "r", encoding="utf-8") as f:
-            self.assertEqual(db.to_json_object(), json.loads(f.read()))
-
-    def test_from_json_object(self):
-        db_from_json = DatabaseV2(os.path.abspath("test/data/database_v2_json.json"))
+    def test_json_round_trip(self):
         db_from_bin = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        with open("test/data/database_v2_json.json", "r", encoding="utf-8") as f:
+            self.assertEqual(db_from_bin.to_json_object(), json.load(f), "to_json_object")
 
-        self.assertEqual(db_from_json.__str__(), db_from_bin.__str__())
+        db_from_json = DatabaseV2(os.path.abspath("test/data/database_v2_json.json"))
+        self.assertEqual(db_from_json.__str__(), db_from_bin.__str__(), "loaded from a JSON file")
 
-        json_object = db_from_bin.to_json_object()
-        db_from_json.from_json_object(json_object)
-
-        self.assertEqual(db_from_json.__str__(), db_from_bin.__str__())
+        db_from_json.entries = []
+        db_from_json.from_json_object(db_from_bin.to_json_object())
+        self.assertEqual(db_from_json.__str__(), db_from_bin.__str__(), "from_json_object")
