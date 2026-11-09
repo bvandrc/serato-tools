@@ -535,7 +535,8 @@ class TrackCuesV2(SeratoGeobTag):
         return was_deleted
 
     def save(self, force: bool = False):
-        if self.modified or force:
+        """Writes the tag to the file, if it changed since it was read or last saved, or if `force`."""
+        if self.has_changed or force:
             super().save()
 
     def get_track_color(self) -> bytes | None:

@@ -65,6 +65,14 @@ class TestCase(unittest.TestCase):
         self.assertFalse(track.save())
         writes.assert_not_called()
 
+    def test_has_changed(self):
+        track = Track(self.path)
+        self.assertFalse(track.has_changed, "as read")
+        track.autotags.set(bpm=128)
+        self.assertTrue(track.has_changed, "one tag changed")
+        track.save()
+        self.assertFalse(track.has_changed, "saved")
+
     def test_save_writes_every_change_at_once(self):
         track = Track(self.path)
         track.cues_v2.set_track_color(TrackCuesV2.TrackColors.RED)
