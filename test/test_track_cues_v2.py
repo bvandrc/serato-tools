@@ -1,5 +1,7 @@
 # pylint: disable=protected-access
+import base64
 import dataclasses
+import struct
 import unittest
 import os
 import tempfile
@@ -163,6 +165,19 @@ class TestCase(unittest.TestCase):
                     tags = TrackCuesV2(f470.read())
                 tags.modify_entries(lambda _, g=grown: TrackCuesV2.TrackCuesInfo.from_entries(TrackCuesV2(g).entries))
                 self.assertEqual(tags._raw_data, grown)
+
+    def test_a_cue_past_8_raises(self):
+        # cue 11 as found in a real tag, which Serato ignored: field4 cc and color cccccc
+        cue_11 = bytes.fromhex("00 0a 00 02 14 98 cc cc cc cc 00 00 00")
+        payload = b"\x01\x01" + b"CUE\x00" + struct.pack(">I", len(cue_11)) + cue_11 + b"\x00"
+        with self.assertRaisesRegex(ValueError, "cue 11 is past Serato's 8 cue pads"):
+            TrackCuesV2(b"\x01\x01" + base64.b64encode(payload))
+
+        with open("test/data/track_cues_v2_analyzed.bin", "rb") as f:
+            tags = TrackCuesV2(f.read())
+        cue_9 = TrackCuesV2.CueEntry(b"\x00", 8, 1000, b"\x00", TrackCuesV2.CueColors.RED.value, b"\x00\x00", "")
+        with self.assertRaisesRegex(ValueError, "cue 9 is past Serato's 8 cue pads"):
+            tags.modify_entries(lambda info: dataclasses.replace(info, cues=[cue_9]))
 
     def test_snap_position_to_beat(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")

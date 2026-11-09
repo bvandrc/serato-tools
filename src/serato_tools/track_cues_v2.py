@@ -25,6 +25,9 @@ from serato_tools.track_beatgrid import TrackBeatgrid
 _MIN_SIZE = 470
 _GROWTH_STEP = 512
 
+# cue 8: Serato numbers its cue pads from 0
+_MAX_CUE_INDEX = 7
+
 # Every tag Serato DJ Pro 2 was seen writing passes the entry checks below, so an entry that doesn't is one this class
 # may not understand, and rewriting it could corrupt the tag. Mixxx's parser checks the same fields, with comments on them:
 # https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp
@@ -38,6 +41,13 @@ def _check_len(entry_name: str, data: bytes, expected: int):
 def _check_fixed(entry_name: str, field: str, value: bytes, expected: bytes):
     if value != expected:
         raise ValueError(f"{entry_name} entry's {field} isn't {expected!r}: {value!r}")
+
+
+def _check_cue_index(index: int):
+    # Serato only has 8 cue pads, so it ignores a cue past them: it doesn't show it, or move it up when a cue before it
+    # is deleted. Such cues, found in real tags, also have bytes unlike any cue Serato shows (field4 cc, color cccccc).
+    if index > _MAX_CUE_INDEX:
+        raise ValueError(f"cue {index + 1} is past Serato's 8 cue pads, so Serato ignores it: remove it from the tag")
 
 
 def _parse_name(entry_name: str, data: bytes) -> str:
@@ -229,12 +239,14 @@ class TrackCuesV2(SeratoGeobTag):
         def _parse(cls, data: bytes) -> "TrackCuesV2.CueEntry":
             info_size = struct.calcsize(cls._FORMAT)
             field1, index, position, field4, color, field6 = struct.unpack(cls._FORMAT, data[:info_size])
+            _check_cue_index(index)  # first, since such a cue's other fields fail their checks less helpfully
             _check_fixed(cls.NAME, "field1", field1, b"\x00")
             _check_fixed(cls.NAME, "field4", field4, b"\x00")
             _check_fixed(cls.NAME, "field6", field6, b"\x00\x00")
             return cls(field1, index, position, field4, color, field6, _parse_name(cls.NAME, data[info_size:]))
 
         def _serialize(self) -> bytes:
+            _check_cue_index(self.index)
             position = max(0, min(self.position, 0xFFFFFFFF))
             return b"".join(
                 (
