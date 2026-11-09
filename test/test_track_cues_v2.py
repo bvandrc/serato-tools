@@ -128,13 +128,14 @@ class TestCase(unittest.TestCase):
     def test_rewriting_keeps_seratos_bytes(self):
         # tags Serato wrote: saved_loops's base64 ends in a character Serato drops, 514_bytes is longer than 470 bytes,
         # flips has cues, a BPM lock, and then flips, in that order, full_last_line's base64 ends in a full line, and
-        # grown_by_serato is 1494 bytes, the size Serato grew it to
+        # 982_bytes and 1494_bytes are 512-byte steps past 470
         for name in (
             "track_cues_v2_saved_loops.bin",
             "track_cues_v2_514_bytes.bin",
             "track_cues_v2_flips.bin",
             "track_cues_v2_full_last_line.bin",
-            "track_cues_v2_grown_by_serato.bin",
+            "track_cues_v2_982_bytes.bin",
+            "track_cues_v2_1494_bytes.bin",
         ):
             with self.subTest(name), open(f"test/data/{name}", "rb") as f:
                 data = f.read()
@@ -153,15 +154,15 @@ class TestCase(unittest.TestCase):
         self.assertEqual(TrackCuesV2(rewritten).entries, tags.entries)
 
     def test_outgrowing_the_tags_size_grows_it_as_serato_does(self):
-        # Serato wrote track_cues_v2_grown_by_serato.bin at 1494 bytes, a 512-byte step past 470, when rewriting a
-        # 1314-byte tag. Its entries don't fit in 470 bytes, so giving a 470-byte tag the same entries should give the
-        # same bytes
-        with open("test/data/track_cues_v2_grown_by_serato.bin", "rb") as f:
-            grown = f.read()
-        with open("test/data/track_cues_v2_analyzed.bin", "rb") as f:
-            tags = TrackCuesV2(f.read())
-        tags.modify_entries(lambda _: TrackCuesV2.TrackCuesInfo.from_entries(TrackCuesV2(grown).entries))
-        self.assertEqual(tags._raw_data, grown)
+        # Serato grew a 470-byte tag to track_cues_v2_982_bytes.bin, one 512-byte step. 1494_bytes is two steps, and
+        # its entries need both. Giving a 470-byte tag either's entries should give the same bytes
+        for name in ("track_cues_v2_982_bytes.bin", "track_cues_v2_1494_bytes.bin"):
+            with self.subTest(name), open(f"test/data/{name}", "rb") as f:
+                grown = f.read()
+                with open("test/data/track_cues_v2_analyzed.bin", "rb") as f470:
+                    tags = TrackCuesV2(f470.read())
+                tags.modify_entries(lambda _, g=grown: TrackCuesV2.TrackCuesInfo.from_entries(TrackCuesV2(g).entries))
+                self.assertEqual(tags._raw_data, grown)
 
     def test_snap_position_to_beat(self):
         tags = TrackCuesV2("test/data/test_mp3.mp3")
