@@ -2,6 +2,12 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.6.0] - 2026-11-09
+
+### Features
+
+- Add a read-only `has_changed` property to the library database, crates, and smart crates, which says whether saving would write a change, without saving
+
 ## [5.5.0] - 2026-11-06
 
 ### Features
