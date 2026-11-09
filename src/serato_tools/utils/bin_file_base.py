@@ -1,7 +1,6 @@
 import os
 import io
 import re
-import copy
 import struct
 import base64
 import warnings
@@ -122,9 +121,9 @@ class SeratoBinFile:
             self._saved_entries = self._copy_entries(self.entries)
         else:
             logger.warning(f"File does not exist: {file}. Using default data to create an empty item.")
-            # deep copy: nested values (osrt, ovct, ...) are lists too, and a shallow copy would leave every
-            # instance sharing — and able to mutate — the class-level DEFAULT_ENTRIES sublists.
-            self.entries = copy.deepcopy(self.DEFAULT_ENTRIES)
+            # copied down to the nested lists (osrt, ovct, ...): a shallow copy would leave every instance sharing —
+            # and able to mutate — the class-level DEFAULT_ENTRIES sublists.
+            self.entries = self._copy_entries(self.DEFAULT_ENTRIES)
             version_entry = self.entries[0]
             default_version = version_entry[1]
             if not isinstance(default_version, str):
@@ -426,15 +425,22 @@ class SeratoBinFile:
 
     @property
     def has_changed(self) -> bool:
-        """Whether the entries differ from the file's as loaded or last saved, in place or by assignment.
+        """Whether the entries differ from the file's as loaded or last saved, however they were edited.
 
+        Sees edits made to `entries` directly, in place or by assignment, as well as through this class's methods.
         Compared with the entries as loaded or saved, not with the file on disk now, which this doesn't reread. A file
         that didn't exist when loaded counts as changed, since saving creates it.
         """
         return self._saved_entries is None or self.entries != self._saved_entries
 
     def _is_own_path(self, file: str) -> bool:
-        return os.path.normcase(os.path.abspath(file)) == os.path.normcase(self.filepath)
+        if os.path.normcase(os.path.abspath(file)) == os.path.normcase(self.filepath):
+            return True
+        # the same file by another name: a symlink or hard link, or another case on a case-insensitive filesystem
+        try:
+            return os.path.samefile(file, self.filepath)
+        except OSError:  # either doesn't exist, so they can't be the same file
+            return False
 
     def get_tracks(self) -> Generator[Track, None, None]:
         for field, value in self.entries:

@@ -138,6 +138,18 @@ class TestCase(unittest.TestCase):
             sorting.pop()
             self.assertFalse(crate.has_changed, "edited back")
 
+    @unittest.skipIf(os.name == "nt", "creating a symlink needs extra privileges on Windows")
+    def test_saving_through_a_symlink_is_saving_its_own_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            file = os.path.join(tmp, "Test.crate")
+            shutil.copy("test/data/TestCrate.crate", file)
+            link = os.path.join(tmp, "Link.crate")
+            os.symlink(file, link)
+            crate = Crate(file)
+            crate.add_tracks(["/music/track1.mp3"])
+            crate.save(link)
+            self.assertFalse(crate.has_changed)
+
     def test_new_crate_has_changed_until_saved(self):
         with tempfile.TemporaryDirectory() as tmp:
             crate = Crate(os.path.join(tmp, "New.crate"))
