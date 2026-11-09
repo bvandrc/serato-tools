@@ -1,17 +1,16 @@
 # pylint: disable=protected-access
 import unittest
-import os
 import struct
 
 from serato_tools.track_beatgrid import TrackBeatgrid
 
+from test.helpers import read_bytes
+
 
 class TestCase(unittest.TestCase):
     def test_parse_and_serialize(self):
-        with open(os.path.abspath("test/data/track_beatgrid.bin"), mode="rb") as fp:
-            file_data = fp.read()
+        file_data = read_bytes("test/data/track_beatgrid.bin")
         tags = TrackBeatgrid(file_data)
-        self.assertEqual(tags._raw_data, file_data, "raw_data read")  # pylint: disable=protected-access
         assert tags.entries is not None
         self.assertEqual(
             tags.entries,
@@ -22,7 +21,7 @@ class TestCase(unittest.TestCase):
             "parsed entries",
         )
         tags._serialize()
-        self.assertEqual(tags._raw_data, file_data, "serialize")  # pylint: disable=protected-access
+        self.assertEqual(tags._raw_data, file_data, "serialize")
 
     def test_a_grid_serato_wouldnt_write_raises(self):
         Marker = TrackBeatgrid.NonTerminalBeatgridMarker
@@ -43,12 +42,7 @@ class TestCase(unittest.TestCase):
                 with self.assertRaises(ValueError, msg="parsing"):
                     TrackBeatgrid(data + b"\x00")
 
-                with open("test/data/track_beatgrid.bin", "rb") as f:
-                    tags = TrackBeatgrid(f.read())
+                tags = TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin"))
                 tags.entries = (*markers, TrackBeatgrid.Footer(0))  # pyright: ignore[reportAttributeAccessIssue]
                 with self.assertRaises(ValueError, msg="saving"):
                     tags._serialize()
-
-    def test_untested_version_raises_at_construction(self):
-        with self.assertRaises(ValueError):
-            TrackBeatgrid(bytes([0x99, 0x99]))

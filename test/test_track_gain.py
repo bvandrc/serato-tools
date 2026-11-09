@@ -1,79 +1,53 @@
-# pylint: disable=protected-access
 import unittest
 from unittest import mock
-import os
-import shutil
-import tempfile
 
 from serato_tools.track_gain import TrackGain
+
+from test.helpers import TEST_MP3, temp_mp3
 
 
 class TestCase(unittest.TestCase):
     def test_read(self):
-        tags = TrackGain(os.path.abspath("test/data/test_mp3.mp3"))
+        tags = TrackGain(TEST_MP3)
         self.assertEqual(tags.gain, 0.0, "gain read from RVA2:SeratoGain frame")
         self.assertEqual(tags.peak, 0.0, "peak read from RVA2:SeratoGain frame")
 
-    def test_read_without_frame(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_file = os.path.join(tmp_dir, "test.mp3")
-            shutil.copy(os.path.abspath("test/data/test_mp3.mp3"), tmp_file)
-            tags = TrackGain(tmp_file)
-            tags.delete()
-            tags.save()
+    def test_set_waits_for_save(self):
+        path = temp_mp3(self)
+        tags = TrackGain(path)
+        tags.set(gain=-3.5)
+        self.assertEqual(TrackGain(path).gain, 0.0, "not written until saved")
+        tags.save()
 
-            tags_readback = TrackGain(tmp_file)
-            self.assertIsNone(tags_readback.gain, "no frame reads as no gain")
-            self.assertIsNone(tags_readback.peak, "no frame reads as no peak")
-            with self.assertRaises(ValueError, msg="needs both values to create the frame"):
-                tags_readback.set_and_save(gain=-3.5)
+        saved = TrackGain(path)
+        self.assertAlmostEqual(saved.gain or 0.0, -3.5, places=2, msg="written on save")
+        self.assertEqual(saved.peak, 0.0, "unset peak keeps its previous value")
 
-    def test_set_and_save_roundtrip(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_file = os.path.join(tmp_dir, "test.mp3")
-            shutil.copy(os.path.abspath("test/data/test_mp3.mp3"), tmp_file)
+        saved.set_and_save(gain=-1.5)
+        self.assertAlmostEqual(TrackGain(path).gain or 0.0, -1.5, places=2, msg="set_and_save writes at once")
 
-            tags = TrackGain(tmp_file)
-            tags.set_and_save(gain=-3.5)
+    def test_delete(self):
+        path = temp_mp3(self)
+        tags = TrackGain(path)
+        self.assertTrue(tags.delete(), "returns that it had the frame")
+        tags.save()
 
-            tags_readback = TrackGain(tmp_file)
-            self.assertAlmostEqual(tags_readback.gain or 0.0, -3.5, places=2, msg="gain saved and read back")
-            self.assertEqual(tags_readback.peak, 0.0, "unset peak keeps its previous value")
+        saved = TrackGain(path)
+        self.assertIsNone(saved.gain, "no frame reads as no gain")
+        self.assertIsNone(saved.peak, "no frame reads as no peak")
+        with self.assertRaises(ValueError, msg="needs both values to create the frame"):
+            saved.set_and_save(gain=-3.5)
 
     def test_save_skips_writing_when_unchanged(self):
-        tags = TrackGain(os.path.abspath("test/data/test_mp3.mp3"))
+        tags = TrackGain(TEST_MP3)
         with mock.patch.object(tags.tagfile, "save") as write:
             tags.save()
             write.assert_not_called()
             tags.save(force=True)
             write.assert_called_once()
 
-    def test_set_waits_for_save(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_file = os.path.join(tmp_dir, "test.mp3")
-            shutil.copy(os.path.abspath("test/data/test_mp3.mp3"), tmp_file)
-
-            tags = TrackGain(tmp_file)
-            tags.set(gain=-3.5)
-            self.assertEqual(TrackGain(tmp_file).gain, 0.0, "not written until saved")
-            tags.save()
-            self.assertAlmostEqual(TrackGain(tmp_file).gain or 0.0, -3.5, places=2, msg="written on save")
-
-    def test_delete(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_file = os.path.join(tmp_dir, "test.mp3")
-            shutil.copy(os.path.abspath("test/data/test_mp3.mp3"), tmp_file)
-
-            tags = TrackGain(tmp_file)
-            self.assertTrue(tags.delete())
-            tags.save()
-
-            tags_readback = TrackGain(tmp_file)
-            self.assertIsNone(tags_readback.gain)
-            self.assertIsNone(tags_readback.peak)
-
     def test_has_changed(self):
-        tags = TrackGain(os.path.abspath("test/data/test_mp3.mp3"))
+        tags = TrackGain(TEST_MP3)
         self.assertFalse(tags.has_changed, "as read")
         tags.set(gain=-3.5)
         self.assertTrue(tags.has_changed, "set")
@@ -81,3 +55,7 @@ class TestCase(unittest.TestCase):
         self.assertFalse(tags.has_changed, "set back")
         tags.delete()
         self.assertTrue(tags.has_changed, "deleted")
+
+
+if __name__ == "__main__":
+    unittest.main()

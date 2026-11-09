@@ -4,9 +4,6 @@ import dataclasses
 import struct
 import unittest
 from unittest import mock
-import os
-import tempfile
-import shutil
 import io
 from typing import Callable
 from contextlib import redirect_stdout
@@ -14,11 +11,12 @@ from contextlib import redirect_stdout
 from serato_tools.track_beatgrid import TrackBeatgrid
 from serato_tools.track_cues_v2 import TrackCuesV2
 
+from test.helpers import TEST_MP3, read_bytes, temp_mp3, untagged_mp3
+
 
 class TestCase(unittest.TestCase):
     def test_parse_and_serialize(self):
-        with open(os.path.abspath("test/data/track_cues_v2.bin"), mode="rb") as fp:
-            file_data = fp.read()
+        file_data = read_bytes("test/data/track_cues_v2.bin")
         tags = TrackCuesV2(file_data)
         self.assertEqual(
             [str(e) for e in tags.entries],
@@ -37,7 +35,7 @@ class TestCase(unittest.TestCase):
             "parsed entries",
         )
         tags._serialize()
-        self.assertEqual(tags._raw_data, file_data, "serialize")  # pylint: disable=protected-access
+        self.assertEqual(tags._raw_data, file_data, "serialize")
 
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
             new_color = None
@@ -73,24 +71,19 @@ class TestCase(unittest.TestCase):
         )
         tags._serialize()
 
-        with open(os.path.abspath("test/data/track_cues_v2_modified.bin"), mode="rb") as fp:
-            expected_modified_data = fp.read()
-        self.assertEqual(
-            tags._raw_data, expected_modified_data, "modified data serialize"
-        )  # pylint: disable=protected-access
+        expected_modified_data = read_bytes("test/data/track_cues_v2_modified.bin")
+        self.assertEqual(tags._raw_data, expected_modified_data, "modified data serialize")
 
     def has_tags_v1_after(self, edit: Callable[[TrackCuesV2], None]) -> bool:
         """Whether a copy of the test mp3, which has a Serato Markers_ tag, still has it once `edit` has run on it."""
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_file = os.path.join(tmp_dir, "test.mp3")
-            shutil.copy("test/data/test_mp3.mp3", tmp_file)
-            tags = TrackCuesV2(tmp_file)
-            assert tags.tagfile is not None
-            self.assertIn("GEOB:Serato Markers_", tags.tagfile, "fixture has the v1 tag")
-            edit(tags)
-            saved = TrackCuesV2(tmp_file).tagfile
-            assert saved is not None
-            return "GEOB:Serato Markers_" in saved
+        tmp_file = temp_mp3(self)
+        tags = TrackCuesV2(tmp_file)
+        assert tags.tagfile is not None
+        self.assertIn("GEOB:Serato Markers_", tags.tagfile, "fixture has the v1 tag")
+        edit(tags)
+        saved = TrackCuesV2(tmp_file).tagfile
+        assert saved is not None
+        return "GEOB:Serato Markers_" in saved
 
     def test_saving_a_change_deletes_tags_v1_unless_told_not_to(self):
         def edit_and_save(tags: TrackCuesV2, delete_tags_v1: bool):
@@ -122,8 +115,8 @@ class TestCase(unittest.TestCase):
         self.assertFalse(self.has_tags_v1_after(edit), "deleted, as when the earlier edit asked to delete it")
 
     def test_a_callback_may_edit_in_place(self):
-        tags = TrackCuesV2("test/data/test_mp3.mp3")
-        position = tags._from_entries().cues[0].position  # pylint: disable=protected-access
+        tags = TrackCuesV2(TEST_MP3)
+        position = tags._from_entries().cues[0].position
 
         def rule(info: TrackCuesV2.TrackCuesInfo) -> TrackCuesV2.TrackCuesInfo:
             info.cues[0].position += 1000
@@ -131,41 +124,35 @@ class TestCase(unittest.TestCase):
 
         tags.modify_entries(rule)
         self.assertTrue(tags.has_changed)
-        data = tags._raw_data  # pylint: disable=protected-access
+        data = tags._raw_data
         assert data is not None
-        self.assertEqual(
-            TrackCuesV2(data)._from_entries().cues[0].position, position + 1000
-        )  # pylint: disable=protected-access
+        self.assertEqual(TrackCuesV2(data)._from_entries().cues[0].position, position + 1000)
 
     def test_save_keeps_a_change_followed_by_an_edit_that_changes_nothing(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_file = os.path.join(tmp_dir, "test.mp3")
-            shutil.copy("test/data/test_mp3.mp3", tmp_file)
-            tags = TrackCuesV2(tmp_file)
-            tags.set_track_color(TrackCuesV2.TrackColors.RED)
-            tags.modify_entries(dataclasses.replace)
-            tags.save()
-            self.assertEqual(TrackCuesV2(tmp_file).get_track_color(), TrackCuesV2.TrackColors.RED.value)
+        tmp_file = temp_mp3(self)
+        tags = TrackCuesV2(tmp_file)
+        tags.set_track_color(TrackCuesV2.TrackColors.RED)
+        tags.modify_entries(dataclasses.replace)
+        tags.save()
+        self.assertEqual(TrackCuesV2(tmp_file).get_track_color(), TrackCuesV2.TrackColors.RED.value)
 
     def test_has_changed(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_file = os.path.join(tmp_dir, "test.mp3")
-            shutil.copy("test/data/test_mp3.mp3", tmp_file)
-            tags = TrackCuesV2(tmp_file)
-            original_color = TrackCuesV2.TrackColors(tags.get_track_color())
-            self.assertFalse(tags.has_changed, "as read")
-            tags.set_track_color(TrackCuesV2.TrackColors.RED)
-            self.assertTrue(tags.has_changed, "color changed")
-            tags.modify_entries(dataclasses.replace)
-            self.assertTrue(tags.has_changed, "an edit that changed nothing doesn't reset it")
-            tags.set_track_color(original_color)
-            self.assertFalse(tags.has_changed, "color changed back")
-            tags.set_track_color(TrackCuesV2.TrackColors.RED)
-            tags.save()
-            self.assertFalse(tags.has_changed, "saved")
+        tmp_file = temp_mp3(self)
+        tags = TrackCuesV2(tmp_file)
+        original_color = TrackCuesV2.TrackColors(tags.get_track_color())
+        self.assertFalse(tags.has_changed, "as read")
+        tags.set_track_color(TrackCuesV2.TrackColors.RED)
+        self.assertTrue(tags.has_changed, "color changed")
+        tags.modify_entries(dataclasses.replace)
+        self.assertTrue(tags.has_changed, "an edit that changed nothing doesn't reset it")
+        tags.set_track_color(original_color)
+        self.assertFalse(tags.has_changed, "color changed back")
+        tags.set_track_color(TrackCuesV2.TrackColors.RED)
+        tags.save()
+        self.assertFalse(tags.has_changed, "saved")
 
     def test_save_skips_writing_when_unchanged(self):
-        tags = TrackCuesV2("test/data/test_mp3.mp3")
+        tags = TrackCuesV2(TEST_MP3)
         assert tags.tagfile is not None
         with mock.patch.object(tags.tagfile, "save") as write:
             tags.save()
@@ -174,7 +161,7 @@ class TestCase(unittest.TestCase):
             write.assert_called_once()
 
     def test_modified_is_deprecated(self):
-        tags = TrackCuesV2("test/data/test_mp3.mp3")
+        tags = TrackCuesV2(TEST_MP3)
         with self.assertWarns(DeprecationWarning):
             self.assertFalse(tags.modified, "as read")
         tags.set_track_color(TrackCuesV2.TrackColors.RED)
@@ -182,46 +169,34 @@ class TestCase(unittest.TestCase):
             self.assertTrue(tags.modified, "returns has_changed")
 
     def test_set_beatgrid_locked(self):
-        tags = TrackCuesV2("test/data/test_mp3.mp3")
-        original_data = tags._raw_data  # pylint: disable=protected-access
+        tags = TrackCuesV2(TEST_MP3)
+        original_data = tags._raw_data
         self.assertFalse(tags.is_beatgrid_locked())
         tags.set_beatgrid_locked(False)
-        data = tags._raw_data  # pylint: disable=protected-access
+        data = tags._raw_data
         self.assertEqual(data, original_data, "already unlocked, so no change")
         assert tags.tagfile is not None
         self.assertIn("GEOB:Serato Markers_", tags.tagfile, "v1 tag kept, since nothing changed")
         tags.set_beatgrid_locked(True)
-        data = tags._raw_data  # pylint: disable=protected-access
+        data = tags._raw_data
         assert data is not None
         self.assertTrue(TrackCuesV2(data).is_beatgrid_locked(), "serialized")
 
-    def untagged_mp3(self) -> str:
-        """A copy of the test mp3 with no Serato Markers2 tag, as for a track Serato hasn't analyzed."""
-        tmp_dir = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp_dir.cleanup)
-        path = os.path.join(tmp_dir.name, "untagged.mp3")
-        shutil.copy("test/data/test_mp3.mp3", path)
-        tags = TrackCuesV2(path)
-        tags.delete()
-        tags.save()
-        return path
-
     def test_setting_a_missing_color_or_lock_adds_it(self):
-        tags = TrackCuesV2(self.untagged_mp3())
+        tags = TrackCuesV2(untagged_mp3(self))
         tags.set_track_color(TrackCuesV2.TrackColors.RED)
         self.assertEqual(tags.get_track_color(), TrackCuesV2.TrackColors.RED.value)
 
-        tags = TrackCuesV2(self.untagged_mp3())
+        tags = TrackCuesV2(untagged_mp3(self))
         tags.set_beatgrid_locked(True)
         self.assertTrue(tags.is_beatgrid_locked())
 
     def test_a_tag_added_from_scratch_matches_what_serato_writes(self):
         # track_cues_v2_analyzed.bin is the tag Serato wrote for a newly analyzed track: white, unlocked
-        tags = TrackCuesV2(self.untagged_mp3())
+        tags = TrackCuesV2(untagged_mp3(self))
         tags.set_track_color(TrackCuesV2.TrackColors.WHITE)
         tags.set_beatgrid_locked(False)
-        with open("test/data/track_cues_v2_analyzed.bin", "rb") as f:
-            self.assertEqual(tags._raw_data, f.read())
+        self.assertEqual(tags._raw_data, read_bytes("test/data/track_cues_v2_analyzed.bin"))
 
     def test_rewriting_keeps_seratos_bytes(self):
         # tags Serato wrote: saved_loops's base64 ends in a character Serato drops, 514_bytes is longer than 470 bytes,
@@ -235,15 +210,14 @@ class TestCase(unittest.TestCase):
             "track_cues_v2_982_bytes.bin",
             "track_cues_v2_1494_bytes.bin",
         ):
-            with self.subTest(name), open(f"test/data/{name}", "rb") as f:
-                data = f.read()
+            with self.subTest(name):
+                data = read_bytes(f"test/data/{name}")
                 tags = TrackCuesV2(data)
                 tags.modify_entries(dataclasses.replace)
                 self.assertEqual(tags._raw_data, data)
 
     def test_shrinking_keeps_the_tags_size(self):
-        with open("test/data/track_cues_v2_514_bytes.bin", "rb") as f:
-            tags = TrackCuesV2(f.read())
+        tags = TrackCuesV2(read_bytes("test/data/track_cues_v2_514_bytes.bin"))
         # track_cues_v2_514_bytes.bin has cues and loops: without them, it needs well under 470 bytes
         tags.modify_entries(lambda info: dataclasses.replace(info, cues=[], loops=[]))
         rewritten = tags._raw_data
@@ -255,10 +229,9 @@ class TestCase(unittest.TestCase):
         # Serato grew a 470-byte tag to track_cues_v2_982_bytes.bin, one 512-byte step. 1494_bytes is two steps, and
         # its entries need both. Giving a 470-byte tag either's entries should give the same bytes
         for name in ("track_cues_v2_982_bytes.bin", "track_cues_v2_1494_bytes.bin"):
-            with self.subTest(name), open(f"test/data/{name}", "rb") as f:
-                grown = f.read()
-                with open("test/data/track_cues_v2_analyzed.bin", "rb") as f470:
-                    tags = TrackCuesV2(f470.read())
+            with self.subTest(name):
+                grown = read_bytes(f"test/data/{name}")
+                tags = TrackCuesV2(read_bytes("test/data/track_cues_v2_analyzed.bin"))
                 tags.modify_entries(lambda _, g=grown: TrackCuesV2.TrackCuesInfo.from_entries(TrackCuesV2(g).entries))
                 self.assertEqual(tags._raw_data, grown)
 
@@ -269,14 +242,13 @@ class TestCase(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cue 11 is past Serato's 8 cue pads"):
             TrackCuesV2(b"\x01\x01" + base64.b64encode(payload))
 
-        with open("test/data/track_cues_v2_analyzed.bin", "rb") as f:
-            tags = TrackCuesV2(f.read())
+        tags = TrackCuesV2(read_bytes("test/data/track_cues_v2_analyzed.bin"))
         cue_9 = TrackCuesV2.CueEntry(b"\x00", 8, 1000, b"\x00", TrackCuesV2.CueColors.RED.value, b"\x00\x00", "")
         with self.assertRaisesRegex(ValueError, "cue 9 is past Serato's 8 cue pads"):
             tags.modify_entries(lambda info: dataclasses.replace(info, cues=[cue_9]))
 
     def test_snap_position_to_beat(self):
-        tags = TrackCuesV2("test/data/test_mp3.mp3")
+        tags = TrackCuesV2(TEST_MP3)
         buf = io.StringIO()
         with redirect_stdout(buf):
             tags.snap_positions_to_beat(1 / 16, 2)
@@ -284,8 +256,8 @@ class TestCase(unittest.TestCase):
         self.assertIn("Snapped by 42 ms", output)
 
     def test_snap_ignores_1ms_by_default(self):
-        tags = TrackCuesV2("test/data/test_mp3.mp3")
-        beat = TrackBeatgrid("test/data/test_mp3.mp3").find_nearest_beat(tags._from_entries().cues[0].position, 1)
+        tags = TrackCuesV2(TEST_MP3)
+        beat = TrackBeatgrid(TEST_MP3).find_nearest_beat(tags._from_entries().cues[0].position, 1)
         assert beat is not None
         beat_ms = round(beat)
         self.assertIsNone(tags.get_snapped_beat_ms(beat_ms + 1, 1 / 8))
@@ -293,15 +265,14 @@ class TestCase(unittest.TestCase):
         self.assertEqual(tags.get_snapped_beat_ms(beat_ms + 2, 1 / 8), beat_ms)
 
     def test_snap_positions_to_beat_no_entries_raises(self):
-        tags = TrackCuesV2("test/data/test_mp3.mp3")
+        tags = TrackCuesV2(TEST_MP3)
         tags.entries = []
         with self.assertRaises(ValueError):
             tags.snap_positions_to_beat(1 / 8)
 
     def test_loop_fields(self):
         # track_cues_v2_saved_loops.bin is a tag Serato wrote with 4 loops, the second one locked
-        with open("test/data/track_cues_v2_saved_loops.bin", "rb") as f:
-            tags = TrackCuesV2(f.read())
+        tags = TrackCuesV2(read_bytes("test/data/track_cues_v2_saved_loops.bin"))
         loops = tags._from_entries().loops
         self.assertEqual([loop.color for loop in loops], [b"\x27\xaa\xe1"] * 4)
         self.assertEqual([loop.locked for loop in loops], [False, True, False, False])
@@ -316,10 +287,8 @@ class TestCase(unittest.TestCase):
         self.assertEqual([color.value.hex().upper() for color in TrackCuesV2.CueColors], palette.split())
 
     def test_an_entry_unlike_seratos_raises(self):
-        with open("test/data/track_cues_v2_saved_loops.bin", "rb") as f:
-            loop = TrackCuesV2(f.read())._from_entries().loops[0]._serialize()
-        with open("test/data/track_cues_v2.bin", "rb") as f:
-            info = TrackCuesV2(f.read())._from_entries()
+        loop = TrackCuesV2(read_bytes("test/data/track_cues_v2_saved_loops.bin"))._from_entries().loops[0]._serialize()
+        info = TrackCuesV2(read_bytes("test/data/track_cues_v2.bin"))._from_entries()
         assert info.color is not None and info.bpm_lock is not None
         color, cue, bpm_lock = info.color._serialize(), info.cues[0]._serialize(), info.bpm_lock._serialize()
 
@@ -345,6 +314,6 @@ class TestCase(unittest.TestCase):
             with self.subTest(name), self.assertRaises(ValueError):
                 entry_class._parse(data)
 
-    def test_untested_version_raises_at_construction(self):
-        with self.assertRaises(ValueError):
-            TrackCuesV2(bytes([0x99, 0x99]))
+
+if __name__ == "__main__":
+    unittest.main()

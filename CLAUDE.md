@@ -25,7 +25,7 @@ pip install -e ".[all,dev]"                                  # all optional deps
 ```bash
 python -m unittest                                                # full suite
 python -m unittest test.test_crate                                # one module
-python -m unittest test.test_crate.TestCase.test_format_filepath  # one test
+python -m unittest test.test_crate.TestCase.test_add_tracks_is_saved  # one test
 pylint $(git ls-files '*.py')                                     # lint (config in .pylintrc, most C/R checks disabled)
 pyright                                                           # type check (config in pyproject.toml)
 black .                                                           # format, line-length 120
@@ -99,6 +99,7 @@ Console scripts are declared in `[project.scripts]` in `pyproject.toml` and poin
 
 ## Repository layout notes
 
+- `test/helpers.py` — shared test setup: temp copies of the test mp3 (`temp_mp3`, `untagged_mp3`, cleaned up with the test) and `read_bytes`. Tests of a base class's behaviour go in the base's own module (`test_bin_file_base.py`, `test_track_tags.py`), driven through one subclass or looped over all of them, not repeated per subclass.
 - `test/data/` — fixtures for the unittest suite. Tests assert **byte-exact** round-trips (parse → serialize must reproduce the input), so regenerate fixtures deliberately, never to make a test pass.
 - `data/` — reference dumps of raw GEOB tags captured from real tracks, organized by container (`id3`, `flac`, `mp4`, `aif`, `ogg`) and scenario (`hotcue-colors`, `saved-loops`, `bpmlock`, ...). Used as evidence for the format writeups in `docs/`, not by the test suite. Committed as binary via `.gitattributes`.
 - `docs/` — per-tag format documentation; `docs/fileformats.md` covers how each container stores the tags.

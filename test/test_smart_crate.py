@@ -4,8 +4,25 @@ import os
 
 from serato_tools.smart_crate import SmartCrate
 
+from test.helpers import read_bytes
+
 with open("test/data/smart_crate.txt", "r", encoding="utf-8") as f:
     expected = f.read()
+
+
+def make_rule(
+    comparison: SmartCrate.RuleComparison,
+    field: SmartCrate.RuleField,
+    value_field: SmartCrate.RuleFields,
+    value: str | int,
+) -> SmartCrate.Rule:
+    return SmartCrate.Rule(
+        [
+            (SmartCrate.RuleFields.RULE_COMPARISON.value, comparison.value),
+            (SmartCrate.RuleFields.RULE_FIELD.value, field.value),
+            (value_field.value, value),
+        ]
+    )
 
 
 class TestCase(unittest.TestCase):
@@ -17,12 +34,9 @@ class TestCase(unittest.TestCase):
 
     def test_parse(self):
         file = os.path.abspath("test/data/TestSmartCrate.scrate")
-        with open(file, mode="rb") as fp:
-            file_data = fp.read()
-
         crate = SmartCrate(file)
 
-        self.assertEqual(crate.to_bytes(), file_data, "to_bytes")
+        self.assertEqual(crate.to_bytes(), read_bytes(file), "to_bytes")
         self.check_lines(crate.__str__(), expected)
 
     def test_add_rule(self):
@@ -47,12 +61,11 @@ class TestCase(unittest.TestCase):
 
         for value_field in SmartCrate.RULE_VALUE_FIELDS:
             with self.subTest(value_field=value_field):
-                rule = SmartCrate.Rule(
-                    [
-                        (SmartCrate.RuleFields.RULE_COMPARISON.value, SmartCrate.RuleComparison.INT_IS_GE.value),
-                        (SmartCrate.RuleFields.RULE_FIELD.value, SmartCrate.RuleField.PLAYS.value),
-                        (value_field.value, falsy_values[value_field]),
-                    ]
+                rule = make_rule(
+                    SmartCrate.RuleComparison.INT_IS_GE,
+                    SmartCrate.RuleField.PLAYS,
+                    value_field,
+                    falsy_values[value_field],
                 )
                 self.assertEqual(rule.value, falsy_values[value_field], "a falsy rule value must not read as no value")
 
@@ -66,12 +79,11 @@ class TestCase(unittest.TestCase):
     def test_rule_value_field_follows_comparison_not_value_type(self):
         # confirmed against Serato itself: an artist rule set to 100 is stored as the text "100",
         # so the comparison, not the passed value's type, decides the value field
-        rule = SmartCrate.Rule(
-            [
-                (SmartCrate.RuleFields.RULE_COMPARISON.value, SmartCrate.RuleComparison.STR_IS.value),
-                (SmartCrate.RuleFields.RULE_FIELD.value, SmartCrate.RuleField.ARTIST.value),
-                (SmartCrate.RuleFields.RULE_VALUE_TEXT.value, "some artist"),
-            ]
+        rule = make_rule(
+            SmartCrate.RuleComparison.STR_IS,
+            SmartCrate.RuleField.ARTIST,
+            SmartCrate.RuleFields.RULE_VALUE_TEXT,
+            "some artist",
         )
         rule.set_value(100)
         self.assertEqual(
@@ -85,12 +97,8 @@ class TestCase(unittest.TestCase):
         )
 
     def test_rule_set_value_replaces_value_field_on_comparison_type_change(self):
-        rule = SmartCrate.Rule(
-            [
-                (SmartCrate.RuleFields.RULE_COMPARISON.value, SmartCrate.RuleComparison.STR_IS.value),
-                (SmartCrate.RuleFields.RULE_FIELD.value, SmartCrate.RuleField.PLAYS.value),
-                (SmartCrate.RuleFields.RULE_VALUE_TEXT.value, "100"),
-            ]
+        rule = make_rule(
+            SmartCrate.RuleComparison.STR_IS, SmartCrate.RuleField.PLAYS, SmartCrate.RuleFields.RULE_VALUE_TEXT, "100"
         )
         rule.set_comparison(SmartCrate.RuleComparison.INT_IS_GE)
         rule.set_value("100")
@@ -105,12 +113,12 @@ class TestCase(unittest.TestCase):
         )
 
     def test_rule_set_value_rejects_non_integer_for_integer_comparison(self):
-        rule = SmartCrate.Rule(
-            [
-                (SmartCrate.RuleFields.RULE_COMPARISON.value, SmartCrate.RuleComparison.INT_IS_GE.value),
-                (SmartCrate.RuleFields.RULE_FIELD.value, SmartCrate.RuleField.PLAYS.value),
-                (SmartCrate.RuleFields.RULE_VALUE_INTEGER.value, 5),
-            ]
+        rule = make_rule(
+            SmartCrate.RuleComparison.INT_IS_GE, SmartCrate.RuleField.PLAYS, SmartCrate.RuleFields.RULE_VALUE_INTEGER, 5
         )
         with self.assertRaisesRegex(ValueError, "requires an integer value"):
             rule.set_value("abc")
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,9 +1,6 @@
 import dataclasses
 import unittest
 from unittest import mock
-import os
-import shutil
-import tempfile
 
 from serato_tools.track import Track
 from serato_tools.track_autotags import TrackAutotags
@@ -11,13 +8,12 @@ from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_gain import TrackGain
 
+from test.helpers import temp_mp3
+
 
 class TestCase(unittest.TestCase):
     def setUp(self):
-        tmp_dir = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp_dir.cleanup)
-        self.path = os.path.join(tmp_dir.name, "test.mp3")
-        shutil.copy("test/data/test_mp3.mp3", self.path)
+        self.path = temp_mp3(self)
 
     def count_writes(self, track: Track) -> mock.MagicMock:
         """Patches `track`'s file save to also count its calls, in the returned mock."""
@@ -140,7 +136,7 @@ class TestCase(unittest.TestCase):
             ("changed back", changed_back),
         ):
             with self.subTest(name):
-                shutil.copy("test/data/test_mp3.mp3", self.path)
+                self.path = temp_mp3(self)
                 track = Track(self.path)
                 edit(track.cues_v2)
                 track.autotags.set(bpm=128)
@@ -151,7 +147,7 @@ class TestCase(unittest.TestCase):
     def test_save_writes_deletions(self):
         for name, key in (("autotags", f"GEOB:{TrackAutotags.GEOB_KEY}"), ("gain", TrackGain.RVA2_KEY)):
             with self.subTest(name):
-                shutil.copy("test/data/test_mp3.mp3", self.path)
+                self.path = temp_mp3(self)
                 track = Track(self.path)
                 getattr(track, name).delete()
 
