@@ -124,12 +124,12 @@ class TrackCuesV1(SeratoGeobTag):
                     value = _encode_bytes_32(value)
                 elif field == "start_position":
                     if value is None:
-                        value = 0x7F7F7F7F
+                        value = b"\x7f\x7f\x7f\x7f"
                     else:
                         value = _encode_bytes_32(struct.pack(">I", value)[1:])
                 elif field == "end_position":
                     if value is None:
-                        value = 0x7F7F7F7F
+                        value = b"\x7f\x7f\x7f\x7f"
                     else:
                         value = _encode_bytes_32(struct.pack(">I", value)[1:])
                 elif field == "type":
