@@ -516,9 +516,10 @@ class TrackCuesV2(SeratoGeobTag):
     def modify_entries(self, modify_callback: ModifyCallback, delete_tags_v1: bool = True) -> None:
         track = self._from_entries()
         new_track = modify_callback(track)
-        if new_track is None:
+        if new_track is None or new_track == track:
             return
-        # only delete the v1 tag once we know a change is actually being made
+        # only delete the v1 tag once we know a change is actually being made: deleted for an edit that changed
+        # nothing, has_changed would stay False, and another tag's save of the shared tagfile would write the deletion
         if delete_tags_v1 and self.tagfile:
             # TODO: keep Serato Markers_ in sync with Markers2 instead of deleting it
             del_geob(self.tagfile, TrackCuesV1.GEOB_KEY)

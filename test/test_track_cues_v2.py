@@ -87,6 +87,12 @@ class TestCase(unittest.TestCase):
                 tags.set_track_color(TrackCuesV2.TrackColors.RED, delete_tags_v1=delete_tags_v1)
                 self.assertEqual("GEOB:Serato Markers_" in tags.tagfile, not delete_tags_v1)
 
+    def test_an_edit_that_changes_nothing_keeps_tags_v1(self):
+        tags = TrackCuesV2("test/data/test_mp3.mp3")
+        assert tags.tagfile is not None
+        tags.modify_entries(dataclasses.replace)
+        self.assertIn("GEOB:Serato Markers_", tags.tagfile)
+
     def test_save_keeps_a_change_followed_by_an_edit_that_changes_nothing(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_file = os.path.join(tmp_dir, "test.mp3")

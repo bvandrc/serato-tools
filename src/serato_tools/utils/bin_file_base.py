@@ -3,6 +3,7 @@ import io
 import re
 import struct
 import base64
+import hashlib
 import warnings
 from enum import StrEnum, unique
 import json
@@ -98,8 +99,8 @@ class SeratoBinFile:
     # set once __init__ has parsed the file, so save() can refuse a half-built instance
     _parsed: bool = False
 
-    # a copy of the entries as loaded or last saved to the file's own path, for has_changed; None if it didn't exist
-    _saved_entries: "SeratoBinFile.EntryList | None" = None
+    # a hash of the file's bytes as loaded or last saved to its own path, for has_changed; None if it didn't exist
+    _saved_hash: bytes | None = None
 
     def __init__(self, file: str):
         self.filepath = os.path.abspath(file)
@@ -115,10 +116,15 @@ class SeratoBinFile:
             if file.lower().endswith(".json"):
                 with open(file, "r", encoding="utf-8") as f:
                     self.from_json_object(json.load(f))
+                # what saving the entries as loaded would write
+                self._saved_hash = self._hash(self.to_bytes())
             else:
                 with open(file, "rb") as f:
-                    self.entries = list(self._parse_item(f.read()))
-            self._saved_entries = self._copy_entries(self.entries)
+                    data = f.read()
+                self.entries = list(self._parse_item(data))
+                # hashes the bytes already read rather than copying the entries, so a load that only reads pays
+                # next to nothing for has_changed
+                self._saved_hash = self._hash(data)
         else:
             logger.warning(f"File does not exist: {file}. Using default data to create an empty item.")
             # copied down to the nested lists (osrt, ovct, ...): a shallow copy would leave every instance sharing —
@@ -423,15 +429,20 @@ class SeratoBinFile:
             for field, value in entries
         ]
 
+    @staticmethod
+    def _hash(data: bytes) -> bytes:
+        return hashlib.sha256(data).digest()
+
     @property
     def has_changed(self) -> bool:
-        """Whether the entries differ from the file's as loaded or last saved, however they were edited.
+        """Whether saving would change the file's bytes from those loaded or last saved, however the entries were edited.
 
         Sees edits made to `entries` directly, in place or by assignment, as well as through this class's methods.
-        Compared with the entries as loaded or saved, not with the file on disk now, which this doesn't reread. A file
-        that didn't exist when loaded counts as changed, since saving creates it.
+        Each call serializes the whole file, as `to_bytes()` does. Compared with the file as loaded or saved, not with
+        the file on disk now, which this doesn't reread. A file that didn't exist when loaded counts as changed, since
+        saving creates it.
         """
-        return self._saved_entries is None or self.entries != self._saved_entries
+        return self._saved_hash is None or self._hash(self.to_bytes()) != self._saved_hash
 
     def _is_own_path(self, file: str) -> bool:
         if os.path.normcase(os.path.abspath(file)) == os.path.normcase(self.filepath):
@@ -534,7 +545,7 @@ class SeratoBinFile:
             f.write(data)
         # saving a copy elsewhere leaves this file's own changes unsaved
         if self._is_own_path(file):
-            self._saved_entries = self._copy_entries(self.entries)
+            self._saved_hash = self._hash(data)
 
     @classmethod
     def get_field_name(cls, field: str) -> str:

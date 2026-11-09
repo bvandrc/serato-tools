@@ -6,11 +6,12 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Features
 
-- Add a read-only `has_changed` property to the library database, crates, smart crates, each track tag class, and `Track`, which says whether saving would write a change, without saving
+- Add a read-only `has_changed` property to the library database, crates, smart crates, each track tag class, and `Track`, which says whether saving would write a change, without saving. For the database and crates, each check serializes the file, as saving does
 
 ### Fixes
 
 - Fix `TrackCuesV2.save()` skipping the save, and losing a change, when an edit that changed nothing followed one that did
+- `TrackCuesV2.modify_entries` no longer deletes the `Serato Markers_` tag when its callback returns the cues unchanged, rather than `None`. The deletion could be written by saving another tag in the same file
 
 ### Deprecations
 
