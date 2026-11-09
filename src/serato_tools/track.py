@@ -107,13 +107,20 @@ class Track:
         """
         self.cues_v2.set_beatgrid_locked(locked, delete_tags_v1=delete_tags_v1)
 
+    def _parsed_tags(self) -> list[ID3FileTag]:
+        parsed = (self._cues_v2, self._cues_v1, self._beatgrid, self._autotags, self._waveform, self._gain)
+        return [tag for tag in parsed if tag is not None]
+
+    @property
+    def has_changed(self) -> bool:
+        """Whether any parsed tag has changes, so that `save()` would write the file."""
+        return any(tag.has_changed for tag in self._parsed_tags())
+
     def save(self) -> bool:
         """Writes every tag's changes to the file in one write, and returns whether there were any to write."""
-        parsed = (self._cues_v2, self._cues_v1, self._beatgrid, self._autotags, self._waveform, self._gain)
-        tags: list[ID3FileTag] = [tag for tag in parsed if tag is not None]
         # a set built in full, not any() over a generator, so that every tag puts its changes in before the one write
         # pylint: disable-next=protected-access
-        changed = {tag._write_to_tagfile() for tag in tags}
+        changed = {tag._write_to_tagfile() for tag in self._parsed_tags()}
         if not any(changed):
             return False
         self.tagfile.save()

@@ -531,14 +531,6 @@ class TrackCuesV2(SeratoGeobTag):
         return was_deleted
 
     @property
-    def has_changed(self) -> bool:
-        """Whether the tag's bytes differ from the file's as read or last saved, so that saving would change them.
-
-        For a tag read from bytes, whether they differ from those bytes.
-        """
-        return self._raw_data != self._tagged_raw_data
-
-    @property
     def modified(self) -> bool:
         """Deprecated, to be removed in the next major version: use `has_changed`, which this returns."""
         warnings.warn(
