@@ -6,7 +6,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Features
 
-- Add a read-only `has_changed` property to the library database, crates, smart crates, each track tag class, and `Track`, which says whether saving would write a change, without saving. For the database and crates, each check serializes the file, as saving does
+- Add a read-only `has_changed` property to the library database, crates, smart crates, each track tag class, and `Track`, which says whether saving would write a change, without saving.   - NOTE: For the database and crates, each check serializes the file for `has_changed`, as saving does, which takes time over many files
 
 ### Fixes
 
