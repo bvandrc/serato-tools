@@ -530,8 +530,7 @@ class TrackCuesV2(SeratoGeobTag):
         """
         if delete_tags_v1 is not None:
             warnings.warn(
-                "passing delete_tags_v1 to an edit is deprecated and will be removed in version 6, pass it to save()"
-                " instead",
+                "passing delete_tags_v1 to an edit is deprecated and will be removed in version 6, pass it to save() instead",
                 DeprecationWarning,
                 skip_file_prefixes=(_PACKAGE_DIR,),
             )
@@ -797,7 +796,7 @@ def main():
                     {
                         "y": "edit this entry",
                         "n": "do not edit this entry",
-                        "q": ("quit; do not edit this entry or any of the " "remaining ones"),
+                        "q": "quit; do not edit this entry or any of the remaining ones",
                         "a": "edit this entry and all later entries in the file",
                         "b": "edit raw bytes",
                         "r": "remove this entry",

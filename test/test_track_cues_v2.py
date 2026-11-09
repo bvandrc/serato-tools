@@ -312,10 +312,7 @@ class TestCase(unittest.TestCase):
 
     def test_cue_colors_are_seratos_18(self):
         # Serato DJ Intro's palette, which it displays as stored (docs/colors.md)
-        palette = (
-            "CC0000 CC4400 CC8800 CCCC00 88CC00 44CC00 00CC00 00CC44 00CC88 "
-            "00CCCC 0088CC 0044CC 0000CC 4400CC 8800CC CC00CC CC0088 CC0044"
-        )
+        palette = "CC0000 CC4400 CC8800 CCCC00 88CC00 44CC00 00CC00 00CC44 00CC88 00CCCC 0088CC 0044CC 0000CC 4400CC 8800CC CC00CC CC0088 CC0044"
         self.assertEqual([color.value.hex().upper() for color in TrackCuesV2.CueColors], palette.split())
 
     def test_an_entry_unlike_seratos_raises(self):

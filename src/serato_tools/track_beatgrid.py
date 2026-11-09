@@ -217,8 +217,7 @@ class TrackBeatgrid(SeratoGeobTag):
             if position_s < next_pos:
                 if marker.beats_till_next_marker <= 0 or next_pos <= marker.position_s:
                     raise ValueError(
-                        f"invalid beatgrid: zero-length or zero-beat segment at {marker.position_s}s "
-                        f"(beats_till_next_marker={marker.beats_till_next_marker}, next marker at {next_pos}s)"
+                        f"invalid beatgrid: zero-length or zero-beat segment at {marker.position_s}s (beats_till_next_marker={marker.beats_till_next_marker}, next marker at {next_pos}s)"
                     )
                 interval = (next_pos - marker.position_s) / marker.beats_till_next_marker
                 return cumulative_beats + (position_s - marker.position_s) / interval
@@ -255,8 +254,7 @@ class TrackBeatgrid(SeratoGeobTag):
             )
             if marker.beats_till_next_marker <= 0:
                 raise ValueError(
-                    f"invalid beatgrid: marker at {marker.position_s}s has "
-                    f"beats_till_next_marker={marker.beats_till_next_marker}"
+                    f"invalid beatgrid: marker at {marker.position_s}s has beats_till_next_marker={marker.beats_till_next_marker}"
                 )
             interval = (next_pos - marker.position_s) / marker.beats_till_next_marker
             for j in range(marker.beats_till_next_marker):
