@@ -262,8 +262,17 @@ def main():
         list_tracks: bool
         filenames_only: bool
         set_rules: bool
+        # each rule option given, in the order given: its field, and the arguments after it
+        rule_args: list[tuple[SmartCrate.RuleField, list[str]]]
+
+    class AppendRule(argparse.Action):
+        """Adds the option's field, its `const`, and its arguments to `rule_args`."""
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            namespace.rule_args.append((self.const, values))
 
     comparisons = ", ".join(comparison.name.lower() for comparison in SmartCrate.RuleComparison)
+    option_by_field = {field: f"--{field.name.lower()}" for field in SmartCrate.RuleField}
 
     parser = argparse.ArgumentParser()
     parser.add_argument("file_or_dir", nargs="?", help="Set the crate file, or a directory to do all files in it")
@@ -278,32 +287,31 @@ def main():
         "Set a rule on every crate given with --FIELD COMPARISON VALUE, such as --grouping str_is UNTAGGED, or delete "
         f"it with --FIELD DELETE. COMPARISON is one of: {comparisons}",
     )
-    # one option per rule field, so argparse lists the fields in --help and rejects one that isn't a field
-    for rule_field in SmartCrate.RuleField:
+    # one option per rule field, so argparse lists the fields in --help and rejects one that isn't a field; they all
+    # append to one list, so the rules are set in the order given, as the crate then lists them
+    for field, option in option_by_field.items():
         rule_options.add_argument(
-            f"--{rule_field.name.lower()}",
+            option,
             nargs="+",
             metavar="ARG",
-            dest=f"rule_{rule_field.name.lower()}",
-            help=f"COMPARISON VALUE for the {rule_field.name.lower()} rule, or DELETE",
+            dest="rule_args",
+            action=AppendRule,
+            const=field,
+            help=f"COMPARISON VALUE for the {field.name.lower()} rule, or DELETE",
         )
+    parser.set_defaults(rule_args=[])
     # argparse matches options by case, so lowercase a rule field option given in another case (--GROUPING), as the
     # --set_rules parser accepted it; only exact field names are touched, so a value is never changed
-    rule_options_by_upper = {f"--{field.name}": f"--{field.name.lower()}" for field in SmartCrate.RuleField}
-    argv = [rule_options_by_upper.get(arg.upper(), arg) for arg in sys.argv[1:]]
-    parsed = vars(parser.parse_args(argv))
-    rule_args = {field: parsed.pop(f"rule_{field.name.lower()}") for field in SmartCrate.RuleField}
-    args = Args(**parsed)
+    option_by_upper = {option.upper(): option for option in option_by_field.values()}
+    args = Args(**vars(parser.parse_args([option_by_upper.get(arg.upper(), arg) for arg in sys.argv[1:]])))
 
     if args.set_rules:
         logger.warning("--set_rules is deprecated, and no longer needed: pass the rule options directly")
 
     # each rule's field, and its comparison and value, or None to delete it; checked before any crate is changed
     rules: list[tuple[SmartCrate.RuleField, tuple[SmartCrate.RuleComparison, str] | None]] = []
-    for field, rule_arg in rule_args.items():
-        if rule_arg is None:
-            continue
-        option = f"--{field.name.lower()}"
+    for field, rule_arg in args.rule_args:
+        option = option_by_field[field]
         if len(rule_arg) == 1 and rule_arg[0].upper() == "DELETE":
             rules.append((field, None))
         elif len(rule_arg) == 2:
@@ -312,6 +320,10 @@ def main():
                 comparison = SmartCrate.RuleComparison[comparison_name.upper()]
             except KeyError:
                 parser.error(f"{option}: unknown comparison {comparison_name}, must be one of: {comparisons}")
+            try:
+                SmartCrate._coerce_rule_value(comparison, value)  # pylint: disable=protected-access
+            except ValueError:
+                parser.error(f"{option}: {comparison_name} compares whole numbers, got {value}")
             rules.append((field, (comparison, value)))
         else:
             parser.error(f"{option} takes a comparison and a value, or DELETE")

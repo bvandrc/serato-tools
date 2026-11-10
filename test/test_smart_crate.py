@@ -131,14 +131,16 @@ class CliTestCase(unittest.TestCase):
         self.path = os.path.join(temp_dir(self), "test.scrate")
         shutil.copy("test/data/TestSmartCrate.scrate", self.path)
 
-    def run_cli(self, *args: str):
-        """Runs `serato_smartcrate` on the test smart crate's copy with `args`, hiding what it prints."""
+    def run_cli(self, *args: str) -> str:
+        """Runs `serato_smartcrate` on the test smart crate's copy with `args`, and returns what it printed to stdout."""
+        stdout = io.StringIO()
         with (
             mock.patch("sys.argv", ["serato_smartcrate", self.path, *args]),
-            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stdout(stdout),
             contextlib.redirect_stderr(io.StringIO()),
         ):
             main()
+        return stdout.getvalue()
 
     def saved_rules(self) -> dict[SmartCrate.RuleField, tuple[str, str | int | float]]:
         """Each rule in the saved crate, by field, as its comparison and value."""
@@ -160,6 +162,15 @@ class CliTestCase(unittest.TestCase):
         )
         self.assertNotIn(SmartCrate.RuleField.YEAR, rules, "DELETE in any case")
 
+    def test_new_rules_are_added_in_the_order_given(self):
+        self.run_cli("--genre", "str_is", "G", "--album", "str_is", "A")
+        self.assertEqual(list(self.saved_rules())[-2:], [SmartCrate.RuleField.GENRE, SmartCrate.RuleField.ALBUM])
+
+    def test_without_rule_options_prints_the_crate_and_changes_nothing(self):
+        before = read_bytes(self.path)
+        self.assertIn("SmartCrate Rule", self.run_cli())
+        self.assertEqual(read_bytes(self.path), before)
+
     def test_deprecated_set_rules_flag_still_works(self):
         with self.assertLogs("serato-tools", "WARNING") as logs:
             self.run_cli("--set_rules", "--grouping", "str_is", "UNTAGGED")
@@ -173,6 +184,7 @@ class CliTestCase(unittest.TestCase):
             ["--grouping", "nope", "X"],
             ["--grouping", "str_is"],
             ["--grouping", "str_is", "X", "Y"],
+            ["--plays", "int_is_ge", "abc"],
         ):
             with self.subTest(args=args), self.assertRaises(SystemExit):
                 self.run_cli(*args)
