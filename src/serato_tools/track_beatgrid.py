@@ -329,10 +329,7 @@ class TrackBeatgrid(SeratoGeobTag):
                 nearest_distance_beats = distance_beats
                 nearest_beat = beat
 
-        if nearest_beat is None:
-            return None
-
-        return nearest_beat.position_s * 1000.0
+        return None if nearest_beat is None else nearest_beat.position_s * 1000.0
 
     def analyze_and_write(self):
         """Replaces the grid with one found by analyzing the track's audio, then saves it to the file.

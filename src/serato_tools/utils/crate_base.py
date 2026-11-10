@@ -23,9 +23,7 @@ class CrateBase(SeratoBinFile):
 
     def _stringify_entry(self, entry: SeratoBinFile.EntryFull, indent: int = 0) -> str:
         field, fieldname, value = entry  # pylint: disable=unused-variable
-        if isinstance(value, list):
-            return self._stringify_entries(value, indent)
-        return str(value)
+        return self._stringify_entries(value, indent) if isinstance(value, list) else str(value)
 
     def _stringify_entries(self, entries: Iterable[SeratoBinFile.EntryFull], indent: int = 0) -> str:
         lines: list[str] = []
