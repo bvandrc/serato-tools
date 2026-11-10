@@ -18,8 +18,8 @@ from mutagen.mp3 import HeaderNotFoundError
 from mutagen.id3 import ID3
 
 
-from serato_tools.utils.track_tags import SeratoGeobTag, GeobKeys, NoBeatgridError
 from serato_tools.utils import logger
+from serato_tools.utils.track_tags import SeratoGeobTag, GeobKeys, NoBeatgridError
 
 _T = TypeVar("_T")
 

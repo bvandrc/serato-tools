@@ -14,8 +14,8 @@ import mutagen.mp4
 import mutagen.oggvorbis
 
 
-from serato_tools.utils.track_tags import get_geob
 from serato_tools.utils import logger
+from serato_tools.utils.track_tags import get_geob
 
 
 def get_serato_tagdata(tagfile: mutagen._file.FileType, decode: bool = False):

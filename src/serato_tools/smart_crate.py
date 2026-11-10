@@ -7,9 +7,9 @@ from enum import StrEnum, IntEnum, unique
 from dataclasses import dataclass
 
 
-from serato_tools.utils.crate_base import CrateBase
 from serato_tools.utils import SERATO_DIR
 from serato_tools.utils.bin_file_base import DataTypeError
+from serato_tools.utils.crate_base import CrateBase
 
 
 class SmartCrate(CrateBase):
