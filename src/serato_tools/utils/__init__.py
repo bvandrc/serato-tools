@@ -20,6 +20,14 @@ class DataTypeError(Exception):
         )
 
 
+class NoCuesError(ValueError):
+    """A track without a `Serato Markers2` tag, so no cues, such as one that hasn't been analyzed or given any."""
+
+
+class NoBeatgridError(ValueError):
+    """A track without a `Serato BeatGrid` tag, such as one Serato hasn't analyzed yet."""
+
+
 class DeeplyNestedListError(Exception):
     """An entry list nested inside a flat one, such as a track's, which this package can't parse into objects."""
 

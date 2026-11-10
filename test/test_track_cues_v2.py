@@ -10,6 +10,7 @@ from contextlib import redirect_stdout
 
 from serato_tools.track_beatgrid import TrackBeatgrid
 from serato_tools.track_cues_v2 import TrackCuesV2, main
+from serato_tools.utils import NoBeatgridError, NoCuesError
 
 from test.helpers import TEST_MP3, read_bytes, temp_mp3, untagged_mp3
 
@@ -282,23 +283,26 @@ class TestCase(unittest.TestCase):
         self.assertEqual([cue.position for cue in tags._from_entries().cues], positions)
         self.assertFalse(tags.has_changed)
 
-    def test_snap_cues_to_beats_without_cues_warns_and_moves_nothing(self):
+    def test_snap_cues_to_beats_without_a_cues_tag_raises(self):
         tags = TrackCuesV2(untagged_mp3(self))
-        with self.assertLogs("serato-tools", "WARNING") as logs:
-            self.assertEqual(tags.snap_cues_to_beats(TrackBeatgrid(TEST_MP3), 1 / 8), [])
-        self.assertIn("no cues", logs.output[0])
+        with self.assertRaises(NoCuesError):
+            tags.snap_cues_to_beats(TrackBeatgrid(TEST_MP3), 1 / 8)
         self.assertFalse(tags.has_changed)
 
-    def test_snap_cues_to_beats_without_a_beatgrid_warns_and_moves_nothing(self):
+    def test_snap_cues_to_beats_with_no_cues_in_the_tag_moves_nothing(self):
+        tags = TrackCuesV2(TEST_MP3)
+        tags.modify_entries(lambda info: dataclasses.replace(info, cues=[]))
+        self.assertEqual(tags.snap_cues_to_beats(TrackBeatgrid(TEST_MP3), 1 / 8), [])
+
+    def test_snap_cues_to_beats_without_a_beatgrid_raises(self):
         # as for a track Serato hasn't analyzed, with cues from Mixed In Key
         path = temp_mp3(self)
         beatgrid = TrackBeatgrid(path)
         beatgrid.delete()
         tags = TrackCuesV2(path)
         positions = [cue.position for cue in tags._from_entries().cues]
-        with self.assertLogs("serato-tools", "WARNING") as logs:
-            self.assertEqual(tags.snap_cues_to_beats(beatgrid, 1 / 8), [])
-        self.assertIn("no beatgrid", logs.output[0])
+        with self.assertRaises(NoBeatgridError):
+            tags.snap_cues_to_beats(beatgrid, 1 / 8)
         self.assertEqual([cue.position for cue in tags._from_entries().cues], positions)
         self.assertFalse(tags.has_changed)
 
