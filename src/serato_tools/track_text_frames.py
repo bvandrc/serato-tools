@@ -1,6 +1,6 @@
 """A track file's ID3 text frames, such as `TIT2` (title). Needs the `track_tags` extra."""
 
-from mutagen.id3 import Encoding, Frames, TextFrame
+from mutagen.id3 import ID3, Encoding, Frames, TextFrame
 
 from serato_tools.utils.track_tags import ID3File, ID3FileOrPath, ID3FileTag, del_tag
 
@@ -14,18 +14,6 @@ def _get_texts(tagfile: ID3File, key: str) -> list[str]:
 def _get_text(tagfile: ID3File, key: str) -> str | None:
     texts = _get_texts(tagfile, key)
     return texts[0] if texts else None
-
-
-# ID3v2.3-only frames, by the ID3v2.4 frame to set instead, if any: saving writes ID3v2.4, which converts (TYER, TDAT,
-# and TIME into TDRC; TORY into TDOR) or drops (TRDA, TSIZ) them, so get() would never find what was written
-_V23_ONLY_FRAMES: dict[str, str | None] = {
-    "TYER": "TDRC",
-    "TDAT": "TDRC",
-    "TIME": "TDRC",
-    "TORY": "TDOR",
-    "TRDA": "TDRC",
-    "TSIZ": None,
-}
 
 
 class TrackTextFrames(ID3FileTag):
@@ -46,13 +34,6 @@ class TrackTextFrames(ID3FileTag):
 
     def set(self, frame_id: str, text: str):
         """Sets the frame's text in memory, adding the frame if the file has none; call `save()` to write it."""
-        if frame_id in _V23_ONLY_FRAMES:
-            instead = _V23_ONLY_FRAMES[frame_id]
-            raise ValueError(
-                f"{frame_id} is ID3v2.3-only, and saving converts it; set {instead} instead"
-                if instead
-                else f"{frame_id} is ID3v2.3-only, and saving drops it"
-            )
         frame_class = Frames.get(frame_id)
         # only a text frame stored under its bare ID: COMM and TXXX are text frames too, but stored under a key that
         # adds their description, so get() would never find what was written
@@ -63,6 +44,17 @@ class TrackTextFrames(ID3FileTag):
         # sets a frame's attributes from its specs at runtime, so its types don't declare `text`
         if [str(t) for t in frame.text] != [text]:  # pyright: ignore[reportAttributeAccessIssue]
             raise ValueError(f"{frame_id} can't hold {text!r}")
+        # loading a file updates its tags to ID3v2.4, which converts (TYER into TDRC, ...) or drops a few older frames, so
+        # get() would never find what was written; mutagen lists them only inside that update, so it's run on the frame
+        tags = ID3()
+        tags.add(frame)
+        tags.update_to_v24()
+        if frame_id not in tags:
+            raise ValueError(
+                f"loading converts {frame_id} into {', '.join(tags)}; set that instead"
+                if tags
+                else f"loading drops {frame_id}"
+            )
         self._unsaved[frame_id] = text
 
     def _changed_frames(self) -> dict[str, str | None]:
