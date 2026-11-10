@@ -12,6 +12,7 @@ from mutagen.mp3 import HeaderNotFoundError
 
 
 from serato_tools.utils.track_tags import SeratoGeobTag
+from serato_tools.utils import GeobKeys
 
 
 class TrackCuesV1(SeratoGeobTag):
@@ -22,7 +23,7 @@ class TrackCuesV1(SeratoGeobTag):
     Current Serato reads `Serato Markers2` (`TrackCuesV2`), but a stale copy of this tag can shadow changes to it.
     """
 
-    GEOB_KEY = "Serato Markers_"
+    GEOB_KEY = GeobKeys.CUES_V1
     VERSION = (0x02, 0x05)
 
     @enum.unique

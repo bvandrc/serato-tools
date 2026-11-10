@@ -12,7 +12,7 @@ from mutagen.mp3 import HeaderNotFoundError
 
 
 from serato_tools.utils.track_tags import SeratoGeobTag
-from serato_tools.utils import NoWaveformError, logger
+from serato_tools.utils import GeobKeys, NoWaveformError, logger
 
 
 class TrackWaveform(SeratoGeobTag):
@@ -23,7 +23,7 @@ class TrackWaveform(SeratoGeobTag):
     Raises NoWaveformError when read from a file Serato hasn't built the overview for yet.
     """
 
-    GEOB_KEY = "Serato Overview"
+    GEOB_KEY = GeobKeys.WAVEFORM
     VERSION = (0x01, 0x05)
 
     def __init__(self, file_or_data: SeratoGeobTag.FileOrData):

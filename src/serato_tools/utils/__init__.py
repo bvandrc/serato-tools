@@ -1,7 +1,9 @@
-"""The default Serato folder, the package's logger, and the package's error classes, shared by every module."""
+"""The default Serato folder, the package's logger, the Serato tags' GEOB keys, and the package's error classes, shared
+by every module."""
 
 import logging
 import os
+from enum import StrEnum
 from typing import Any, ClassVar
 
 logger = logging.getLogger("serato-tools")
@@ -9,6 +11,16 @@ logger = logging.getLogger("serato-tools")
 SERATO_DIR_NAME = "_Serato_"
 SERATO_DIR = os.path.join(os.path.expanduser("~"), "Music", SERATO_DIR_NAME)
 SERATO_DRIVE = os.path.splitdrive(SERATO_DIR)[0]
+
+
+class GeobKeys(StrEnum):
+    """The GEOB frame key of each Serato tag in a track file, each tag class's `GEOB_KEY`."""
+
+    AUTOTAGS = "Serato Autotags"
+    BEATGRID = "Serato BeatGrid"
+    CUES_V1 = "Serato Markers_"
+    CUES_V2 = "Serato Markers2"
+    WAVEFORM = "Serato Overview"
 
 
 class DataTypeError(Exception):
@@ -26,30 +38,30 @@ class MissingTagError(ValueError):
     Catch a subclass to handle one tag's absence, without also catching other ValueErrors, such as a corrupt tag.
     """
 
-    TAG_NAME: ClassVar[str]
+    GEOB_KEY: ClassVar[GeobKeys]
 
     def __init__(self, filename: str | None = None):
         """`filename` is the track's, or None for a tag read from bytes."""
         self.filename = filename
-        super().__init__(f"no {self.TAG_NAME} tag" + (f": {filename}" if filename else ""))
+        super().__init__(f"no {self.GEOB_KEY} tag" + (f": {filename}" if filename else ""))
 
 
 class NoCuesError(MissingTagError):
     """A track without a `Serato Markers2` tag, so no cues, such as one that hasn't been analyzed or given any."""
 
-    TAG_NAME = "Serato Markers2"
+    GEOB_KEY = GeobKeys.CUES_V2
 
 
 class NoBeatgridError(MissingTagError):
     """A track without a `Serato BeatGrid` tag, such as one Serato hasn't analyzed yet."""
 
-    TAG_NAME = "Serato BeatGrid"
+    GEOB_KEY = GeobKeys.BEATGRID
 
 
 class NoWaveformError(MissingTagError):
     """A track without a `Serato Overview` tag, the waveform, such as one Serato hasn't analyzed yet."""
 
-    TAG_NAME = "Serato Overview"
+    GEOB_KEY = GeobKeys.WAVEFORM
 
 
 class DeeplyNestedListError(Exception):

@@ -24,7 +24,7 @@ from mutagen.mp3 import HeaderNotFoundError
 
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
-from serato_tools.utils import MissingTagError, NoBeatgridError, NoCuesError
+from serato_tools.utils import GeobKeys, MissingTagError, NoBeatgridError, NoCuesError
 
 if TYPE_CHECKING:
     # only for snap_cues_to_beats' annotation: the beatgrid is passed in, never read from this tag's file
@@ -83,7 +83,7 @@ class TrackCuesV2(SeratoGeobTag):
     call `save()`.
     """
 
-    GEOB_KEY = "Serato Markers2"
+    GEOB_KEY = GeobKeys.CUES_V2
     VERSION = (0x01, 0x01)
 
     # the colors Serato stores; Serato DJ Pro and Lite show each one a little differently (see docs/colors.md)

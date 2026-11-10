@@ -8,7 +8,7 @@ from mutagen.id3 import ID3FileType, ID3
 from mutagen.aiff import AIFF
 from mutagen.id3._frames import GEOB
 
-from serato_tools.utils import logger
+from serato_tools.utils import GeobKeys, logger
 
 # an open track file whose tags can be read and written: an ID3 file (.mp3), an AIFF file, or a file's bare ID3 tags
 type ID3File = ID3FileType | ID3 | AIFF
@@ -90,7 +90,7 @@ class ID3FileTag:
 class SeratoGeobTag(ID3FileTag):
     """One of Serato's GEOB tags, such as `Serato Markers2`: parsed from, and serialized back to, its frame's bytes."""
 
-    GEOB_KEY: str
+    GEOB_KEY: GeobKeys
 
     VERSION_FORMAT = "BB"
     VERSION_LEN = struct.calcsize(VERSION_FORMAT)

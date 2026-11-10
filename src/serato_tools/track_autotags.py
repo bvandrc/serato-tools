@@ -11,13 +11,13 @@ from mutagen.mp3 import HeaderNotFoundError
 
 
 from serato_tools.utils.track_tags import SeratoGeobTag
-from serato_tools.utils import logger
+from serato_tools.utils import GeobKeys, logger
 
 
 class TrackAutotags(SeratoGeobTag):
     """The `Serato Autotags` tag: the track's `bpm`, `autogain`, and `gaindb`, each None if the tag isn't set."""
 
-    GEOB_KEY = "Serato Autotags"
+    GEOB_KEY = GeobKeys.AUTOTAGS
     VERSION = (0x01, 0x01)
 
     def __init__(self, file_or_data: SeratoGeobTag.FileOrData):

@@ -19,7 +19,7 @@ from mutagen.id3 import ID3
 
 
 from serato_tools.utils.track_tags import SeratoGeobTag
-from serato_tools.utils import NoBeatgridError, logger
+from serato_tools.utils import GeobKeys, NoBeatgridError, logger
 
 _T = TypeVar("_T")
 
@@ -33,7 +33,7 @@ class TrackBeatgrid(SeratoGeobTag):
     grid. `enhanced_entries` adds each non-terminal marker's BPM.
     """
 
-    GEOB_KEY = "Serato BeatGrid"
+    GEOB_KEY = GeobKeys.BEATGRID
     VERSION = (0x01, 0x00)
 
     NonTerminalBeatgridMarker = collections.namedtuple(

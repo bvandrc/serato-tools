@@ -20,6 +20,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - `NoCuesError`: no `Serato Markers2` tag
   - `NoBeatgridError`: no `Serato BeatGrid` tag. Breaking: `TrackBeatgrid.find_nearest_beat` and `get_snapped_position` raise it, rather than returning None, which reads as "don't move the cue". `get_beat_position` raises it in place of a plain ValueError
   - `NoWaveformError`: no `Serato Overview` tag, raised by `TrackWaveform`, and `Track` with `waveform=True`, in place of a plain ValueError
+- Add `GeobKeys`, in `serato_tools.utils`: each Serato tag's GEOB key, which each tag class's `GEOB_KEY` is set to
 - `serato_beatgrid`, and `serato_snap_cues_v2 --snap_cues`, exit with a one-line message for a track without the tag, rather than a traceback
 
 ### Removed
