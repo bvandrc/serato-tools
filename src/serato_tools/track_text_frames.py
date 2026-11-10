@@ -16,6 +16,18 @@ def _get_text(tagfile: ID3File, key: str) -> str | None:
     return texts[0] if texts else None
 
 
+# ID3v2.3-only frames, by the ID3v2.4 frame to set instead, if any: saving writes ID3v2.4, which converts (TYER, TDAT,
+# and TIME into TDRC; TORY into TDOR) or drops (TRDA, TSIZ) them, so get() would never find what was written
+_V23_ONLY_FRAMES: dict[str, str | None] = {
+    "TYER": "TDRC",
+    "TDAT": "TDRC",
+    "TIME": "TDRC",
+    "TORY": "TDOR",
+    "TRDA": "TDRC",
+    "TSIZ": None,
+}
+
+
 class TrackTextFrames(ID3FileTag):
     """A track file's ID3 text frames, such as `TIT2` (title), read and set by frame ID.
 
@@ -34,6 +46,13 @@ class TrackTextFrames(ID3FileTag):
 
     def set(self, frame_id: str, text: str):
         """Sets the frame's text in memory, adding the frame if the file has none; call `save()` to write it."""
+        if frame_id in _V23_ONLY_FRAMES:
+            instead = _V23_ONLY_FRAMES[frame_id]
+            raise ValueError(
+                f"{frame_id} is ID3v2.3-only, and saving converts it; set {instead} instead"
+                if instead
+                else f"{frame_id} is ID3v2.3-only, and saving drops it"
+            )
         frame_class = Frames.get(frame_id)
         # only a text frame stored under its bare ID: COMM and TXXX are text frames too, but stored under a key that
         # adds their description, so get() would never find what was written

@@ -46,6 +46,14 @@ class TestCase(unittest.TestCase):
             with self.subTest(frame_id), self.assertRaises(ValueError):
                 TrackTextFrames(self.path).set(frame_id, "x")
 
+    def test_set_raises_for_an_id3v23_only_frame(self):
+        # saving writes ID3v2.4, which converts or drops these, so what was set would never be read back
+        for frame_id in ("TYER", "TDAT", "TIME", "TORY", "TRDA", "TSIZ"):
+            with self.subTest(frame_id), self.assertRaisesRegex(ValueError, "ID3v2.3-only"):
+                TrackTextFrames(self.path).set(frame_id, "2020")
+        with self.assertRaisesRegex(ValueError, "set TDRC instead"):
+            TrackTextFrames(self.path).set("TYER", "2020")
+
     def test_set_raises_for_text_the_frame_cant_hold(self):
         frames = TrackTextFrames(self.path)
         with self.assertRaises(ValueError):
