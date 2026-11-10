@@ -1,5 +1,3 @@
-"""Tests of Library: changes that reach the database, crates, and smart crates, and the track files' tags."""
-
 import unittest
 from unittest import mock
 import os

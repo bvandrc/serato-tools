@@ -1,5 +1,3 @@
-"""Tests of the USB export: which crate files a pattern matches, and how the CLI reads the drive it's given."""
-
 import os
 import unittest
 from unittest import mock

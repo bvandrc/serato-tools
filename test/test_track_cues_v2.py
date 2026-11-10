@@ -1,5 +1,3 @@
-"""Tests of TrackCuesV2: the Serato Markers2 tag's entries, editing them, and saving."""
-
 # pylint: disable=protected-access
 import base64
 import dataclasses

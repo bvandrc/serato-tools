@@ -1,5 +1,3 @@
-"""Tests of TrackWaveform: parsing the Serato Overview tag."""
-
 import unittest
 
 from serato_tools.track_waveform import TrackWaveform

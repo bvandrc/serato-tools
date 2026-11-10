@@ -1,5 +1,3 @@
-"""Tests that every console script in pyproject.toml points at a function that exists."""
-
 import importlib
 import tomllib
 import unittest

@@ -1,5 +1,3 @@
-"""Tests of SmartCrate: parsing and serializing a smart crate, and setting and deleting its rules."""
-
 # pylint: disable=protected-access
 import unittest
 import os

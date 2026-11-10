@@ -1,5 +1,3 @@
-"""Tests of SeratoBinFile's shared behaviour, driven through a subclass: track paths, tracks, and has_changed."""
-
 import os
 import shutil
 import unittest
