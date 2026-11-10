@@ -7,11 +7,11 @@ name: Backfill Releases
 # Each version is matched to the commit at the head of main when PyPI received it. Where that commit has another version
 # in pyproject.toml (it was published before being committed), it's the first commit after with the version. 1.5.0,
 # 1.12.0, 1.14.1, 3.8.0, and 3.8.1 never had a commit with their version, so they get no release.
+#
+# The workflow's token can't create a tag on a commit whose workflow files differ from the repo's current ones, which
+# here is 2.4.0 through 5.1.2. Push those tags yourself first, and this makes their releases on the tags.
 on:
   workflow_dispatch:
-  push: # TEMPORARY: to run it before it's on main
-    branches: [ci/publish-on-github-release]
-    paths: [.github/workflows/backfill-releases.yml]
 
 jobs:
   backfill:
@@ -104,7 +104,7 @@ jobs:
           fi
 
           if [ ${#failed[@]} -gt 0 ]; then
-            # the workflow's token can't create a tag on a commit that changes a workflow file
-            echo "::error::Couldn't create a release for: ${failed[*]}. If its commit changes a workflow file, the workflow's token can't tag it: push the tag yourself, then rerun this."
+            # the workflow's token can't create a tag on a commit whose workflow files differ from the repo's current ones
+            echo "::error::Couldn't create a release for: ${failed[*]}. If its commit's workflow files differ from the current ones, the workflow's token can't tag it: push the tag yourself, then rerun this."
             exit 1
           fi
