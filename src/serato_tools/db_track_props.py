@@ -31,8 +31,7 @@ class DbTrackTags(TypedDict, total=False):
     bpm: float
     track_number: int
     disc_number: int
-    # TODO: comment (tcom), once we know which COMM frame (description and language) Serato reads and writes
-    # comment: str
+    comment: str
 
 
 @dataclass(frozen=True)
@@ -86,6 +85,9 @@ _DB_TRACK_PROPS: dict[str, _DbTrackProp[Any]] = {
     ),
     "disc_number": _DbTrackProp[int](
         DatabaseV2.Fields.DISC_NUMBER, lambda number: number, lambda track, n: track.text_frames.set("TPOS", str(n))
+    ),
+    "comment": _DbTrackProp[str](
+        DatabaseV2.Fields.COMMENT, lambda text: text, lambda track, text: track.text_frames.set_comment(text)
     ),
 }
 assert set(_DB_TRACK_PROPS) == DbTrackTags.__optional_keys__, "every DbTrackTags key needs a property, and only those"

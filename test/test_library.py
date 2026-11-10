@@ -214,6 +214,20 @@ class TestCase(unittest.TestCase):
                 self.assertEqual(frames.get(frame_id), frame_text, "file")
                 self.assertEqual(self.db_values(field)[relpath], db_value, "database")
 
+    def test_set_db_track_tags_comment(self):
+        track = self.copy_analyzed_track("Comment.mp3")
+        self.add_to_database(track)
+        relpath = DatabaseV2.get_relative_path(track)
+        library = Library(self.serato_dir)
+
+        library.set_db_track_tags(track, comment="A Comment")
+        self.assertEqual(TrackTextFrames(track).get_comment(), "A Comment", "file")
+        self.assertEqual(self.db_values(DatabaseV2.Fields.COMMENT)[relpath], "A Comment", "database")
+
+        library.set_db_track_tags(track, comment="")
+        self.assertIsNone(TrackTextFrames(track).get_comment(), "removed from the file")
+        self.assertNotIn(relpath, self.db_values(DatabaseV2.Fields.COMMENT), "removed from the database")
+
     def test_set_db_tracks_tags_sets_each_its_own_values(self):
         red, blue = self.copy_analyzed_track("Red.mp3"), self.copy_analyzed_track("Blue.mp3")
         self.add_to_database(red, blue)
