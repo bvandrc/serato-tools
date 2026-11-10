@@ -173,10 +173,7 @@ class TrackCuesV1(SeratoGeobTag):
         yield TrackCuesV1.Color._parse(fp.read())
 
     def delete(self):
-        """Removes the tag from the file in memory, and its entries; returns whether the file had it.
-
-        `save()` writes the deletion to the file.
-        """
+        """Deletes the tag in memory, returning whether the file had it; call `save()` to write the deletion."""
         was_deleted = super().delete()
         self.entries = []
         return was_deleted

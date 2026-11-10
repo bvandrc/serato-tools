@@ -171,17 +171,11 @@ class SeratoGeobTag(ID3FileTag):
 
     @staticmethod
     def _readbytes(fp: io.BytesIO):
-        """Reads a null-terminated string.
-
-        Reads past the next null byte, or to the end, and returns what came before it.
-        """
+        """Reads past the next null byte, or to the end, and returns what came before it: a null-terminated string."""
         return b"".join(SeratoGeobTag._readbytes_gen(fp))
 
     def delete(self):
-        """Removes the tag's frame from the file in memory, and its data; returns whether the file had the frame.
-
-        `save()` writes the deletion to the file.
-        """
+        """Deletes the tag in memory, returning whether the file had it; call `save()` to write the deletion."""
         was_deleted = self._del_geob() if self.tagfile else False
         # clear _raw_data so a later save() persists the deletion instead of re-tagging the old bytes
         self._raw_data = None

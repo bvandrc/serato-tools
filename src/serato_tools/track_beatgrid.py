@@ -81,10 +81,7 @@ class TrackBeatgrid(SeratoGeobTag):
         return "\n".join(str(marker) for marker in (*nonterminal_markers, terminal_marker))
 
     def delete(self):
-        """Removes the tag from the file in memory, and its markers; returns whether the file had it.
-
-        `save()` writes the deletion to the file.
-        """
+        """Deletes the tag in memory, returning whether the file had it; call `save()` to write the deletion."""
         was_deleted = super().delete()
         self.entries = None
         self.enhanced_entries = None
