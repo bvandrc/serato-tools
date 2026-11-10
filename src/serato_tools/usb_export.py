@@ -1,3 +1,10 @@
+"""Exports crates to a USB drive for Serato.
+
+The crates' tracks are copied to one folder on the drive, with a library that points there.
+
+Also the `serato_usb_export` CLI.
+"""
+
 import os
 import filecmp
 import fnmatch
@@ -22,6 +29,7 @@ from serato_tools.utils import (
 
 
 def _uniq_by_basename(paths: list[str]):
+    """`paths` without any whose filename an earlier one already has."""
     basenames: set[str] = set()
     return_paths: list[str] = []
     for path in paths:
@@ -35,6 +43,14 @@ def _uniq_by_basename(paths: list[str]):
 def copy_crates_to_usb(
     crate_files: list[str], dest_drive_dir: str, dest_tracks_dir: str, root_crate: Optional[str] = None
 ):
+    """Copies the crates in `crate_files`, and their tracks, to the drive at `dest_drive_dir`.
+
+    - Every track goes in `dest_tracks_dir` on the drive, and only the first of tracks that share a filename is kept.
+    - The drive's `_Serato_` folder is replaced by one holding these crates and a database of just their tracks, all
+      pointed at the new paths. Smart crates become regular crates, since Serato can't use one on a drive.
+    - A track whose file is already on the drive, unchanged, isn't copied again. Its stems file is copied too.
+    - Given `root_crate`, every crate goes inside a crate of that name.
+    """
     if not os.path.isdir(dest_drive_dir):
         raise FileNotFoundError(f"destination drive directory does not exist: {dest_drive_dir}")
 
@@ -216,6 +232,10 @@ def copy_crates_to_usb(
 
 
 def get_crate_files(pattern: str):
+    """The crate and smart crate files in the default Serato folder whose filename matches `pattern`.
+
+    `pattern` is tried as a glob, and if nothing matches it, as a regex.
+    """
     # the classes' get_crate_files check the crate extension, so stray files in the folders
     # (e.g. .DS_Store) are never matched; a missing folder just means no crates of that kind
     filepaths: list[str] = []
@@ -236,6 +256,10 @@ def get_crate_files(pattern: str):
 
 
 def main():
+    """The `serato_usb_export` CLI.
+
+    It exports the crates matching the patterns given to a drive, under `Tracks`.
+    """
     import argparse
 
     @dataclass

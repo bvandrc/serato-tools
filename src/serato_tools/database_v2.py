@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Serato's library database (`database V2`), which holds every track's path and the values Serato shows for it."""
+
 import os
 import warnings
 from dataclasses import dataclass
@@ -10,6 +12,13 @@ from serato_tools.utils import SERATO_DIR
 
 
 class DatabaseV2(SeratoBinFile):
+    """Serato's library database file (`database V2`).
+
+    It holds one entry per track, with its path and the values Serato shows.
+
+    For changes that have to reach the crates too, such as renaming a track's file, use `Library`.
+    """
+
     TESTED_VERSIONS = frozenset({"2.0/Serato Scratch LIVE Database"})
     FILENAME = "database V2"
     DEFAULT_DATABASE_FILE = os.path.join(SERATO_DIR, FILENAME)
@@ -20,6 +29,7 @@ class DatabaseV2(SeratoBinFile):
     ]
 
     def __init__(self, file: str = DEFAULT_DATABASE_FILE):
+        """Parses the database at `file`; raises FileNotFoundError if it doesn't exist, rather than creating one."""
         if not os.path.exists(file):
             raise FileNotFoundError(f"file does not exist: {file}")
         super().__init__(file=file)

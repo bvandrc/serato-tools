@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""The `Serato BeatGrid` tag, which holds a track's beatgrid as markers.
+
+Also the CLIs that print it, or analyze and write one. Analyzing needs the `beatgrid_analysis` extra (librosa and
+numpy).
+"""
+
 import collections
 import io
 import struct
@@ -18,6 +24,14 @@ _T = TypeVar("_T")
 
 
 class TrackBeatgrid(SeratoGeobTag):
+    """The `Serato BeatGrid` tag, which holds a track's beatgrid.
+
+    The grid is markers at beat positions, each giving the beats to the next, then a final BPM.
+
+    `entries` holds the markers as stored, ending with the terminal marker and a footer, or None for a track without a
+    grid. `enhanced_entries` adds each non-terminal marker's BPM.
+    """
+
     GEOB_KEY = "Serato BeatGrid"
     VERSION = (0x01, 0x00)
 
@@ -68,6 +82,7 @@ class TrackBeatgrid(SeratoGeobTag):
         return "\n".join(str(marker) for marker in (*nonterminal_markers, terminal_marker))
 
     def delete(self):
+        """Deletes the tag in memory, returning whether the file had it; call `save()` to write the deletion."""
         was_deleted = super().delete()
         self.entries = None
         self.enhanced_entries = None
@@ -103,6 +118,10 @@ class TrackBeatgrid(SeratoGeobTag):
     @overload
     def _check_and_split(self, entries: "_EntryList[_T]") -> "__SplitEntryList[_T]": ...
     def _check_and_split(self, entries: "_EntryList[_T] | None" = None):
+        """Splits `entries`, or `self.entries`, into the non-terminal markers, the terminal marker, and the footer.
+
+        Raises if there are none, or they aren't in that order with one terminal marker and one footer.
+        """
         if entries is None:
             entries = cast("TrackBeatgrid._EntryList[_T]", self.entries)
 
@@ -136,6 +155,7 @@ class TrackBeatgrid(SeratoGeobTag):
         nonterminal_markers: "list[TrackBeatgrid.NonTerminalBeatgridMarker]",
         terminal_marker: "TrackBeatgrid.TerminalBeatgridMarker",
     ):
+        """Raises ValueError for a grid with markers out of order, a 0-beat segment, or no BPM."""
         # Every grid Serato DJ Pro 2 was seen writing passes these checks, so one that doesn't is a grid this class may
         # misread, or one Serato can't use. A negative position isn't rejected, since a grid whose first beat comes
         # before the track starts seems possible.
@@ -182,6 +202,7 @@ class TrackBeatgrid(SeratoGeobTag):
 
     @staticmethod
     def _enhance_entries(raw_entries: "TrackBeatgrid.EntryList") -> "TrackBeatgrid.EntryListEnhanced":
+        """`raw_entries` with each non-terminal marker's BPM, from its beats and the time to the next marker, added."""
         *markers, footer = raw_entries
         enhanced: list[TrackBeatgrid.NonTerminalBeatgridMarkerEnhanced | TrackBeatgrid.TerminalBeatgridMarker] = []
         for i, marker in enumerate(markers):
@@ -204,6 +225,7 @@ class TrackBeatgrid(SeratoGeobTag):
         return cast(TrackBeatgrid.EntryListEnhanced, (*enhanced, footer))
 
     def get_beat_position(self, position_ms: float) -> float:
+        """How many beats into the grid `position_ms` is, from 0 at the first marker; fractional between beats."""
         position_s = position_ms / 1000.0
         nonterminal_markers, terminal_marker, _footer = self._check_and_split()
 
@@ -283,6 +305,10 @@ class TrackBeatgrid(SeratoGeobTag):
         return beats
 
     def find_nearest_beat(self, position_ms: int, tolerance_beats: float) -> float | None:
+        """The position in ms of the beat nearest `position_ms`, or None if it's on a beat or none is within tolerance.
+
+        `tolerance_beats` is a fraction of a beat. Needs the tag read from an audio file, for the track's length.
+        """
         position_s = position_ms / 1000.0
 
         nearest_beat: TrackBeatgrid.BeatPoint | None = None
@@ -307,6 +333,12 @@ class TrackBeatgrid(SeratoGeobTag):
         return None if nearest_beat is None else nearest_beat.position_s * 1000.0
 
     def analyze_and_write(self):
+        """Replaces the grid with one found by analyzing the track's audio, then saves it to the file.
+
+        A marker goes on each downbeat found, 4 beats apart, and the last takes the BPM in the file's tags. Needs the
+        `beatgrid_analysis` extra (librosa and numpy), and takes seconds. An MP3's grid may be off by tens of ms, since
+        the analysis decodes it differently than Serato does.
+        """
         if not self.tagfile:
             raise Exception("No tagfile set")
 
@@ -342,6 +374,7 @@ class TrackBeatgrid(SeratoGeobTag):
 
 
 def main():
+    """Prints a track's beatgrid markers, or with `--analyze`, analyzes the track and writes a new grid."""
     import argparse
 
     @dataclass
@@ -371,6 +404,10 @@ def main():
 
 
 def main_analyze():
+    """The `serato_analyze_beatgrid` CLI.
+
+    It analyzes a track's audio and writes a new beatgrid to its tags.
+    """
     import argparse
 
     @dataclass

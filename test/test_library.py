@@ -50,6 +50,7 @@ class TestCase(unittest.TestCase):
         crate.save()
 
     def track_paths(self, file: SeratoBinFile) -> list[str]:
+        """The track paths in `file` as saved, read again from disk rather than from its entries in memory."""
         return type(file)(file.filepath).get_track_paths()
 
     def saved_file_names(self):
@@ -153,6 +154,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(self.track_paths(library.smart_crates[0]), [], "missing track removed from smart crate")
 
     def copy_analyzed_track(self, name: str) -> str:
+        """A copy of the test mp3, which has every Serato tag, as `name` in the music folder."""
         return temp_mp3(self, name, self.music_dir)
 
     def db_values(self, field: DatabaseV2.Fields) -> dict[str, SeratoBinFile.Value]:

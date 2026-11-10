@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""The `Serato Markers2` tag, which holds a track's hot cues, loops, flips, color, and beatgrid lock.
+
+Also the `serato_snap_cues_v2` CLI, which sets the color, snaps cues to the beatgrid, or edits the tag's entries.
+"""
+
 import ast
 import base64
 import configparser
@@ -38,16 +43,19 @@ _PACKAGE_DIR = os.path.dirname(__file__) + os.sep
 
 
 def _check_len(entry_name: str, data: bytes, expected: int):
+    """Raises ValueError unless the entry's data is `expected` bytes long."""
     if len(data) != expected:
         raise ValueError(f"{entry_name} entry is {len(data)} bytes, not {expected}")
 
 
 def _check_fixed(entry_name: str, field: str, value: bytes, expected: bytes):
+    """Raises ValueError unless a field Serato always writes the same holds that value, `expected`."""
     if value != expected:
         raise ValueError(f"{entry_name} entry's {field} isn't {expected!r}: {value!r}")
 
 
 def _check_cue_index(index: int):
+    """Raises ValueError for a cue past Serato's 8 cue pads."""
     # Serato only has 8 cue pads, so it ignores a cue past them: it doesn't show it, or move it up when a cue before it
     # is deleted. Such cues, found in real tags, also have bytes unlike any cue Serato shows (field4 cc, color cccccc).
     if index > _MAX_CUE_INDEX:
@@ -55,6 +63,10 @@ def _check_cue_index(index: int):
 
 
 def _parse_name(entry_name: str, data: bytes) -> str:
+    """The entry's name, which ends its data.
+
+    Raises ValueError unless it's UTF-8 text with a null byte after it and nothing else.
+    """
     name, nullbyte, other = data.partition(b"\x00")
     if nullbyte != b"\x00" or other != b"":
         raise ValueError(f"{entry_name} entry's name isn't followed by a null byte and nothing else: {data!r}")
@@ -62,12 +74,22 @@ def _parse_name(entry_name: str, data: bytes) -> str:
 
 
 class TrackCuesV2(SeratoGeobTag):
+    """The `Serato Markers2` tag.
+
+    It holds a track's hot cues, loops, flips, color, and beatgrid lock, as a list of entries.
+
+    Read the entries as a `TrackCuesInfo` and change them with `modify_entries`, or with the methods built on it, then
+    call `save()`.
+    """
+
     GEOB_KEY = "Serato Markers2"
     VERSION = (0x01, 0x01)
 
     # the colors Serato stores; Serato DJ Pro and Lite show each one a little differently (see docs/colors.md)
     @unique
     class CueColors(Enum):
+        """The colors Serato stores for a hot cue, as the RGB bytes in a `CueEntry`'s `color`."""
+
         RED = b"\xcc\x00\x00"
         ORANGE = b"\xcc\x44\x00"
         YELLOWORANGE = b"\xcc\x88\x00"
@@ -91,6 +113,8 @@ class TrackCuesV2(SeratoGeobTag):
     # one differently, e.g. WHITE as 333333 (see docs/colors.md)
     @unique
     class TrackColors(Enum):
+        """The track colors Serato stores, as the RGB bytes in the `ColorEntry`'s `color`."""
+
         PINK = b"\xff\x99\xff"
         DARKPINK = b"\xff\x99\xdd"
         PINKRED = b"\xff\x99\xbb"
@@ -132,6 +156,7 @@ class TrackCuesV2(SeratoGeobTag):
 
     @staticmethod
     def _get_entry_class(entry_name: str):
+        """The class for an entry named `entry_name`, such as "CUE", or `UnknownEntry` for a name it doesn't know."""
         return TrackCuesV2._ENTRY_CLASS_BY_NAME.get(entry_name, TrackCuesV2.UnknownEntry)
 
     class _EntryRepr:
@@ -416,6 +441,12 @@ class TrackCuesV2(SeratoGeobTag):
 
     @staticmethod
     def parse_entries_file(contents: str, assert_len_1: bool):
+        """Entries read from INI text with a section per entry, as the CLI's edit mode writes them for a text editor.
+
+        Each section is named for its entry type (e.g. `[CUE]` or `[3: CUE]`), with a Python literal per field in the
+        entry class's `FIELDS`. Entries are in the order of their sorted section names. `assert_len_1` requires
+        exactly one.
+        """
         # the entry classes' _parse() / _serialize() are internal to this module
         # pylint: disable=protected-access
         cp = configparser.ConfigParser()
@@ -445,6 +476,8 @@ class TrackCuesV2(SeratoGeobTag):
 
     @dataclass
     class TrackCuesInfo:
+        """The tag's entries grouped by kind, which `modify_entries` hands its callback to change."""
+
         bpm_lock: "TrackCuesV2.BpmLockEntry | None" = None
         color: "TrackCuesV2.ColorEntry | None" = None
         cues: list["TrackCuesV2.CueEntry"] = field(default_factory=list)
@@ -454,6 +487,7 @@ class TrackCuesV2(SeratoGeobTag):
 
         @classmethod
         def from_entries(cls, entries: list["TrackCuesV2.Entry"]) -> "TrackCuesV2.TrackCuesInfo":
+            """Groups `entries` by kind; raises ValueError for more than one BPM lock or color entry."""
             bpm_lock = None
             color = None
             cues_list: list[TrackCuesV2.CueEntry] = []
@@ -487,6 +521,7 @@ class TrackCuesV2(SeratoGeobTag):
             )
 
         def to_entries(self) -> list["TrackCuesV2.Entry"]:
+            """The entries in a flat list, in the order Serato writes them."""
             result: list[TrackCuesV2.Entry] = []
             if self.color is not None:
                 result.append(self.color)
@@ -526,6 +561,7 @@ class TrackCuesV2(SeratoGeobTag):
         self._serialize()
 
     def _put_in_tagfile(self, delete_tags_v1: bool = True):
+        """As `SeratoGeobTag._put_in_tagfile`, also deleting `Serato Markers_` unless told not to."""
         super()._put_in_tagfile()
         # deleted only here, when this tag writes, and not by the edit: deleted from the shared tagfile for an edit
         # that changed nothing, or was changed back, it would be written by another tag's save
@@ -541,6 +577,7 @@ class TrackCuesV2(SeratoGeobTag):
         return True
 
     def delete(self):
+        """Deletes the tag in memory, returning whether the file had it; call `save()` to write the deletion."""
         was_deleted = super().delete()
         self.entries = []
         return was_deleted
@@ -570,10 +607,15 @@ class TrackCuesV2(SeratoGeobTag):
         self.tagfile.save()
 
     def get_track_color(self) -> bytes | None:
+        """The track's color as the bytes of a `TrackColors` value, or None if the tag has no color entry yet."""
         color_entry = next((entry for entry in self.entries if isinstance(entry, TrackCuesV2.ColorEntry)), None)
         return None if color_entry is None else color_entry.color
 
     def get_track_color_name(self) -> str | None:
+        """The name of the track's `TrackColors` value, or None if the tag has no color entry yet.
+
+        Raises ValueError for a color that isn't one of `TrackColors`.
+        """
         return None if (color_bytes := self.get_track_color()) is None else TrackCuesV2.TrackColors(color_bytes).name
 
     def set_track_color(self, color: TrackColors, delete_tags_v1: bool | None = None):
@@ -628,6 +670,8 @@ class TrackCuesV2(SeratoGeobTag):
         return snapped_ms if abs(snapped_ms - postion_ms) >= min_ms_change else None
 
     def snap_positions_to_beat_rule(self, tolerance_beats: float, min_ms_change: int = 2) -> ModifyCallback:
+        """A `modify_entries` callback that moves each cue to its nearest beat, as `get_snapped_beat_ms` decides."""
+
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
             new_cues = []
             for cue in track.cues:
@@ -642,6 +686,10 @@ class TrackCuesV2(SeratoGeobTag):
         return rule
 
     def snap_positions_to_beat(self, tolerance_beats: float, min_ms_change: int = 2) -> None:
+        """Moves each cue to its nearest beat in memory, as `get_snapped_beat_ms` decides, and prints each move.
+
+        Raises ValueError if the tag has no entries. Call `save()` to write the change to the file.
+        """
         if not self.entries:
             raise ValueError("No entries set")
         track_before = self._from_entries()
@@ -654,6 +702,7 @@ class TrackCuesV2(SeratoGeobTag):
                 print(f"Snapped by {c.position - prev} ms")
 
     def _get_beatgrid(self, file_or_data: SeratoGeobTag.FileOrData | None = None) -> TrackBeatgrid:
+        """Reads the beatgrid from `file_or_data`, or from this tag's file, and keeps it as `self.beatgrid`."""
         if file_or_data is None:
             if not self.tagfile:
                 raise ValueError("No tagfile set, or must pass beatgrid")
@@ -665,14 +714,23 @@ class TrackCuesV2(SeratoGeobTag):
     def get_beat_position(
         self, entry: "TrackCuesV2.CueEntry", file_or_data: SeratoGeobTag.FileOrData | None = None
     ) -> float:
+        """How many beats into the track's beatgrid the cue is, counting from 0 at the grid's first marker.
+
+        The beatgrid is read from `file_or_data`, or from this tag's file, the first time it's needed.
+        """
         beatgrid = self.beatgrid or self._get_beatgrid(file_or_data)
         return beatgrid.get_beat_position(entry.position)
 
     def is_beatgrid_locked(self) -> bool:
+        """Whether the tag has a BPM lock entry that's enabled."""
         return any((isinstance(entry, TrackCuesV2.BpmLockEntry) and entry.enabled) for entry in self.entries)
 
 
 def main():
+    """The `serato_snap_cues_v2` CLI.
+
+    It sets the track color, snaps cues to the beatgrid, or prints or edits entries.
+    """
     # this script is part of the module, so it uses the tag's and its entries' internal _parse() / _serialize()
     # pylint: disable=protected-access
     import argparse

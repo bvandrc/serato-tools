@@ -27,6 +27,7 @@ def make_rule(
 
 class TestCase(unittest.TestCase):
     def check_lines(self, given: str, exp: str):
+        """Asserts the two texts are equal, ignoring whitespace at the start and end of each line."""
         given = "\n".join([l.strip() for l in given.splitlines()])
         exp = "\n".join([l.strip() for l in exp.splitlines()])
         self.maxDiff = None

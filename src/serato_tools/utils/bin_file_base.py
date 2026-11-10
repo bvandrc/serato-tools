@@ -1,3 +1,8 @@
+"""The container format of Serato's library database and crate files.
+
+A file is a list of entries, each a named, typed value, which may itself be a nested list of entries.
+"""
+
 import os
 import io
 import re
@@ -14,9 +19,17 @@ from serato_tools.utils import logger, SERATO_DRIVE, DataTypeError, DeeplyNested
 
 
 class SeratoBinFile:
+    """A Serato database or crate file, parsed into `entries`, a list of (field name, value) pairs.
+
+    A field name's first letter gives its value's type: a nested entry list, text, a bool, or an int. Subclasses set
+    `TESTED_VERSIONS`, `TRACK_PATH_KEY`, and `DEFAULT_ENTRIES`. Change the file through the methods here, such as
+    `modify_tracks` or `modify`, then call `save()`.
+    """
 
     @unique
     class Fields(StrEnum):
+        """The field names found in database and crate files, named for what each holds."""
+
         # Database & Crate
         VERSION = "vrsn"
         TRACK = "otrk"
@@ -104,6 +117,11 @@ class SeratoBinFile:
     _saved_hash: bytes | None = None
 
     def __init__(self, file: str):
+        """Parses `file`, either Serato's binary format or JSON as `write_json` writes it.
+
+        A file that doesn't exist yet starts from `DEFAULT_ENTRIES`, and `save()` creates it. Raises ValueError for a
+        version not in `TESTED_VERSIONS`.
+        """
         self.filepath = os.path.abspath(file)
 
         self.entries: SeratoBinFile.EntryList
@@ -161,6 +179,7 @@ class SeratoBinFile:
         return "\n".join(lines)
 
     def _check_version(self, value: Value, set_version: bool = False):
+        """Raises unless `value` is one of `TESTED_VERSIONS`; with `set_version`, also records it as `self.version`."""
         if not isinstance(value, str):
             raise DataTypeError(value, str, SeratoBinFile.Fields.VERSION)
         if value not in self.TESTED_VERSIONS:
@@ -177,12 +196,16 @@ class SeratoBinFile:
             self.version = value
 
     class EntryJson(TypedDict):
+        """An entry as `to_json_object` gives it, with its field's readable name and its value's Python type."""
+
         field: "SeratoBinFile.ParsedField"
         fieldname: str
         type: str
         value: str | int | bool | list["SeratoBinFile.EntryJson"]
 
     def to_json_object(self) -> list[EntryJson]:
+        """The entries as JSON-compatible objects, with bytes base64-encoded; `from_json_object` reads them back."""
+
         def entries_to_json(entries: SeratoBinFile.EntryList) -> list[SeratoBinFile.EntryJson]:
             result = []
 
@@ -206,6 +229,11 @@ class SeratoBinFile:
         return entries_to_json(self.entries)
 
     def from_json_object(self, json_data: list[EntryJson]):
+        """Replaces the entries with those in `json_data`, as `to_json_object` gives them.
+
+        Raises, leaving the entries as they were, if they wouldn't serialize or have an untested version.
+        """
+
         def json_to_entries(json_list: list[SeratoBinFile.EntryJson]) -> SeratoBinFile.EntryList:
             result: SeratoBinFile.EntryList = []
             version_set = False
@@ -242,6 +270,8 @@ class SeratoBinFile:
         self.entries = entries
 
     def write_json(self, filepath: str) -> None:
+        """Writes the entries to `filepath` as JSON, one entry per line, which loading that path reads back."""
+
         def write_json_array(json_entries: list[SeratoBinFile.EntryJson], indent: int = 0) -> str:
             indent_str = "  " * indent
             lines = ["[\n"]
@@ -271,6 +301,12 @@ class SeratoBinFile:
         print(self)
 
     class EntryListCls:
+        """A flat entry list, such as a track's, with each field's value as an attribute named for the field.
+
+        Holds copies of the values, so changes reach the file only through `to_entries()`. Raises
+        DeeplyNestedListError for a nested entry list, and ValueError for a repeated field.
+        """
+
         def __init__(self, entries: "SeratoBinFile.EntryList"):
             self.fields: list[str] = []
 
@@ -295,6 +331,7 @@ class SeratoBinFile:
             return getattr(self, field)
 
         def set_value(self, field: str, value: "SeratoBinFile.Value"):
+            """Sets `field`'s value, adding the field after the others if it isn't set yet."""
             if field not in self.fields:
                 self.fields.append(field)
             setattr(self, field, value)
@@ -311,6 +348,11 @@ class SeratoBinFile:
             return [(f, self.get_value(f)) for f in self.fields]
 
     class Track(EntryListCls):
+        """A track's entry.
+
+        `relpath` is its path as stored, with no drive and `/`-separated, read from the `path_key` field.
+        """
+
         def __init__(self, entries: "SeratoBinFile.EntryList", path_key: str):
             super().__init__(entries)
 
@@ -341,11 +383,13 @@ class SeratoBinFile:
             return super().remove_field(field)
 
         def set_path(self, path: str):
+            """Points the track at `path`, stored without its drive, as Serato stores paths."""
             relpath = SeratoBinFile.get_relative_path(path)
             self.set_value(self.path_key, relpath)
             self.relpath = relpath
 
         def get_full_path(self):
+            """The track's absolute path, which is its `relpath` on `SERATO_DRIVE`."""
             return SeratoBinFile.get_full_path(self.relpath)
 
     def _get_track(self, entries: "SeratoBinFile.EntryList"):
@@ -358,10 +402,15 @@ class SeratoBinFile:
 
     @staticmethod
     def _get_type(field: str) -> str:
+        """The letter that gives `field`'s value type.
+
+        It's the field name's first letter, except for `vrsn`, which holds text.
+        """
         # vrsn field has no type_id, but contains text ("t")
         return "t" if field == SeratoBinFile.Fields.VERSION else field[0]
 
     def _parse_item(self, item_data: bytes) -> Generator["SeratoBinFile.Entry", None, None]:
+        """Each entry in `item_data`, with nested entry lists parsed too; checks and records the first version."""
         fp = io.BytesIO(item_data)
         version_set = False
         for header in iter(lambda: fp.read(8), b""):
@@ -400,6 +449,10 @@ class SeratoBinFile:
             yield field, value
 
     def _serialize_item(self, entry: Entry) -> bytes:
+        """An entry's bytes.
+
+        The header comes first, then the value, encoded as its field's type requires.
+        """
         field, value = entry
         field_bytes = field.encode("ascii")
         assert len(field_bytes) == 4
@@ -465,6 +518,7 @@ class SeratoBinFile:
         return self._saved_hash is None or self._hash(self.to_bytes()) != self._saved_hash
 
     def _is_own_path(self, file: str) -> bool:
+        """Whether `file` is the file this was loaded from, by any path to it."""
         if os.path.normcase(os.path.abspath(file)) == os.path.normcase(self.filepath):
             return True
         # the same file by another name: a symlink or hard link, or another case on a case-insensitive filesystem
@@ -474,6 +528,10 @@ class SeratoBinFile:
             return False
 
     def get_tracks(self) -> Generator[Track, None, None]:
+        """Each track entry, as a `Track`.
+
+        A `Track` holds copies of the entry's values, so changing one doesn't change the file: use `modify_tracks`.
+        """
         for field, value in self.entries:
             if field == SeratoBinFile.Fields.TRACK:
                 if not isinstance(value, list):
@@ -482,6 +540,10 @@ class SeratoBinFile:
                 yield track
 
     def get_track_paths(self, include_drive: bool = False) -> list[str]:
+        """Each track's path.
+
+        Paths are as stored, with no drive, or with `include_drive`, absolute.
+        """
         return [t.get_full_path() if include_drive else t.relpath for t in self.get_tracks()]
 
     def modify_tracks(self, func: Callable[[Track], Track], files: Optional[list[str]] = None) -> bool:
@@ -569,6 +631,7 @@ class SeratoBinFile:
 
     @classmethod
     def get_field_name(cls, field: str) -> str:
+        """A readable name for `field`, such as "File Path" for `pfil`, or "Unknown Field" if it isn't known."""
         # a map built once per class, since printing or JSON-dumping a large database names every field; checked in
         # vars(cls), not by attribute, so a subclass with its own FIELD_ENUMS doesn't use the base's map
         if "_field_names" not in vars(cls):
@@ -593,6 +656,10 @@ class SeratoBinFile:
 
     @staticmethod
     def get_relative_path(filepath: str) -> str:
+        """`filepath` as Serato stores a track path.
+
+        The drive and any leading slash are dropped, and it's `/`-separated.
+        """
         filepath = os.path.splitdrive(filepath)[1]
         relpath = os.path.normpath(filepath).replace(os.path.sep, "/").lstrip("/")
         return relpath
@@ -646,6 +713,11 @@ class SeratoBinFile:
     """ (filename: str, prev_value: ValueType | None) -> new_value: ValueType | None """
 
     class ModifyRule(TypedDict):
+        """A change for `modify`.
+
+        `func` gives `field`'s new value for each track, or for only those in `files`.
+        """
+
         field: "SeratoBinFile.Fields"
         func: "SeratoBinFile.ModifyFunc"
         files: NotRequired[list[str]]
@@ -724,6 +796,11 @@ class SeratoBinFile:
         return self.modify([{"field": self.TRACK_PATH_KEY, "files": [src], "func": lambda *args: dest}])
 
     def find_missing(self):
+        """Prompts for a new location for each track whose file doesn't exist, then saves if any was given.
+
+        Each answer can be the file's new path; a folder, where it and later missing tracks are looked for by name; or
+        "s" to skip it.
+        """
         new_entries: SeratoBinFile.EntryList = []
         new_dir: str | None = None
         changed = False

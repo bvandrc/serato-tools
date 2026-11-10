@@ -1,5 +1,7 @@
 #!/usr/bin/python
 # This is from this repo: https://github.com/sharst/seratopy
+"""What crates and smart crates share: their file extension and folder, track paths, and how they print."""
+
 import os
 import warnings
 from typing import Optional, Iterable
@@ -9,6 +11,11 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 
 
 class CrateBase(SeratoBinFile):
+    """A crate or smart crate file, which holds a list of track paths.
+
+    Subclasses give it an `EXTENSION` and a `DIR`.
+    """
+
     EXTENSION: str
     DIR: str
     DIR_PATH: str
@@ -34,12 +41,14 @@ class CrateBase(SeratoBinFile):
         return "\n".join(lines)
 
     def print_track_paths(self, filenames_only: bool = False):
+        """Prints each track's absolute path, or with `filenames_only`, its filename without the extension."""
         track_paths = self.get_track_paths(include_drive=True)
         if filenames_only:
             track_paths = [os.path.splitext(os.path.basename(t))[0] for t in track_paths]
         print("\n".join(track_paths))
 
     def save(self, file: Optional[str] = None):
+        """As `SeratoBinFile.save`, but raises ValueError if `file` doesn't end with this class's `EXTENSION`."""
         if file is None:
             file = self.filepath
 
@@ -65,6 +74,7 @@ class CrateBase(SeratoBinFile):
                 existing.add(relpath)
 
     def add_tracks_from_dir(self, dir: str, replace: bool = False):
+        """Adds every file directly in `dir`; with `replace`, first removes every track that isn't one of them."""
         dir_tracks = [self.get_relative_path(os.path.join(dir, t)) for t in os.listdir(dir)]
 
         if replace:
@@ -76,6 +86,11 @@ class CrateBase(SeratoBinFile):
 
     @classmethod
     def get_crate_files(cls, file_or_dir: str | None = None) -> list[str]:
+        """The paths of this class's crate files directly in `file_or_dir`, or just `file_or_dir` if it's a file.
+
+        Defaults to this class's folder in the default Serato folder (`DIR_PATH`). Raises FileNotFoundError if
+        `file_or_dir` doesn't exist.
+        """
         if file_or_dir is None:
             file_or_dir = cls.DIR_PATH
 

@@ -12,6 +12,10 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Add `remove_field(field)` to a track entry (e.g. `DatabaseV2.Track`), which removes a field and returns whether it was there. It raises ValueError for the track's path
 
+### Documentation
+
+- Add docstrings to each source module, and to all classes and functions whose use wasn't clear.
+
 ## [5.6.0] - 2026-11-09
 
 ### Features

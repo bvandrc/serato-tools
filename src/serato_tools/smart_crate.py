@@ -1,3 +1,5 @@
+"""Serato smart crate files (`.scrate`), and the `serato_smartcrate` CLI for listing their tracks and setting rules."""
+
 import os
 import sys
 from typing import cast
@@ -10,6 +12,11 @@ from serato_tools.utils import SERATO_DIR, DataTypeError
 
 
 class SmartCrate(CrateBase):
+    """A Serato smart crate file (`.scrate`).
+
+    It holds its rules, and the paths of the tracks they matched when last saved.
+    """
+
     TESTED_VERSIONS = frozenset({"1.0/Serato ScratchLive Smart Crate"})
     EXTENSION = ".scrate"
     DIR = "SmartCrates"
@@ -51,6 +58,8 @@ class SmartCrate(CrateBase):
 
     @unique
     class RuleField(IntEnum):
+        """The track field a rule tests, such as artist or BPM, as the number Serato stores in `RULE_FIELD`."""
+
         ADDED = 25
         ALBUM = 8
         ARTIST = 7
@@ -69,6 +78,8 @@ class SmartCrate(CrateBase):
 
     @unique
     class RuleComparison(StrEnum):
+        """How a rule compares its value with the track's; the suffix gives the type of value it compares."""
+
         STR_CONTAINS = "cond_con_str"
         STR_DOES_NOT_CONTAIN = "cond_dnc_str"
         STR_IS = "cond_is_str"
@@ -134,6 +145,11 @@ class SmartCrate(CrateBase):
         return ret_val
 
     class Rule(CrateBase.EntryListCls):
+        """One of a smart crate's rules.
+
+        It holds the track field it tests (`field`), the `comparison`, and the `value`.
+        """
+
         def __init__(self, entries: "CrateBase.EntryList"):
             super().__init__(entries)
 
@@ -151,6 +167,7 @@ class SmartCrate(CrateBase):
         def set_value(  # pylint: disable=arguments-differ # pyright: ignore[reportIncompatibleMethodOverride]
             self, value: str | int
         ):
+            """Sets the rule's value, converted to the type its comparison stores, in the field that type goes in."""
             if not isinstance(self.comparison, str):
                 raise DataTypeError(self.comparison, str, SmartCrate.RuleFields.RULE_COMPARISON)
             # pylint: disable=protected-access
@@ -178,6 +195,11 @@ class SmartCrate(CrateBase):
             self.comparison = value.value
 
     def set_rule(self, field: "SmartCrate.RuleField", comparison: "SmartCrate.RuleComparison", value: str | int):
+        """Sets the rule on `field` to `comparison` and `value`, adding the rule if the crate has none on `field`.
+
+        `value` is converted to the type `comparison` compares, e.g. `100` to `"100"` for a text comparison; raises
+        ValueError if a comparison of numbers is given text that isn't one.
+        """
         rule_field_id = field.value
         rule_exists: bool = False
         new_entries: SmartCrate.EntryList = []
@@ -207,6 +229,7 @@ class SmartCrate(CrateBase):
         self.entries = new_entries
 
     def delete_rule(self, field: "SmartCrate.RuleField"):
+        """Removes every rule on `field`."""
         rule_field_id = field.value
         new_entries: SmartCrate.EntryList = []
         for f, v in self.entries:
@@ -221,10 +244,15 @@ class SmartCrate(CrateBase):
         self.entries = new_entries
 
     def find_missing(self):
+        """Always raises, since a smart crate's tracks come from its rules."""
         raise Exception("cannot be done on smart crate")
 
 
 def main():
+    """The `serato_smartcrate` CLI.
+
+    It prints smart crates, lists their tracks, or sets or deletes their rules.
+    """
     import argparse
 
     from serato_tools.utils.ui import parse_cli_keys_and_values

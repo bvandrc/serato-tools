@@ -1,7 +1,7 @@
 """The track values that live both in a track file's tags and in the library database: how each is written to the file,
 and converted to the database's form.
 
-Needs the `track_tags` extra. Only ID3 files (.mp3, .aiff, .aif) are currently supported.
+Needs the `track_tags` extra (mutagen). Only ID3 files (.mp3, .aiff, .aif) are currently supported.
 """
 
 from dataclasses import dataclass

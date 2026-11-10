@@ -1,3 +1,5 @@
+"""The gain Serato sets for a track, which it stores in an ID3 `RVA2:SeratoGain` frame."""
+
 from typing import Optional
 from dataclasses import dataclass
 
@@ -8,6 +10,11 @@ from serato_tools.utils.track_tags import ID3FileOrPath, ID3FileTag, del_tag
 
 
 class TrackGain(ID3FileTag):
+    """The track's `RVA2:SeratoGain` frame.
+
+    It holds the `gain` and `peak`, both None if the file has no such frame.
+    """
+
     # Serato stores gain in ID3 files as an RVA2 (relative volume adjustment, ID3v2.4 section 4.11) frame
     # with this description: see this repo's test/data/test_mp3.mp3, or the report of Serato DJ's manual
     # gain writing RVA2:SeratoGain in https://invent.kde.org/multimedia/kid3/-/issues/511
@@ -38,6 +45,7 @@ class TrackGain(ID3FileTag):
             raise ValueError("both gain and peak must be set (file had no existing SeratoGain tag)")
 
     def set_and_save(self, gain: Optional[float] = None, peak: Optional[float] = None):
+        """Sets the gain and/or peak, as `set` does, then saves the file."""
         self.set(gain, peak)
         self.save()
 
