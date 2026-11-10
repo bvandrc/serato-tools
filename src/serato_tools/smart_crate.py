@@ -3,7 +3,7 @@
 import os
 import sys
 from typing import cast
-from enum import StrEnum, IntEnum, unique
+from enum import Enum, StrEnum, IntEnum, unique
 from dataclasses import dataclass
 
 
@@ -103,26 +103,6 @@ class SmartCrate(CrateBase):
         (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "comment"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
         (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "added"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
     ]
-
-    @staticmethod
-    def _get_rule_field_from_key(key: str):
-        """The `RuleField` named `key`, in any case; raises KeyError listing the names if there's none."""
-        try:
-            return SmartCrate.RuleField[key.upper()]
-        except KeyError as exc:
-            raise KeyError(
-                f"bad field {key.upper()} , must be one of {[c.name for c in SmartCrate.RuleField]}"
-            ) from exc
-
-    @staticmethod
-    def _get_rule_comparison_from_key(key: str):
-        """The `RuleComparison` named `key`, in any case; raises KeyError listing the names if there's none."""
-        try:
-            return SmartCrate.RuleComparison[key.upper()]
-        except KeyError as exc:
-            raise KeyError(
-                f"bad comparison {key.upper()} , must be one of {[c.name for c in SmartCrate.RuleComparison]}"
-            ) from exc
 
     @staticmethod
     def _get_rule_value_field(comparison: str) -> "SmartCrate.RuleFields":
@@ -268,6 +248,14 @@ def main():
 
     from serato_tools.utils.ui import parse_cli_keys_and_values
 
+    def member_named[E: Enum](enum_class: type[E], name: str) -> E:
+        """The member of `enum_class` named `name`, in any case; raises KeyError listing the names if there's none."""
+        try:
+            return enum_class[name.upper()]
+        except KeyError:
+            names = ", ".join(member.name for member in enum_class)
+            raise KeyError(f"bad {enum_class.__name__} {name.upper()}, must be one of: {names}") from None
+
     @dataclass
     class Args:
         file_or_dir: str | None
@@ -303,16 +291,14 @@ def main():
 
         if args.set_rules:
             for key, value in set_rules.items():
-                field = SmartCrate._get_rule_field_from_key(key)  # pylint: disable=protected-access
+                field = member_named(SmartCrate.RuleField, key)
                 if not value:
                     raise ValueError(f"no value given for --{key}, must specify a comparison and a value, or DELETE")
                 comparison_key, *rule_values = value
                 if comparison_key.upper() == "DELETE":
                     crate.delete_rule(field)
                 else:
-                    comparison = SmartCrate._get_rule_comparison_from_key(  # pylint: disable=protected-access
-                        comparison_key
-                    )
+                    comparison = member_named(SmartCrate.RuleComparison, comparison_key)
                     assert len(rule_values) == 1, "must specify 2 values: a comparison and a value"
                     # set_rule stores the value in the field the comparison expects, parsing it as needed
                     crate.set_rule(field, comparison, rule_values[0])
