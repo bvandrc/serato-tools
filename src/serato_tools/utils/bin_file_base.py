@@ -13,7 +13,7 @@ import hashlib
 import warnings
 from enum import StrEnum, unique
 import json
-from typing import Iterable, Mapping, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
+from typing import Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
 
 from serato_tools.utils import logger, SERATO_DRIVE, DataTypeError, DeeplyNestedListError
 
@@ -620,24 +620,20 @@ class SeratoBinFile:
     @classmethod
     def get_field_name(cls, field: str) -> str:
         """A readable name for `field`, such as "File Path" for `pfil`, or "Unknown Field" if it isn't known."""
-        # look up in a map built once per class (vars(cls), so a subclass with its own FIELD_ENUMS doesn't
-        # inherit the base's map): scanning the enums and re-deriving the name costs too much when printing
-        # or JSON-dumping every field of a large database
-        names: Mapping[str, str] | None = vars(cls).get("_field_names")
-        if names is None:
-            names = {}
-            for field_enum in cls.FIELD_ENUMS:
-                for member in field_enum:
-                    if member.value not in names:
-                        names[member.value] = (
-                            member.name.replace("_", " ")
-                            .title()
-                            .replace("Smartcrate", "SmartCrate")
-                            .replace("Added U", "Added")
-                            .replace("Added T", "Added")
-                        )
-            cls._field_names = names
-        return names.get(field, "Unknown Field")
+        # a map built once per class, since printing or JSON-dumping a large database names every field; checked in
+        # vars(cls), not by attribute, so a subclass with its own FIELD_ENUMS doesn't use the base's map
+        if "_field_names" not in vars(cls):
+            cls._field_names = {
+                # DATE_ADDED_T and DATE_ADDED_U hold the same time, so both are "Date Added"
+                member.value: member.name.replace("_", " ")
+                .title()
+                .replace("Smartcrate", "SmartCrate")
+                .replace("Added U", "Added")
+                .replace("Added T", "Added")
+                for field_enum in cls.FIELD_ENUMS
+                for member in field_enum
+            }
+        return cls._field_names.get(field, "Unknown Field")
 
     @classmethod
     def _check_valid_field(cls, field: str):
