@@ -9,6 +9,9 @@ name: Backfill Releases
 # 1.12.0, 1.14.1, 3.8.0, and 3.8.1 never had a commit with their version, so they get no release.
 on:
   workflow_dispatch:
+  push: # TEMPORARY: to run it before it's on main
+    branches: [ci/publish-on-github-release]
+    paths: [.github/workflows/backfill-releases.yml]
 
 jobs:
   backfill:
