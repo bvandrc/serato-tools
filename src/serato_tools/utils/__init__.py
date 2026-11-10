@@ -34,10 +34,7 @@ def parse_cli_keys_and_values(args: list[str]):
 
 def get_enum_key_from_value(value: str | bytes | int, enum_class: Type[Enum]):
     """The name of the `enum_class` member whose value is `value`; raises ValueError if there's none."""
-    for member in enum_class:
-        if member.value == value:
-            return member.name
-    raise ValueError(f"no key for value {value}")
+    return enum_class(value).name
 
 
 def to_array(x: T | Iterable[T]) -> Iterable[T]:
