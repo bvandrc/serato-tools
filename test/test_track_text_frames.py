@@ -1,7 +1,7 @@
 import unittest
 from unittest import mock
 
-from mutagen.id3 import ID3, Encoding
+from mutagen.id3 import COMM, ID3, Encoding
 
 from serato_tools.track_text_frames import TrackTextFrames
 
@@ -114,6 +114,53 @@ class TestCase(unittest.TestCase):
         frames.save()
         frames.set_comment("A Comment")
         self.assertFalse(frames.has_changed, "set to what the file has")
+
+    def add_comments(self, *frames: tuple[str, str, str]):
+        """Adds COMM frames to the file, each (description, language, text)."""
+        tags = ID3(self.path)
+        for desc, lang, text in frames:
+            tags.add(COMM(encoding=Encoding.LATIN1, lang=lang, desc=desc, text=[text]))
+        tags.save(self.path)
+
+    def test_get_comment_is_the_first_comment_frame(self):
+        # Serato shows the file's first COMM frame, whatever its description or language; mutagen saves the smaller first
+        self.add_comments(("", "eng", "A comment longer than the other frame"), ("Songs-DB_Custom1", "eng", "Short"))
+        self.assertEqual(TrackTextFrames(self.path).get_comment(), "Short")
+
+    def test_get_comment_skips_itunes_frames(self):
+        self.add_comments(("iTunNORM", "eng", " 00000A2B 00000B1C"))
+        self.assertIsNone(TrackTextFrames(self.path).get_comment(), "iTunes data, not a comment")
+
+    def test_set_comment_removes_other_empty_description_frames(self):
+        self.add_comments(
+            ("", "\0\0\0", "No language"),
+            ("", "deu", "German"),
+            ("Songs-DB_Custom1", "eng", "Custom"),
+            ("iTunNORM", "eng", " 00000A2B"),
+        )
+        frames = TrackTextFrames(self.path)
+        frames.set_comment("A Comment")
+        frames.save()
+        self.assertEqual(
+            {key: text for key, (_, text) in self.comments().items()},
+            {
+                "COMM::eng": ["A Comment"],
+                "COMM:ID3v1 Comment:eng": ["A Comment"],
+                "COMM:Songs-DB_Custom1:eng": ["Custom"],
+                "COMM:iTunNORM:eng": [" 00000A2B"],
+            },
+            "only the other empty-description ones removed",
+        )
+        self.assertEqual(TrackTextFrames(self.path).get_comment(), "A Comment", "now first")
+
+    def test_set_comment_has_changed_with_another_empty_description_frame(self):
+        frames = TrackTextFrames(self.path)
+        frames.set_comment("A Comment")
+        frames.save()
+        self.add_comments(("", "\0\0\0", "No language"))
+        frames = TrackTextFrames(self.path)
+        frames.set_comment("A Comment")
+        self.assertTrue(frames.has_changed, "the other frame would be removed")
 
 
 if __name__ == "__main__":

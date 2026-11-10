@@ -5,7 +5,8 @@ from mutagen.id3 import COMM, Encoding, Frames
 from serato_tools.utils.track_tags import ID3FileOrPath, ID3FileTag, del_tag
 
 # Serato writes a comment to an empty-description COMM frame, and to an "ID3v1 Comment" one too when ID3v1 can hold the
-# text (Latin-1). It removes both when the comment is cleared.
+# text (Latin-1). It removes both when the comment is cleared. It reads the file's first COMM frame, whatever its
+# description or language, except iTunes' own (iTunNORM, iTunSMPB, ...), which hold data rather than a comment.
 _COMMENT_LANG = "eng"
 _V1_COMMENT_DESC = "ID3v1 Comment"
 _COMMENT_KEY = f"COMM::{_COMMENT_LANG}"
@@ -47,21 +48,34 @@ class TrackTextFrames(ID3FileTag):
         """The comment Serato shows, including one not yet saved, or None if the file has none."""
         if self._unsaved_comment is not None:
             return self._unsaved_comment or None
-        return self._get_tagged(_COMMENT_KEY)
+        # the file's first, as Serato reads it: mutagen keeps the frames in the file's order
+        key = next((key for key in self._comment_keys() if not key.startswith("COMM:iTun")), None)
+        return None if key is None else self._get_tagged(key)
 
     def set_comment(self, text: str):
-        """Sets the comment in memory, in the frames Serato writes it to; call `save()` to write it."""
+        """Sets the comment in memory, in the frames Serato writes it to; call `save()` to write it.
+
+        Any other empty-description comment frame, in another language, is removed, since Serato would show one that
+        came first in the file instead.
+        """
         self._unsaved_comment = text
+
+    def _comment_keys(self) -> list[str]:
+        return [key for key in self.tagfile.keys() if key.startswith("COMM:")]
 
     def _get_tagged(self, key: str) -> str | None:
         frame = self.tagfile.get(key)
         # str(), since some frames hold other types (TDRC holds ID3TimeStamps)
         return str(frame.text[0]) if frame is not None and frame.text else None
 
-    @staticmethod
-    def _comment_texts(text: str) -> dict[str, str | None]:
+    def _comment_texts(self, text: str) -> dict[str, str | None]:
         """Each comment frame's text for a comment of `text`, None where Serato would have no such frame."""
-        return {_COMMENT_KEY: text or None, _V1_COMMENT_KEY: text if text and _is_latin1(text) else None}
+        # every other empty-description frame goes: it's another copy of the comment, and mutagen saves frames smallest
+        # first, so a shorter one would come first in the file, and Serato would show it
+        texts: dict[str, str | None] = {key: None for key in self._comment_keys() if key.startswith("COMM::")}
+        texts[_COMMENT_KEY] = text or None
+        texts[_V1_COMMENT_KEY] = text if text and _is_latin1(text) else None
+        return texts
 
     def _changed_frames(self) -> dict[str, str | None]:
         """Each frame, by key, whose text would change on saving, with its new text; None removes it."""
