@@ -681,26 +681,6 @@ class SeratoBinFile:
         # as sets, since each track is checked against them
         rule_files = [set(rule["files"]) if "files" in rule else None for rule in rules]
 
-        def _maybe_perform_rule(
-            field: "SeratoBinFile.Fields",
-            prev_val: "SeratoBinFile.ValueOrNone",
-            maybe_new_val: "SeratoBinFile.ValueOrNone",
-            track_relpath: str,
-        ):
-            if maybe_new_val is None or maybe_new_val == prev_val:
-                return None
-
-            if field == self.TRACK_PATH_KEY:
-                if not isinstance(maybe_new_val, str):
-                    raise DataTypeError(maybe_new_val, str, field)
-                if not os.path.exists(SeratoBinFile.get_full_path(maybe_new_val)):
-                    raise FileNotFoundError(f"set track location to {maybe_new_val}, but doesn't exist")
-                maybe_new_val = SeratoBinFile.get_relative_path(maybe_new_val)
-
-            field_name = self.get_field_name(field)
-            logger.info(f"Set {field}({field_name})={str(maybe_new_val)} in library for {track_relpath}")
-            return maybe_new_val
-
         def modify_track(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
             # loop over the rules rather than the track's fields, since a track has far more fields than there are rules
             relpath_upper = track.relpath.upper()
@@ -715,9 +695,20 @@ class SeratoBinFile:
                     if track.remove_field(field):
                         logger.info(f"Removed {field}({self.get_field_name(field)}) in library for {track.relpath}")
                     continue
-                maybe_new_val = _maybe_perform_rule(field, prev_val, maybe_new_val, track.relpath)
-                if maybe_new_val is not None:
-                    track.set_value(field, maybe_new_val)
+                if maybe_new_val is None or maybe_new_val == prev_val:
+                    continue
+
+                if field == self.TRACK_PATH_KEY:
+                    if not isinstance(maybe_new_val, str):
+                        raise DataTypeError(maybe_new_val, str, field)
+                    if not os.path.exists(SeratoBinFile.get_full_path(maybe_new_val)):
+                        raise FileNotFoundError(f"set track location to {maybe_new_val}, but doesn't exist")
+                    maybe_new_val = SeratoBinFile.get_relative_path(maybe_new_val)
+
+                logger.info(
+                    f"Set {field}({self.get_field_name(field)})={str(maybe_new_val)} in library for {track.relpath}"
+                )
+                track.set_value(field, maybe_new_val)
             return track
 
         return self.modify_tracks(modify_track, files=only_files)
