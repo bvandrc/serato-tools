@@ -14,7 +14,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Documentation
 
-- Add docstrings to each source module, and to the classes and functions whose use wasn't clear from their name, including which optional extra, and which packages, a feature needs
+- Add docstrings to each source module, and to all classes and functions whose use wasn't clear.
 
 ## [5.6.0] - 2026-11-09
 
