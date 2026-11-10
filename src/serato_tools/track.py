@@ -1,11 +1,7 @@
 """A track file's Serato tags, read from one open file and saved in one write.
 
-Also what needs more than one of them, such as snapping the cues to the beatgrid. Needs the `track_tags` extra
-(mutagen).
+Needs the `track_tags` extra (mutagen).
 """
-
-import dataclasses
-import warnings
 
 from serato_tools.track_autotags import TrackAutotags
 from serato_tools.track_beatgrid import TrackBeatgrid
@@ -23,14 +19,6 @@ class Track:
     `save()` once, rather than each tag's own `save()`, which writes the whole file every time. Only ID3 files (.mp3,
     .aiff, .aif) are currently supported.
     """
-
-    @dataclasses.dataclass(frozen=True)
-    class SnappedCue:
-        """A cue that `snap_cues_to_beats` moved: its index (from 0) and its position in ms before and after."""
-
-        index: int
-        old_position: int
-        new_position: int
 
     def __init__(
         self,
@@ -122,38 +110,13 @@ class Track:
         """
         self.cues_v2.set_beatgrid_locked(locked, delete_tags_v1=delete_tags_v1)
 
-    def snap_cues_to_beats(self, tolerance_beats: float, min_ms_change: int = 2) -> list[SnappedCue]:
-        """Moves each cue to its nearest beat in memory, as `beatgrid.get_snapped_position` decides; returns the moves.
+    def snap_cues_to_beats(self, tolerance_beats: float, min_ms_change: int = 2) -> list[TrackCuesV2.SnappedCue]:
+        """Moves each cue to its nearest beat in memory, and returns the moves; call `save()` to write it to the file.
 
-        Call `save()` to write the change to the file. Raises ValueError if the track has no `Serato Markers2` entries.
-        A `min_ms_change` below 2 warns, since that moves nearly every cue Serato placed. Needs `cues_v2` and
+        This is `cues_v2.snap_cues_to_beats` with the track's own beatgrid: see it for what moves. Needs `cues_v2` and
         `beatgrid` parsed.
         """
-        # both read up front, so a tag that wasn't parsed raises whether or not there are cues to move
-        cues_v2, beatgrid = self.cues_v2, self.beatgrid
-        if not cues_v2.entries:
-            raise ValueError("No entries set")
-        if min_ms_change < 2:
-            warnings.warn(
-                f"min_ms_change={min_ms_change} snaps cues that are 1 ms off the beat, which is most cues Serato placed",
-                stacklevel=2,
-            )
-        snapped: list[Track.SnappedCue] = []
-
-        def rule(track: TrackCuesV2.TrackCuesInfo) -> TrackCuesV2.TrackCuesInfo | None:
-            new_cues: list[TrackCuesV2.CueEntry] = []
-            for cue in track.cues:
-                new_ms = beatgrid.get_snapped_position(cue.position, tolerance_beats, min_ms_change)
-                # a min_ms_change of 0 or less can snap a cue to where it already is, which isn't a move
-                if new_ms is None or new_ms == cue.position:
-                    new_cues.append(cue)
-                else:
-                    snapped.append(Track.SnappedCue(cue.index, cue.position, new_ms))
-                    new_cues.append(dataclasses.replace(cue, position=new_ms))
-            return dataclasses.replace(track, cues=new_cues) if snapped else None
-
-        cues_v2.modify_entries(rule)
-        return snapped
+        return self.cues_v2.snap_cues_to_beats(self.beatgrid, tolerance_beats, min_ms_change)
 
     def _parsed_tags(self) -> list[ID3FileTag]:
         parsed = (self._cues_v2, self._cues_v1, self._beatgrid, self._autotags, self._waveform, self._gain)

@@ -157,47 +157,18 @@ class TestCase(unittest.TestCase):
     def cue_positions(self, track: Track) -> list[int]:
         return [cue.position for cue in track.cues_v2._from_entries().cues]  # pylint: disable=protected-access
 
-    def test_snap_cues(self):
+    def test_snap_cues_to_beats_with_its_own_beatgrid(self):
+        # what moves, and where to, is TrackCuesV2.snap_cues_to_beats', tested in test_track_cues_v2
         track = Track(self.path)
-        snapped = track.snap_cues_to_beats(1 / 16)
-        # cues 3, 5, and 6 are 1 ms off their beats, which the default min_ms_change leaves alone
-        self.assertEqual(
-            snapped,
-            [Track.SnappedCue(0, 45104, 45146), Track.SnappedCue(1, 67474, 67472), Track.SnappedCue(3, 134451, 134449)],
-        )
-        expected = [45146, 67472, 112125, 134449, 156776, 201428]
-        self.assertEqual(self.cue_positions(track), expected)
-        for position in expected:
-            beat_position = track.beatgrid.get_beat_position(position)
-            self.assertAlmostEqual(beat_position, round(beat_position), delta=0.01, msg="on a beat")
+        with mock.patch.object(track.cues_v2, "snap_cues_to_beats", wraps=track.cues_v2.snap_cues_to_beats) as snap:
+            snapped = track.snap_cues_to_beats(1 / 16)
+        snap.assert_called_once_with(track.beatgrid, 1 / 16, 2)
+        self.assertEqual(len(snapped), 3)
 
         self.assertTrue(track.save())
-        self.assertEqual(self.cue_positions(Track(self.path)), expected, "saved")
+        self.assertEqual(self.cue_positions(Track(self.path)), [45146, 67472, 112125, 134449, 156776, 201428], "saved")
 
-    def test_snap_cues_doesnt_count_a_cue_already_on_its_beat(self):
-        track = Track(self.path)
-        beat = track.beatgrid.find_nearest_beat(45104, 1)  # the first cue's beat, 42 ms after it
-        assert beat is not None
-
-        def first_cue_on_beat(info: TrackCuesV2.TrackCuesInfo) -> TrackCuesV2.TrackCuesInfo:
-            return dataclasses.replace(
-                info, cues=[dataclasses.replace(info.cues[0], position=round(beat)), *info.cues[1:]]
-            )
-
-        track.cues_v2.modify_entries(first_cue_on_beat)
-        with self.assertWarns(UserWarning):
-            snapped = track.snap_cues_to_beats(1 / 16, min_ms_change=0)  # 0 lets it snap to where it already is
-        self.assertNotIn(0, [s.index for s in snapped])
-        self.assertTrue(all(s.new_position != s.old_position for s in snapped), "only real moves")
-
-    def test_snap_cues_outside_tolerance_leaves_cues(self):
-        track = Track(self.path)
-        positions = self.cue_positions(track)
-        self.assertEqual(track.snap_cues_to_beats(1 / 1000), [])
-        self.assertEqual(self.cue_positions(track), positions)
-        self.assertFalse(track.has_changed)
-
-    def test_snap_cues_needs_only_cues_v2_and_beatgrid(self):
+    def test_snap_cues_to_beats_needs_only_cues_v2_and_beatgrid(self):
         track = Track(self.path, cues_v1=False, autotags=False, gain=False)
         self.assertTrue(track.snap_cues_to_beats(1 / 16))
         for name in ("cues_v2", "beatgrid"):
@@ -206,16 +177,11 @@ class TestCase(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "beatgrid=True"):
             Track(untagged_mp3(self), beatgrid=False).snap_cues_to_beats(1 / 16)  # even with no cues to move
 
-    def test_snap_cues_no_entries_raises(self):
-        track = Track(untagged_mp3(self))
-        with self.assertRaises(ValueError):
-            track.snap_cues_to_beats(1 / 8)
-
-    def test_min_ms_change_below_2_warns_at_the_caller(self):
+    def test_snap_cues_to_beats_warns_at_the_caller(self):
         track = Track(self.path)
         with self.assertWarnsRegex(UserWarning, "min_ms_change=1") as caught:
             track.snap_cues_to_beats(1 / 8, min_ms_change=1)
-        self.assertEqual(caught.filename, __file__)
+        self.assertEqual(caught.filename, __file__, "past Track, not at it")
 
 
 if __name__ == "__main__":

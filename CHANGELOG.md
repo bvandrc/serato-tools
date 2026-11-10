@@ -6,7 +6,8 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Features
 
-- Add `Track.snap_cues_to_beats`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `Track.SnappedCue`. It needs the `Track`'s `cues_v2` and `beatgrid` parsed (the default)
+- Add `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)`, which snaps the cues to the beats of the `TrackBeatgrid` passed to it, in memory, and returns each move, as a `TrackCuesV2.SnappedCue`
+  - `Track.snap_cues_to_beats(tolerance_beats)` does the same with the track's own beatgrid. It needs the `Track`'s `cues_v2` and `beatgrid` parsed (the default)
   - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to
   - `serato_snap_cues_v2 --snap_cues` says which cue each move was for. Its options are unchanged
 - `serato_smartcrate` CLI now takes each rule field as its own option, e.g. `serato_smartcrate Dubstep.scrate --grouping str_is UNTAGGED --year DELETE`
@@ -23,12 +24,12 @@ Breaking: most of what was deprecated in 5.x is removed. Use what each was depre
 - The `SeratoTrack` and `SeratoTag` names in `serato_tools.utils.track_tags`: use `ID3FileTag` and `SeratoGeobTag`
 - `TrackCuesV2.modified`: use `has_changed`
 
-Breaking: cue snapping moves from `TrackCuesV2` to `Track`, so that each tag class handles only its own tag:
+Breaking: `TrackCuesV2` no longer reads the beatgrid from its own file for cue snapping. It's passed one instead, so that each tag class reads only its own tag:
 
-- `TrackCuesV2.snap_positions_to_beat` and `snap_positions_to_beat_rule`: use `Track.snap_cues_to_beats`, which returns the moves rather than printing them. There's no rule to pass to `modify_entries`: on a `Track`, other edits are saved in the same write
+- `TrackCuesV2.snap_positions_to_beat` and `snap_positions_to_beat_rule`: use `TrackCuesV2.snap_cues_to_beats(beatgrid, ...)`, or `Track.snap_cues_to_beats`, which passes the track's own. Both return the moves rather than printing them. There's no rule to pass to `modify_entries`: snap, then make any other edits, before saving
 - `TrackCuesV2.get_snapped_beat_ms`: use `TrackBeatgrid.get_snapped_position` (e.g. `track.beatgrid.get_snapped_position`)
-- `TrackCuesV2.get_beat_position(entry)`: use `track.beatgrid.get_beat_position(entry.position)`
-- `TrackCuesV2.beatgrid`: use a `Track`, which reads the track's beatgrid
+- `TrackCuesV2.get_beat_position(entry)`: use `beatgrid.get_beat_position(entry.position)`
+- `TrackCuesV2.beatgrid`: pass a `TrackBeatgrid` to `snap_cues_to_beats`, or use a `Track`, which passes its own
 
 These stay, still deprecated:
 

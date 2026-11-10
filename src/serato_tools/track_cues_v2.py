@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 """The `Serato Markers2` tag, which holds a track's hot cues, loops, flips, color, and beatgrid lock.
 
-Also the `serato_snap_cues_v2` CLI, which sets the color, snaps cues to the beatgrid (through `Track`), or edits the
-tag's entries.
+Also the `serato_snap_cues_v2` CLI, which sets the color, snaps cues to the beatgrid, or edits the tag's entries.
 """
 
 import ast
@@ -14,7 +13,7 @@ import os
 import struct
 import sys
 import warnings
-from typing import Callable, ClassVar, Sequence
+from typing import TYPE_CHECKING, Callable, ClassVar, Sequence
 from enum import Enum, unique
 import dataclasses
 from dataclasses import dataclass, field
@@ -25,6 +24,10 @@ from mutagen.mp3 import HeaderNotFoundError
 
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
+
+if TYPE_CHECKING:
+    # only for snap_cues_to_beats' annotation: the beatgrid is passed in, never read from this tag's file
+    from serato_tools.track_beatgrid import TrackBeatgrid
 
 # the sizes Serato writes the tag at, in an ID3 file: 470 bytes, or larger by a multiple of 512
 _MIN_SIZE = 470
@@ -636,6 +639,47 @@ class TrackCuesV2(SeratoGeobTag):
 
         self.modify_entries(rule, delete_tags_v1)
 
+    @dataclass(frozen=True)
+    class SnappedCue:
+        """A cue that `snap_cues_to_beats` moved: its index (from 0) and its position in ms before and after."""
+
+        index: int
+        old_position: int
+        new_position: int
+
+    def snap_cues_to_beats(
+        self, beatgrid: "TrackBeatgrid", tolerance_beats: float, min_ms_change: int = 2
+    ) -> list["TrackCuesV2.SnappedCue"]:
+        """Moves each cue to its nearest beat in `beatgrid` in memory, and returns the moves.
+
+        Where each cue goes is decided by `beatgrid.get_snapped_position`. Pass the track's own beatgrid, as
+        `Track.snap_cues_to_beats` does. Call `save()` to write the change to the file. Raises ValueError if the tag
+        has no entries. A `min_ms_change` below 2 warns, since that moves nearly every cue Serato placed.
+        """
+        if not self.entries:
+            raise ValueError("No entries set")
+        if min_ms_change < 2:
+            warnings.warn(
+                f"min_ms_change={min_ms_change} snaps cues that are 1 ms off the beat, which is most cues Serato placed",
+                skip_file_prefixes=(_PACKAGE_DIR,),
+            )
+        snapped: list[TrackCuesV2.SnappedCue] = []
+
+        def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
+            new_cues: list[TrackCuesV2.CueEntry] = []
+            for cue in track.cues:
+                new_ms = beatgrid.get_snapped_position(cue.position, tolerance_beats, min_ms_change)
+                # a min_ms_change of 0 or less can snap a cue to where it already is, which isn't a move
+                if new_ms is None or new_ms == cue.position:
+                    new_cues.append(cue)
+                else:
+                    snapped.append(TrackCuesV2.SnappedCue(cue.index, cue.position, new_ms))
+                    new_cues.append(dataclasses.replace(cue, position=new_ms))
+            return dataclasses.replace(track, cues=new_cues) if snapped else None
+
+        self.modify_entries(rule)
+        return snapped
+
     def is_beatgrid_locked(self) -> bool:
         """Whether the tag has a BPM lock entry that's enabled."""
         return any((isinstance(entry, TrackCuesV2.BpmLockEntry) and entry.enabled) for entry in self.entries)
@@ -719,14 +763,12 @@ def main():
 
         if not tags.tagfile:
             raise ValueError("--snap_cues needs an audio file, to read its beatgrid")
-        # imported here, so that the tag's module needs the other tags, such as the beatgrid, only for this option
-        from serato_tools.track import Track
+        # imported here, so that the tag's module needs the beatgrid's only for this option
+        from serato_tools.track_beatgrid import TrackBeatgrid
 
-        # the file already open, with only the tags snapping needs
-        track = Track(tags.tagfile, cues_v1=False, autotags=False, gain=False)
-        for snapped in track.snap_cues_to_beats(tolerance_beats):
+        for snapped in tags.snap_cues_to_beats(TrackBeatgrid(tags.tagfile), tolerance_beats):
             print(f"Snapped cue {snapped.index + 1} by {snapped.new_position - snapped.old_position} ms")
-        track.save(delete_tags_v1=True)
+        tags.save(delete_tags_v1=True)
         sys.exit()
 
     if args.edit:
