@@ -8,20 +8,16 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Add `Track.snap_cues_to_beats(tolerance_beats)`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `SnappedCue`. It needs the `Track`'s `cues_v2` and `beatgrid` parsed (the default)
   - `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)` does the same with the `TrackBeatgrid` passed to it
-  - It raises `NoCuesError` for a track without a `Serato Markers2` tag, and `NoBeatgridError` for one without a beatgrid yet (e.g. one Serato hasn't analyzed, with cues from Mixed In Key)
   - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to
   - `serato_snap_cues_v2 --snap_cues` now says which cue each move was for. Its options are unchanged
 - `serato_smartcrate` CLI now takes each rule field as its own option, e.g. `serato_smartcrate Dubstep.scrate --grouping str_is UNTAGGED --year DELETE`
   - `--help` lists the fields and comparisons
   - A bad field, comparison, value, or number of arguments is rejected before any crate is changed
   - Breaking: `--set_rules` is removed. Pass the rule options directly, without it
-
-- Add `MissingTagError`, in `serato_tools.utils`, for a track file without the Serato tag that was needed, with its `filename`. It's a `ValueError`, so code that caught one still catches it. Its subclasses let a caller handle one tag's absence without also catching a corrupt tag:
-  - `NoCuesError`: no `Serato Markers2` tag
-  - `NoBeatgridError`: no `Serato BeatGrid` tag. Breaking: `TrackBeatgrid.find_nearest_beat` and `get_snapped_position` raise it, rather than returning None, which reads as "don't move the cue". `get_beat_position` raises it in place of a plain ValueError
-  - `NoWaveformError`: no `Serato Overview` tag, raised by `TrackWaveform`, and `Track` with `waveform=True`, in place of a plain ValueError
-- Add `GeobKeys`, in `serato_tools.utils`: each Serato tag's GEOB key, which each tag class's `GEOB_KEY` is set to
-- `serato_beatgrid`, and `serato_snap_cues_v2 --snap_cues`, exit with a one-line message for a track without the tag, rather than a traceback
+- A track missing a tag that's needed, such as one Serato hasn't analyzed yet, raises an error saying which tag and file: `NoCuesError`, `NoBeatgridError`, or `NoWaveformError`, all `MissingTagError`s in `serato_tools.utils`. Catch one to handle that case without also catching a corrupt tag. They're still `ValueError`s, so existing `except ValueError` code keeps working
+  - Breaking: snapping cues to a track without a beatgrid raises `NoBeatgridError`, rather than silently moving nothing
+- `serato_beatgrid` and `serato_snap_cues_v2 --snap_cues` print which tag is missing, rather than a traceback
+- Add `GeobKeys`, in `serato_tools.utils`: each Serato tag's GEOB key
 
 ### Removed
 

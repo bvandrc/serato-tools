@@ -224,8 +224,6 @@ serato_snap_cues_v2 "/Users/Username/Music/Dubstep/Raaket - ILL.mp3" --snap_cues
 
 Only cue points within the tolerance window of some beat are moved; others are left unchanged.
 
-A track without a `Serato Markers2` tag raises `NoCuesError`, and one without a beatgrid yet (e.g. one Serato hasn't analyzed, with cues from Mixed In Key) raises `NoBeatgridError`. Both are `MissingTagError`s, from `serato_tools.utils`, and carry the track's `filename`.
-
 In Python, use `Track.snap_cues_to_beats`, which reads the track's `Serato Markers2` and `Serato BeatGrid` tags, so needs `cues_v2` and `beatgrid` parsed (the default):
 
 ```python
