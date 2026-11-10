@@ -1,9 +1,10 @@
 import unittest
+from typing import get_args
 from unittest import mock
 
-from mutagen.id3 import ID3
+from mutagen.id3 import ID3, Frames, TextFrame
 
-from serato_tools.track_text_frames import TrackTextFrames
+from serato_tools.track_text_frames import TextFrameID, TrackTextFrames
 
 from test.helpers import temp_mp3
 
@@ -40,8 +41,14 @@ class TestCase(unittest.TestCase):
             write.assert_called_once()
 
     def test_set_unknown_frame_raises(self):
-        with self.assertRaises(ValueError):
-            TrackTextFrames(self.path).set("XXXX", "x")
+        for frame_id in ("XXXX", "APIC", "COMM", "TXXX"):
+            with self.subTest(frame_id), self.assertRaises(ValueError):
+                TrackTextFrames(self.path).set(frame_id, "x")  # type: ignore[arg-type]
+
+    def test_text_frame_ids_are_mutagens_text_frames(self):
+        # COMM and TXXX are text frames too, but a description identifies them as well as an ID
+        mutagens = {frame_id for frame_id, frame in Frames.items() if issubclass(frame, TextFrame)} - {"COMM", "TXXX"}
+        self.assertEqual(set(get_args(TextFrameID)), mutagens)
 
     def test_has_changed(self):
         frames = TrackTextFrames(self.path)
