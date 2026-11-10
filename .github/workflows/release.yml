@@ -1,7 +1,8 @@
-name: Build & Publish
+name: Release
 
 # Publishing a GitHub release publishes its version to PyPI. Its tag must be "v" + pyproject.toml's version (e.g. v6.0.0).
-# PyPI's trusted publisher names this file and the pypi environment, so renaming either means updating it there too.
+# PyPI's trusted publisher names this file (release.yml) and the pypi environment, so renaming either means updating it
+# there too.
 on:
   release:
     types: [published]
