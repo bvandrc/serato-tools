@@ -299,6 +299,14 @@ class SeratoBinFile:
                 self.fields.append(field)
             setattr(self, field, value)
 
+        def remove_field(self, field: str) -> bool:
+            """Removes `field`, and returns whether it was there to remove."""
+            if field not in self.fields:
+                return False
+            self.fields.remove(field)
+            delattr(self, field)
+            return True
+
         def to_entries(self) -> "SeratoBinFile.EntryList":
             return [(f, self.get_value(f)) for f in self.fields]
 
@@ -311,6 +319,26 @@ class SeratoBinFile:
             if not isinstance(relative_path, str):
                 raise DataTypeError(relative_path, str, path_key)
             self.relpath: str = relative_path
+
+        def set_value(self, field: str, value: "SeratoBinFile.Value"):
+            """Sets `field` to `value`.
+
+            An empty string removes the field instead, as Serato does when a tag is cleared, so a track never stores
+            one empty.
+            """
+            if value == "":
+                self.remove_field(field)
+            else:
+                super().set_value(field, value)
+
+        def remove_field(self, field: str) -> bool:
+            """Removes `field`, and returns whether it was there to remove.
+
+            Raises ValueError for the track's path, since a track can't be without one.
+            """
+            if field == self.path_key:
+                raise ValueError(f"can't remove a track's path ({field})")
+            return super().remove_field(field)
 
         def set_path(self, path: str):
             relpath = SeratoBinFile.get_relative_path(path)
@@ -627,7 +655,11 @@ class SeratoBinFile:
         files: NotRequired[list[str]]
 
     def modify(self, rules: list[ModifyRule]) -> bool:
-        """Applies `rules` to every track, and returns whether any track changed."""
+        """Applies `rules` to every track, and returns whether any track changed.
+
+        A rule whose `func` returns `""` removes the field from the track, as Serato does when a tag is cleared. A rule
+        for the track path can't remove it, and raises ValueError.
+        """
         # check rule fields
         all_field_names = [rule["field"] for rule in rules]
         assert len(list(rules)) == len(
@@ -649,25 +681,6 @@ class SeratoBinFile:
         # as sets, since each track is checked against them
         rule_files = [set(rule["files"]) if "files" in rule else None for rule in rules]
 
-        def _maybe_perform_rule(
-            rule: "SeratoBinFile.ModifyRule", prev_val: "SeratoBinFile.ValueOrNone", track_relpath: str
-        ):
-            field = rule["field"]
-            maybe_new_value = rule["func"](track_relpath, prev_val)
-            if maybe_new_value is None or maybe_new_value == prev_val:
-                return None
-
-            if field == self.TRACK_PATH_KEY:
-                if not isinstance(maybe_new_value, str):
-                    raise DataTypeError(maybe_new_value, str, field)
-                if not os.path.exists(SeratoBinFile.get_full_path(maybe_new_value)):
-                    raise FileNotFoundError(f"set track location to {maybe_new_value}, but doesn't exist")
-                maybe_new_value = SeratoBinFile.get_relative_path(maybe_new_value)
-
-            field_name = self.get_field_name(field)
-            logger.info(f"Set {field}({field_name})={str(maybe_new_value)} in library for {track_relpath}")
-            return maybe_new_value
-
         def modify_track(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
             # loop over the rules rather than the track's fields, since a track has far more fields than there are rules
             relpath_upper = track.relpath.upper()
@@ -676,9 +689,26 @@ class SeratoBinFile:
                     continue
                 field = rule["field"]
                 prev_val = track.get_value(field) if field in track.fields else None
-                maybe_new_value = _maybe_perform_rule(rule, prev_val, track.relpath)
-                if maybe_new_value is not None:
-                    track.set_value(field, maybe_new_value)
+                maybe_new_val = rule["func"](track.relpath, prev_val)
+                if maybe_new_val == "":
+                    # set_value would remove it too, but this logs it as a removal rather than a set
+                    if track.remove_field(field):
+                        logger.info(f"Removed {field}({self.get_field_name(field)}) in library for {track.relpath}")
+                    continue
+                if maybe_new_val is None or maybe_new_val == prev_val:
+                    continue
+
+                if field == self.TRACK_PATH_KEY:
+                    if not isinstance(maybe_new_val, str):
+                        raise DataTypeError(maybe_new_val, str, field)
+                    if not os.path.exists(SeratoBinFile.get_full_path(maybe_new_val)):
+                        raise FileNotFoundError(f"set track location to {maybe_new_val}, but doesn't exist")
+                    maybe_new_val = SeratoBinFile.get_relative_path(maybe_new_val)
+
+                logger.info(
+                    f"Set {field}({self.get_field_name(field)})={str(maybe_new_val)} in library for {track.relpath}"
+                )
+                track.set_value(field, maybe_new_val)
             return track
 
         return self.modify_tracks(modify_track, files=only_files)
