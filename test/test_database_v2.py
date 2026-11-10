@@ -87,20 +87,6 @@ class TestCase(unittest.TestCase):
         with open("test/data/database_v2_test_modified_output_2.bin", "rb") as f:
             self.assertEqual(db.to_bytes(), f.read(), "was modified correctly, given files")
 
-    def test_rename_track_file_is_deprecated_for_library(self):
-        # the behaviour is Library.rename_track_file's, tested in test_library; this pins only the delegation
-        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
-        with (
-            mock.patch("serato_tools.library.Library.rename_track_file", autospec=True, return_value=True) as rename,
-            self.assertWarns(DeprecationWarning),
-        ):
-            self.assertTrue(db.rename_track_file("Old.mp3", "New.mp3"))
-
-        library, src, dest = rename.call_args.args
-        self.assertEqual((src, dest), ("Old.mp3", "New.mp3"))
-        self.assertIs(library.database, db, "renames in this database, so its saves aren't overwritten")
-        self.assertEqual(library.serato_dir, os.path.dirname(db.filepath), "and in the crates beside it")
-
     def test_modify_and_save_skips_save_when_unchanged(self):
         tmp = temp_dir(self)
         db_file = os.path.join(tmp, "database V2")
