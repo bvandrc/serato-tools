@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """The `Serato Markers2` tag, which holds a track's hot cues, loops, flips, color, and beatgrid lock.
 
-Also the `serato_snap_cues_v2` CLI, which sets the color, snaps cues to the beatgrid (through `cue_snapping`), or edits
-the tag's entries.
+Also the `serato_snap_cues_v2` CLI, which sets the color, snaps cues to the beatgrid (through `Track`), or edits the
+tag's entries.
 """
 
 import ast
@@ -27,7 +27,7 @@ from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
 
 if TYPE_CHECKING:
-    # only for the deprecated snapping methods, which import it when called: this tag doesn't otherwise read the beatgrid
+    # only for the deprecated snapping methods, which read it only when called: this tag doesn't otherwise read it
     from serato_tools.track_beatgrid import TrackBeatgrid
 
 # the sizes Serato writes the tag at, in an ID3 file: 470 bytes, or larger by a multiple of 512
@@ -665,16 +665,16 @@ class TrackCuesV2(SeratoGeobTag):
 
     @property
     def beatgrid(self) -> "TrackBeatgrid | None":
-        """Deprecated, to be removed in the next major version: pass the beatgrid to `cue_snapping`'s functions.
+        """Deprecated, to be removed in the next major version: snap with `Track`, which reads the track's beatgrid.
 
         The beatgrid the deprecated snapping methods read, or None before one has read it.
         """
-        self._warn_snapping_deprecated("beatgrid", "a TrackBeatgrid passed to serato_tools.cue_snapping")
+        self._warn_snapping_deprecated("beatgrid", "Track.snap_cues or Track.get_snapped_position")
         return self._beatgrid
 
     @beatgrid.setter
     def beatgrid(self, beatgrid: "TrackBeatgrid | None"):
-        self._warn_snapping_deprecated("beatgrid", "a TrackBeatgrid passed to serato_tools.cue_snapping")
+        self._warn_snapping_deprecated("beatgrid", "Track.snap_cues or Track.get_snapped_position")
         self._beatgrid = beatgrid
 
     def _get_beatgrid(self, file_or_data: SeratoGeobTag.FileOrData | None = None) -> "TrackBeatgrid":
@@ -692,38 +692,42 @@ class TrackCuesV2(SeratoGeobTag):
         return self._beatgrid
 
     def get_snapped_beat_ms(self, postion_ms: int, tolerance_beats: float, min_ms_change: int = 2) -> int | None:
-        """Deprecated, to be removed in the next major version: use `cue_snapping.get_snapped_position`.
+        """Deprecated, to be removed in the next major version: use `Track.get_snapped_position`.
 
         Returns the ms position to snap `postion_ms` to, or `None` if it shouldn't move, reading the beatgrid from this
         tag's file.
         """
-        self._warn_snapping_deprecated("get_snapped_beat_ms", "serato_tools.cue_snapping.get_snapped_position")
-        from serato_tools import cue_snapping  # pylint: disable=import-outside-toplevel
+        self._warn_snapping_deprecated("get_snapped_beat_ms", "Track.get_snapped_position")
+        # pylint: disable-next=import-outside-toplevel
+        from serato_tools.track import _check_min_ms_change, _snapped_position
 
-        return cue_snapping.get_snapped_position(self._get_beatgrid(), postion_ms, tolerance_beats, min_ms_change)
+        _check_min_ms_change(min_ms_change)
+        return _snapped_position(self._get_beatgrid(), postion_ms, tolerance_beats, min_ms_change)
 
     def snap_positions_to_beat_rule(self, tolerance_beats: float, min_ms_change: int = 2) -> ModifyCallback:
-        """Deprecated, to be removed in the next major version: use `cue_snapping.snap_cues_rule`.
+        """Deprecated, to be removed in the next major version: use `Track.snap_cues`, then make any other edits.
 
         A `modify_entries` callback that moves each cue to its nearest beat, reading the beatgrid from this tag's file.
         """
-        self._warn_snapping_deprecated("snap_positions_to_beat_rule", "serato_tools.cue_snapping.snap_cues_rule")
-        from serato_tools import cue_snapping  # pylint: disable=import-outside-toplevel
+        self._warn_snapping_deprecated("snap_positions_to_beat_rule", "Track.snap_cues")
+        # pylint: disable-next=import-outside-toplevel
+        from serato_tools.track import _check_min_ms_change, _snap_cues_rule
 
-        return cue_snapping.snap_cues_rule(self._get_beatgrid(), tolerance_beats, min_ms_change)
+        _check_min_ms_change(min_ms_change)
+        return _snap_cues_rule(self._get_beatgrid(), tolerance_beats, min_ms_change, [])
 
     def snap_positions_to_beat(self, tolerance_beats: float, min_ms_change: int = 2) -> None:
-        """Deprecated, to be removed in the next major version: use `cue_snapping.snap_cues`, which returns the moves.
+        """Deprecated, to be removed in the next major version: use `Track.snap_cues`, which returns the moves.
 
         Moves each cue to its nearest beat in memory, reading the beatgrid from this tag's file, and prints each move.
         Raises ValueError if the tag has no entries. Call `save()` to write the change to the file.
         """
-        self._warn_snapping_deprecated("snap_positions_to_beat", "serato_tools.cue_snapping.snap_cues")
-        from serato_tools import cue_snapping  # pylint: disable=import-outside-toplevel
+        self._warn_snapping_deprecated("snap_positions_to_beat", "Track.snap_cues")
+        from serato_tools.track import _snap_cues  # pylint: disable=import-outside-toplevel
 
         if not self.entries:
             raise ValueError("No entries set")
-        for snapped in cue_snapping.snap_cues(self, self._get_beatgrid(), tolerance_beats, min_ms_change):
+        for snapped in _snap_cues(self, self._get_beatgrid(), tolerance_beats, min_ms_change):
             print(f"Snapped by {snapped.new_position - snapped.old_position} ms")
 
     def get_beat_position(
@@ -745,7 +749,7 @@ class TrackCuesV2(SeratoGeobTag):
 def main():
     """The `serato_snap_cues_v2` CLI.
 
-    It sets the track color, snaps cues to the beatgrid (with `cue_snapping`), or prints or edits entries.
+    It sets the track color, snaps cues to the beatgrid (with `Track.snap_cues`), or prints or edits entries.
     """
     # this script is part of the module, so it uses the tag's and its entries' internal _parse() / _serialize()
     # pylint: disable=protected-access
@@ -823,13 +827,14 @@ def main():
 
         if not tags.tagfile:
             raise ValueError("--snap_cues needs an audio file, to read its beatgrid")
-        # imported here, so that the tag's module needs snapping, and the beatgrid, only for this option
-        from serato_tools.cue_snapping import snap_cues
-        from serato_tools.track_beatgrid import TrackBeatgrid
+        # imported here, so that the tag's module needs the other tags, such as the beatgrid, only for this option
+        from serato_tools.track import Track
 
-        for snapped in snap_cues(tags, TrackBeatgrid(tags.tagfile), tolerance_beats):
+        # the file already open, with only the tags snapping needs
+        track = Track(tags.tagfile, cues_v1=False, autotags=False, gain=False)
+        for snapped in track.snap_cues(tolerance_beats):
             print(f"Snapped cue {snapped.index + 1} by {snapped.new_position - snapped.old_position} ms")
-        tags.save(delete_tags_v1=True)
+        track.save(delete_tags_v1=True)
         sys.exit()
 
     if args.edit:
