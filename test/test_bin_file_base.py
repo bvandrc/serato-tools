@@ -67,6 +67,17 @@ class TrackTestCase(unittest.TestCase):
                 path_key=SeratoBinFile.Fields.FILE_PATH.value,
             )
 
+    def test_remove_value(self):
+        path, genre = SeratoBinFile.Fields.FILE_PATH.value, SeratoBinFile.Fields.GENRE.value
+        track = SeratoBinFile.Track([(path, "a.mp3"), (genre, "House")], path_key=path)
+
+        self.assertTrue(track.remove_value(genre), "reports removal")
+        self.assertEqual(track.to_entries(), [(path, "a.mp3")], "removed from the entries written back")
+        self.assertFalse(track.remove_value(genre), "reports no change when already gone")
+        with self.assertRaises(ValueError, msg="a track can't be without its path"):
+            track.remove_value(path)
+        self.assertEqual(track.to_entries(), [(path, "a.mp3")], "path kept")
+
 
 class HasChangedTestCase(unittest.TestCase):
     """has_changed, through Crate, the smallest of the bin file classes."""

@@ -299,6 +299,14 @@ class SeratoBinFile:
                 self.fields.append(field)
             setattr(self, field, value)
 
+        def remove_value(self, field: str) -> bool:
+            """Removes `field`, and returns whether it was there to remove."""
+            if field not in self.fields:
+                return False
+            self.fields.remove(field)
+            delattr(self, field)
+            return True
+
         def to_entries(self) -> "SeratoBinFile.EntryList":
             return [(f, self.get_value(f)) for f in self.fields]
 
@@ -311,6 +319,15 @@ class SeratoBinFile:
             if not isinstance(relative_path, str):
                 raise DataTypeError(relative_path, str, path_key)
             self.relpath: str = relative_path
+
+        def remove_value(self, field: str) -> bool:
+            """Removes `field`, and returns whether it was there to remove.
+
+            Raises ValueError for the track's path, since a track can't be without one.
+            """
+            if field == self.path_key:
+                raise ValueError(f"can't remove a track's path ({field})")
+            return super().remove_value(field)
 
         def set_path(self, path: str):
             relpath = SeratoBinFile.get_relative_path(path)
@@ -626,8 +643,13 @@ class SeratoBinFile:
         func: "SeratoBinFile.ModifyFunc"
         files: NotRequired[list[str]]
 
-    def modify(self, rules: list[ModifyRule]) -> bool:
-        """Applies `rules` to every track, and returns whether any track changed."""
+    def modify(self, rules: list[ModifyRule], *, remove_if_empty: bool = False) -> bool:
+        """Applies `rules` to every track, and returns whether any track changed.
+
+        With `remove_if_empty`, a rule whose `func` returns `""` removes the field from the track, as Serato stores a
+        track without that tag, rather than setting it to `""`. A rule for the track path can't remove it, and raises
+        ValueError.
+        """
         # check rule fields
         all_field_names = [rule["field"] for rule in rules]
         assert len(list(rules)) == len(
@@ -650,10 +672,12 @@ class SeratoBinFile:
         rule_files = [set(rule["files"]) if "files" in rule else None for rule in rules]
 
         def _maybe_perform_rule(
-            rule: "SeratoBinFile.ModifyRule", prev_val: "SeratoBinFile.ValueOrNone", track_relpath: str
+            rule: "SeratoBinFile.ModifyRule",
+            maybe_new_value: "SeratoBinFile.ValueOrNone",
+            prev_val: "SeratoBinFile.ValueOrNone",
+            track_relpath: str,
         ):
             field = rule["field"]
-            maybe_new_value = rule["func"](track_relpath, prev_val)
             if maybe_new_value is None or maybe_new_value == prev_val:
                 return None
 
@@ -676,20 +700,26 @@ class SeratoBinFile:
                     continue
                 field = rule["field"]
                 prev_val = track.get_value(field) if field in track.fields else None
-                maybe_new_value = _maybe_perform_rule(rule, prev_val, track.relpath)
+                maybe_new_value = rule["func"](track.relpath, prev_val)
+                if remove_if_empty and maybe_new_value == "":
+                    if track.remove_value(field):
+                        logger.info(f"Removed {field}({self.get_field_name(field)}) in library for {track.relpath}")
+                    continue
+                maybe_new_value = _maybe_perform_rule(rule, maybe_new_value, prev_val, track.relpath)
                 if maybe_new_value is not None:
                     track.set_value(field, maybe_new_value)
             return track
 
         return self.modify_tracks(modify_track, files=only_files)
 
-    def modify_and_save(self, rules: list[ModifyRule], file: Optional[str] = None):
+    def modify_and_save(self, rules: list[ModifyRule], file: Optional[str] = None, *, remove_if_empty: bool = False):
         """
         Applies `rules` to every track, then saves.
 
-        Skips the save when nothing changed, unless `file` names somewhere other than this file's own path.
+        Skips the save when nothing changed, unless `file` names somewhere other than this file's own path. See
+        `modify` for `remove_if_empty`.
         """
-        changed = self.modify(rules)
+        changed = self.modify(rules, remove_if_empty=remove_if_empty)
         if changed or (file is not None and not self._is_own_path(file)):
             self.save(file)
 
