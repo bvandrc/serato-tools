@@ -1,10 +1,15 @@
 # pylint: disable=protected-access
-import unittest
+import contextlib
+import io
 import os
+import shutil
+import unittest
+from typing import cast
+from unittest import mock
 
-from serato_tools.smart_crate import SmartCrate
+from serato_tools.smart_crate import SmartCrate, main
 
-from test.helpers import read_bytes
+from test.helpers import read_bytes, temp_dir
 
 with open("test/data/smart_crate.txt", "r", encoding="utf-8") as f:
     expected = f.read()
@@ -119,6 +124,65 @@ class TestCase(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "requires an integer value"):
             rule.set_value("abc")
+
+
+class CliTestCase(unittest.TestCase):
+    def setUp(self):
+        self.path = os.path.join(temp_dir(self), "test.scrate")
+        shutil.copy("test/data/TestSmartCrate.scrate", self.path)
+
+    def run_cli(self, *args: str) -> str:
+        """Runs `serato_smartcrate` on the test smart crate's copy with `args`, and returns what it printed to stdout."""
+        stdout = io.StringIO()
+        with (
+            mock.patch("sys.argv", ["serato_smartcrate", self.path, *args]),
+            contextlib.redirect_stdout(stdout),
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
+            main()
+        return stdout.getvalue()
+
+    def saved_rules(self) -> dict[SmartCrate.RuleField, tuple[str, str | int | float]]:
+        """Each rule in the saved crate, by field, as its comparison and value."""
+        crate = SmartCrate(self.path)
+        rules = [
+            SmartCrate.Rule(v)
+            for f, v in crate.entries
+            if f == SmartCrate.RuleFields.SMARTCRATE_RULE and isinstance(v, list)
+        ]
+        return {SmartCrate.RuleField(cast(int, r.field)): (str(r.comparison), r.value) for r in rules}
+
+    def test_sets_and_deletes_rules(self):
+        self.assertIn(SmartCrate.RuleField.YEAR, self.saved_rules())
+        self.run_cli("--GROUPING", "str_is", "UNTAGGED", "--Plays", "INT_IS_GE", "3", "--year", "delete")
+        rules = self.saved_rules()
+        self.assertEqual(rules[SmartCrate.RuleField.GROUPING], ("cond_is_str", "UNTAGGED"), "field option in any case")
+        self.assertEqual(
+            rules[SmartCrate.RuleField.PLAYS], ("cond_greq_uint", 3), "field option and comparison in any case"
+        )
+        self.assertNotIn(SmartCrate.RuleField.YEAR, rules, "DELETE in any case")
+
+    def test_new_rules_are_added_in_the_order_given(self):
+        self.run_cli("--genre", "str_is", "G", "--album", "str_is", "A")
+        self.assertEqual(list(self.saved_rules())[-2:], [SmartCrate.RuleField.GENRE, SmartCrate.RuleField.ALBUM])
+
+    def test_without_rule_options_prints_the_crate_and_changes_nothing(self):
+        before = read_bytes(self.path)
+        self.assertIn("SmartCrate Rule", self.run_cli())
+        self.assertEqual(read_bytes(self.path), before)
+
+    def test_bad_rule_options_change_nothing(self):
+        before = read_bytes(self.path)
+        for args in (
+            ["--nope", "str_is", "X"],
+            ["--grouping", "nope", "X"],
+            ["--grouping", "str_is"],
+            ["--grouping", "str_is", "X", "Y"],
+            ["--plays", "int_is_ge", "abc"],
+        ):
+            with self.subTest(args=args), self.assertRaises(SystemExit):
+                self.run_cli(*args)
+        self.assertEqual(read_bytes(self.path), before)
 
 
 if __name__ == "__main__":
