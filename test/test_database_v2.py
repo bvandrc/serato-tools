@@ -126,6 +126,39 @@ class TestCase(unittest.TestCase):
         db.modify_and_save([{"field": DatabaseV2.Fields.GROUPING, "func": lambda *args: "X"}])
         self.assertTrue(os.path.exists(db_file), "changed, so saved")
 
+    def test_modify_empty_value_removes_field(self):
+        # as Serato does when a tag is cleared
+        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        target = "Users/bvand/Music/DJ Tracks/SiR - D'Evils.mp3"
+        other = "Users/bvand/Music/DJ Tracks/Slaycub - Visceral Planet.mp3"
+        clear_grouping: list[DatabaseV2.ModifyRule] = [
+            {"field": DatabaseV2.Fields.GROUPING, "files": [target], "func": lambda *args: ""}
+        ]
+
+        def grouping(relpath: str):
+            track = next(t for t in db.get_tracks() if t.relpath == relpath)
+            return track.get_value(DatabaseV2.Fields.GROUPING) if DatabaseV2.Fields.GROUPING in track.fields else None
+
+        self.assertTrue(db.modify(clear_grouping), "reports removal")
+        self.assertIsNone(grouping(target), "removed rather than set empty")
+        self.assertEqual(grouping(other), "UNTAGGED", "other tracks left as they were")
+        self.assertFalse(db.modify(clear_grouping), "reports no change when already gone")
+
+        with self.assertRaises(ValueError, msg="a track can't be without its path"):
+            db.modify([{"field": DatabaseV2.Fields.FILE_PATH, "files": [target], "func": lambda *args: ""}])
+
+    def test_modify_and_save_empty_value_removes_field(self):
+        tmp = temp_dir(self)
+        db_file = os.path.join(tmp, "database V2")
+        shutil.copy("test/data/database_v2_test.bin", db_file)
+        target = "Users/bvand/Music/DJ Tracks/SiR - D'Evils.mp3"
+
+        DatabaseV2(db_file).modify_and_save(
+            [{"field": DatabaseV2.Fields.GROUPING, "files": [target], "func": lambda *args: ""}]
+        )
+        track = next(t for t in DatabaseV2(db_file).get_tracks() if t.relpath == target)
+        self.assertNotIn(DatabaseV2.Fields.GROUPING, track.fields, "removed in the saved file")
+
     def test_find_missing_skips_save_when_nothing_relocated(self):
         tmp = temp_dir(self)
         db_file = os.path.join(tmp, "database V2")
