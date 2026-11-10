@@ -1,74 +1,8 @@
 """A track file's ID3 text frames, such as `TIT2` (title). Needs the `track_tags` extra."""
 
-from typing import Literal, get_args
-
 from mutagen.id3 import Encoding, Frames
 
 from serato_tools.utils.track_tags import ID3File, ID3FileOrPath, ID3FileTag, del_tag
-
-# the ID3 text frames mutagen implements, but COMM and TXXX, which a description identifies as well as an ID
-TextFrameID = Literal[
-    "GRP1",
-    "MVIN",
-    "MVNM",
-    "TALB",
-    "TBPM",
-    "TCAT",
-    "TCMP",
-    "TCOM",
-    "TCON",
-    "TCOP",
-    "TDAT",
-    "TDEN",
-    "TDES",
-    "TDLY",
-    "TDOR",
-    "TDRC",
-    "TDRL",
-    "TDTG",
-    "TENC",
-    "TEXT",
-    "TFLT",
-    "TGID",
-    "TIME",
-    "TIT1",
-    "TIT2",
-    "TIT3",
-    "TKEY",
-    "TKWD",
-    "TLAN",
-    "TLEN",
-    "TMED",
-    "TMOO",
-    "TOAL",
-    "TOFN",
-    "TOLY",
-    "TOPE",
-    "TORY",
-    "TOWN",
-    "TPE1",
-    "TPE2",
-    "TPE3",
-    "TPE4",
-    "TPOS",
-    "TPRO",
-    "TPUB",
-    "TRCK",
-    "TRDA",
-    "TRSN",
-    "TRSO",
-    "TSIZ",
-    "TSO2",
-    "TSOA",
-    "TSOC",
-    "TSOP",
-    "TSOT",
-    "TSRC",
-    "TSSE",
-    "TSST",
-    "TYER",
-]
-_TEXT_FRAME_IDS: frozenset[str] = frozenset(get_args(TextFrameID))
 
 
 def _get_text(tagfile: ID3File, key: str) -> str | None:
@@ -85,21 +19,21 @@ class TrackTextFrames(ID3FileTag):
 
     def __init__(self, file: ID3FileOrPath):
         super().__init__(file)
-        self._unsaved: dict[TextFrameID, str] = {}
+        self._unsaved: dict[str, str] = {}
 
-    def get(self, frame_id: TextFrameID) -> str | None:
+    def get(self, frame_id: str) -> str | None:
         """The frame's text, including any not yet saved, or None if the file has no such frame."""
         if frame_id in self._unsaved:
             return self._unsaved[frame_id] or None
         return _get_text(self.tagfile, frame_id)
 
-    def set(self, frame_id: TextFrameID, text: str):
+    def set(self, frame_id: str, text: str):
         """Sets the frame's text in memory, adding the frame if the file has none; call `save()` to write it."""
-        if frame_id not in _TEXT_FRAME_IDS:
-            raise ValueError(f"not an ID3 text frame ID: {frame_id}")
+        if frame_id not in Frames:
+            raise ValueError(f"not an ID3 frame ID: {frame_id}")
         self._unsaved[frame_id] = text
 
-    def _changed_frames(self) -> dict[TextFrameID, str | None]:
+    def _changed_frames(self) -> dict[str, str | None]:
         """Each text frame, by ID, whose text would change on saving, with its new text; None removes it."""
         return {
             frame_id: text or None
