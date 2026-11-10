@@ -122,34 +122,28 @@ class Track:
         """
         self.cues_v2.set_beatgrid_locked(locked, delete_tags_v1=delete_tags_v1)
 
-    def get_snapped_position(self, position_ms: int, tolerance_beats: float, min_ms_change: int = 2) -> int | None:
-        """The ms position to snap a cue at `position_ms` to, or None if it shouldn't move.
-
-        It shouldn't move when no beat of the track's beatgrid is within `tolerance_beats` (a fraction of a beat), or
-        the nearest one is less than `min_ms_change` away. The default of 2 leaves 1 ms differences alone: Serato stores
-        cues in whole ms, often 1 ms off the rounded beat. Below 2, it warns, since that moves nearly every cue Serato
-        placed. Needs `beatgrid` parsed.
-        """
-        self._check_min_ms_change(min_ms_change)
-        return self._snapped_position(self.beatgrid, position_ms, tolerance_beats, min_ms_change)
-
     def snap_cues(self, tolerance_beats: float, min_ms_change: int = 2) -> list[SnappedCue]:
-        """Moves each cue to its nearest beat in memory, as `get_snapped_position` decides, and returns the moves.
+        """Moves each cue to its nearest beat in memory, as `beatgrid.get_snapped_position` decides; returns the moves.
 
         Call `save()` to write the change to the file. Raises ValueError if the track has no `Serato Markers2` entries.
-        Needs `cues_v2` and `beatgrid` parsed.
+        A `min_ms_change` below 2 warns, since that moves nearly every cue Serato placed. Needs `cues_v2` and
+        `beatgrid` parsed.
         """
         # both read up front, so a tag that wasn't parsed raises whether or not there are cues to move
         cues_v2, beatgrid = self.cues_v2, self.beatgrid
         if not cues_v2.entries:
             raise ValueError("No entries set")
-        self._check_min_ms_change(min_ms_change)
+        if min_ms_change < 2:
+            warnings.warn(
+                f"min_ms_change={min_ms_change} snaps cues that are 1 ms off the beat, which is most cues Serato placed",
+                stacklevel=2,
+            )
         snapped: list[Track.SnappedCue] = []
 
         def rule(track: TrackCuesV2.TrackCuesInfo) -> TrackCuesV2.TrackCuesInfo | None:
             new_cues: list[TrackCuesV2.CueEntry] = []
             for cue in track.cues:
-                new_ms = self._snapped_position(beatgrid, cue.position, tolerance_beats, min_ms_change)
+                new_ms = beatgrid.get_snapped_position(cue.position, tolerance_beats, min_ms_change)
                 if new_ms is None:
                     new_cues.append(cue)
                 else:
@@ -159,26 +153,6 @@ class Track:
 
         cues_v2.modify_entries(rule)
         return snapped
-
-    @staticmethod
-    def _check_min_ms_change(min_ms_change: int):
-        """Warns, at the caller of the method that calls this, if `min_ms_change` is below 2."""
-        if min_ms_change < 2:
-            warnings.warn(
-                f"min_ms_change={min_ms_change} snaps cues that are 1 ms off the beat, which is most cues Serato placed",
-                stacklevel=3,
-            )
-
-    @staticmethod
-    def _snapped_position(
-        beatgrid: TrackBeatgrid, position_ms: int, tolerance_beats: float, min_ms_change: int
-    ) -> int | None:
-        """As `get_snapped_position`, from `beatgrid` and without checking `min_ms_change`."""
-        snapped_ms = beatgrid.find_nearest_beat(position_ms, tolerance_beats)
-        if snapped_ms is None:  # NOTE: don't do `if not`, 0.0 is valid
-            return None
-        snapped_ms = int(round(snapped_ms))
-        return snapped_ms if abs(snapped_ms - position_ms) >= min_ms_change else None
 
     def _parsed_tags(self) -> list[ID3FileTag]:
         parsed = (self._cues_v2, self._cues_v1, self._beatgrid, self._autotags, self._waveform, self._gain)

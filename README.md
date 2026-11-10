@@ -235,7 +235,7 @@ for snapped in track.snap_cues(tolerance_beats=1 / 16):
 track.save()
 ```
 
-`Track.get_snapped_position` gives the position a single cue would snap to.
+`track.beatgrid.get_snapped_position` (`TrackBeatgrid.get_snapped_position`) gives the position a single cue would snap to.
 
 ### Modifying track metadata / hot cues
 

@@ -332,6 +332,19 @@ class TrackBeatgrid(SeratoGeobTag):
 
         return None if nearest_beat is None else nearest_beat.position_s * 1000.0
 
+    def get_snapped_position(self, position_ms: int, tolerance_beats: float, min_ms_change: int = 2) -> int | None:
+        """The whole ms position to snap a cue at `position_ms` to, or None if it shouldn't move.
+
+        It shouldn't move when no beat is within `tolerance_beats` (a fraction of a beat), or the nearest one is less
+        than `min_ms_change` away. The default of 2 leaves 1 ms differences alone: Serato stores cues in whole ms, often
+        1 ms off the rounded beat. Needs the tag read from an audio file, for the track's length.
+        """
+        snapped_ms = self.find_nearest_beat(position_ms, tolerance_beats)
+        if snapped_ms is None:  # NOTE: don't do `if not`, 0.0 is valid
+            return None
+        snapped_ms = int(round(snapped_ms))
+        return snapped_ms if abs(snapped_ms - position_ms) >= min_ms_change else None
+
     def analyze_and_write(self):
         """Replaces the grid with one found by analyzing the track's audio, then saves it to the file.
 

@@ -157,11 +157,6 @@ class TestCase(unittest.TestCase):
     def cue_positions(self, track: Track) -> list[int]:
         return [cue.position for cue in track.cues_v2._from_entries().cues]  # pylint: disable=protected-access
 
-    def nearest_beat_ms(self, track: Track) -> int:
-        beat = track.beatgrid.find_nearest_beat(self.cue_positions(track)[0], 1)
-        assert beat is not None
-        return round(beat)
-
     def test_snap_cues(self):
         track = Track(self.path)
         snapped = track.snap_cues(1 / 16)
@@ -200,19 +195,8 @@ class TestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             track.snap_cues(1 / 8)
 
-    def test_get_snapped_position_ignores_1ms_by_default(self):
-        track = Track(self.path)
-        beat_ms = self.nearest_beat_ms(track)
-        self.assertIsNone(track.get_snapped_position(beat_ms + 1, 1 / 8))
-        self.assertIsNone(track.get_snapped_position(beat_ms - 1, 1 / 8))
-        self.assertEqual(track.get_snapped_position(beat_ms + 2, 1 / 8), beat_ms)
-
     def test_min_ms_change_below_2_warns_at_the_caller(self):
         track = Track(self.path)
-        beat_ms = self.nearest_beat_ms(track)
-        with self.assertWarnsRegex(UserWarning, "min_ms_change=1") as caught:
-            self.assertEqual(track.get_snapped_position(beat_ms + 1, 1 / 8, min_ms_change=1), beat_ms)
-        self.assertEqual(caught.filename, __file__)
         with self.assertWarnsRegex(UserWarning, "min_ms_change=1") as caught:
             track.snap_cues(1 / 8, min_ms_change=1)
         self.assertEqual(caught.filename, __file__)

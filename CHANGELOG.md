@@ -6,7 +6,8 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Features
 
-- Add `Track.snap_cues`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `Track.SnappedCue`, and `Track.get_snapped_position`, which gives the position a single cue would snap to. Both need the `Track`'s `cues_v2` and `beatgrid` parsed (the default)
+- Add `Track.snap_cues`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `Track.SnappedCue`. It needs the `Track`'s `cues_v2` and `beatgrid` parsed (the default)
+- Add `TrackBeatgrid.get_snapped_position`, which gives the position a single cue would snap to
 - `serato_snap_cues_v2 --snap_cues` says which cue each move was for. Its options are unchanged
 - `serato_smartcrate` CLI now takes each rule field as its own option, e.g. `serato_smartcrate Dubstep.scrate --grouping str_is UNTAGGED --year DELETE`
   - `--help` lists the fields and comparisons
@@ -25,7 +26,7 @@ Breaking: most of what was deprecated in 5.x is removed. Use what each was depre
 Breaking: cue snapping moves from `TrackCuesV2` to `Track`, so that each tag class handles only its own tag:
 
 - `TrackCuesV2.snap_positions_to_beat` and `snap_positions_to_beat_rule`: use `Track.snap_cues`, which returns the moves rather than printing them. There's no rule to pass to `modify_entries`: on a `Track`, other edits are saved in the same write
-- `TrackCuesV2.get_snapped_beat_ms`: use `Track.get_snapped_position`
+- `TrackCuesV2.get_snapped_beat_ms`: use `TrackBeatgrid.get_snapped_position` (e.g. `track.beatgrid.get_snapped_position`)
 - `TrackCuesV2.get_beat_position(entry)`: use `track.beatgrid.get_beat_position(entry.position)`
 - `TrackCuesV2.beatgrid`: use a `Track`, which reads the track's beatgrid
 
