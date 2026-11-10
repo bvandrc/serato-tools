@@ -2,9 +2,7 @@
 
 import logging
 import os
-from typing import Iterable, TypeVar, cast, Any
-
-T = TypeVar("T")
+from typing import Any
 
 logger = logging.getLogger("serato-tools")
 
@@ -31,21 +29,12 @@ def parse_cli_keys_and_values(args: list[str]):
     return keys_and_values
 
 
-def to_array(x: T | Iterable[T]) -> Iterable[T]:
-    """`x` itself if it's an iterable other than a str or bytes, or else `x` in a one-item list."""
-    if isinstance(x, (str, bytes)):
-        return cast(list[T], [x])
-    if isinstance(x, Iterable):
-        return x
-    return [x]
-
-
 class DataTypeError(Exception):
     """A value whose type doesn't match the one its field holds."""
 
-    def __init__(self, value: Any, expected_type: type | Iterable[type], field: str | None):
+    def __init__(self, value: Any, expected_type: type, field: str | None):
         super().__init__(
-            f"value must be {' or '.join(e.__name__ for e in to_array(expected_type))} when field is {field} (type: {type(value).__name__}) (value: {str(value)})"
+            f"value must be {expected_type.__name__} when field is {field} (type: {type(value).__name__}) (value: {str(value)})"
         )
 
 
