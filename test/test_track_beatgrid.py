@@ -4,7 +4,7 @@ import struct
 
 from serato_tools.track_beatgrid import TrackBeatgrid
 
-from test.helpers import read_bytes
+from test.helpers import TEST_MP3, read_bytes
 
 
 class TestCase(unittest.TestCase):
@@ -22,6 +22,17 @@ class TestCase(unittest.TestCase):
         )
         tags._serialize()
         self.assertEqual(tags._raw_data, file_data, "serialize")
+
+    def test_get_snapped_position_ignores_1ms_by_default(self):
+        beatgrid = TrackBeatgrid(TEST_MP3)
+        beat = beatgrid.find_nearest_beat(45104, 1)  # the test mp3's first cue, 42 ms before a beat
+        assert beat is not None
+        beat_ms = round(beat)
+        self.assertIsNone(beatgrid.get_snapped_position(beat_ms + 1, 1 / 8))
+        self.assertIsNone(beatgrid.get_snapped_position(beat_ms - 1, 1 / 8))
+        self.assertEqual(beatgrid.get_snapped_position(beat_ms + 2, 1 / 8), beat_ms)
+        self.assertEqual(beatgrid.get_snapped_position(beat_ms + 1, 1 / 8, min_ms_change=1), beat_ms)
+        self.assertIsNone(beatgrid.get_snapped_position(beat_ms + 60, 1 / 1000), "outside tolerance")
 
     def test_a_grid_serato_wouldnt_write_raises(self):
         Marker = TrackBeatgrid.NonTerminalBeatgridMarker

@@ -224,6 +224,19 @@ serato_snap_cues_v2 "/Users/Username/Music/Dubstep/Raaket - ILL.mp3" --snap_cues
 
 Only cue points within the tolerance window of some beat are moved; others are left unchanged.
 
+In Python, use `Track.snap_cues_to_beats`, which reads the track's `Serato Markers2` and `Serato BeatGrid` tags, so needs `cues_v2` and `beatgrid` parsed (the default):
+
+```python
+from serato_tools.track import Track
+
+track = Track('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', cues_v1=False, autotags=False, gain=False)
+for snapped in track.snap_cues_to_beats(tolerance_beats=1 / 16):
+    print(f"cue {snapped.index + 1}: {snapped.old_position} ms -> {snapped.new_position} ms")
+track.save()
+```
+
+`track.beatgrid.get_snapped_position` (`TrackBeatgrid.get_snapped_position`) gives the position a single cue would snap to.
+
 ### Modifying track metadata / hot cues
 
 ```python

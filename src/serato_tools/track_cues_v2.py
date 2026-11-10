@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """The `Serato Markers2` tag, which holds a track's hot cues, loops, flips, color, and beatgrid lock.
 
-Also the `serato_snap_cues_v2` CLI, which sets the color, snaps cues to the beatgrid, or edits the tag's entries.
+Also the `serato_snap_cues_v2` CLI, which sets the color, snaps cues to the beatgrid (through `Track`), or edits the
+tag's entries.
 """
 
 import ast
@@ -24,7 +25,6 @@ from mutagen.mp3 import HeaderNotFoundError
 
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
-from serato_tools.track_beatgrid import TrackBeatgrid
 
 # the sizes Serato writes the tag at, in an ID3 file: 470 bytes, or larger by a multiple of 512
 _MIN_SIZE = 470
@@ -143,7 +143,6 @@ class TrackCuesV2(SeratoGeobTag):
         if self._raw_data is not None:
             self.entries = list(self._parse(self._raw_data))
 
-        self.beatgrid: TrackBeatgrid | None = None
         # whether every edit since this tag last wrote passed the deprecated delete_tags_v1=False, which keeps Serato
         # Markers_ as before it was deprecated; None when no edit has changed anything since
         self._edits_keep_tags_v1: bool | None = None
@@ -637,77 +636,6 @@ class TrackCuesV2(SeratoGeobTag):
 
         self.modify_entries(rule, delete_tags_v1)
 
-    def get_snapped_beat_ms(self, postion_ms: int, tolerance_beats: float, min_ms_change: int = 2) -> int | None:
-        """Returns the ms position to snap `postion_ms` to, or `None` if it shouldn't move.
-
-        It shouldn't move when no beat is within `tolerance_beats`, or the nearest one is less than `min_ms_change` away.
-        The default of 2 leaves 1 ms differences alone: Serato stores cues in whole ms, often 1 ms off the rounded beat.
-        Below 2, it warns, since that moves nearly every cue Serato placed.
-        """
-        if min_ms_change < 2:
-            warnings.warn(
-                f"min_ms_change={min_ms_change} snaps cues that are 1 ms off the beat, which is most cues Serato placed",
-                stacklevel=2,
-            )
-        beatgrid = self.beatgrid or self._get_beatgrid()
-        snapped_ms = beatgrid.find_nearest_beat(postion_ms, tolerance_beats)
-        if snapped_ms is None:  # NOTE: don't do `if not`, 0.0 is valid
-            return None
-        snapped_ms = int(round(snapped_ms))
-        return snapped_ms if abs(snapped_ms - postion_ms) >= min_ms_change else None
-
-    def snap_positions_to_beat_rule(self, tolerance_beats: float, min_ms_change: int = 2) -> ModifyCallback:
-        """A `modify_entries` callback that moves each cue to its nearest beat, as `get_snapped_beat_ms` decides."""
-
-        def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
-            new_cues = []
-            for cue in track.cues:
-                new_ms = self.get_snapped_beat_ms(cue.position, tolerance_beats, min_ms_change)
-                if new_ms is not None:
-                    new_cues.append(dataclasses.replace(cue, position=new_ms))
-                else:
-                    new_cues.append(cue)
-            new_track = dataclasses.replace(track, cues=new_cues)
-            return new_track if new_track != track else None
-
-        return rule
-
-    def snap_positions_to_beat(self, tolerance_beats: float, min_ms_change: int = 2) -> None:
-        """Moves each cue to its nearest beat in memory, as `get_snapped_beat_ms` decides, and prints each move.
-
-        Raises ValueError if the tag has no entries. Call `save()` to write the change to the file.
-        """
-        if not self.entries:
-            raise ValueError("No entries set")
-        track_before = self._from_entries()
-        positions_before = {c.index: c.position for c in track_before.cues}
-        self.modify_entries(self.snap_positions_to_beat_rule(tolerance_beats, min_ms_change))
-        track_after = self._from_entries()
-        for c in track_after.cues:
-            prev = positions_before.get(c.index)
-            if prev is not None and c.position != prev:
-                print(f"Snapped by {c.position - prev} ms")
-
-    def _get_beatgrid(self, file_or_data: SeratoGeobTag.FileOrData | None = None) -> TrackBeatgrid:
-        """Reads the beatgrid from `file_or_data`, or from this tag's file, and keeps it as `self.beatgrid`."""
-        if file_or_data is None:
-            if not self.tagfile:
-                raise ValueError("No tagfile set, or must pass beatgrid")
-            self.beatgrid = TrackBeatgrid(self.tagfile)
-        else:
-            self.beatgrid = TrackBeatgrid(file_or_data)
-        return self.beatgrid
-
-    def get_beat_position(
-        self, entry: "TrackCuesV2.CueEntry", file_or_data: SeratoGeobTag.FileOrData | None = None
-    ) -> float:
-        """How many beats into the track's beatgrid the cue is, counting from 0 at the grid's first marker.
-
-        The beatgrid is read from `file_or_data`, or from this tag's file, the first time it's needed.
-        """
-        beatgrid = self.beatgrid or self._get_beatgrid(file_or_data)
-        return beatgrid.get_beat_position(entry.position)
-
     def is_beatgrid_locked(self) -> bool:
         """Whether the tag has a BPM lock entry that's enabled."""
         return any((isinstance(entry, TrackCuesV2.BpmLockEntry) and entry.enabled) for entry in self.entries)
@@ -789,8 +717,16 @@ def main():
         if tolerance_beats >= 1:
             raise NotImplementedError("Snap tolerance must be less than 1 beat. TODO: implement this to allow")
 
-        tags.snap_positions_to_beat(tolerance_beats)
-        tags.save(delete_tags_v1=True)
+        if not tags.tagfile:
+            raise ValueError("--snap_cues needs an audio file, to read its beatgrid")
+        # imported here, so that the tag's module needs the other tags, such as the beatgrid, only for this option
+        from serato_tools.track import Track
+
+        # the file already open, with only the tags snapping needs
+        track = Track(tags.tagfile, cues_v1=False, autotags=False, gain=False)
+        for snapped in track.snap_cues_to_beats(tolerance_beats):
+            print(f"Snapped cue {snapped.index + 1} by {snapped.new_position - snapped.old_position} ms")
+        track.save(delete_tags_v1=True)
         sys.exit()
 
     if args.edit:
