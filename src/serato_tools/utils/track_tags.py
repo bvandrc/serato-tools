@@ -18,12 +18,17 @@ type ID3FileOrPath = str | ID3File
 
 
 class GeobKeys(StrEnum):
-    """The GEOB frame key of each Serato tag in a track file, each tag class's `GEOB_KEY`."""
+    """The GEOB frame key of each Serato tag in a track file, each tag class's `GEOB_KEY`.
 
+    `ANALYSIS` and `OFFSETS` have no tag class yet. They're listed so every key Serato writes is here.
+    """
+
+    ANALYSIS = "Serato Analysis"
     AUTOTAGS = "Serato Autotags"
     BEATGRID = "Serato BeatGrid"
     CUES_V1 = "Serato Markers_"
     CUES_V2 = "Serato Markers2"
+    OFFSETS = "Serato Offsets_"
     WAVEFORM = "Serato Overview"
 
 
