@@ -144,7 +144,8 @@ class Track:
             new_cues: list[TrackCuesV2.CueEntry] = []
             for cue in track.cues:
                 new_ms = beatgrid.get_snapped_position(cue.position, tolerance_beats, min_ms_change)
-                if new_ms is None:
+                # a min_ms_change of 0 or less can snap a cue to where it already is, which isn't a move
+                if new_ms is None or new_ms == cue.position:
                     new_cues.append(cue)
                 else:
                     snapped.append(Track.SnappedCue(cue.index, cue.position, new_ms))

@@ -2,11 +2,13 @@
 import base64
 import dataclasses
 import struct
+import io
 import unittest
 from unittest import mock
 from typing import Callable
+from contextlib import redirect_stdout
 
-from serato_tools.track_cues_v2 import TrackCuesV2
+from serato_tools.track_cues_v2 import TrackCuesV2, main
 
 from test.helpers import TEST_MP3, read_bytes, temp_mp3, untagged_mp3
 
@@ -240,6 +242,22 @@ class TestCase(unittest.TestCase):
         cue_9 = TrackCuesV2.CueEntry(b"\x00", 8, 1000, b"\x00", TrackCuesV2.CueColors.RED.value, b"\x00\x00", "")
         with self.assertRaisesRegex(ValueError, "cue 9 is past Serato's 8 cue pads"):
             tags.modify_entries(lambda info: dataclasses.replace(info, cues=[cue_9]))
+
+    def test_cli_snap_cues(self):
+        path = temp_mp3(self)
+        argv = ["serato_snap_cues_v2", path, "--snap_cues", "--snap_tolerance", "1/16"]
+        with mock.patch("sys.argv", argv), redirect_stdout(io.StringIO()) as out, self.assertRaises(SystemExit):
+            main()
+
+        self.assertEqual(
+            out.getvalue().splitlines(), ["Snapped cue 1 by 42 ms", "Snapped cue 2 by -2 ms", "Snapped cue 4 by -2 ms"]
+        )
+        saved = TrackCuesV2(path)
+        self.assertEqual(
+            [cue.position for cue in saved._from_entries().cues], [45146, 67472, 112125, 134449, 156776, 201428]
+        )
+        assert saved.tagfile is not None
+        self.assertNotIn("GEOB:Serato Markers_", saved.tagfile, "the CLI's save deletes the v1 tag, as before")
 
     def test_loop_fields(self):
         # track_cues_v2_saved_loops.bin is a tag Serato wrote with 4 loops, the second one locked

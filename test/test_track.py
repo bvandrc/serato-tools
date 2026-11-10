@@ -174,6 +174,22 @@ class TestCase(unittest.TestCase):
         self.assertTrue(track.save())
         self.assertEqual(self.cue_positions(Track(self.path)), expected, "saved")
 
+    def test_snap_cues_doesnt_count_a_cue_already_on_its_beat(self):
+        track = Track(self.path)
+        beat = track.beatgrid.find_nearest_beat(45104, 1)  # the first cue's beat, 42 ms after it
+        assert beat is not None
+
+        def first_cue_on_beat(info: TrackCuesV2.TrackCuesInfo) -> TrackCuesV2.TrackCuesInfo:
+            return dataclasses.replace(
+                info, cues=[dataclasses.replace(info.cues[0], position=round(beat)), *info.cues[1:]]
+            )
+
+        track.cues_v2.modify_entries(first_cue_on_beat)
+        with self.assertWarns(UserWarning):
+            snapped = track.snap_cues_to_beats(1 / 16, min_ms_change=0)  # 0 lets it snap to where it already is
+        self.assertNotIn(0, [s.index for s in snapped])
+        self.assertTrue(all(s.new_position != s.old_position for s in snapped), "only real moves")
+
     def test_snap_cues_outside_tolerance_leaves_cues(self):
         track = Track(self.path)
         positions = self.cue_positions(track)
