@@ -307,11 +307,11 @@ def main():
                 if not value:
                     raise ValueError(f"no value given for --{key}, must specify a comparison and a value, or DELETE")
                 comparison_key, *rule_values = value
-                if str(comparison_key).upper() == "DELETE":
+                if comparison_key.upper() == "DELETE":
                     crate.delete_rule(field)
                 else:
                     comparison = SmartCrate._get_rule_comparison_from_key(  # pylint: disable=protected-access
-                        str(comparison_key)
+                        comparison_key
                     )
                     assert len(rule_values) == 1, "must specify 2 values: a comparison and a value"
                     # set_rule stores the value in the field the comparison expects, parsing it as needed

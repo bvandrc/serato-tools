@@ -11,34 +11,32 @@ def ui_ask(question: str, choices: Mapping[str, str], default: Optional[str] = N
     `choices` maps each answer to a description, which answering "?" (or anything not in `choices`) prints. An empty
     answer means `default`, which is shown in upper case.
     """
-    choices_str = "/".join(x.upper() if x == default else x for x in (*choices.keys(), "?"))
+    choices_str = "/".join(x.upper() if x == default else x for x in (*choices, "?"))
     text = f"{question} [{choices_str}]? "
 
     while True:
-        answer = input(text).lower()
-        if default and answer == "":
-            answer = default
-
-        if answer in choices.keys():
+        answer = input(text).lower() or default
+        if answer in choices:
             return answer
-        else:
-            print("\n".join(f"{choice} - {desc}" for choice, desc in (*choices.items(), ("?", "print help"))))
+        print("\n".join(f"{choice} - {desc}" for choice, desc in (*choices.items(), ("?", "print help"))))
+
+
+def _find_editor(env_var: str, default: str) -> str:
+    """The path to the program named by the environment variable `env_var`, or to `default`; raises if not found."""
+    editor = shutil.which(os.getenv(env_var, default))
+    if not editor:
+        raise Exception(f"No suitable {env_var} found.")
+    return editor
 
 
 def get_text_editor():
     """The path to the program named by the `EDITOR` environment variable, or to vi; raises if it isn't found."""
-    text_editor = shutil.which(os.getenv("EDITOR", "vi"))
-    if not text_editor:
-        raise Exception("No suitable EDITOR found.")
-    return text_editor
+    return _find_editor("EDITOR", "vi")
 
 
 def get_hex_editor():
     """The path to the program named by the `HEXEDITOR` environment variable, or to bvi; raises if it isn't found."""
-    hex_editor = shutil.which(os.getenv("HEXEDITOR", "bvi"))
-    if not hex_editor:
-        raise Exception("No suitable HEXEDITOR found.")
-    return hex_editor
+    return _find_editor("HEXEDITOR", "bvi")
 
 
 def parse_cli_keys_and_values(args: list[str]):
@@ -46,7 +44,7 @@ def parse_cli_keys_and_values(args: list[str]):
 
     Arguments before the first key are dropped.
     """
-    keys_and_values: dict[str, list[str | int]] = {}
+    keys_and_values: dict[str, list[str]] = {}
     key = None
     for arg in args:
         if arg.startswith("--"):
@@ -54,6 +52,4 @@ def parse_cli_keys_and_values(args: list[str]):
             keys_and_values[key] = []
         elif key:
             keys_and_values[key].append(arg)
-
-    # pairs[key] = True  # default to True if no value follows
     return keys_and_values
