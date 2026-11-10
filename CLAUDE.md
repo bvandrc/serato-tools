@@ -37,7 +37,7 @@ Tests import the installed `serato_tools` (editable locally, a regular install i
 
 CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pylint and pyright, plus black once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15. Lint runs on every version because neither tool pins one: both check against the running interpreter, so 3.12 catches use of anything newer and later versions catch deprecations and removals. The `main` ruleset requires these checks by name, so renaming a job or matrix entry means updating the ruleset too. Tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `unittest.skipUnless` / `skipIf`, with a matching test for the other OS family.
 
-Publishing to PyPI is a manual `workflow_dispatch` of `.github/workflows/build-and-publish.yml`. Bump `version` in `pyproject.toml` and add a `CHANGELOG.md` entry for user-visible changes.
+Bump `version` in `pyproject.toml` and add a `CHANGELOG.md` entry for user-visible changes. Publishing a GitHub release then publishes that version to PyPI, through `.github/workflows/build-and-publish.yml`: its tag must be `v` + the version (e.g. `v6.0.0`), or the workflow fails before building. A release published with empty notes gets the version's `CHANGELOG.md` section as its notes, and the built distributions are attached to it. PyPI's trusted publisher names that workflow file and its `pypi` environment, so renaming either means updating it on PyPI too.
 
 ## Architecture
 

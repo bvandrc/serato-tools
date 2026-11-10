@@ -1,0 +1,95 @@
+name: Backfill Releases
+
+# One-off: creates a tag and GitHub release for each version published to PyPI before publishing went through releases,
+# at the main commit it was built from. Safe to rerun, since it skips versions that have a release, and safe to delete
+# once it has run. It doesn't publish anything: a release made with the workflow's token doesn't trigger Build & Publish.
+#
+# Each version is matched to the commit at the head of main when PyPI received it. Where that commit has another version
+# in pyproject.toml (it was published before being committed), it's the first commit after with the version. 1.5.0,
+# 1.12.0, 1.14.1, 3.8.0, and 3.8.1 never had a commit with their version, so they get no release.
+on:
+  workflow_dispatch:
+
+jobs:
+  backfill:
+    name: "Backfill Releases"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to create the tags and releases
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create the missing releases
+        run: |
+          # only mark the newest backfilled release latest if no release is yet, e.g. one made since for 6.0.0
+          had_latest=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+
+          # version, commit it was built from, and date PyPI received it, oldest first
+          while read -r version sha published; do
+            tag="v$version"
+            if gh release view "$tag" > /dev/null 2>&1; then
+              echo "$tag has a release already, so it's skipped."
+              continue
+            fi
+            notes=$(.github/scripts/changelog-section.sh "$version")
+            if [ -z "$notes" ]; then
+              notes="No changelog entry for this version; see the commits since the previous release."
+            fi
+            notes+=$'\n\n'"Published to [PyPI](https://pypi.org/project/serato-tools/$version/) on $published. This release was added afterwards, at the commit it was built from."
+            gh release create "$tag" --target "$sha" --title "$tag" --notes "$notes" --latest=false
+            last_tag=$tag
+          done <<'VERSIONS'
+          1.5.1 5db6c7ef4bb7009f4122feab0e86f5a020528bae 2025-04-11
+          1.5.2 61584e2cbbae04a559af5c1078269c90bc856cca 2025-04-11
+          1.6.2 55641a15248d305e5d040136a64ab86b3de49a70 2025-04-11
+          1.7.0 e94b8f02ca56bb2ab664de69e52fb6ecd2adeb52 2025-04-11
+          1.8.1 fef9df3b07086d03306d5bfaf7244c09d73f7f6e 2025-04-11
+          1.14.2 0f8a8057933a8e03493b06fe2921b8ff125f7a25 2025-04-19
+          1.15.0 c55b4bc7b12e1f142aa7eec4c359f627697a4dd6 2025-04-22
+          1.17.3 200e1f0d501248a119939a76642f89938022f3c6 2025-04-28
+          1.18.0 b19e64bf8ca286276082ba6e5e7fb36df542f9b6 2025-04-30
+          2.0.0 df791361aa77d5956643b7ee6b35d7c078b9aee5 2025-05-08
+          2.1.0 4a9bdae427d61e1c9dff26f64f8a2a19fd3dbd8d 2025-05-08
+          2.2.1 bd0213c6f6125ddebaf65250b331067d2fad89a9 2025-05-13
+          2.3.1 c71054a626ea6ab6f6c5d5c527b03d36258b5933 2025-05-13
+          2.4.0 024e00d7aa3bb21d74d3dfba19d71f649354c2ea 2025-05-13
+          2.5.0 bdd132b0e4dc63bfee0650375705cfdc392a661d 2025-05-14
+          2.6.0 afe0cb93a6bdcfeb32c5fb3104b858d0d4f75f51 2025-05-14
+          3.0.1 ca5d6ad2534c325222b6e519d3870246b9be2087 2025-05-14
+          3.1.0 4561d0ea00c3f1136395cd4ffe72aaa43c0f7bba 2025-05-14
+          3.2.10 e823638d9e814300383a51734a542c3723c57ac6 2025-06-11
+          3.3.0 93b84cacc1f62e2e231307658b16e0595c78e0a0 2025-06-11
+          3.4.3 1979dd87446c61977a6b3d665757d759aa25eacb 2025-08-19
+          3.5.3 bcc63dd86b35c681409a3ab355164cb91f6fc2a3 2025-08-19
+          3.6.2 0cc4bc8d4405132c9bc8fe377d305df049387e84 2025-12-06
+          3.7.0 992fbb4658c6ccd3866a927024fc8a06c9141004 2026-01-23
+          3.7.1 af45d0ebfe21097d11d93aaf90d882fcbcb2ad18 2026-02-26
+          3.8.2 2e93a23360a471d883d890da3e5e8f28ee065bb9 2026-02-27
+          4.0.0 dc0f0329ed5ff5db4e226cbacffb0b53135140b5 2026-02-27
+          4.0.1 d7df8f1fa6f6d42174523bef7627133784604c24 2026-02-27
+          4.0.2 e24000e1475f1ad7ea411c4b6fdc74297aa7102a 2026-08-17
+          4.0.3 0d8825f78c460db315d2cbb55ca4fff7b356d55f 2026-10-31
+          4.0.4 f6cc8dcb8706e6ac54a82c92ec560c86039fe741 2026-11-01
+          4.1.0 d4f208ee5d931370f14e8abdeea5f57255a6f3b0 2026-11-02
+          5.0.0 5c650d42f36647d1330c61d59b15274e533c0f4a 2026-11-02
+          5.0.2 0c9c9c192c32d4abcceadfcbc830a75ea6925dc5 2026-11-03
+          5.1.0 bfc38515959343924c9f44cd2122d783d9ab97c1 2026-11-03
+          5.1.1 ad12bcb730c74a53cb52d300a778348bbe62fc4d 2026-11-03
+          5.1.2 26111e9d7b9693159582cb4fa17ef11e7672f0f3 2026-11-03
+          5.2.0 19dc2cdd730690b1ed915597fc934ba574cbad3e 2026-11-04
+          5.3.0 1c38d8aa1145892d3065acef85b98017973bd1da 2026-11-04
+          5.3.1 3ce4a5bd7645b0d0a7d438fdc83e4ff28696fa7e 2026-11-04
+          5.3.2 4463d7a138bcd9150c90284748628b4401598e4c 2026-11-04
+          5.4.0 26da6ec9c9472c1beff4137e853945850ec1b331 2026-11-04
+          5.4.1 6ef6c7f4ca76e3c3de3241c1eb5645844884fe80 2026-11-04
+          5.5.0 4932e510f073feacc11dfe9f1a2a68e2170bfa97 2026-11-09
+          5.6.0 fcff859c5fedfcedcc8af8cfeaf3b8ec5ff244ec 2026-11-09
+          5.6.1 611f8776291211a216b280da510a085aab3e60de 2026-11-10
+          VERSIONS
+
+          if [ -z "$had_latest" ] && [ -n "${last_tag:-}" ]; then
+            gh release edit "$last_tag" --latest
+          fi
