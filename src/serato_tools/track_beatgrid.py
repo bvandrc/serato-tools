@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """The `Serato BeatGrid` tag, which holds a track's beatgrid as markers.
 
-Also the CLIs that print it, or analyze and write one.
+Also the CLIs that print it, or analyze and write one. Analyzing needs the `beatgrid_analysis` extra (librosa and
+numpy).
 """
 
 import collections
@@ -335,8 +336,8 @@ class TrackBeatgrid(SeratoGeobTag):
         """Replaces the grid with one found by analyzing the track's audio, then saves it to the file.
 
         A marker goes on each downbeat found, 4 beats apart, and the last takes the BPM in the file's tags. Needs the
-        `beatgrid_analysis` extra, and takes seconds. An MP3's grid may be off by tens of ms, since the analysis decodes
-        it differently than Serato does.
+        `beatgrid_analysis` extra (librosa and numpy), and takes seconds. An MP3's grid may be off by tens of ms, since
+        the analysis decodes it differently than Serato does.
         """
         if not self.tagfile:
             raise Exception("No tagfile set")

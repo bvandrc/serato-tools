@@ -1,4 +1,7 @@
-"""A track file's Serato tags, read from one open file and saved in one write. Needs the `track_tags` extra."""
+"""A track file's Serato tags, read from one open file and saved in one write.
+
+Needs the `track_tags` extra (mutagen).
+"""
 
 from serato_tools.track_autotags import TrackAutotags
 from serato_tools.track_beatgrid import TrackBeatgrid

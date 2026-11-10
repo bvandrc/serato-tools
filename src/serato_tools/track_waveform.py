@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """The `Serato Overview` tag, which holds the waveform overview Serato shows for a track.
 
-It can draw the overview as an image.
+It can draw the overview as an image, which needs the `waveform_drawing` extra (pillow).
 """
 
 import io
@@ -53,7 +53,7 @@ class TrackWaveform(SeratoGeobTag):
         return rows
 
     def draw_image(self):
-        """The waveform overview as a 240 x 16 pixel PIL image. Needs the `waveform_drawing` extra."""
+        """The waveform overview as a 240 x 16 pixel PIL image. Needs the `waveform_drawing` extra (pillow)."""
         try:
             from PIL import Image, ImageColor
         except:
