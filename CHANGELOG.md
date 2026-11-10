@@ -2,6 +2,19 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.7.0] - 2026-11-10
+
+### Features
+
+- `serato_smartcrate` CLI now takes each rule field as its own option, e.g. `serato_smartcrate Dubstep.scrate --grouping str_is UNTAGGED --year DELETE`
+  - `--help` lists the fields and comparisons
+  - A bad field, comparison, or number of arguments is rejected before any crate is changed
+  - NOTE: Field options are lowercase only now (`--grouping`, not `--GROUPING`). Comparisons and `DELETE` are still accepted in any case
+
+### Deprecations
+
+- `serato_smartcrate`'s `--set_rules` is no longer needed before the rule options. It's still accepted, with a note saying so, until the next major version
+
 ## [5.6.1] - 2026-11-10
 
 ### Fixes

@@ -276,16 +276,16 @@ print('\n'.join(SmartCrate.get_crate_files()))
 
 __via command line__
 
-Each rule takes a comparison and a value (or `DELETE` to remove the rule). The available comparisons are the `SmartCrate.RuleComparison` names, lowercase: `str_contains`, `str_is`, `int_is_ge`, etc.
+Each rule field is its own option, such as `--grouping` or `--bpm`, which takes a comparison and a value, or `DELETE` to remove the rule. The available comparisons are the `SmartCrate.RuleComparison` names, in any case: `str_contains`, `str_is`, `int_is_ge`, etc. `serato_smartcrate --help` lists the fields and comparisons.
 
 _one crate_
 ```cmd
->>> serato_smartcrate '/Users/Username/Music/_Serato_/SmartCrates/Dubstep.scrate' --set_rules --grouping str_is UNTAGGED
+>>> serato_smartcrate '/Users/Username/Music/_Serato_/SmartCrates/Dubstep.scrate' --grouping str_is UNTAGGED --year DELETE
 ```
 
 _all crates_
 ```cmd
->>> serato_smartcrate --all --set_rules --grouping str_is UNTAGGED
+>>> serato_smartcrate --all --grouping str_is UNTAGGED
 ```
 
 __via code__
