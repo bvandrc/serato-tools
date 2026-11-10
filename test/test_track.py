@@ -22,7 +22,15 @@ class TestCase(unittest.TestCase):
         return patcher.start()
 
     def read_all_tags(self, track: Track):
-        return [track.cues_v2, track.cues_v1, track.beatgrid, track.autotags, track.waveform, track.gain]
+        return [
+            track.cues_v2,
+            track.cues_v1,
+            track.beatgrid,
+            track.autotags,
+            track.waveform,
+            track.gain,
+            track.text_frames,
+        ]
 
     def test_reads_each_tag_from_one_open_file(self):
         track = Track(self.path, waveform=True)
@@ -49,7 +57,9 @@ class TestCase(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cues_v1=True"):
             _ = track.cues_v1
 
-        track = Track(self.path, cues_v2=False, cues_v1=False, beatgrid=False, autotags=False, gain=False)
+        track = Track(
+            self.path, cues_v2=False, cues_v1=False, beatgrid=False, autotags=False, gain=False, text_frames=False
+        )
         writes = self.count_writes(track)
         self.assertFalse(track.save(), "no tags, nothing to save")
         writes.assert_not_called()
@@ -75,6 +85,7 @@ class TestCase(unittest.TestCase):
         track.cues_v2.set_track_color(TrackCuesV2.TrackColors.RED)
         track.autotags.set(bpm=128)
         track.gain.set(gain=-2.5)
+        track.text_frames.set("TIT2", "New Title")
         writes = self.count_writes(track)
 
         self.assertTrue(track.save())
@@ -83,6 +94,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(saved.cues_v2.get_track_color(), TrackCuesV2.TrackColors.RED.value)
         self.assertEqual(saved.autotags.bpm, 128)
         self.assertAlmostEqual(saved.gain.gain or 0.0, -2.5, places=2)
+        self.assertEqual(saved.text_frames.get("TIT2"), "New Title")
 
     def test_track_color(self):
         track = Track(self.path)
