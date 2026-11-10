@@ -547,7 +547,7 @@ class TrackCuesV2(SeratoGeobTag):
         """
         if delete_tags_v1 is not None:
             warnings.warn(
-                "passing delete_tags_v1 to an edit is deprecated and will be removed in version 6, pass it to save() instead",
+                "passing delete_tags_v1 to an edit is deprecated and will be removed in a future major version, pass it to save() instead",
                 DeprecationWarning,
                 skip_file_prefixes=(_PACKAGE_DIR,),
             )
@@ -581,16 +581,6 @@ class TrackCuesV2(SeratoGeobTag):
         was_deleted = super().delete()
         self.entries = []
         return was_deleted
-
-    @property
-    def modified(self) -> bool:
-        """Deprecated, to be removed in the next major version: use `has_changed`, which this returns."""
-        warnings.warn(
-            "modified is deprecated and will be removed in version 6, use has_changed instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.has_changed
 
     def save(self, force: bool = False, delete_tags_v1: bool = True):
         """Writes the tag to the file, if it changed since it was read or last saved, or if `force`.

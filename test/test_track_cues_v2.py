@@ -160,14 +160,6 @@ class TestCase(unittest.TestCase):
             tags.save(force=True)
             write.assert_called_once()
 
-    def test_modified_is_deprecated(self):
-        tags = TrackCuesV2(TEST_MP3)
-        with self.assertWarns(DeprecationWarning):
-            self.assertFalse(tags.modified, "as read")
-        tags.set_track_color(TrackCuesV2.TrackColors.RED)
-        with self.assertWarns(DeprecationWarning):
-            self.assertTrue(tags.modified, "returns has_changed")
-
     def test_set_beatgrid_locked(self):
         tags = TrackCuesV2(TEST_MP3)
         original_data = tags._raw_data

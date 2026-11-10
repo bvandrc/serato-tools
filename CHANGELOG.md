@@ -2,6 +2,22 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [6.0.0] - 2026-11-10
+
+### Removed
+
+Breaking: most of what was deprecated in 5.x is removed. Use what each was deprecated in favor of:
+
+- `DatabaseV2.rename_track_file`: use `Library.rename_track_file`, which also updates the crates and smart crates
+- The tag classes' read-only `raw_data`: parse, modify, and serialize through each tag's own methods
+- The `SeratoTrack` and `SeratoTag` names in `serato_tools.utils.track_tags`: use `ID3FileTag` and `SeratoGeobTag`
+- `TrackCuesV2.modified`: use `has_changed`
+
+These stay, still deprecated:
+
+- `add_track` and `remove_track`, in favor of `add_tracks` and `remove_tracks`
+- Passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`), in favor of passing it to `save()`
+
 ## [5.6.1] - 2026-11-10
 
 ### Fixes
