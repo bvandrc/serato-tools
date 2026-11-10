@@ -29,7 +29,6 @@ Breaking: `TrackCuesV2` no longer reads the beatgrid from its own file for cue s
 - `TrackCuesV2.snap_positions_to_beat` and `snap_positions_to_beat_rule`: use `Track.snap_cues_to_beats`, or `TrackCuesV2.snap_cues_to_beats(beatgrid, ...)` with a beatgrid you pass it. Both return the moves rather than printing them. There's no rule to pass to `modify_entries`: snap, then make any other edits, before saving
 - `TrackCuesV2.get_snapped_beat_ms`: use `TrackBeatgrid.get_snapped_position` (e.g. `track.beatgrid.get_snapped_position`)
 - `TrackCuesV2.get_beat_position(entry)`: use `beatgrid.get_beat_position(entry.position)`
-- `TrackCuesV2.beatgrid`: use a `Track`, which passes its own beatgrid, or pass a `TrackBeatgrid` to `TrackCuesV2.snap_cues_to_beats`
 
 These stay, still deprecated:
 
