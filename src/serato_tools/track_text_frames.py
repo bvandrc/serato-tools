@@ -49,19 +49,20 @@ class TrackTextFrames(ID3FileTag):
         if self._unsaved_comment is not None:
             return self._unsaved_comment or None
         # the file's first, as Serato reads it: mutagen keeps the frames in the file's order
-        key = next((key for key in self._comment_keys() if not key.startswith("COMM:iTun")), None)
-        return None if key is None else self._get_tagged(key)
+        keys = self._comment_keys()
+        return self._get_tagged(keys[0]) if keys else None
 
     def set_comment(self, text: str):
         """Sets the comment in memory, in the frames Serato writes it to; call `save()` to write it.
 
-        Any other empty-description comment frame, in another language, is removed, since Serato would show one that
-        came first in the file instead.
+        Every other comment frame is removed, such as one another tagger put a label or catalog number in, since Serato
+        would show one that came first in the file instead. iTunes' data frames (`iTunNORM`, ...) are kept.
         """
         self._unsaved_comment = text
 
     def _comment_keys(self) -> list[str]:
-        return [key for key in self.tagfile.keys() if key.startswith("COMM:")]
+        """The keys of the file's COMM frames that Serato could show, in the file's order: all but iTunes' data."""
+        return [key for key in self.tagfile.keys() if key.startswith("COMM:") and not key.startswith("COMM:iTun")]
 
     def _get_tagged(self, key: str) -> str | None:
         frame = self.tagfile.get(key)
@@ -70,9 +71,9 @@ class TrackTextFrames(ID3FileTag):
 
     def _comment_texts(self, text: str) -> dict[str, str | None]:
         """Each comment frame's text for a comment of `text`, None where Serato would have no such frame."""
-        # every other empty-description frame goes: it's another copy of the comment, and mutagen saves frames smallest
-        # first, so a shorter one would come first in the file, and Serato would show it
-        texts: dict[str, str | None] = {key: None for key in self._comment_keys() if key.startswith("COMM::")}
+        # every other frame goes: mutagen saves frames smallest first, so a shorter one would come first in the file, and
+        # Serato would show it
+        texts: dict[str, str | None] = {key: None for key in self._comment_keys()}
         texts[_COMMENT_KEY] = text or None
         texts[_V1_COMMENT_KEY] = text if text and _is_latin1(text) else None
         return texts

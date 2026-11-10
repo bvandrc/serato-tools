@@ -131,7 +131,7 @@ class TestCase(unittest.TestCase):
         self.add_comments(("iTunNORM", "eng", " 00000A2B 00000B1C"))
         self.assertIsNone(TrackTextFrames(self.path).get_comment(), "iTunes data, not a comment")
 
-    def test_set_comment_removes_other_empty_description_frames(self):
+    def test_set_comment_removes_every_other_comment_frame_but_itunes(self):
         self.add_comments(
             ("", "\0\0\0", "No language"),
             ("", "deu", "German"),
@@ -146,18 +146,17 @@ class TestCase(unittest.TestCase):
             {
                 "COMM::eng": ["A Comment"],
                 "COMM:ID3v1 Comment:eng": ["A Comment"],
-                "COMM:Songs-DB_Custom1:eng": ["Custom"],
                 "COMM:iTunNORM:eng": [" 00000A2B"],
             },
-            "only the other empty-description ones removed",
+            "iTunes' data kept",
         )
         self.assertEqual(TrackTextFrames(self.path).get_comment(), "A Comment", "now first")
 
-    def test_set_comment_has_changed_with_another_empty_description_frame(self):
+    def test_set_comment_has_changed_with_another_comment_frame(self):
         frames = TrackTextFrames(self.path)
         frames.set_comment("A Comment")
         frames.save()
-        self.add_comments(("", "\0\0\0", "No language"))
+        self.add_comments(("Songs-DB_Custom1", "eng", "A Label"))
         frames = TrackTextFrames(self.path)
         frames.set_comment("A Comment")
         self.assertTrue(frames.has_changed, "the other frame would be removed")
