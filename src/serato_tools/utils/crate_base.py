@@ -1,9 +1,6 @@
 #!/usr/bin/python
 # This is from this repo: https://github.com/sharst/seratopy
-"""What crates and smart crates share.
-
-That's their file extension and folder, their track paths, and how they print.
-"""
+"""What crates and smart crates share: their file extension and folder, track paths, and how they print."""
 
 import os
 import warnings
