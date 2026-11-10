@@ -12,11 +12,6 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Add `remove_field(field)` to a track entry (e.g. `DatabaseV2.Track`), which removes a field and returns whether it was there. It raises ValueError for the track's path
 
-### Removals
-
-- Remove `get_enum_key_from_value` and `to_array` from `serato_tools.utils`, which the package no longer uses. Look an enum member up by value with the enum itself instead, e.g. `SmartCrate.RuleField(value).name`
-- `parse_cli_keys_and_values` moves from `serato_tools.utils` to `serato_tools.utils.ui`, with the CLIs' other helpers
-
 ## [5.6.0] - 2026-11-09
 
 ### Features
