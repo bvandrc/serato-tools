@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING, Mapping, Unpack
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.smart_crate import SmartCrate
+from serato_tools.utils import logger, SERATO_DIR
 from serato_tools.utils.bin_file_base import SeratoBinFile
 from serato_tools.utils.crate_base import CrateBase
-from serato_tools.utils import logger, SERATO_DIR
 
 if TYPE_CHECKING:
     from serato_tools.db_track_props import DbTrackTags

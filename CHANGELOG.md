@@ -9,11 +9,19 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Add `Track.snap_cues_to_beats(tolerance_beats)`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `SnappedCue`. It needs the `Track`'s `cues_v2` and `beatgrid` parsed (the default)
   - `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)` does the same with the `TrackBeatgrid` passed to it
   - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to
-  - `serato_snap_cues_v2 --snap_cues` now says which cue each move was for. Its options are unchanged
+  - `serato_snap_cues_v2 --snap_cues` now says which cue each move was for, and which tag is missing for a track without cues or a beatgrid. Its options are unchanged
 - `serato_smartcrate` CLI now takes each rule field as its own option, e.g. `serato_smartcrate Dubstep.scrate --grouping str_is UNTAGGED --year DELETE`
   - `--help` lists the fields and comparisons
   - A bad field, comparison, value, or number of arguments is rejected before any crate is changed
   - Breaking: `--set_rules` is removed. Pass the rule options directly, without it
+- A track missing a tag that's needed, such as one Serato hasn't analyzed yet, raises an error saying which tag and file: `NoCuesError`, `NoBeatgridError`, or `NoWaveformError`, all `MissingTagError`s in `serato_tools.utils.track_tags`. Catch one to handle that case without also catching a corrupt tag. They're still `ValueError`s, so existing `except ValueError` code keeps working
+  - Breaking: `TrackBeatgrid.find_nearest_beat` raises `NoBeatgridError` without a beatgrid, rather than returning None, which read as "no beat nearby"
+- `serato_beatgrid` prints which tag is missing, rather than a traceback
+- Add `GeobKeys`, in `serato_tools.utils.track_tags`: each Serato tag's GEOB key
+
+### Changed
+
+- Breaking: `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`, next to the database and crate code that raises them
 
 ### Removed
 
