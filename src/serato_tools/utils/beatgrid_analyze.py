@@ -1,5 +1,9 @@
 # Built off of https://github.com/heyitsmass/audio/blob/master/audio/beat_grid.py
-"""Beat and downbeat detection on a track's audio, for writing a beatgrid. Needs the `beatgrid_analysis` extra."""
+"""Beat and downbeat detection on a track's audio, for `TrackBeatgrid.analyze_and_write`.
+
+Needs the `beatgrid_analysis` extra. Reading and writing a beatgrid with `TrackBeatgrid` doesn't, since it imports this
+module only when analyzing.
+"""
 
 import sys
 from dataclasses import asdict, dataclass
