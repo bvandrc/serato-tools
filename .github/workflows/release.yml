@@ -30,27 +30,31 @@ jobs:
           python-version: '3.13' # can't do 3.14 yet due to build issues
 
       - name: Check the tag matches the version
+        id: version
         run: |
           version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
           if [ "$TAG" != "v$version" ]; then
             echo "::error::The release's tag is $TAG, but pyproject.toml's version is $version. Its tag must be v$version."
             exit 1
           fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Fill in empty release notes from the changelog
+      # only for a release published with empty notes, so notes written for it are kept
+      - name: Read the version's changelog section
+        id: changelog
+        if: github.event.release.body == ''
+        # it fails when CHANGELOG.md has no section for the version, which should leave the notes empty, not stop the release
+        continue-on-error: true
+        uses: mindsers/changelog-reader-action@1faaf50aa09d5793d9a100819973df801febfb31 # v2.4.0
+        with:
+          version: ${{ steps.version.outputs.version }}
+          version_scheme: pep440
+
+      - name: Fill in the release notes from the changelog
+        if: steps.changelog.outcome == 'success'
         env:
-          BODY: ${{ github.event.release.body }}
-        run: |
-          if [ -n "$BODY" ]; then
-            echo "The release has notes already, so they're kept."
-            exit 0
-          fi
-          notes=$(.github/scripts/changelog-section.sh "${TAG#v}")
-          if [ -z "$notes" ]; then
-            echo "::warning::CHANGELOG.md has no section for ${TAG#v}, so the release's notes are left empty."
-            exit 0
-          fi
-          gh release edit "$TAG" --notes "$notes"
+          NOTES_FILE: ${{ steps.changelog.outputs.changes_file }}
+        run: gh release edit "$TAG" --notes-file "$NOTES_FILE"
 
       - name: Install Dependencies
         run: |
