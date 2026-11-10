@@ -724,7 +724,7 @@ def main():
 
         # the file already open, with only the tags snapping needs
         track = Track(tags.tagfile, cues_v1=False, autotags=False, gain=False)
-        for snapped in track.snap_cues(tolerance_beats):
+        for snapped in track.snap_cues_to_beats(tolerance_beats):
             print(f"Snapped cue {snapped.index + 1} by {snapped.new_position - snapped.old_position} ms")
         track.save(delete_tags_v1=True)
         sys.exit()

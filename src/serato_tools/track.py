@@ -26,7 +26,7 @@ class Track:
 
     @dataclasses.dataclass(frozen=True)
     class SnappedCue:
-        """A cue that `snap_cues` moved: its index (from 0) and its position in ms before and after."""
+        """A cue that `snap_cues_to_beats` moved: its index (from 0) and its position in ms before and after."""
 
         index: int
         old_position: int
@@ -122,7 +122,7 @@ class Track:
         """
         self.cues_v2.set_beatgrid_locked(locked, delete_tags_v1=delete_tags_v1)
 
-    def snap_cues(self, tolerance_beats: float, min_ms_change: int = 2) -> list[SnappedCue]:
+    def snap_cues_to_beats(self, tolerance_beats: float, min_ms_change: int = 2) -> list[SnappedCue]:
         """Moves each cue to its nearest beat in memory, as `beatgrid.get_snapped_position` decides; returns the moves.
 
         Call `save()` to write the change to the file. Raises ValueError if the track has no `Serato Markers2` entries.

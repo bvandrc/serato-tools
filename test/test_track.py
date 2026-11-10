@@ -159,7 +159,7 @@ class TestCase(unittest.TestCase):
 
     def test_snap_cues(self):
         track = Track(self.path)
-        snapped = track.snap_cues(1 / 16)
+        snapped = track.snap_cues_to_beats(1 / 16)
         # cues 3, 5, and 6 are 1 ms off their beats, which the default min_ms_change leaves alone
         self.assertEqual(
             snapped,
@@ -177,28 +177,28 @@ class TestCase(unittest.TestCase):
     def test_snap_cues_outside_tolerance_leaves_cues(self):
         track = Track(self.path)
         positions = self.cue_positions(track)
-        self.assertEqual(track.snap_cues(1 / 1000), [])
+        self.assertEqual(track.snap_cues_to_beats(1 / 1000), [])
         self.assertEqual(self.cue_positions(track), positions)
         self.assertFalse(track.has_changed)
 
     def test_snap_cues_needs_only_cues_v2_and_beatgrid(self):
         track = Track(self.path, cues_v1=False, autotags=False, gain=False)
-        self.assertTrue(track.snap_cues(1 / 16))
+        self.assertTrue(track.snap_cues_to_beats(1 / 16))
         for name in ("cues_v2", "beatgrid"):
             with self.subTest(name), self.assertRaisesRegex(ValueError, f"{name}=True"):
-                Track(self.path, **{name: False}).snap_cues(1 / 16)
+                Track(self.path, **{name: False}).snap_cues_to_beats(1 / 16)
         with self.assertRaisesRegex(ValueError, "beatgrid=True"):
-            Track(untagged_mp3(self), beatgrid=False).snap_cues(1 / 16)  # even with no cues to move
+            Track(untagged_mp3(self), beatgrid=False).snap_cues_to_beats(1 / 16)  # even with no cues to move
 
     def test_snap_cues_no_entries_raises(self):
         track = Track(untagged_mp3(self))
         with self.assertRaises(ValueError):
-            track.snap_cues(1 / 8)
+            track.snap_cues_to_beats(1 / 8)
 
     def test_min_ms_change_below_2_warns_at_the_caller(self):
         track = Track(self.path)
         with self.assertWarnsRegex(UserWarning, "min_ms_change=1") as caught:
-            track.snap_cues(1 / 8, min_ms_change=1)
+            track.snap_cues_to_beats(1 / 8, min_ms_change=1)
         self.assertEqual(caught.filename, __file__)
 
 
