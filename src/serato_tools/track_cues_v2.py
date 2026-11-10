@@ -24,6 +24,7 @@ from mutagen.mp3 import HeaderNotFoundError
 
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
+from serato_tools.utils import logger
 
 if TYPE_CHECKING:
     # only for snap_cues_to_beats' annotation: the beatgrid is passed in, never read from this tag's file
@@ -653,16 +654,22 @@ class TrackCuesV2(SeratoGeobTag):
         """Moves each cue to its nearest beat in `beatgrid` in memory, and returns the moves.
 
         Where each cue goes is decided by `beatgrid.get_snapped_position`. Pass the track's own beatgrid, as
-        `Track.snap_cues_to_beats` does. Call `save()` to write the change to the file. Raises ValueError if the tag
-        has no entries. A `min_ms_change` below 2 warns, since that moves nearly every cue Serato placed.
+        `Track.snap_cues_to_beats` does. Call `save()` to write the change to the file. A `min_ms_change` below 2
+        warns, since that moves nearly every cue Serato placed.
+
+        With no cues, or no beatgrid, it logs a warning and moves nothing: a track Serato hasn't analyzed has no
+        beatgrid, though Mixed In Key may already have added cues.
         """
-        if not self.entries:
-            raise ValueError("No entries set")
         if min_ms_change < 2:
             warnings.warn(
                 f"min_ms_change={min_ms_change} snaps cues that are 1 ms off the beat, which is most cues Serato placed",
                 skip_file_prefixes=(_PACKAGE_DIR,),
             )
+        missing = "cues" if not self.entries else "beatgrid" if not beatgrid.entries else None
+        if missing:
+            track = f": {self.tagfile.filename}" if self.tagfile else ""
+            logger.warning(f"no {missing}, so no cues snapped{track}")
+            return []
         snapped: list[TrackCuesV2.SnappedCue] = []
 
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
