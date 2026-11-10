@@ -1,8 +1,8 @@
 # Built off of https://github.com/heyitsmass/audio/blob/master/audio/beat_grid.py
 """Beat and downbeat detection on a track's audio, for `TrackBeatgrid.analyze_and_write`.
 
-Needs the `beatgrid_analysis` extra. Reading and writing a beatgrid with `TrackBeatgrid` doesn't, since it imports this
-module only when analyzing.
+Analysis is an optional bonus, and only it needs the `beatgrid_analysis` extra: reading and writing a beatgrid with
+`TrackBeatgrid` works without it.
 """
 
 import sys
