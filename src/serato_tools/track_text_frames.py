@@ -37,10 +37,8 @@ class TrackTextFrames(ID3FileTag):
         frame_class = Frames.get(frame_id)
         # only a text frame stored under its bare ID: COMM and TXXX are text frames too, but stored under a key that
         # adds their description, so get() would never find what was written
-        if frame_class is None or not issubclass(frame_class, TextFrame):
-            raise ValueError(f"not an ID3 text frame stored by its ID: {frame_id}")
-        frame = frame_class(encoding=Encoding.UTF8, text=[text])
-        if frame.HashKey != frame_id:
+        frame = frame_class(encoding=Encoding.UTF8, text=[text]) if frame_class else None
+        if not isinstance(frame, TextFrame) or frame.HashKey != frame_id:
             raise ValueError(f"not an ID3 text frame stored by its ID: {frame_id}")
         # a frame that can't hold the text drops it, as a timestamp frame (TDRC) does text that isn't a date; mutagen
         # sets a frame's attributes from its specs at runtime, so its types don't declare `text`
