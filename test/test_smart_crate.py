@@ -131,16 +131,14 @@ class CliTestCase(unittest.TestCase):
         self.path = os.path.join(temp_dir(self), "test.scrate")
         shutil.copy("test/data/TestSmartCrate.scrate", self.path)
 
-    def run_cli(self, *args: str) -> str:
-        """Runs `serato_smartcrate` on the test smart crate's copy with `args`, and returns what it wrote to stderr."""
-        stderr = io.StringIO()
+    def run_cli(self, *args: str):
+        """Runs `serato_smartcrate` on the test smart crate's copy with `args`, hiding what it prints."""
         with (
             mock.patch("sys.argv", ["serato_smartcrate", self.path, *args]),
             contextlib.redirect_stdout(io.StringIO()),
-            contextlib.redirect_stderr(stderr),
+            contextlib.redirect_stderr(io.StringIO()),
         ):
             main()
-        return stderr.getvalue()
 
     def saved_rules(self) -> dict[SmartCrate.RuleField, tuple[str, str | int | float]]:
         """Each rule in the saved crate, by field, as its comparison and value."""
@@ -163,9 +161,10 @@ class CliTestCase(unittest.TestCase):
         self.assertNotIn(SmartCrate.RuleField.YEAR, rules, "DELETE in any case")
 
     def test_deprecated_set_rules_flag_still_works(self):
-        stderr = self.run_cli("--set_rules", "--grouping", "str_is", "UNTAGGED")
+        with self.assertLogs("serato-tools", "WARNING") as logs:
+            self.run_cli("--set_rules", "--grouping", "str_is", "UNTAGGED")
         self.assertEqual(self.saved_rules()[SmartCrate.RuleField.GROUPING], ("cond_is_str", "UNTAGGED"))
-        self.assertIn("--set_rules is deprecated", stderr)
+        self.assertIn("--set_rules is deprecated", logs.output[0])
 
     def test_bad_rule_options_change_nothing(self):
         before = read_bytes(self.path)

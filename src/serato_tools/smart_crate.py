@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 
 from serato_tools.utils.crate_base import CrateBase
-from serato_tools.utils import SERATO_DIR, DataTypeError
+from serato_tools.utils import logger, SERATO_DIR, DataTypeError
 
 
 class SmartCrate(CrateBase):
@@ -296,7 +296,7 @@ def main():
     args = Args(**parsed)
 
     if args.set_rules:
-        print("--set_rules is deprecated, and no longer needed: pass the rule options directly", file=sys.stderr)
+        logger.warning("--set_rules is deprecated, and no longer needed: pass the rule options directly")
 
     # each rule's field, and its comparison and value, or None to delete it; checked before any crate is changed
     rules: list[tuple[SmartCrate.RuleField, tuple[SmartCrate.RuleComparison, str] | None]] = []
