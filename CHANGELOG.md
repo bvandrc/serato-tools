@@ -12,9 +12,11 @@ Breaking: most of what was deprecated in 5.x is removed. Use what each was depre
 - The tag classes' read-only `raw_data`: parse, modify, and serialize through each tag's own methods
 - The `SeratoTrack` and `SeratoTag` names in `serato_tools.utils.track_tags`: use `ID3FileTag` and `SeratoGeobTag`
 - `TrackCuesV2.modified`: use `has_changed`
-- The `delete_tags_v1` parameter of `TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and of `Track.set_track_color` and `set_beatgrid_locked`: pass it to `save()` instead. Passing it to an edit is now a TypeError
 
-`add_track` and `remove_track` stay, still deprecated in favor of `add_tracks` and `remove_tracks`.
+These stay, still deprecated:
+
+- `add_track` and `remove_track`, in favor of `add_tracks` and `remove_tracks`
+- Passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`), in favor of passing it to `save()`
 
 ## [5.6.1] - 2026-11-10
 
