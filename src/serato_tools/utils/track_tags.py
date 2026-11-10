@@ -2,7 +2,7 @@
 
 import struct
 import io
-from enum import StrEnum
+from enum import StrEnum, unique
 from typing import ClassVar
 
 from mutagen.mp3 import MP3
@@ -17,6 +17,7 @@ type ID3File = ID3FileType | ID3 | AIFF
 type ID3FileOrPath = str | ID3File
 
 
+@unique
 class GeobKeys(StrEnum):
     """The GEOB frame key of each Serato tag in a track file, each tag class's `GEOB_KEY`.
 
