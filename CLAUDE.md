@@ -19,7 +19,7 @@ Work in the repo's `.venv` (gitignored), with the package installed editable so 
 ```bash
 python -m venv .venv
 source .venv/Scripts/activate                                     # Git Bash on Windows; .venv/bin/activate elsewhere
-pip install -e ".[all,dev]"                                  # all optional deps + black, pylint, pyright
+pip install -e ".[all,dev]"                                  # all optional deps + black, isort, pylint, pyright
 ```
 
 ```bash
@@ -28,14 +28,15 @@ python -m unittest test.test_crate                                # one module
 python -m unittest test.test_crate.TestCase.test_add_tracks_is_saved  # one test
 pylint $(git ls-files '*.py')                                     # lint (config in .pylintrc, most C/R checks disabled)
 pyright                                                           # type check (config in pyproject.toml)
+isort .                                                           # sort imports (config in pyproject.toml)
 black .                                                           # format, line-length 120
 ```
 
-This is a Python repo with no package manager scripts, so `black .` is the "format script" the conventions require before every commit; CI enforces it with `psf/black@stable`.
+This is a Python repo with no package manager scripts, so `isort .` then `black .` is the "format script" the conventions require before every commit; CI checks both.
 
 Tests import the installed `serato_tools` (editable locally, a regular install in CI) and open fixtures by paths relative to the repo root, so `python -m unittest` only works from there.
 
-CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pylint and pyright, plus black once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15. Lint runs on every version because neither tool pins one: both check against the running interpreter, so 3.12 catches use of anything newer and later versions catch deprecations and removals. The `main` ruleset requires these checks by name, so renaming a job or matrix entry means updating the ruleset too. Tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `unittest.skipUnless` / `skipIf`, with a matching test for the other OS family.
+CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pylint and pyright, plus isort and black once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15. Lint runs on every version because neither tool pins one: both check against the running interpreter, so 3.12 catches use of anything newer and later versions catch deprecations and removals. The `main` ruleset requires these checks by name, so renaming a job or matrix entry means updating the ruleset too. Tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `unittest.skipUnless` / `skipIf`, with a matching test for the other OS family.
 
 Bump `version` in `pyproject.toml` and add a `CHANGELOG.md` entry for user-visible changes. Publishing a GitHub release then publishes that version to PyPI, through `.github/workflows/release.yml`: its tag must be `v` + the version (e.g. `v6.0.0`), or the workflow fails before building. A release published with empty notes gets the version's `CHANGELOG.md` section as its notes, and the built distributions are attached to it. PyPI's trusted publisher names that workflow file and its `pypi` environment, so renaming either means updating it on PyPI too.
 

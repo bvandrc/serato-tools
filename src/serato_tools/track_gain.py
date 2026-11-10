@@ -1,10 +1,9 @@
 """The gain Serato sets for a track, which it stores in an ID3 `RVA2:SeratoGain` frame."""
 
-from typing import Optional
 from dataclasses import dataclass
+from typing import Optional
 
 from mutagen.id3._frames import RVA2
-
 
 from serato_tools.utils.track_tags import ID3FileOrPath, ID3FileTag, del_tag
 

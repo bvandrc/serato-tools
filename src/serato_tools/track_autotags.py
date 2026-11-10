@@ -4,14 +4,13 @@
 
 import io
 import sys
-from typing import Optional
 from dataclasses import dataclass
+from typing import Optional
 
 from mutagen.mp3 import HeaderNotFoundError
 
-
 from serato_tools.utils import logger
-from serato_tools.utils.track_tags import SeratoGeobTag, GeobKeys
+from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag
 
 
 class TrackAutotags(SeratoGeobTag):

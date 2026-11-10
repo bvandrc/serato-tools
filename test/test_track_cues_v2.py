@@ -1,12 +1,12 @@
 # pylint: disable=protected-access
 import base64
 import dataclasses
-import struct
 import io
+import struct
 import unittest
-from unittest import mock
-from typing import Callable
 from contextlib import redirect_stdout
+from typing import Callable
+from unittest import mock
 
 from serato_tools.track_beatgrid import TrackBeatgrid
 from serato_tools.track_cues_v2 import TrackCuesV2, main

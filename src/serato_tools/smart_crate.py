@@ -2,10 +2,9 @@
 
 import os
 import sys
-from typing import cast
-from enum import StrEnum, IntEnum, unique
 from dataclasses import dataclass
-
+from enum import IntEnum, StrEnum, unique
+from typing import cast
 
 from serato_tools.utils import SERATO_DIR
 from serato_tools.utils.bin_file_base import DataTypeError
