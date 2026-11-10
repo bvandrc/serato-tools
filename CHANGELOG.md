@@ -2,15 +2,15 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [5.7.0] - 2026-11-10
-
-### Features
-
-- Add `remove_field(field)` to a track entry (e.g. `DatabaseV2.Track`), which removes a field and returns whether it was there. It raises ValueError for the track's path
+## [5.6.1] - 2026-11-10
 
 ### Fixes
 
 - Setting a track's field to `""`, through `modify()`, `modify_and_save()`, or a track entry's `set_value`, removes the field, as Serato does when a tag is cleared, rather than storing it empty
+
+### Features
+
+- Add `remove_field(field)` to a track entry (e.g. `DatabaseV2.Track`), which removes a field and returns whether it was there. It raises ValueError for the track's path
 
 ## [5.6.0] - 2026-11-09
 
