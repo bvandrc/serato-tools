@@ -2,14 +2,14 @@
 import base64
 import dataclasses
 import struct
+import io
 import unittest
 from unittest import mock
-import io
 from typing import Callable
 from contextlib import redirect_stdout
 
 from serato_tools.track_beatgrid import TrackBeatgrid
-from serato_tools.track_cues_v2 import TrackCuesV2
+from serato_tools.track_cues_v2 import TrackCuesV2, main
 
 from test.helpers import TEST_MP3, read_bytes, temp_mp3, untagged_mp3
 
@@ -244,28 +244,71 @@ class TestCase(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cue 9 is past Serato's 8 cue pads"):
             tags.modify_entries(lambda info: dataclasses.replace(info, cues=[cue_9]))
 
-    def test_snap_position_to_beat(self):
-        tags = TrackCuesV2(TEST_MP3)
-        buf = io.StringIO()
-        with redirect_stdout(buf):
-            tags.snap_positions_to_beat(1 / 16, 2)
-        output = buf.getvalue()
-        self.assertIn("Snapped by 42 ms", output)
+    def test_snap_cues_to_beats(self):
+        tags, beatgrid = TrackCuesV2(TEST_MP3), TrackBeatgrid(TEST_MP3)
+        snapped = tags.snap_cues_to_beats(beatgrid, 1 / 16)
+        # cues 3, 5, and 6 are 1 ms off their beats, which the default min_ms_change leaves alone
+        SnappedCue = TrackCuesV2.SnappedCue
+        self.assertEqual(
+            snapped, [SnappedCue(0, 45104, 45146), SnappedCue(1, 67474, 67472), SnappedCue(3, 134451, 134449)]
+        )
+        positions = [cue.position for cue in tags._from_entries().cues]
+        self.assertEqual(positions, [45146, 67472, 112125, 134449, 156776, 201428])
+        for position in positions:
+            beat_position = beatgrid.get_beat_position(position)
+            self.assertAlmostEqual(beat_position, round(beat_position), delta=0.01, msg="on a beat")
+        self.assertTrue(tags.has_changed)
 
-    def test_snap_ignores_1ms_by_default(self):
-        tags = TrackCuesV2(TEST_MP3)
-        beat = TrackBeatgrid(TEST_MP3).find_nearest_beat(tags._from_entries().cues[0].position, 1)
+    def test_snap_cues_to_beats_doesnt_count_a_cue_already_on_its_beat(self):
+        tags, beatgrid = TrackCuesV2(TEST_MP3), TrackBeatgrid(TEST_MP3)
+        beat = beatgrid.find_nearest_beat(45104, 1)  # the first cue's beat, 42 ms after it
         assert beat is not None
-        beat_ms = round(beat)
-        self.assertIsNone(tags.get_snapped_beat_ms(beat_ms + 1, 1 / 8))
-        self.assertIsNone(tags.get_snapped_beat_ms(beat_ms - 1, 1 / 8))
-        self.assertEqual(tags.get_snapped_beat_ms(beat_ms + 2, 1 / 8), beat_ms)
 
-    def test_snap_positions_to_beat_no_entries_raises(self):
+        def first_cue_on_beat(info: TrackCuesV2.TrackCuesInfo) -> TrackCuesV2.TrackCuesInfo:
+            return dataclasses.replace(
+                info, cues=[dataclasses.replace(info.cues[0], position=round(beat)), *info.cues[1:]]
+            )
+
+        tags.modify_entries(first_cue_on_beat)
+        with self.assertWarns(UserWarning):
+            snapped = tags.snap_cues_to_beats(beatgrid, 1 / 16, min_ms_change=0)  # 0 lets it snap to where it is
+        self.assertNotIn(0, [s.index for s in snapped])
+        self.assertTrue(all(s.new_position != s.old_position for s in snapped), "only real moves")
+
+    def test_snap_cues_to_beats_outside_tolerance_leaves_cues(self):
+        tags = TrackCuesV2(TEST_MP3)
+        positions = [cue.position for cue in tags._from_entries().cues]
+        self.assertEqual(tags.snap_cues_to_beats(TrackBeatgrid(TEST_MP3), 1 / 1000), [])
+        self.assertEqual([cue.position for cue in tags._from_entries().cues], positions)
+        self.assertFalse(tags.has_changed)
+
+    def test_snap_cues_to_beats_no_entries_raises(self):
         tags = TrackCuesV2(TEST_MP3)
         tags.entries = []
         with self.assertRaises(ValueError):
-            tags.snap_positions_to_beat(1 / 8)
+            tags.snap_cues_to_beats(TrackBeatgrid(TEST_MP3), 1 / 8)
+
+    def test_snap_cues_to_beats_warns_below_min_ms_change_2(self):
+        tags = TrackCuesV2(TEST_MP3)
+        with self.assertWarnsRegex(UserWarning, "min_ms_change=1") as caught:
+            tags.snap_cues_to_beats(TrackBeatgrid(TEST_MP3), 1 / 8, min_ms_change=1)
+        self.assertEqual(caught.filename, __file__)
+
+    def test_cli_snap_cues(self):
+        path = temp_mp3(self)
+        argv = ["serato_snap_cues_v2", path, "--snap_cues", "--snap_tolerance", "1/16"]
+        with mock.patch("sys.argv", argv), redirect_stdout(io.StringIO()) as out, self.assertRaises(SystemExit):
+            main()
+
+        self.assertEqual(
+            out.getvalue().splitlines(), ["Snapped cue 1 by 42 ms", "Snapped cue 2 by -2 ms", "Snapped cue 4 by -2 ms"]
+        )
+        saved = TrackCuesV2(path)
+        self.assertEqual(
+            [cue.position for cue in saved._from_entries().cues], [45146, 67472, 112125, 134449, 156776, 201428]
+        )
+        assert saved.tagfile is not None
+        self.assertNotIn("GEOB:Serato Markers_", saved.tagfile, "the CLI's save deletes the v1 tag, as before")
 
     def test_loop_fields(self):
         # track_cues_v2_saved_loops.bin is a tag Serato wrote with 4 loops, the second one locked

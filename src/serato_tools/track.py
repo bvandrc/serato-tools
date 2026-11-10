@@ -110,6 +110,14 @@ class Track:
         """
         self.cues_v2.set_beatgrid_locked(locked, delete_tags_v1=delete_tags_v1)
 
+    def snap_cues_to_beats(self, tolerance_beats: float, min_ms_change: int = 2) -> list[TrackCuesV2.SnappedCue]:
+        """Moves each cue to its nearest beat in memory, and returns the moves; call `save()` to write it to the file.
+
+        This is `cues_v2.snap_cues_to_beats` with the track's own beatgrid: see it for what moves. Needs `cues_v2` and
+        `beatgrid` parsed.
+        """
+        return self.cues_v2.snap_cues_to_beats(self.beatgrid, tolerance_beats, min_ms_change)
+
     def _parsed_tags(self) -> list[ID3FileTag]:
         parsed = (self._cues_v2, self._cues_v1, self._beatgrid, self._autotags, self._waveform, self._gain)
         return [tag for tag in parsed if tag is not None]
