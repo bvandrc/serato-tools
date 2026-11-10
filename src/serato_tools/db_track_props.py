@@ -24,7 +24,7 @@ class DbTrackTags(TypedDict, total=False):
     genre: str
     key: str
     grouping: str
-    label: str
+    publisher: str
     composer: str
     year: str
     remixer: str
@@ -72,7 +72,7 @@ _DB_TRACK_PROPS: dict[str, _DbTrackProp[Any]] = {
     "genre": _text_frame_prop(DatabaseV2.Fields.GENRE, "TCON"),
     "key": _text_frame_prop(DatabaseV2.Fields.KEY, "TKEY"),
     "grouping": _text_frame_prop(DatabaseV2.Fields.GROUPING, "TIT1"),
-    "label": _text_frame_prop(DatabaseV2.Fields.PUBLISHER, "TPUB"),
+    "publisher": _text_frame_prop(DatabaseV2.Fields.PUBLISHER, "TPUB"),
     "composer": _text_frame_prop(DatabaseV2.Fields.COMPOSER, "TCOM"),
     "year": _text_frame_prop(DatabaseV2.Fields.YEAR, "TDRC"),
     "remixer": _text_frame_prop(DatabaseV2.Fields.REMIXER, "TPE4"),

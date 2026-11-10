@@ -196,7 +196,7 @@ class TestCase(unittest.TestCase):
             "genre": ("A Genre", "TCON", "A Genre", DatabaseV2.Fields.GENRE, "A Genre"),
             "key": ("8A", "TKEY", "8A", DatabaseV2.Fields.KEY, "8A"),
             "grouping": ("TAGGED", "TIT1", "TAGGED", DatabaseV2.Fields.GROUPING, "TAGGED"),
-            "label": ("A Label", "TPUB", "A Label", DatabaseV2.Fields.PUBLISHER, "A Label"),
+            "publisher": ("A Publisher", "TPUB", "A Publisher", DatabaseV2.Fields.PUBLISHER, "A Publisher"),
             "composer": ("A Composer", "TCOM", "A Composer", DatabaseV2.Fields.COMPOSER, "A Composer"),
             "year": ("2020", "TDRC", "2020", DatabaseV2.Fields.YEAR, "2020"),
             "remixer": ("A Remixer", "TPE4", "A Remixer", DatabaseV2.Fields.REMIXER, "A Remixer"),
