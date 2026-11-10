@@ -15,10 +15,7 @@ from serato_tools.utils import logger
 
 
 class TrackAutotags(SeratoGeobTag):
-    """The `Serato Autotags` tag.
-
-    It holds the track's `bpm`, `autogain`, and `gaindb`, each None if the tag isn't set.
-    """
+    """The `Serato Autotags` tag: the track's `bpm`, `autogain`, and `gaindb`, each None if the tag isn't set."""
 
     GEOB_KEY = "Serato Autotags"
     VERSION = (0x01, 0x01)

@@ -12,10 +12,7 @@ from serato_tools.utils import SERATO_DIR
 
 
 class Crate(CrateBase):
-    """A Serato crate file (`.crate`).
-
-    It holds a list of track paths, along with the crate's column and sort settings.
-    """
+    """A Serato crate file (`.crate`): a list of track paths, along with the crate's column and sort settings."""
 
     TESTED_VERSIONS = frozenset({"1.0/Serato ScratchLive Crate"})
     EXTENSION = ".crate"
@@ -39,10 +36,7 @@ class Crate(CrateBase):
 
 
 def main():
-    """The `serato_crate` CLI.
-
-    It prints crates, lists their tracks, or finds tracks whose files are missing.
-    """
+    """The `serato_crate` CLI: prints crates, lists their tracks, or finds tracks whose files are missing."""
     import argparse
 
     @dataclass

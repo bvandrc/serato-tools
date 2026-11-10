@@ -404,10 +404,7 @@ def main():
 
 
 def main_analyze():
-    """The `serato_analyze_beatgrid` CLI.
-
-    It analyzes a track's audio and writes a new beatgrid to its tags.
-    """
+    """The `serato_analyze_beatgrid` CLI: analyzes a track's audio and writes a new beatgrid to its tags."""
     import argparse
 
     @dataclass
