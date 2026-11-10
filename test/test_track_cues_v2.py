@@ -284,9 +284,12 @@ class TestCase(unittest.TestCase):
         self.assertFalse(tags.has_changed)
 
     def test_snap_cues_to_beats_without_a_cues_tag_raises(self):
-        tags = TrackCuesV2(untagged_mp3(self))
-        with self.assertRaises(NoCuesError):
+        path = untagged_mp3(self)
+        tags = TrackCuesV2(path)
+        with self.assertRaises(NoCuesError) as caught:
             tags.snap_cues_to_beats(TrackBeatgrid(TEST_MP3), 1 / 8)
+        self.assertEqual(caught.exception.filename, path)
+        self.assertEqual(str(caught.exception), f"no Serato Markers2 tag: {path}")
         self.assertFalse(tags.has_changed)
 
     def test_snap_cues_to_beats_with_no_cues_in_the_tag_moves_nothing(self):
@@ -301,8 +304,9 @@ class TestCase(unittest.TestCase):
         beatgrid.delete()
         tags = TrackCuesV2(path)
         positions = [cue.position for cue in tags._from_entries().cues]
-        with self.assertRaises(NoBeatgridError):
+        with self.assertRaises(NoBeatgridError) as caught:
             tags.snap_cues_to_beats(beatgrid, 1 / 8)
+        self.assertEqual(caught.exception.filename, path)
         self.assertEqual([cue.position for cue in tags._from_entries().cues], positions)
         self.assertFalse(tags.has_changed)
 
@@ -327,6 +331,18 @@ class TestCase(unittest.TestCase):
         )
         assert saved.tagfile is not None
         self.assertNotIn("GEOB:Serato Markers_", saved.tagfile, "the CLI's save deletes the v1 tag, as before")
+
+    def test_cli_snap_cues_without_a_beatgrid_exits_with_the_error(self):
+        path = temp_mp3(self)
+        beatgrid = TrackBeatgrid(path)
+        beatgrid.delete()
+        beatgrid.save()
+        before = read_bytes(path)
+        argv = ["serato_snap_cues_v2", path, "--snap_cues", "--snap_tolerance", "1/16"]
+        with mock.patch("sys.argv", argv), self.assertRaises(SystemExit) as caught:
+            main()
+        self.assertEqual(str(caught.exception.code), f"Can't snap the cues: no Serato BeatGrid tag: {path}")
+        self.assertEqual(read_bytes(path), before, "unchanged")
 
     def test_loop_fields(self):
         # track_cues_v2_saved_loops.bin is a tag Serato wrote with 4 loops, the second one locked

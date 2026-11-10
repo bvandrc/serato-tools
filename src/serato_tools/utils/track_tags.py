@@ -118,6 +118,11 @@ class SeratoGeobTag(ID3FileTag):
     def __repr__(self) -> str:
         return str(self._raw_data)
 
+    @property
+    def filename(self) -> str | None:
+        """The track file's path, or None for a tag read from bytes."""
+        return self.tagfile.filename if self.tagfile else None
+
     def _require_tagfile(self) -> ID3File:
         """The tag's open file; raises if it was read from bytes."""
         if not self.tagfile:

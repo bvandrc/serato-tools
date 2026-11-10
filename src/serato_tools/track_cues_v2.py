@@ -24,7 +24,7 @@ from mutagen.mp3 import HeaderNotFoundError
 
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
-from serato_tools.utils import NoBeatgridError, NoCuesError
+from serato_tools.utils import MissingTagError, NoBeatgridError, NoCuesError
 
 if TYPE_CHECKING:
     # only for snap_cues_to_beats' annotation: the beatgrid is passed in, never read from this tag's file
@@ -661,11 +661,10 @@ class TrackCuesV2(SeratoGeobTag):
         such as one Serato hasn't analyzed, which Mixed In Key may already have added cues to. A tag with no cues in it
         moves nothing.
         """
-        track = f": {self.tagfile.filename}" if self.tagfile else ""
         if not self.entries:
-            raise NoCuesError(f"no Serato Markers2 tag, so no cues to snap{track}")
+            raise NoCuesError(self.filename)
         if not beatgrid.entries:
-            raise NoBeatgridError(f"no beatgrid to snap the cues to{track}")
+            raise NoBeatgridError(beatgrid.filename)
         if min_ms_change < 2:
             warnings.warn(
                 f"min_ms_change={min_ms_change} snaps cues that are 1 ms off the beat, which is most cues Serato placed",
@@ -774,7 +773,11 @@ def main():
         # imported here, so that the tag's module needs the beatgrid's only for this option
         from serato_tools.track_beatgrid import TrackBeatgrid
 
-        for snapped in tags.snap_cues_to_beats(TrackBeatgrid(tags.tagfile), tolerance_beats):
+        try:
+            snapped_cues = tags.snap_cues_to_beats(TrackBeatgrid(tags.tagfile), tolerance_beats)
+        except MissingTagError as error:
+            sys.exit(f"Can't snap the cues: {error}")
+        for snapped in snapped_cues:
             print(f"Snapped cue {snapped.index + 1} by {snapped.new_position - snapped.old_position} ms")
         tags.save(delete_tags_v1=True)
         sys.exit()

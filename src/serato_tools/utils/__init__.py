@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 logger = logging.getLogger("serato-tools")
 
@@ -20,12 +20,36 @@ class DataTypeError(Exception):
         )
 
 
-class NoCuesError(ValueError):
+class MissingTagError(ValueError):
+    """A track file without the Serato tag that was needed, such as one Serato hasn't analyzed yet.
+
+    Catch a subclass to handle one tag's absence, without also catching other ValueErrors, such as a corrupt tag.
+    """
+
+    TAG_NAME: ClassVar[str]
+
+    def __init__(self, filename: str | None = None):
+        """`filename` is the track's, or None for a tag read from bytes."""
+        self.filename = filename
+        super().__init__(f"no {self.TAG_NAME} tag" + (f": {filename}" if filename else ""))
+
+
+class NoCuesError(MissingTagError):
     """A track without a `Serato Markers2` tag, so no cues, such as one that hasn't been analyzed or given any."""
 
+    TAG_NAME = "Serato Markers2"
 
-class NoBeatgridError(ValueError):
+
+class NoBeatgridError(MissingTagError):
     """A track without a `Serato BeatGrid` tag, such as one Serato hasn't analyzed yet."""
+
+    TAG_NAME = "Serato BeatGrid"
+
+
+class NoWaveformError(MissingTagError):
+    """A track without a `Serato Overview` tag, the waveform, such as one Serato hasn't analyzed yet."""
+
+    TAG_NAME = "Serato Overview"
 
 
 class DeeplyNestedListError(Exception):

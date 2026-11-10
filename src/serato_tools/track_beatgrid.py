@@ -9,6 +9,7 @@ numpy).
 import collections
 import io
 import struct
+import sys
 from typing import cast, overload, TypeVar, Unpack
 from dataclasses import dataclass
 
@@ -18,7 +19,7 @@ from mutagen.id3 import ID3
 
 
 from serato_tools.utils.track_tags import SeratoGeobTag
-from serato_tools.utils import logger
+from serato_tools.utils import NoBeatgridError, logger
 
 _T = TypeVar("_T")
 
@@ -120,13 +121,14 @@ class TrackBeatgrid(SeratoGeobTag):
     def _check_and_split(self, entries: "_EntryList[_T] | None" = None):
         """Splits `entries`, or `self.entries`, into the non-terminal markers, the terminal marker, and the footer.
 
-        Raises if there are none, or they aren't in that order with one terminal marker and one footer.
+        Raises NoBeatgridError if there are none, and ValueError if they aren't in that order with one terminal marker
+        and one footer.
         """
         if entries is None:
             entries = cast("TrackBeatgrid._EntryList[_T]", self.entries)
 
         if not entries:
-            raise ValueError("no entries set")
+            raise NoBeatgridError(self.filename)
 
         nonterminal_markers: list[_T] = []
         terminal_markers: list[TrackBeatgrid.TerminalBeatgridMarker] = []
@@ -308,7 +310,10 @@ class TrackBeatgrid(SeratoGeobTag):
         """The position in ms of the beat nearest `position_ms`, or None if it's on a beat or none is within tolerance.
 
         `tolerance_beats` is a fraction of a beat. Needs the tag read from an audio file, for the track's length.
+        Raises NoBeatgridError for a track without a beatgrid.
         """
+        if not self.entries:
+            raise NoBeatgridError(self.filename)
         position_s = position_ms / 1000.0
 
         nearest_beat: TrackBeatgrid.BeatPoint | None = None
@@ -337,7 +342,8 @@ class TrackBeatgrid(SeratoGeobTag):
 
         It shouldn't move when no beat is within `tolerance_beats` (a fraction of a beat), or the nearest one is less
         than `min_ms_change` away. The default of 2 leaves 1 ms differences alone: Serato stores cues in whole ms, often
-        1 ms off the rounded beat. Needs the tag read from an audio file, for the track's length.
+        1 ms off the rounded beat. Needs the tag read from an audio file, for the track's length. Raises
+        NoBeatgridError for a track without a beatgrid.
         """
         snapped_ms = self.find_nearest_beat(position_ms, tolerance_beats)
         if snapped_ms is None:  # NOTE: don't do `if not`, 0.0 is valid
@@ -411,7 +417,7 @@ def main():
         tags.analyze_and_write()
     else:
         if not tags.entries:
-            raise ValueError("no entries")
+            sys.exit(str(NoBeatgridError(tags.filename)))
         for entry in tags.entries:
             print(entry)
 
