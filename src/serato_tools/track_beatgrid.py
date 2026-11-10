@@ -154,10 +154,7 @@ class TrackBeatgrid(SeratoGeobTag):
         nonterminal_markers: "list[TrackBeatgrid.NonTerminalBeatgridMarker]",
         terminal_marker: "TrackBeatgrid.TerminalBeatgridMarker",
     ):
-        """Raises ValueError for a grid this class may misread.
-
-        Such a grid has markers out of order, a 0-beat segment, or no BPM.
-        """
+        """Raises ValueError for a grid with markers out of order, a 0-beat segment, or no BPM."""
         # Every grid Serato DJ Pro 2 was seen writing passes these checks, so one that doesn't is a grid this class may
         # misread, or one Serato can't use. A negative position isn't rejected, since a grid whose first beat comes
         # before the track starts seems possible.
