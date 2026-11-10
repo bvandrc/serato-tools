@@ -1,4 +1,5 @@
 # Built off of https://github.com/heyitsmass/audio/blob/master/audio/beat_grid.py
+"""Beat and downbeat detection on a track's audio, for writing a beatgrid. Needs the `beatgrid_analysis` extra."""
 
 import sys
 from dataclasses import asdict, dataclass
@@ -10,6 +11,8 @@ import numpy as np
 
 @dataclass
 class BeatGridInfo:
+    """What `analyze_beatgrid` found in a track: its tempo, and its beats and downbeats as times in seconds."""
+
     bpm: float
     beat_positions: List[float]
     confidence: float
@@ -19,6 +22,11 @@ class BeatGridInfo:
 
 
 def analyze_beatgrid(file: str, bpm_helper: Optional[int | float] = None):
+    """Decodes the audio file at `file` and finds its beats and downbeats.
+
+    `bpm_helper`, such as the BPM already in the track's tags, is the tempo the beat tracker starts from. Decoding and
+    analyzing the whole track takes seconds.
+    """
     audio_data, sample_rate = librosa.load(
         file,
         sr=None,  # sample_rate = default

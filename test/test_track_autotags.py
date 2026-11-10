@@ -1,3 +1,5 @@
+"""Tests of TrackAutotags: byte-exact parsing and serialization of the Serato Autotags tag."""
+
 # pylint: disable=protected-access
 import unittest
 

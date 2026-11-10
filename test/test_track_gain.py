@@ -1,3 +1,5 @@
+"""Tests of TrackGain: reading, setting, and deleting the RVA2:SeratoGain frame."""
+
 import unittest
 from unittest import mock
 

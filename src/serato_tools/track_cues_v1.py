@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""The legacy `Serato Markers_` tag: a track's first 5 cues, 9 loops, and color, which `Serato Markers2` also holds."""
+
 import enum
 import io
 import struct
@@ -13,11 +15,18 @@ from serato_tools.utils.track_tags import SeratoGeobTag
 
 
 class TrackCuesV1(SeratoGeobTag):
+    """The legacy `Serato Markers_` tag: slots for the first 5 cues and 9 loops, then the track color.
+
+    Current Serato reads `Serato Markers2` (`TrackCuesV2`), but a stale copy of this tag can shadow changes to it.
+    """
+
     GEOB_KEY = "Serato Markers_"
     VERSION = (0x02, 0x05)
 
     @enum.unique
     class EntryType(enum.IntEnum):
+        """What a slot holds: a cue, a loop, or nothing (`INVALID`)."""
+
         INVALID = 0
         CUE = 1
         LOOP = 3
@@ -31,6 +40,8 @@ class TrackCuesV1(SeratoGeobTag):
             self.entries = list(self._parse(self._raw_data))
 
     class Entry(object):
+        """A cue or loop slot, with positions in milliseconds, or None where unset, and its color as RGB bytes."""
+
         FORMAT = ">B4sB4s6s4sBB"
         FIELDS = (
             "start_position_set",
@@ -135,6 +146,8 @@ class TrackCuesV1(SeratoGeobTag):
             return struct.pack(self.FORMAT, *entry_data)
 
     class Color(Entry):
+        """The track color, as RGB bytes, which ends the tag."""
+
         FORMAT = ">4s"
         FIELDS = ("color",)
 
@@ -155,6 +168,10 @@ class TrackCuesV1(SeratoGeobTag):
         yield TrackCuesV1.Color._parse(fp.read())
 
     def delete(self):
+        """Removes the tag from the file in memory, and its entries; returns whether the file had it.
+
+        `save()` writes the deletion to the file.
+        """
         was_deleted = super().delete()
         self.entries = []
         return was_deleted

@@ -1,3 +1,5 @@
+"""Tests of TrackCuesV1: byte-exact parsing and serialization of the legacy Serato Markers_ tag."""
+
 # pylint: disable=protected-access
 import unittest
 

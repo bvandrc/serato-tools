@@ -1,3 +1,5 @@
+"""Tests of Crate: parsing, editing, and byte-exact serialization of a crate file."""
+
 import unittest
 import copy
 import os

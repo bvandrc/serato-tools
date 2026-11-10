@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Dumps every Serato tag in an audio file, of any container mutagen reads, for inspecting or capturing raw tag data."""
 
 import base64
 import os
@@ -18,6 +19,11 @@ from serato_tools.utils import logger
 
 
 def get_serato_tagdata(tagfile: mutagen._file.FileType, decode: bool = False):
+    """Each of the file's Serato tags, as its name and its data.
+
+    Reads ID3 (MP3, AIFF), FLAC, MP4, and Ogg Vorbis files. FLAC and MP4 files store each tag base64-encoded, which
+    `decode` decodes; otherwise, and for Ogg Vorbis, the data is given as stored.
+    """
     if not tagfile:
         raise Exception("tagfile is None")
     if not tagfile.tags:

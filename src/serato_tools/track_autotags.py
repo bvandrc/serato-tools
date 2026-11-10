@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""The `Serato Autotags` tag: the BPM and gain values Serato's analysis found for a track."""
+
 import io
 import sys
 from typing import Optional
@@ -13,6 +15,8 @@ from serato_tools.utils import logger
 
 
 class TrackAutotags(SeratoGeobTag):
+    """The `Serato Autotags` tag: the track's `bpm`, `autogain`, and `gaindb`, each None if the tag isn't set."""
+
     GEOB_KEY = "Serato Autotags"
     VERSION = (0x01, 0x01)
 
@@ -65,6 +69,10 @@ class TrackAutotags(SeratoGeobTag):
         autogain: Optional[float] = None,
         gaindb: Optional[float] = None,
     ):
+        """Sets the values given, leaving the rest, in memory; call `save()` to write them to the file.
+
+        Raises ValueError if that leaves any unset, which happens when the file had no `Serato Autotags` tag.
+        """
         if bpm is not None:
             self.bpm = bpm
         if autogain is not None:

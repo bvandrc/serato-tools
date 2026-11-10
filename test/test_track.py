@@ -1,3 +1,5 @@
+"""Tests of Track: reading each tag from one open file, and saving every change in one write."""
+
 import dataclasses
 import unittest
 from unittest import mock

@@ -1,3 +1,5 @@
+"""Tests of TrackBeatgrid: byte-exact parsing and serialization of the Serato BeatGrid tag, and its checks."""
+
 # pylint: disable=protected-access
 import unittest
 import struct

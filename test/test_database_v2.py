@@ -1,3 +1,5 @@
+"""Tests of DatabaseV2: parsing, editing, and byte-exact serialization of the library database."""
+
 # pylint: disable=protected-access
 import unittest
 import copy

@@ -1,3 +1,5 @@
+"""Tests of the tag base classes' shared behaviour, driven through each tag class, and of the tag dump."""
+
 # pylint: disable=protected-access
 import unittest
 

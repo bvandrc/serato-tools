@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""A Serato library folder as a whole, for changes that have to reach its database and every crate together."""
+
 import os
 from functools import cached_property
 from typing import TYPE_CHECKING, Mapping, Unpack
@@ -53,10 +55,12 @@ class Library:
 
     @cached_property
     def crates(self) -> list[Crate]:
+        """The library's crates, from its `Subcrates` folder."""
         return [Crate(path) for path in self._get_crate_files(Crate)]
 
     @cached_property
     def smart_crates(self) -> list[SmartCrate]:
+        """The library's smart crates, from its `SmartCrates` folder."""
         return [SmartCrate(path) for path in self._get_crate_files(SmartCrate)]
 
     def _get_crate_files(self, crate_class: type[CrateBase]) -> list[str]:
@@ -65,6 +69,7 @@ class Library:
         return crate_class.get_crate_files(crates_dir) if os.path.isdir(crates_dir) else []
 
     def _get_bin_files(self) -> list[SeratoBinFile]:
+        """Every file in the library that holds track paths: the database, crates, and smart crates."""
         # smart crates store their matched tracks' paths too, and Serato re-adds any of those that are missing from
         # the database as blank "?" entries
         return [self.database, *self.crates, *self.smart_crates]

@@ -1,3 +1,5 @@
+"""The base classes for Serato's tags in a track file, and functions that read and write its ID3 frames."""
+
 import struct
 import io
 import warnings
@@ -70,6 +72,7 @@ class ID3FileTag:
     """A value stored in an ID3 file's tags, read from and written to `tagfile`, which tags can share."""
 
     def __init__(self, file: ID3FileOrPath):
+        """Opens the track file at `file`, or uses `file` if it's an already open mutagen file."""
         self.tagfile: ID3File = open_tagfile(file)
 
     @property
@@ -98,6 +101,10 @@ class SeratoGeobTag(ID3FileTag):
     type FileOrData = ID3FileOrPath | bytes
 
     def __init__(self, file_or_data: FileOrData):
+        """Reads the tag from a track file, as a path or an open mutagen file, or from the tag's own bytes.
+
+        Read from bytes, the tag has no file, so `save()` raises. A file without the tag leaves its data None.
+        """
         self.tagfile: ID3File | None = None  # pyright: ignore[reportIncompatibleVariableOverride]
         self._raw_data: bytes | None = None
 
@@ -123,6 +130,7 @@ class SeratoGeobTag(ID3FileTag):
         return self._raw_data
 
     def _require_tagfile(self) -> ID3File:
+        """The tag's open file; raises if it was read from bytes."""
         if not self.tagfile:
             raise Exception("no tagfile, no saving")
         return self.tagfile
@@ -139,6 +147,7 @@ class SeratoGeobTag(ID3FileTag):
         return del_geob(self._require_tagfile(), self.GEOB_KEY)
 
     def _check_version(self, given: bytes):
+        """Raises ValueError unless `given`, the tag's packed version bytes, is this class's `VERSION`."""
         given_version: SeratoGeobTag.Version = struct.unpack(SeratoGeobTag.VERSION_FORMAT, given)
         if given_version != self.VERSION:
             raise ValueError(f"""
@@ -162,15 +171,21 @@ class SeratoGeobTag(ID3FileTag):
 
     @staticmethod
     def _readbytes(fp: io.BytesIO):
+        """Reads past the next null byte, or to the end, and returns what came before it: a null-terminated string."""
         return b"".join(SeratoGeobTag._readbytes_gen(fp))
 
     def delete(self):
+        """Removes the tag's frame from the file in memory, and its data; returns whether the file had the frame.
+
+        `save()` writes the deletion to the file.
+        """
         was_deleted = self._del_geob() if self.tagfile else False
         # clear _raw_data so a later save() persists the deletion instead of re-tagging the old bytes
         self._raw_data = None
         return was_deleted
 
     def _put_in_tagfile(self):
+        """Sets the tag's frame in `tagfile` to its data, or deletes the frame if it has none, without saving."""
         if self._raw_data:
             self._set_geob()
         else:
@@ -194,6 +209,7 @@ class SeratoGeobTag(ID3FileTag):
         return True
 
     def save(self):
+        """Writes the tag to the file, whether or not it changed; raises if it was read from bytes."""
         if not self.tagfile:
             raise Exception("no tagfile, no saving")
         self._put_in_tagfile()
@@ -205,6 +221,7 @@ _DEPRECATED_NAMES = {"SeratoTrack": ID3FileTag, "SeratoTag": SeratoGeobTag}
 
 
 def __getattr__(name: str):
+    """The deprecated class names, with a DeprecationWarning."""
     if name in _DEPRECATED_NAMES:
         new = _DEPRECATED_NAMES[name]
         warnings.warn(

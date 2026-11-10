@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""The `Serato Overview` tag: the waveform overview Serato shows for a track, which it can draw as an image."""
+
 import io
 from dataclasses import dataclass
 
@@ -11,6 +13,11 @@ from serato_tools.utils import logger
 
 
 class TrackWaveform(SeratoGeobTag):
+    """The `Serato Overview` tag: the track's waveform overview, as `data`, 240 rows of 16 bytes.
+
+    Raises ValueError when read from a file Serato hasn't built the overview for yet.
+    """
+
     GEOB_KEY = "Serato Overview"
     VERSION = (0x01, 0x05)
 
@@ -41,6 +48,7 @@ class TrackWaveform(SeratoGeobTag):
         return rows
 
     def draw_image(self):
+        """The waveform overview as a 240 x 16 pixel PIL image. Needs the `waveform_drawing` extra."""
         try:
             from PIL import Image, ImageColor
         except:
