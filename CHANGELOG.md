@@ -23,6 +23,7 @@ These stay, still deprecated:
 - `serato_smartcrate` CLI now takes each rule field as its own option, e.g. `serato_smartcrate Dubstep.scrate --grouping str_is UNTAGGED --year DELETE`
   - `--help` lists the fields and comparisons
   - A bad field, comparison, value, or number of arguments is rejected before any crate is changed
+  - Breaking: `--set_rules` is removed. Pass the rule options directly, without it
 
 ## [5.6.1] - 2026-11-10
 

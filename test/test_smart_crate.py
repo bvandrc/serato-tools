@@ -171,12 +171,6 @@ class CliTestCase(unittest.TestCase):
         self.assertIn("SmartCrate Rule", self.run_cli())
         self.assertEqual(read_bytes(self.path), before)
 
-    def test_deprecated_set_rules_flag_still_works(self):
-        with self.assertLogs("serato-tools", "WARNING") as logs:
-            self.run_cli("--set_rules", "--grouping", "str_is", "UNTAGGED")
-        self.assertEqual(self.saved_rules()[SmartCrate.RuleField.GROUPING], ("cond_is_str", "UNTAGGED"))
-        self.assertIn("--set_rules is deprecated", logs.output[0])
-
     def test_bad_rule_options_change_nothing(self):
         before = read_bytes(self.path)
         for args in (

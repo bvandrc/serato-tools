@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 
 from serato_tools.utils.crate_base import CrateBase
-from serato_tools.utils import logger, SERATO_DIR, DataTypeError
+from serato_tools.utils import SERATO_DIR, DataTypeError
 
 
 class SmartCrate(CrateBase):
@@ -261,7 +261,6 @@ def main():
         all: bool
         list_tracks: bool
         filenames_only: bool
-        set_rules: bool
         # each rule option given, in the order given: its field, and the arguments after it
         rule_args: list[tuple[SmartCrate.RuleField, list[str]]]
 
@@ -279,9 +278,6 @@ def main():
     parser.add_argument("--all", action="store_true", help="Perform actions on all crates.")
     parser.add_argument("-l", "--list_tracks", action="store_true", help="Only list tracks")
     parser.add_argument("-f", "--filenames_only", action="store_true", help="Only list track filenames")
-    parser.add_argument(
-        "--set_rules", action="store_true", help="Deprecated, and no longer needed: pass the rule options directly"
-    )
     rule_options = parser.add_argument_group(
         "rules",
         "Set a rule on every crate given with --FIELD COMPARISON VALUE, such as --grouping str_is UNTAGGED, or delete "
@@ -300,13 +296,10 @@ def main():
             help=f"COMPARISON VALUE for the {field.name.lower()} rule, or DELETE",
         )
     parser.set_defaults(rule_args=[])
-    # argparse matches options by case, so lowercase a rule field option given in another case (--GROUPING), as the
-    # --set_rules parser accepted it; only exact field names are touched, so a value is never changed
+    # argparse matches options by case, so lowercase a rule field option given in another case (--GROUPING); only
+    # exact field names are touched, so a value is never changed
     option_by_upper = {option.upper(): option for option in option_by_field.values()}
     args = Args(**vars(parser.parse_args([option_by_upper.get(arg.upper(), arg) for arg in sys.argv[1:]])))
-
-    if args.set_rules:
-        logger.warning("--set_rules is deprecated, and no longer needed: pass the rule options directly")
 
     # each rule's field, and its comparison and value, or None to delete it; checked before any crate is changed
     rules: list[tuple[SmartCrate.RuleField, tuple[SmartCrate.RuleComparison, str] | None]] = []
