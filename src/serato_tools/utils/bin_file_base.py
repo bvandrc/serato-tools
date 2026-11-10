@@ -3,19 +3,19 @@
 A file is a list of entries, each a named, typed value, which may itself be a nested list of entries.
 """
 
-import os
-import io
-import re
-import struct
 import base64
 import copy
 import hashlib
+import io
+import json
+import os
+import re
+import struct
 import warnings
 from enum import StrEnum, unique
-import json
-from typing import Any, Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
+from typing import Any, Callable, Generator, Iterable, NotRequired, Optional, Pattern, TypedDict, cast
 
-from serato_tools.utils import logger, SERATO_DRIVE
+from serato_tools.utils import SERATO_DRIVE, logger
 
 
 class DataTypeError(Exception):

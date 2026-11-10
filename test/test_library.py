@@ -1,16 +1,15 @@
-import unittest
-from unittest import mock
 import os
 import shutil
 import subprocess
 import sys
+import unittest
 import warnings
-
-from serato_tools.library import Library
+from unittest import mock
 
 # library.py imports the installed package's classes, so build fixtures and patch with those
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
+from serato_tools.library import Library
 from serato_tools.smart_crate import SmartCrate
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2

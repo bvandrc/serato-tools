@@ -1,10 +1,10 @@
 # pylint: disable=protected-access
-import unittest
 import copy
-from unittest import mock
-import os
 import json
+import os
 import shutil
+import unittest
+from unittest import mock
 
 from serato_tools.database_v2 import DatabaseV2
 

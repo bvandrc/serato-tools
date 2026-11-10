@@ -8,28 +8,26 @@ Also the `serato_snap_cues_v2` CLI, which sets the color, snaps cues to the beat
 import ast
 import base64
 import configparser
+import dataclasses
 import io
 import os
 import struct
 import sys
 import warnings
-from typing import TYPE_CHECKING, Callable, ClassVar, Sequence
-from enum import Enum, unique
-import dataclasses
 from dataclasses import dataclass, field
-
+from enum import Enum, unique
+from typing import TYPE_CHECKING, Callable, ClassVar, Sequence
 
 from mutagen.mp3 import HeaderNotFoundError
 
-
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils.track_tags import (
-    SeratoGeobTag,
-    del_geob,
     GeobKeys,
     MissingTagError,
     NoBeatgridError,
     NoCuesError,
+    SeratoGeobTag,
+    del_geob,
 )
 
 if TYPE_CHECKING:
