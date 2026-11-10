@@ -87,13 +87,13 @@ class Track:
         """
         return self.cues_v2.get_track_color()
 
-    def set_track_color(self, color: TrackCuesV2.TrackColors, delete_tags_v1: bool | None = None):
+    def set_track_color(self, color: TrackCuesV2.TrackColors):
         """Sets the track's color in memory; call `save()` to write it to the file.
 
         Serato stores the color in `Serato Markers2`, so this is `cues_v2.set_track_color`: see it for a track whose
-        tags have no color yet, and for the deprecated `delete_tags_v1`.
+        tags have no color yet.
         """
-        self.cues_v2.set_track_color(color, delete_tags_v1=delete_tags_v1)
+        self.cues_v2.set_track_color(color)
 
     def is_beatgrid_locked(self) -> bool:
         """Whether the track's beatgrid is locked.
@@ -102,13 +102,13 @@ class Track:
         """
         return self.cues_v2.is_beatgrid_locked()
 
-    def set_beatgrid_locked(self, locked: bool, delete_tags_v1: bool | None = None):
+    def set_beatgrid_locked(self, locked: bool):
         """Locks or unlocks the track's beatgrid in memory; call `save()` to write it to the file.
 
         Serato stores the lock in `Serato Markers2`, so this is `cues_v2.set_beatgrid_locked`: see it for a track
-        whose tags have no lock yet, and for the deprecated `delete_tags_v1`.
+        whose tags have no lock yet.
         """
-        self.cues_v2.set_beatgrid_locked(locked, delete_tags_v1=delete_tags_v1)
+        self.cues_v2.set_beatgrid_locked(locked)
 
     def _parsed_tags(self) -> list[ID3FileTag]:
         parsed = (self._cues_v2, self._cues_v1, self._beatgrid, self._autotags, self._waveform, self._gain)

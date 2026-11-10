@@ -96,24 +96,6 @@ class TestCase(unittest.TestCase):
     def test_forced_save_deletes_tags_v1(self):
         self.assertFalse(self.has_tags_v1_after(lambda tags: tags.save(force=True)))
 
-    def test_delete_tags_v1_on_an_edit_is_deprecated(self):
-        def edit(tags: TrackCuesV2):
-            with self.assertWarns(DeprecationWarning) as caught:
-                tags.set_track_color(TrackCuesV2.TrackColors.RED, delete_tags_v1=False)
-            self.assertEqual(caught.filename, __file__, "points at the caller")
-            tags.save()
-
-        self.assertTrue(self.has_tags_v1_after(edit), "False still keeps the v1 tag")
-
-    def test_deprecated_delete_tags_v1_false_loses_to_another_edit(self):
-        def edit(tags: TrackCuesV2):
-            tags.set_beatgrid_locked(True)
-            with self.assertWarns(DeprecationWarning):
-                tags.set_track_color(TrackCuesV2.TrackColors.RED, delete_tags_v1=False)
-            tags.save()
-
-        self.assertFalse(self.has_tags_v1_after(edit), "deleted, as when the earlier edit asked to delete it")
-
     def test_a_callback_may_edit_in_place(self):
         tags = TrackCuesV2(TEST_MP3)
         position = tags._from_entries().cues[0].position
@@ -159,14 +141,6 @@ class TestCase(unittest.TestCase):
             write.assert_not_called()
             tags.save(force=True)
             write.assert_called_once()
-
-    def test_modified_is_deprecated(self):
-        tags = TrackCuesV2(TEST_MP3)
-        with self.assertWarns(DeprecationWarning):
-            self.assertFalse(tags.modified, "as read")
-        tags.set_track_color(TrackCuesV2.TrackColors.RED)
-        with self.assertWarns(DeprecationWarning):
-            self.assertTrue(tags.modified, "returns has_changed")
 
     def test_set_beatgrid_locked(self):
         tags = TrackCuesV2(TEST_MP3)

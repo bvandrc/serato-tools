@@ -3,7 +3,6 @@
 """What crates and smart crates share: their file extension and folder, track paths, and how they print."""
 
 import os
-import warnings
 from typing import Optional, Iterable
 
 
@@ -56,11 +55,6 @@ class CrateBase(SeratoBinFile):
             raise ValueError(f"file should end with {self.EXTENSION}: " + file)
 
         super().save(file)
-
-    def add_track(self, filepath: str):
-        """Deprecated, to be removed in the next major version: use add_tracks(), which this calls."""
-        warnings.warn("add_track is deprecated, use add_tracks instead", DeprecationWarning, stacklevel=2)
-        self.add_tracks([filepath])
 
     def add_tracks(self, filepaths: Iterable[str]):
         """Adds the tracks not already in the crate. Filepaths must include the containing dir."""
