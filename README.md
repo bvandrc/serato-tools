@@ -45,7 +45,7 @@
 
 **Library:**
 - Rename or delete a track file while updating the database, crates, and smart crates as well, so that it doesn't go missing.
-- Set a track's color or beatgrid lock in its tags and the database at once, so Serato shows it right away.
+- Set a track's color, beatgrid lock, or metadata (title, artist, grouping, ...) in its tags and the database at once, so Serato shows it right away.
 
 **Database:**
 - After changing a track's metadata, modify database values for a specific track so that you don't have to "Reload Id3 Tags" in Serato, the change appears in Serato instantly.
@@ -205,6 +205,12 @@ library.set_db_tracks_tags({
     '/Users/Username/Music/Dubstep/Raaket - ILL.mp3': {'color': TrackCuesV2.TrackColors.PURPLE},
     '/Users/Username/Music/Dubstep/Other.mp3': {'color': TrackCuesV2.TrackColors.BLUE1, 'beatgrid_locked': False},
 })
+```
+
+The same goes for a track's metadata, which Serato keeps both in the file's ID3 text frames and in the database: `title`, `artist`, `album`, `genre`, `key`, `grouping`, `label`, `composer`, `year`, `remixer`, `bpm`, `track_number`, and `disc_number`.
+
+```python
+library.set_db_track_tags('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', grouping='TAGGED', genre='Dubstep')
 ```
 
 Only ID3 files (.mp3, .aiff, .aif) are currently supported. A track Serato hasn't analyzed yet gets the color or lock added to its tags, as Serato writes them.

@@ -14,6 +14,7 @@ from serato_tools.database_v2 import DatabaseV2
 from serato_tools.smart_crate import SmartCrate
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
+from serato_tools.track_text_frames import TrackTextFrames
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
 from test.helpers import temp_dir, temp_mp3, untagged_mp3
@@ -184,6 +185,35 @@ class TestCase(unittest.TestCase):
         self.assertNotIn(other_relpath, locks, "other track's lock left alone")
         self.assertEqual(TrackCuesV2(other).get_track_color(), b"\xbb\xbb\xbb", "other track's file left alone")
 
+    def test_set_db_track_tags_text_frames(self):
+        track = self.copy_analyzed_track("Text.mp3")
+        self.add_to_database(track)
+        # key: (value, ID3 frame, the frame's text, database field, its value)
+        cases = {
+            "title": ("A Title", "TIT2", "A Title", DatabaseV2.Fields.TITLE, "A Title"),
+            "artist": ("An Artist", "TPE1", "An Artist", DatabaseV2.Fields.ARTIST, "An Artist"),
+            "album": ("An Album", "TALB", "An Album", DatabaseV2.Fields.ALBUM, "An Album"),
+            "genre": ("A Genre", "TCON", "A Genre", DatabaseV2.Fields.GENRE, "A Genre"),
+            "key": ("8A", "TKEY", "8A", DatabaseV2.Fields.KEY, "8A"),
+            "grouping": ("TAGGED", "TIT1", "TAGGED", DatabaseV2.Fields.GROUPING, "TAGGED"),
+            "label": ("A Label", "TPUB", "A Label", DatabaseV2.Fields.PUBLISHER, "A Label"),
+            "composer": ("A Composer", "TCOM", "A Composer", DatabaseV2.Fields.COMPOSER, "A Composer"),
+            "year": ("2020", "TDRC", "2020", DatabaseV2.Fields.YEAR, "2020"),
+            "remixer": ("A Remixer", "TPE4", "A Remixer", DatabaseV2.Fields.REMIXER, "A Remixer"),
+            "bpm": (128.5, "TBPM", "128.5", DatabaseV2.Fields.BPM, "128.50"),
+            "track_number": (3, "TRCK", "3", DatabaseV2.Fields.TRACK_NUMBER, 3),
+            "disc_number": (2, "TPOS", "2", DatabaseV2.Fields.DISC_NUMBER, 2),
+        }
+
+        Library(self.serato_dir).set_db_tracks_tags({track: {key: case[0] for key, case in cases.items()}})  # type: ignore
+
+        frames = TrackTextFrames(track)
+        relpath = DatabaseV2.get_relative_path(track)
+        for key, (_, frame_id, frame_text, field, db_value) in cases.items():
+            with self.subTest(key):
+                self.assertEqual(frames.get(frame_id), frame_text, "file")
+                self.assertEqual(self.db_values(field)[relpath], db_value, "database")
+
     def test_set_db_tracks_tags_sets_each_its_own_values(self):
         red, blue = self.copy_analyzed_track("Red.mp3"), self.copy_analyzed_track("Blue.mp3")
         self.add_to_database(red, blue)
@@ -244,7 +274,7 @@ class TestCase(unittest.TestCase):
         saved = self.saved_file_names()
         with self.assertRaises(ValueError):
             Library(self.serato_dir).set_db_tracks_tags(
-                {track: {"color": TrackCuesV2.TrackColors.RED, "title": "x"}}  # type: ignore[typeddict-unknown-key]
+                {track: {"color": TrackCuesV2.TrackColors.RED, "rating": 5}}  # type: ignore[typeddict-unknown-key]
             )
         self.assertEqual(saved, [], "database not saved")
         self.assertEqual(TrackCuesV2(track).get_track_color(), b"\xbb\xbb\xbb", "file not changed")
