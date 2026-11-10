@@ -3,7 +3,7 @@
 import os
 import sys
 from typing import cast
-from enum import Enum, StrEnum, IntEnum, unique
+from enum import StrEnum, IntEnum, unique
 from dataclasses import dataclass
 
 
@@ -255,35 +255,71 @@ def main():
     """
     import argparse
 
-    from serato_tools.utils.ui import parse_cli_keys_and_values
-
-    def member_named[E: Enum](enum_class: type[E], name: str) -> E:
-        """The member of `enum_class` named `name`, in any case; raises KeyError listing the names if there's none."""
-        try:
-            return enum_class[name.upper()]
-        except KeyError:
-            names = ", ".join(member.name for member in enum_class)
-            raise KeyError(f"bad {enum_class.__name__} {name.upper()}, must be one of: {names}") from None
-
     @dataclass
     class Args:
         file_or_dir: str | None
         all: bool
         list_tracks: bool
         filenames_only: bool
-        set_rules: list[str] | None
+        # each rule option given, in the order given: its field, and the arguments after it
+        rule_args: list[tuple[SmartCrate.RuleField, list[str]]]
+
+    class AppendRule(argparse.Action):
+        """Adds the option's field, its `const`, and its arguments to `rule_args`."""
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            namespace.rule_args.append((self.const, values))
+
+    comparisons = ", ".join(comparison.name.lower() for comparison in SmartCrate.RuleComparison)
+    option_by_field = {field: f"--{field.name.lower()}" for field in SmartCrate.RuleField}
 
     parser = argparse.ArgumentParser()
     parser.add_argument("file_or_dir", nargs="?", help="Set the crate file, or a directory to do all files in it")
     parser.add_argument("--all", action="store_true", help="Perform actions on all crates.")
     parser.add_argument("-l", "--list_tracks", action="store_true", help="Only list tracks")
     parser.add_argument("-f", "--filenames_only", action="store_true", help="Only list track filenames")
-    parser.add_argument(
-        "--set_rules",
-        nargs=argparse.REMAINDER,
-        help="Set rules for all crates using key-value pairs like --grouping str_contains NEW --title str_does_not_contain NEW_TITLE\nCan also do --key DELETE",
+    rule_options = parser.add_argument_group(
+        "rules",
+        "Set a rule on every crate given with --FIELD COMPARISON VALUE, such as --grouping str_is UNTAGGED, or delete "
+        f"it with --FIELD DELETE. COMPARISON is one of: {comparisons}",
     )
-    args = Args(**vars(parser.parse_args()))
+    # one option per rule field, so argparse lists the fields in --help and rejects one that isn't a field; they all
+    # append to one list, so the rules are set in the order given, as the crate then lists them
+    for field, option in option_by_field.items():
+        rule_options.add_argument(
+            option,
+            nargs="+",
+            metavar="ARG",
+            dest="rule_args",
+            action=AppendRule,
+            const=field,
+            help=f"COMPARISON VALUE for the {field.name.lower()} rule, or DELETE",
+        )
+    parser.set_defaults(rule_args=[])
+    # argparse matches options by case, so lowercase a rule field option given in another case (--GROUPING); only
+    # exact field names are touched, so a value is never changed
+    option_by_upper = {option.upper(): option for option in option_by_field.values()}
+    args = Args(**vars(parser.parse_args([option_by_upper.get(arg.upper(), arg) for arg in sys.argv[1:]])))
+
+    # each rule's field, and its comparison and value, or None to delete it; checked before any crate is changed
+    rules: list[tuple[SmartCrate.RuleField, tuple[SmartCrate.RuleComparison, str] | None]] = []
+    for field, rule_arg in args.rule_args:
+        option = option_by_field[field]
+        if len(rule_arg) == 1 and rule_arg[0].upper() == "DELETE":
+            rules.append((field, None))
+        elif len(rule_arg) == 2:
+            comparison_name, value = rule_arg
+            try:
+                comparison = SmartCrate.RuleComparison[comparison_name.upper()]
+            except KeyError:
+                parser.error(f"{option}: unknown comparison {comparison_name}, must be one of: {comparisons}")
+            try:
+                SmartCrate._coerce_rule_value(comparison, value)  # pylint: disable=protected-access
+            except ValueError:
+                parser.error(f"{option}: {comparison_name} compares whole numbers, got {value}")
+            rules.append((field, (comparison, value)))
+        else:
+            parser.error(f"{option} takes a comparison and a value, or DELETE")
 
     if args.all:
         args.file_or_dir = SmartCrate.DIR_PATH
@@ -293,28 +329,18 @@ def main():
         print("\n".join(SmartCrate.get_crate_files()))
         sys.exit()
 
-    set_rules = parse_cli_keys_and_values(args.set_rules) if args.set_rules else {}
-
     for crate_path in SmartCrate.get_crate_files(args.file_or_dir):
         crate = SmartCrate(crate_path)
 
-        if args.set_rules:
-            for key, value in set_rules.items():
-                field = member_named(SmartCrate.RuleField, key)
-                if not value:
-                    raise ValueError(f"no value given for --{key}, must specify a comparison and a value, or DELETE")
-                comparison_key, *rule_values = value
-                if comparison_key.upper() == "DELETE":
+        if rules:
+            for field, rule in rules:
+                if rule is None:
                     crate.delete_rule(field)
                 else:
-                    comparison = member_named(SmartCrate.RuleComparison, comparison_key)
-                    assert len(rule_values) == 1, "must specify 2 values: a comparison and a value"
                     # set_rule stores the value in the field the comparison expects, parsing it as needed
-                    crate.set_rule(field, comparison, rule_values[0])
+                    crate.set_rule(field, *rule)
             crate.save()
-            continue
-
-        if args.list_tracks or args.filenames_only:
+        elif args.list_tracks or args.filenames_only:
             crate.print_track_paths(filenames_only=args.filenames_only)
         else:
             print(crate)
