@@ -299,7 +299,7 @@ class SeratoBinFile:
                 self.fields.append(field)
             setattr(self, field, value)
 
-        def remove_value(self, field: str) -> bool:
+        def remove_field(self, field: str) -> bool:
             """Removes `field`, and returns whether it was there to remove."""
             if field not in self.fields:
                 return False
@@ -327,18 +327,18 @@ class SeratoBinFile:
             one empty.
             """
             if value == "":
-                self.remove_value(field)
+                self.remove_field(field)
             else:
                 super().set_value(field, value)
 
-        def remove_value(self, field: str) -> bool:
+        def remove_field(self, field: str) -> bool:
             """Removes `field`, and returns whether it was there to remove.
 
             Raises ValueError for the track's path, since a track can't be without one.
             """
             if field == self.path_key:
                 raise ValueError(f"can't remove a track's path ({field})")
-            return super().remove_value(field)
+            return super().remove_field(field)
 
         def set_path(self, path: str):
             relpath = SeratoBinFile.get_relative_path(path)
@@ -713,7 +713,7 @@ class SeratoBinFile:
                 maybe_new_value = rule["func"](track.relpath, prev_val)
                 if maybe_new_value == "":
                     # set_value would remove it too, but this logs it as a removal rather than a set
-                    if track.remove_value(field):
+                    if track.remove_field(field):
                         logger.info(f"Removed {field}({self.get_field_name(field)}) in library for {track.relpath}")
                     continue
                 maybe_new_value = _maybe_perform_rule(rule, maybe_new_value, prev_val, track.relpath)
