@@ -22,8 +22,8 @@ class SeratoBinFile:
     """A Serato database or crate file, parsed into `entries`: a list of (field name, value) pairs.
 
     A field name's first letter gives its value's type: a nested entry list, text, a bool, or an int. Subclasses set
-    `TESTED_VERSIONS`, `TRACK_PATH_KEY`, and `DEFAULT_ENTRIES`. Change `entries` directly or through the methods here,
-    then call `save()`.
+    `TESTED_VERSIONS`, `TRACK_PATH_KEY`, and `DEFAULT_ENTRIES`. Change the file through the methods here, such as
+    `modify_tracks` or `modify`, then call `save()`.
     """
 
     @unique
