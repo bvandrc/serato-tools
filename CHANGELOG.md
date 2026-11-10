@@ -14,10 +14,14 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - `--help` lists the fields and comparisons
   - A bad field, comparison, value, or number of arguments is rejected before any crate is changed
   - Breaking: `--set_rules` is removed. Pass the rule options directly, without it
-- A track missing a tag that's needed, such as one Serato hasn't analyzed yet, raises an error saying which tag and file: `NoCuesError`, `NoBeatgridError`, or `NoWaveformError`, all `MissingTagError`s in `serato_tools.utils`. Catch one to handle that case without also catching a corrupt tag. They're still `ValueError`s, so existing `except ValueError` code keeps working
+- A track missing a tag that's needed, such as one Serato hasn't analyzed yet, raises an error saying which tag and file: `NoCuesError`, `NoBeatgridError`, or `NoWaveformError`, all `MissingTagError`s in `serato_tools.utils.track_tags`. Catch one to handle that case without also catching a corrupt tag. They're still `ValueError`s, so existing `except ValueError` code keeps working
   - Breaking: snapping cues to a track without a beatgrid raises `NoBeatgridError`, rather than silently moving nothing
 - `serato_beatgrid` and `serato_snap_cues_v2 --snap_cues` print which tag is missing, rather than a traceback
-- Add `GeobKeys`, in `serato_tools.utils`: each Serato tag's GEOB key
+- Add `GeobKeys`, in `serato_tools.utils.track_tags`: each Serato tag's GEOB key
+
+### Changed
+
+- Breaking: `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`, next to the database and crate code that raises them
 
 ### Removed
 

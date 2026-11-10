@@ -23,8 +23,14 @@ from mutagen.mp3 import HeaderNotFoundError
 
 
 from serato_tools.track_cues_v1 import TrackCuesV1
-from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
-from serato_tools.utils import GeobKeys, MissingTagError, NoBeatgridError, NoCuesError
+from serato_tools.utils.track_tags import (
+    SeratoGeobTag,
+    del_geob,
+    GeobKeys,
+    MissingTagError,
+    NoBeatgridError,
+    NoCuesError,
+)
 
 if TYPE_CHECKING:
     # only for snap_cues_to_beats' annotation: the beatgrid is passed in, never read from this tag's file

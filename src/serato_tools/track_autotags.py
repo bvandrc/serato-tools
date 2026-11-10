@@ -10,8 +10,8 @@ from dataclasses import dataclass
 from mutagen.mp3 import HeaderNotFoundError
 
 
-from serato_tools.utils.track_tags import SeratoGeobTag
-from serato_tools.utils import GeobKeys, logger
+from serato_tools.utils.track_tags import SeratoGeobTag, GeobKeys
+from serato_tools.utils import logger
 
 
 class TrackAutotags(SeratoGeobTag):

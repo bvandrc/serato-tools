@@ -1,8 +1,7 @@
 import unittest
 
 from serato_tools.track_waveform import TrackWaveform
-from serato_tools.utils import NoWaveformError
-from serato_tools.utils.track_tags import del_geob, open_tagfile
+from serato_tools.utils.track_tags import NoWaveformError, del_geob, open_tagfile
 
 from test.helpers import read_bytes, temp_mp3
 
