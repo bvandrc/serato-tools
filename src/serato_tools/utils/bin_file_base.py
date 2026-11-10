@@ -320,6 +320,17 @@ class SeratoBinFile:
                 raise DataTypeError(relative_path, str, path_key)
             self.relpath: str = relative_path
 
+        def set_value(self, field: str, value: "SeratoBinFile.Value"):
+            """Sets `field` to `value`.
+
+            An empty string removes the field instead, as Serato does when a tag is cleared, so a track never stores
+            one empty.
+            """
+            if value == "":
+                self.remove_value(field)
+            else:
+                super().set_value(field, value)
+
         def remove_value(self, field: str) -> bool:
             """Removes `field`, and returns whether it was there to remove.
 
@@ -643,12 +654,11 @@ class SeratoBinFile:
         func: "SeratoBinFile.ModifyFunc"
         files: NotRequired[list[str]]
 
-    def modify(self, rules: list[ModifyRule], *, remove_if_empty: bool = False) -> bool:
+    def modify(self, rules: list[ModifyRule]) -> bool:
         """Applies `rules` to every track, and returns whether any track changed.
 
-        With `remove_if_empty`, a rule whose `func` returns `""` removes the field from the track, as Serato stores a
-        track without that tag, rather than setting it to `""`. A rule for the track path can't remove it, and raises
-        ValueError.
+        A rule whose `func` returns `""` removes the field from the track, as Serato does when a tag is cleared. A rule
+        for the track path can't remove it, and raises ValueError.
         """
         # check rule fields
         all_field_names = [rule["field"] for rule in rules]
@@ -701,7 +711,8 @@ class SeratoBinFile:
                 field = rule["field"]
                 prev_val = track.get_value(field) if field in track.fields else None
                 maybe_new_value = rule["func"](track.relpath, prev_val)
-                if remove_if_empty and maybe_new_value == "":
+                if maybe_new_value == "":
+                    # set_value would remove it too, but this logs it as a removal rather than a set
                     if track.remove_value(field):
                         logger.info(f"Removed {field}({self.get_field_name(field)}) in library for {track.relpath}")
                     continue
@@ -712,14 +723,13 @@ class SeratoBinFile:
 
         return self.modify_tracks(modify_track, files=only_files)
 
-    def modify_and_save(self, rules: list[ModifyRule], file: Optional[str] = None, *, remove_if_empty: bool = False):
+    def modify_and_save(self, rules: list[ModifyRule], file: Optional[str] = None):
         """
         Applies `rules` to every track, then saves.
 
-        Skips the save when nothing changed, unless `file` names somewhere other than this file's own path. See
-        `modify` for `remove_if_empty`.
+        Skips the save when nothing changed, unless `file` names somewhere other than this file's own path.
         """
-        changed = self.modify(rules, remove_if_empty=remove_if_empty)
+        changed = self.modify(rules)
         if changed or (file is not None and not self._is_own_path(file)):
             self.save(file)
 

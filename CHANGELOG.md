@@ -6,8 +6,11 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Features
 
-- `modify()` and `modify_and_save()` on the library database, crates, and smart crates take `remove_if_empty` (default False). With it, a rule whose `func` returns `""` removes the field from the track, as Serato stores a track without that tag, rather than setting it to `""`
 - Add `remove_value(field)` to a track entry (e.g. `DatabaseV2.Track`), which removes a field and returns whether it was there. It raises ValueError for the track's path
+
+### Fixes
+
+- Setting a track's field to `""`, through `modify()`, `modify_and_save()`, or a track entry's `set_value`, removes the field, as Serato does when a tag is cleared, rather than storing it empty
 
 ## [5.6.0] - 2026-11-09
 

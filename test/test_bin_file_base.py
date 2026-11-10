@@ -78,6 +78,18 @@ class TrackTestCase(unittest.TestCase):
             track.remove_value(path)
         self.assertEqual(track.to_entries(), [(path, "a.mp3")], "path kept")
 
+    def test_set_empty_value_removes_field(self):
+        # as Serato does when a tag is cleared
+        path, genre = SeratoBinFile.Fields.FILE_PATH.value, SeratoBinFile.Fields.GENRE.value
+        track = SeratoBinFile.Track([(path, "a.mp3"), (genre, "House")], path_key=path)
+
+        track.set_value(genre, "")
+        self.assertEqual(track.to_entries(), [(path, "a.mp3")], "removed rather than set empty")
+        track.set_value(genre, "")
+        self.assertEqual(track.to_entries(), [(path, "a.mp3")], "not added when already gone")
+        with self.assertRaises(ValueError, msg="a track can't be without its path"):
+            track.set_value(path, "")
+
 
 class HasChangedTestCase(unittest.TestCase):
     """has_changed, through Crate, the smallest of the bin file classes."""
