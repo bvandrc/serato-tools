@@ -608,23 +608,15 @@ class TrackCuesV2(SeratoGeobTag):
 
     def get_track_color(self) -> bytes | None:
         """The track's color as the bytes of a `TrackColors` value, or None if the tag has no color entry yet."""
-        color_entry = next(
-            (entry for entry in self.entries if isinstance(entry, TrackCuesV2.ColorEntry)),
-            None,
-        )
-        if color_entry is None:
-            return None
-        return color_entry.color
+        color_entry = next((entry for entry in self.entries if isinstance(entry, TrackCuesV2.ColorEntry)), None)
+        return None if color_entry is None else color_entry.color
 
     def get_track_color_name(self) -> str | None:
         """The name of the track's `TrackColors` value, or None if the tag has no color entry yet.
 
         Raises ValueError for a color that isn't one of `TrackColors`.
         """
-        color_bytes = self.get_track_color()
-        if color_bytes is None:
-            return None
-        return TrackCuesV2.TrackColors(color_bytes).name
+        return None if (color_bytes := self.get_track_color()) is None else TrackCuesV2.TrackColors(color_bytes).name
 
     def set_track_color(self, color: TrackColors, delete_tags_v1: bool | None = None):
         """Sets the track color in memory; call `save()` to write it to the file.
