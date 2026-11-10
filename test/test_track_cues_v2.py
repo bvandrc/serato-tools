@@ -191,6 +191,11 @@ class TestCase(unittest.TestCase):
         tags.set_beatgrid_locked(True)
         self.assertTrue(tags.is_beatgrid_locked())
 
+    def test_get_track_color_name(self):
+        tags = TrackCuesV2(read_bytes("test/data/track_cues_v2.bin"))
+        self.assertEqual(tags.get_track_color_name(), "LIMEGREEN3", "the fixture's 99ff99 color")
+        self.assertIsNone(TrackCuesV2(untagged_mp3(self)).get_track_color_name(), "no color entry yet")
+
     def test_a_tag_added_from_scratch_matches_what_serato_writes(self):
         # track_cues_v2_analyzed.bin is the tag Serato wrote for a newly analyzed track: white, unlocked
         tags = TrackCuesV2(untagged_mp3(self))

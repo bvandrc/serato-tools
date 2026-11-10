@@ -1,12 +1,12 @@
 import os
 import sys
 from typing import cast
-from enum import StrEnum, IntEnum, unique
+from enum import Enum, StrEnum, IntEnum, unique
 from dataclasses import dataclass
 
 
 from serato_tools.utils.crate_base import CrateBase
-from serato_tools.utils import get_enum_key_from_value, parse_cli_keys_and_values, SERATO_DIR, DataTypeError
+from serato_tools.utils import SERATO_DIR, DataTypeError
 
 
 class SmartCrate(CrateBase):
@@ -97,32 +97,6 @@ class SmartCrate(CrateBase):
     ]
 
     @staticmethod
-    def _get_rule_field_from_val(value: int) -> str:
-        return get_enum_key_from_value(value, SmartCrate.RuleField)
-
-    @staticmethod
-    def _get_rule_comparison_from_val(value: str) -> str:
-        return get_enum_key_from_value(value, SmartCrate.RuleComparison)
-
-    @staticmethod
-    def _get_rule_field_from_key(key: str):
-        try:
-            return SmartCrate.RuleField[key.upper()]
-        except KeyError as exc:
-            raise KeyError(
-                f"bad field {key.upper()} , must be one of {[c.name for c in SmartCrate.RuleField]}"
-            ) from exc
-
-    @staticmethod
-    def _get_rule_comparison_from_key(key: str):
-        try:
-            return SmartCrate.RuleComparison[key.upper()]
-        except KeyError as exc:
-            raise KeyError(
-                f"bad comparison {key.upper()} , must be one of {[c.name for c in SmartCrate.RuleComparison]}"
-            ) from exc
-
-    @staticmethod
     def _get_rule_value_field(comparison: str) -> "SmartCrate.RuleFields":
         """The field a rule stores its value in.
 
@@ -151,11 +125,11 @@ class SmartCrate(CrateBase):
         if field == SmartCrate.RuleFields.RULE_FIELD:
             if not isinstance(value, int):
                 raise DataTypeError(value, int, field)
-            ret_val += f" ({self._get_rule_field_from_val(value).lower()})"
+            ret_val += f" ({SmartCrate.RuleField(value).name.lower()})"
         elif field == SmartCrate.RuleFields.RULE_COMPARISON:
             if not isinstance(value, str):
                 raise DataTypeError(value, str, field)
-            ret_val += f" ({self._get_rule_comparison_from_val(value)})"
+            ret_val += f" ({SmartCrate.RuleComparison(value).name})"
 
         return ret_val
 
@@ -253,6 +227,16 @@ class SmartCrate(CrateBase):
 def main():
     import argparse
 
+    from serato_tools.utils.ui import parse_cli_keys_and_values
+
+    def member_named[E: Enum](enum_class: type[E], name: str) -> E:
+        """The member of `enum_class` named `name`, in any case; raises KeyError listing the names if there's none."""
+        try:
+            return enum_class[name.upper()]
+        except KeyError:
+            names = ", ".join(member.name for member in enum_class)
+            raise KeyError(f"bad {enum_class.__name__} {name.upper()}, must be one of: {names}") from None
+
     @dataclass
     class Args:
         file_or_dir: str | None
@@ -288,16 +272,14 @@ def main():
 
         if args.set_rules:
             for key, value in set_rules.items():
-                field = SmartCrate._get_rule_field_from_key(key)  # pylint: disable=protected-access
+                field = member_named(SmartCrate.RuleField, key)
                 if not value:
                     raise ValueError(f"no value given for --{key}, must specify a comparison and a value, or DELETE")
                 comparison_key, *rule_values = value
-                if str(comparison_key).upper() == "DELETE":
+                if comparison_key.upper() == "DELETE":
                     crate.delete_rule(field)
                 else:
-                    comparison = SmartCrate._get_rule_comparison_from_key(  # pylint: disable=protected-access
-                        str(comparison_key)
-                    )
+                    comparison = member_named(SmartCrate.RuleComparison, comparison_key)
                     assert len(rule_values) == 1, "must specify 2 values: a comparison and a value"
                     # set_rule stores the value in the field the comparison expects, parsing it as needed
                     crate.set_rule(field, comparison, rule_values[0])

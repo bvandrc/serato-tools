@@ -18,7 +18,6 @@ from mutagen.mp3 import HeaderNotFoundError
 
 
 from serato_tools.track_cues_v1 import TrackCuesV1
-from serato_tools.utils import get_enum_key_from_value
 from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
 from serato_tools.track_beatgrid import TrackBeatgrid
 
@@ -132,29 +131,8 @@ class TrackCuesV2(SeratoGeobTag):
         return "\n".join(str(entry) for entry in self.entries)
 
     @staticmethod
-    def _get_cue_color_key(value: bytes) -> str:
-        return get_enum_key_from_value(value, TrackCuesV2.CueColors)
-
-    @staticmethod
-    def _get_track_color_key(value: bytes) -> str:
-        return get_enum_key_from_value(value, TrackCuesV2.TrackColors)
-
-    @staticmethod
     def _get_entry_class(entry_name: str):
-        return next(
-            (
-                cls
-                for cls in (
-                    TrackCuesV2.BpmLockEntry,
-                    TrackCuesV2.ColorEntry,
-                    TrackCuesV2.CueEntry,
-                    TrackCuesV2.LoopEntry,
-                    TrackCuesV2.FlipEntry,
-                )
-                if cls.NAME == entry_name
-            ),
-            TrackCuesV2.UnknownEntry,
-        )
+        return TrackCuesV2._ENTRY_CLASS_BY_NAME.get(entry_name, TrackCuesV2.UnknownEntry)
 
     class _EntryRepr:
         """Mixin that provides the old Entry-style __repr__ (FIELDS order)."""
@@ -359,6 +337,10 @@ class TrackCuesV2(SeratoGeobTag):
             return self._raw_data
 
     type Entry = UnknownEntry | BpmLockEntry | ColorEntry | CueEntry | LoopEntry | FlipEntry
+
+    _ENTRY_CLASS_BY_NAME: ClassVar[dict[str, type[Entry]]] = {
+        entry_class.NAME: entry_class for entry_class in (BpmLockEntry, ColorEntry, CueEntry, LoopEntry, FlipEntry)
+    }
 
     def _parse(self, data: bytes):
         # the entry classes' _parse() / _serialize() are internal to this module
@@ -588,19 +570,11 @@ class TrackCuesV2(SeratoGeobTag):
         self.tagfile.save()
 
     def get_track_color(self) -> bytes | None:
-        color_entry = next(
-            (entry for entry in self.entries if isinstance(entry, TrackCuesV2.ColorEntry)),
-            None,
-        )
-        if color_entry is None:
-            return None
-        return color_entry.color
+        color_entry = next((entry for entry in self.entries if isinstance(entry, TrackCuesV2.ColorEntry)), None)
+        return None if color_entry is None else color_entry.color
 
     def get_track_color_name(self) -> str | None:
-        color_bytes = self.get_track_color()
-        if color_bytes is None:
-            return None
-        return self._get_track_color_key(color_bytes)
+        return None if (color_bytes := self.get_track_color()) is None else TrackCuesV2.TrackColors(color_bytes).name
 
     def set_track_color(self, color: TrackColors, delete_tags_v1: bool | None = None):
         """Sets the track color in memory; call `save()` to write it to the file.
