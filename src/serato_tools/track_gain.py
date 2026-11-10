@@ -10,7 +10,10 @@ from serato_tools.utils.track_tags import ID3FileOrPath, ID3FileTag, del_tag
 
 
 class TrackGain(ID3FileTag):
-    """The track's `RVA2:SeratoGain` frame: its `gain` and `peak`, both None if the file has no such frame."""
+    """The track's `RVA2:SeratoGain` frame.
+
+    It holds the `gain` and `peak`, both None if the file has no such frame.
+    """
 
     # Serato stores gain in ID3 files as an RVA2 (relative volume adjustment, ID3v2.4 section 4.11) frame
     # with this description: see this repo's test/data/test_mp3.mp3, or the report of Serato DJ's manual

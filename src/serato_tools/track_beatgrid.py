@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""The `Serato BeatGrid` tag: a track's beatgrid, as markers. Also the CLIs that print it, or analyze and write one."""
+"""The `Serato BeatGrid` tag, which holds a track's beatgrid as markers.
+
+Also the CLIs that print it, or analyze and write one.
+"""
 
 import collections
 import io
@@ -20,7 +23,9 @@ _T = TypeVar("_T")
 
 
 class TrackBeatgrid(SeratoGeobTag):
-    """The `Serato BeatGrid` tag: markers at beat positions, each giving the beats to the next, then a final BPM.
+    """The `Serato BeatGrid` tag, which holds a track's beatgrid.
+
+    The grid is markers at beat positions, each giving the beats to the next, then a final BPM.
 
     `entries` holds the markers as stored, ending with the terminal marker and a footer, or None for a track without a
     grid. `enhanced_entries` adds each non-terminal marker's BPM.
@@ -152,7 +157,10 @@ class TrackBeatgrid(SeratoGeobTag):
         nonterminal_markers: "list[TrackBeatgrid.NonTerminalBeatgridMarker]",
         terminal_marker: "TrackBeatgrid.TerminalBeatgridMarker",
     ):
-        """Raises ValueError for a grid this class may misread: markers out of order, a 0-beat segment, or no BPM."""
+        """Raises ValueError for a grid this class may misread.
+
+        Such a grid has markers out of order, a 0-beat segment, or no BPM.
+        """
         # Every grid Serato DJ Pro 2 was seen writing passes these checks, so one that doesn't is a grid this class may
         # misread, or one Serato can't use. A negative position isn't rejected, since a grid whose first beat comes
         # before the track starts seems possible.
@@ -404,7 +412,10 @@ def main():
 
 
 def main_analyze():
-    """The `serato_analyze_beatgrid` CLI: analyzes a track's audio and writes a new beatgrid to its tags."""
+    """The `serato_analyze_beatgrid` CLI.
+
+    It analyzes a track's audio and writes a new beatgrid to its tags.
+    """
     import argparse
 
     @dataclass

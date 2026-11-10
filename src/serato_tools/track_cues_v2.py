@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""The `Serato Markers2` tag: a track's hot cues, loops, flips, color, and beatgrid lock.
+"""The `Serato Markers2` tag, which holds a track's hot cues, loops, flips, color, and beatgrid lock.
 
 Also the `serato_snap_cues_v2` CLI, which sets the color, snaps cues to the beatgrid, or edits the tag's entries.
 """
@@ -63,7 +63,10 @@ def _check_cue_index(index: int):
 
 
 def _parse_name(entry_name: str, data: bytes) -> str:
-    """The entry's name, which ends its data: UTF-8 text with a null byte after it and nothing else."""
+    """The entry's name, which ends its data.
+
+    Raises ValueError unless it's UTF-8 text with a null byte after it and nothing else.
+    """
     name, nullbyte, other = data.partition(b"\x00")
     if nullbyte != b"\x00" or other != b"":
         raise ValueError(f"{entry_name} entry's name isn't followed by a null byte and nothing else: {data!r}")
@@ -71,7 +74,9 @@ def _parse_name(entry_name: str, data: bytes) -> str:
 
 
 class TrackCuesV2(SeratoGeobTag):
-    """The `Serato Markers2` tag: a track's hot cues, loops, flips, color, and beatgrid lock, as a list of entries.
+    """The `Serato Markers2` tag.
+
+    It holds a track's hot cues, loops, flips, color, and beatgrid lock, as a list of entries.
 
     Read the entries as a `TrackCuesInfo` and change them with `modify_entries`, or with the methods built on it, then
     call `save()`.
@@ -733,7 +738,10 @@ class TrackCuesV2(SeratoGeobTag):
 
 
 def main():
-    """The `serato_snap_cues_v2` CLI: sets the track color, snaps cues to the beatgrid, or prints or edits entries."""
+    """The `serato_snap_cues_v2` CLI.
+
+    It sets the track color, snaps cues to the beatgrid, or prints or edits entries.
+    """
     # this script is part of the module, so it uses the tag's and its entries' internal _parse() / _serialize()
     # pylint: disable=protected-access
     import argparse

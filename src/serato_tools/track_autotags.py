@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""The `Serato Autotags` tag: the BPM and gain values Serato's analysis found for a track."""
+"""The `Serato Autotags` tag, which holds the BPM and gain values Serato's analysis found for a track."""
 
 import io
 import sys
@@ -15,7 +15,10 @@ from serato_tools.utils import logger
 
 
 class TrackAutotags(SeratoGeobTag):
-    """The `Serato Autotags` tag: the track's `bpm`, `autogain`, and `gaindb`, each None if the tag isn't set."""
+    """The `Serato Autotags` tag.
+
+    It holds the track's `bpm`, `autogain`, and `gaindb`, each None if the tag isn't set.
+    """
 
     GEOB_KEY = "Serato Autotags"
     VERSION = (0x01, 0x01)

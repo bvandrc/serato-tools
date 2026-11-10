@@ -12,7 +12,9 @@ from serato_tools.utils import SERATO_DIR
 
 
 class DatabaseV2(SeratoBinFile):
-    """Serato's library database file (`database V2`): one entry per track, with its path and the values Serato shows.
+    """Serato's library database file (`database V2`).
+
+    It holds one entry per track, with its path and the values Serato shows.
 
     For changes that have to reach the crates too, such as renaming a track's file, use `Library`.
     """

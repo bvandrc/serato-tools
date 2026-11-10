@@ -69,7 +69,10 @@ class Library:
         return crate_class.get_crate_files(crates_dir) if os.path.isdir(crates_dir) else []
 
     def _get_bin_files(self) -> list[SeratoBinFile]:
-        """Every file in the library that holds track paths: the database, crates, and smart crates."""
+        """Every file in the library that holds track paths.
+
+        That's the database, the crates, and the smart crates.
+        """
         # smart crates store their matched tracks' paths too, and Serato re-adds any of those that are missing from
         # the database as blank "?" entries
         return [self.database, *self.crates, *self.smart_crates]

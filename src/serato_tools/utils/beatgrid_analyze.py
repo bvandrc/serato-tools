@@ -15,7 +15,10 @@ import numpy as np
 
 @dataclass
 class BeatGridInfo:
-    """What `analyze_beatgrid` found in a track: its tempo, and its beats and downbeats as times in seconds."""
+    """What `analyze_beatgrid` found in a track.
+
+    It holds the tempo, and the beats and downbeats as times in seconds.
+    """
 
     bpm: float
     beat_positions: List[float]

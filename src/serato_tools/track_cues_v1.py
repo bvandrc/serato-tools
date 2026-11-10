@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""The legacy `Serato Markers_` tag: a track's first 5 cues, 9 loops, and color, which `Serato Markers2` also holds."""
+"""The legacy `Serato Markers_` tag.
+
+It holds a track's first 5 cues, 9 loops, and color, which `Serato Markers2` also holds.
+"""
 
 import enum
 import io
@@ -15,7 +18,9 @@ from serato_tools.utils.track_tags import SeratoGeobTag
 
 
 class TrackCuesV1(SeratoGeobTag):
-    """The legacy `Serato Markers_` tag: slots for the first 5 cues and 9 loops, then the track color.
+    """The legacy `Serato Markers_` tag.
+
+    It holds slots for the first 5 cues and 9 loops, then the track color.
 
     Current Serato reads `Serato Markers2` (`TrackCuesV2`), but a stale copy of this tag can shadow changes to it.
     """
@@ -25,7 +30,7 @@ class TrackCuesV1(SeratoGeobTag):
 
     @enum.unique
     class EntryType(enum.IntEnum):
-        """What a slot holds: a cue, a loop, or nothing (`INVALID`)."""
+        """Whether a slot holds a cue, a loop, or nothing (`INVALID`)."""
 
         INVALID = 0
         CUE = 1

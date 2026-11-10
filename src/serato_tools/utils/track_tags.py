@@ -171,7 +171,10 @@ class SeratoGeobTag(ID3FileTag):
 
     @staticmethod
     def _readbytes(fp: io.BytesIO):
-        """Reads past the next null byte, or to the end, and returns what came before it: a null-terminated string."""
+        """Reads a null-terminated string.
+
+        Reads past the next null byte, or to the end, and returns what came before it.
+        """
         return b"".join(SeratoGeobTag._readbytes_gen(fp))
 
     def delete(self):

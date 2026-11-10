@@ -1,4 +1,4 @@
-"""Shared helpers: the default Serato folder, the package's logger, and the package's error classes."""
+"""The default Serato folder, the package's logger, and the package's error classes, shared by every module."""
 
 import logging
 import os

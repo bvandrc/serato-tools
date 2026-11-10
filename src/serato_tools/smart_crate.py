@@ -12,7 +12,10 @@ from serato_tools.utils import SERATO_DIR, DataTypeError
 
 
 class SmartCrate(CrateBase):
-    """A Serato smart crate file (`.scrate`): its rules, and the paths of the tracks they matched when last saved."""
+    """A Serato smart crate file (`.scrate`).
+
+    It holds its rules, and the paths of the tracks they matched when last saved.
+    """
 
     TESTED_VERSIONS = frozenset({"1.0/Serato ScratchLive Smart Crate"})
     EXTENSION = ".scrate"
@@ -142,7 +145,10 @@ class SmartCrate(CrateBase):
         return ret_val
 
     class Rule(CrateBase.EntryListCls):
-        """One of a smart crate's rules: the track field it tests (`field`), the `comparison`, and the `value`."""
+        """One of a smart crate's rules.
+
+        It holds the track field it tests (`field`), the `comparison`, and the `value`.
+        """
 
         def __init__(self, entries: "CrateBase.EntryList"):
             super().__init__(entries)
@@ -238,12 +244,15 @@ class SmartCrate(CrateBase):
         self.entries = new_entries
 
     def find_missing(self):
-        """Not supported for a smart crate, whose tracks come from its rules: always raises."""
+        """Always raises, since a smart crate's tracks come from its rules."""
         raise Exception("cannot be done on smart crate")
 
 
 def main():
-    """The `serato_smartcrate` CLI: prints smart crates, lists their tracks, or sets or deletes their rules."""
+    """The `serato_smartcrate` CLI.
+
+    It prints smart crates, lists their tracks, or sets or deletes their rules.
+    """
     import argparse
 
     from serato_tools.utils.ui import parse_cli_keys_and_values

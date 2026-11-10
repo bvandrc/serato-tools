@@ -1,4 +1,6 @@
-"""Exports crates to a USB drive for Serato: copies their tracks to one folder on it, with a library that points there.
+"""Exports crates to a USB drive for Serato.
+
+The crates' tracks are copied to one folder on the drive, with a library that points there.
 
 Also the `serato_usb_export` CLI.
 """
@@ -254,7 +256,10 @@ def get_crate_files(pattern: str):
 
 
 def main():
-    """The `serato_usb_export` CLI: exports the crates matching the patterns given to a drive, under `Tracks`."""
+    """The `serato_usb_export` CLI.
+
+    It exports the crates matching the patterns given to a drive, under `Tracks`.
+    """
     import argparse
 
     @dataclass

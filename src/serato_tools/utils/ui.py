@@ -1,4 +1,7 @@
-"""Helpers for the CLIs: parsing arguments argparse can't declare, terminal prompts, and the editors edit modes open."""
+"""Helpers for the CLIs.
+
+They parse arguments argparse can't declare, prompt in the terminal, and find the editors edit modes open.
+"""
 
 import os
 import shutil
