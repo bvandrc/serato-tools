@@ -10,11 +10,9 @@ import ast
 import base64
 import configparser
 import io
-import os
 import struct
 import sys
-import warnings
-from typing import TYPE_CHECKING, Callable, ClassVar, Sequence
+from typing import Callable, ClassVar, Sequence
 from enum import Enum, unique
 import dataclasses
 from dataclasses import dataclass, field
@@ -26,20 +24,12 @@ from mutagen.mp3 import HeaderNotFoundError
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
 
-if TYPE_CHECKING:
-    # only for the deprecated snapping methods, which read it only when called: this tag doesn't otherwise read it
-    from serato_tools.track_beatgrid import TrackBeatgrid
-
 # the sizes Serato writes the tag at, in an ID3 file: 470 bytes, or larger by a multiple of 512
 _MIN_SIZE = 470
 _GROWTH_STEP = 512
 
 # cue 8: Serato numbers its cue pads from 0
 _MAX_CUE_INDEX = 7
-
-# the package's folder: a deprecation warning skips its frames, to point at the caller's code even when it came through
-# another of the package's methods (Track.set_track_color)
-_PACKAGE_DIR = os.path.dirname(__file__) + os.sep
 
 # Every tag Serato DJ Pro 2 was seen writing passes the entry checks below, so an entry that doesn't is one this class
 # may not understand, and rewriting it could corrupt the tag. Mixxx's parser checks the same fields, with comments on them:
@@ -149,12 +139,6 @@ class TrackCuesV2(SeratoGeobTag):
         self.entries: list[TrackCuesV2.Entry] = []
         if self._raw_data is not None:
             self.entries = list(self._parse(self._raw_data))
-
-        # the beatgrid the deprecated snapping methods read, the first time one needs it
-        self._beatgrid: "TrackBeatgrid | None" = None
-        # whether every edit since this tag last wrote passed the deprecated delete_tags_v1=False, which keeps Serato
-        # Markers_ as before it was deprecated; None when no edit has changed anything since
-        self._edits_keep_tags_v1: bool | None = None
 
     def __str__(self) -> str:
         return "\n".join(str(entry) for entry in self.entries)
@@ -543,25 +527,12 @@ class TrackCuesV2(SeratoGeobTag):
 
     type ModifyCallback = Callable[["TrackCuesInfo"], "TrackCuesInfo | None"]
 
-    def modify_entries(self, modify_callback: ModifyCallback, delete_tags_v1: bool | None = None) -> None:
-        """Replaces the entries with what `modify_callback` returns for them, or leaves them if it returns None.
-
-        `delete_tags_v1` is deprecated, to be removed in the next major version: pass it to `save()` instead. Until
-        then, passing False keeps `Serato Markers_` at the next save, unless another edit since the last save didn't pass
-        False.
-        """
-        if delete_tags_v1 is not None:
-            warnings.warn(
-                "passing delete_tags_v1 to an edit is deprecated and will be removed in version 6, pass it to save() instead",
-                DeprecationWarning,
-                skip_file_prefixes=(_PACKAGE_DIR,),
-            )
+    def modify_entries(self, modify_callback: ModifyCallback) -> None:
+        """Replaces the entries with what `modify_callback` returns for them, or leaves them if it returns None."""
         track = self._from_entries()
         new_track = modify_callback(track)
         if new_track is None:
             return
-        # any edit that didn't pass False deletes Serato Markers_, as it did when each edit chose
-        self._edits_keep_tags_v1 = delete_tags_v1 is False and self._edits_keep_tags_v1 is not False
         self.entries = new_track.to_entries()
         self._serialize()
 
@@ -570,10 +541,9 @@ class TrackCuesV2(SeratoGeobTag):
         super()._put_in_tagfile()
         # deleted only here, when this tag writes, and not by the edit: deleted from the shared tagfile for an edit
         # that changed nothing, or was changed back, it would be written by another tag's save
-        if delete_tags_v1 and not self._edits_keep_tags_v1 and self.tagfile:
+        if delete_tags_v1 and self.tagfile:
             # TODO: keep Serato Markers_ in sync with Markers2 instead of deleting it
             del_geob(self.tagfile, TrackCuesV1.GEOB_KEY)
-        self._edits_keep_tags_v1 = None
 
     def _write_to_tagfile(self, delete_tags_v1: bool = True) -> bool:
         if not self.has_changed:
@@ -586,16 +556,6 @@ class TrackCuesV2(SeratoGeobTag):
         was_deleted = super().delete()
         self.entries = []
         return was_deleted
-
-    @property
-    def modified(self) -> bool:
-        """Deprecated, to be removed in the next major version: use `has_changed`, which this returns."""
-        warnings.warn(
-            "modified is deprecated and will be removed in version 6, use has_changed instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.has_changed
 
     def save(self, force: bool = False, delete_tags_v1: bool = True):
         """Writes the tag to the file, if it changed since it was read or last saved, or if `force`.
@@ -623,11 +583,10 @@ class TrackCuesV2(SeratoGeobTag):
         """
         return None if (color_bytes := self.get_track_color()) is None else TrackCuesV2.TrackColors(color_bytes).name
 
-    def set_track_color(self, color: TrackColors, delete_tags_v1: bool | None = None):
+    def set_track_color(self, color: TrackColors):
         """Sets the track color in memory; call `save()` to write it to the file.
 
         Adds the color entry, and the tag itself, if the track doesn't have them yet, as Serato writes them.
-        `delete_tags_v1` is deprecated: see `modify_entries`.
         """
 
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
@@ -639,13 +598,12 @@ class TrackCuesV2(SeratoGeobTag):
             new_track = dataclasses.replace(track, color=new_color)
             return new_track if new_track != track else None
 
-        self.modify_entries(rule, delete_tags_v1)
+        self.modify_entries(rule)
 
-    def set_beatgrid_locked(self, locked: bool, delete_tags_v1: bool | None = None):
+    def set_beatgrid_locked(self, locked: bool):
         """Locks or unlocks the track's beatgrid in memory; call `save()` to write it to the file.
 
         Adds the BPM lock entry, and the tag itself, if the track doesn't have them yet, as Serato writes them.
-        `delete_tags_v1` is deprecated: see `modify_entries`.
         """
 
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
@@ -653,93 +611,7 @@ class TrackCuesV2(SeratoGeobTag):
                 return None
             return dataclasses.replace(track, bpm_lock=TrackCuesV2.BpmLockEntry(enabled=locked))
 
-        self.modify_entries(rule, delete_tags_v1)
-
-    @staticmethod
-    def _warn_snapping_deprecated(name: str, replacement: str):
-        warnings.warn(
-            f"TrackCuesV2.{name} is deprecated and will be removed in version 6, use {replacement} instead",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-
-    @property
-    def beatgrid(self) -> "TrackBeatgrid | None":
-        """Deprecated, to be removed in the next major version: snap with `Track`, which reads the track's beatgrid.
-
-        The beatgrid the deprecated snapping methods read, or None before one has read it.
-        """
-        self._warn_snapping_deprecated("beatgrid", "Track.snap_cues or Track.get_snapped_position")
-        return self._beatgrid
-
-    @beatgrid.setter
-    def beatgrid(self, beatgrid: "TrackBeatgrid | None"):
-        self._warn_snapping_deprecated("beatgrid", "Track.snap_cues or Track.get_snapped_position")
-        self._beatgrid = beatgrid
-
-    def _get_beatgrid(self, file_or_data: SeratoGeobTag.FileOrData | None = None) -> "TrackBeatgrid":
-        """The beatgrid kept for the deprecated snapping methods, read from `file_or_data`, or this tag's file, if none is."""
-        if self._beatgrid is not None:
-            return self._beatgrid
-        # imported here, so that this module doesn't need the beatgrid's for anything but these deprecated methods
-        from serato_tools.track_beatgrid import TrackBeatgrid  # pylint: disable=import-outside-toplevel
-
-        if file_or_data is None:
-            if not self.tagfile:
-                raise ValueError("No tagfile set, or must pass beatgrid")
-            file_or_data = self.tagfile
-        self._beatgrid = TrackBeatgrid(file_or_data)
-        return self._beatgrid
-
-    def get_snapped_beat_ms(self, postion_ms: int, tolerance_beats: float, min_ms_change: int = 2) -> int | None:
-        """Deprecated, to be removed in the next major version: use `Track.get_snapped_position`.
-
-        Returns the ms position to snap `postion_ms` to, or `None` if it shouldn't move, reading the beatgrid from this
-        tag's file.
-        """
-        self._warn_snapping_deprecated("get_snapped_beat_ms", "Track.get_snapped_position")
-        # pylint: disable-next=import-outside-toplevel
-        from serato_tools.track import _check_min_ms_change, _snapped_position
-
-        _check_min_ms_change(min_ms_change)
-        return _snapped_position(self._get_beatgrid(), postion_ms, tolerance_beats, min_ms_change)
-
-    def snap_positions_to_beat_rule(self, tolerance_beats: float, min_ms_change: int = 2) -> ModifyCallback:
-        """Deprecated, to be removed in the next major version: use `Track.snap_cues`, then make any other edits.
-
-        A `modify_entries` callback that moves each cue to its nearest beat, reading the beatgrid from this tag's file.
-        """
-        self._warn_snapping_deprecated("snap_positions_to_beat_rule", "Track.snap_cues")
-        # pylint: disable-next=import-outside-toplevel
-        from serato_tools.track import _check_min_ms_change, _snap_cues_rule
-
-        _check_min_ms_change(min_ms_change)
-        return _snap_cues_rule(self._get_beatgrid(), tolerance_beats, min_ms_change, [])
-
-    def snap_positions_to_beat(self, tolerance_beats: float, min_ms_change: int = 2) -> None:
-        """Deprecated, to be removed in the next major version: use `Track.snap_cues`, which returns the moves.
-
-        Moves each cue to its nearest beat in memory, reading the beatgrid from this tag's file, and prints each move.
-        Raises ValueError if the tag has no entries. Call `save()` to write the change to the file.
-        """
-        self._warn_snapping_deprecated("snap_positions_to_beat", "Track.snap_cues")
-        from serato_tools.track import _snap_cues  # pylint: disable=import-outside-toplevel
-
-        if not self.entries:
-            raise ValueError("No entries set")
-        for snapped in _snap_cues(self, self._get_beatgrid(), tolerance_beats, min_ms_change):
-            print(f"Snapped by {snapped.new_position - snapped.old_position} ms")
-
-    def get_beat_position(
-        self, entry: "TrackCuesV2.CueEntry", file_or_data: SeratoGeobTag.FileOrData | None = None
-    ) -> float:
-        """Deprecated, to be removed in the next major version: use `TrackBeatgrid.get_beat_position(entry.position)`.
-
-        How many beats into the track's beatgrid the cue is, counting from 0 at the grid's first marker. The beatgrid is
-        read from `file_or_data`, or from this tag's file, the first time it's needed.
-        """
-        self._warn_snapping_deprecated("get_beat_position", "TrackBeatgrid.get_beat_position(entry.position)")
-        return self._get_beatgrid(file_or_data).get_beat_position(entry.position)
+        self.modify_entries(rule)
 
     def is_beatgrid_locked(self) -> bool:
         """Whether the tag has a BPM lock entry that's enabled."""

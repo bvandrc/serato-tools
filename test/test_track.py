@@ -116,15 +116,6 @@ class TestCase(unittest.TestCase):
 
         self.assertIn(f"GEOB:{TrackCuesV1.GEOB_KEY}", Track(self.path).tagfile)
 
-    def test_delete_tags_v1_on_an_edit_is_deprecated(self):
-        track = Track(self.path)
-        with self.assertWarns(DeprecationWarning) as caught:
-            track.set_track_color(TrackCuesV2.TrackColors.RED, delete_tags_v1=False)
-        self.assertEqual(caught.filename, __file__, "points at the caller, not at Track")
-        track.save()
-
-        self.assertIn(f"GEOB:{TrackCuesV1.GEOB_KEY}", Track(self.path).tagfile, "False still keeps the v1 tag")
-
     def test_an_unwritten_cue_edit_keeps_tags_v1_when_another_tag_saves(self):
         def changed_back(cues: TrackCuesV2):
             color = TrackCuesV2.TrackColors(cues.get_track_color())
@@ -192,6 +183,8 @@ class TestCase(unittest.TestCase):
         for name in ("cues_v2", "beatgrid"):
             with self.subTest(name), self.assertRaisesRegex(ValueError, f"{name}=True"):
                 Track(self.path, **{name: False}).snap_cues(1 / 16)
+        with self.assertRaisesRegex(ValueError, "beatgrid=True"):
+            Track(untagged_mp3(self), beatgrid=False).snap_cues(1 / 16)  # even with no cues to move
 
     def test_snap_cues_no_entries_raises(self):
         track = Track(untagged_mp3(self))

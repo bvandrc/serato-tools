@@ -4,11 +4,8 @@ import dataclasses
 import struct
 import unittest
 from unittest import mock
-import io
 from typing import Callable
-from contextlib import redirect_stdout
 
-from serato_tools.track_beatgrid import TrackBeatgrid
 from serato_tools.track_cues_v2 import TrackCuesV2
 
 from test.helpers import TEST_MP3, read_bytes, temp_mp3, untagged_mp3
@@ -96,24 +93,6 @@ class TestCase(unittest.TestCase):
     def test_forced_save_deletes_tags_v1(self):
         self.assertFalse(self.has_tags_v1_after(lambda tags: tags.save(force=True)))
 
-    def test_delete_tags_v1_on_an_edit_is_deprecated(self):
-        def edit(tags: TrackCuesV2):
-            with self.assertWarns(DeprecationWarning) as caught:
-                tags.set_track_color(TrackCuesV2.TrackColors.RED, delete_tags_v1=False)
-            self.assertEqual(caught.filename, __file__, "points at the caller")
-            tags.save()
-
-        self.assertTrue(self.has_tags_v1_after(edit), "False still keeps the v1 tag")
-
-    def test_deprecated_delete_tags_v1_false_loses_to_another_edit(self):
-        def edit(tags: TrackCuesV2):
-            tags.set_beatgrid_locked(True)
-            with self.assertWarns(DeprecationWarning):
-                tags.set_track_color(TrackCuesV2.TrackColors.RED, delete_tags_v1=False)
-            tags.save()
-
-        self.assertFalse(self.has_tags_v1_after(edit), "deleted, as when the earlier edit asked to delete it")
-
     def test_a_callback_may_edit_in_place(self):
         tags = TrackCuesV2(TEST_MP3)
         position = tags._from_entries().cues[0].position
@@ -159,14 +138,6 @@ class TestCase(unittest.TestCase):
             write.assert_not_called()
             tags.save(force=True)
             write.assert_called_once()
-
-    def test_modified_is_deprecated(self):
-        tags = TrackCuesV2(TEST_MP3)
-        with self.assertWarns(DeprecationWarning):
-            self.assertFalse(tags.modified, "as read")
-        tags.set_track_color(TrackCuesV2.TrackColors.RED)
-        with self.assertWarns(DeprecationWarning):
-            self.assertTrue(tags.modified, "returns has_changed")
 
     def test_set_beatgrid_locked(self):
         tags = TrackCuesV2(TEST_MP3)
@@ -251,53 +222,6 @@ class TestCase(unittest.TestCase):
         cue_9 = TrackCuesV2.CueEntry(b"\x00", 8, 1000, b"\x00", TrackCuesV2.CueColors.RED.value, b"\x00\x00", "")
         with self.assertRaisesRegex(ValueError, "cue 9 is past Serato's 8 cue pads"):
             tags.modify_entries(lambda info: dataclasses.replace(info, cues=[cue_9]))
-
-    def test_deprecated_snapping_methods_warn_and_still_snap(self):
-        tags = TrackCuesV2(TEST_MP3)
-        position = tags._from_entries().cues[0].position
-        buf = io.StringIO()
-        with redirect_stdout(buf), self.assertWarnsRegex(DeprecationWarning, "snap_positions_to_beat") as cm:
-            tags.snap_positions_to_beat(1 / 16, 2)
-        self.assertEqual(cm.filename, __file__)
-        self.assertIn("Snapped by 42 ms", buf.getvalue())
-        self.assertEqual(tags._from_entries().cues[0].position, position + 42)
-
-        with self.assertWarnsRegex(DeprecationWarning, "get_snapped_beat_ms"):
-            self.assertIsNone(tags.get_snapped_beat_ms(position + 42, 1 / 16))
-        with self.assertWarnsRegex(DeprecationWarning, "snap_positions_to_beat_rule"):
-            rule = tags.snap_positions_to_beat_rule(1 / 16)
-        self.assertIsNone(rule(tags._from_entries()), "already snapped")
-
-    def test_deprecated_snap_positions_to_beat_no_entries_raises(self):
-        tags = TrackCuesV2(TEST_MP3)
-        tags.entries = []
-        with self.assertWarns(DeprecationWarning), self.assertRaises(ValueError):
-            tags.snap_positions_to_beat(1 / 8)
-
-    def test_deprecated_get_beat_position(self):
-        beatgrid = TrackBeatgrid(TEST_MP3)
-        cue = TrackCuesV2(TEST_MP3)._from_entries().cues[0]
-        expected = beatgrid.get_beat_position(cue.position)
-        self.assertGreater(expected, 0)
-
-        with self.assertWarnsRegex(DeprecationWarning, "get_beat_position"):
-            self.assertEqual(TrackCuesV2(TEST_MP3).get_beat_position(cue), expected)
-        # from tag data, which has no file to read the beatgrid from
-        tags = TrackCuesV2(read_bytes("test/data/track_cues_v2.bin"))
-        with self.assertWarns(DeprecationWarning):
-            self.assertEqual(tags.get_beat_position(cue, TEST_MP3), expected)
-
-    def test_deprecated_beatgrid_attribute(self):
-        tags = TrackCuesV2(read_bytes("test/data/track_cues_v2.bin"))
-        beatgrid = TrackBeatgrid(TEST_MP3)
-        with self.assertWarnsRegex(DeprecationWarning, "beatgrid"):
-            tags.beatgrid = beatgrid
-        with self.assertWarnsRegex(DeprecationWarning, "beatgrid"):
-            self.assertIs(tags.beatgrid, beatgrid)
-        # the deprecated methods read the beatgrid set, as tag data has no file to read one from
-        cue = TrackCuesV2(TEST_MP3)._from_entries().cues[0]
-        with self.assertWarns(DeprecationWarning):
-            self.assertEqual(tags.get_beat_position(cue), beatgrid.get_beat_position(cue.position))
 
     def test_loop_fields(self):
         # track_cues_v2_saved_loops.bin is a tag Serato wrote with 4 loops, the second one locked

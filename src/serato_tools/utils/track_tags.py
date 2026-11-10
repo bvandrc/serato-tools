@@ -2,7 +2,6 @@
 
 import struct
 import io
-import warnings
 
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3FileType, ID3
@@ -119,16 +118,6 @@ class SeratoGeobTag(ID3FileTag):
     def __repr__(self) -> str:
         return str(self._raw_data)
 
-    @property
-    def raw_data(self) -> bytes | None:
-        """Deprecated, to be removed in the next major version: read-only. Use the tag's own parse, modify, and serialize methods instead of the stored bytes."""
-        warnings.warn(
-            "raw_data is deprecated and will be removed in version 6, use the tag's own parse, modify, and serialize methods instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._raw_data
-
     def _require_tagfile(self) -> ID3File:
         """The tag's open file; raises if it was read from bytes."""
         if not self.tagfile:
@@ -211,20 +200,3 @@ class SeratoGeobTag(ID3FileTag):
             raise Exception("no tagfile, no saving")
         self._put_in_tagfile()
         self.tagfile.save()
-
-
-# the classes' names before 5.4.0, kept until the next major version
-_DEPRECATED_NAMES = {"SeratoTrack": ID3FileTag, "SeratoTag": SeratoGeobTag}
-
-
-def __getattr__(name: str):
-    """The deprecated class names, with a DeprecationWarning."""
-    if name in _DEPRECATED_NAMES:
-        new = _DEPRECATED_NAMES[name]
-        warnings.warn(
-            f"{name} is deprecated and will be removed in version 6, use {new.__name__} instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return new
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

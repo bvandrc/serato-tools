@@ -3,7 +3,6 @@
 """Serato's library database (`database V2`), which holds every track's path and the values Serato shows for it."""
 
 import os
-import warnings
 from dataclasses import dataclass
 
 
@@ -43,19 +42,6 @@ class DatabaseV2(SeratoBinFile):
                 reason = track.get_value(fields.CORRUPT_REASON) if fields.CORRUPT_REASON in track.fields else ""
                 corrupt[track.get_full_path()] = str(reason)
         return corrupt
-
-    def rename_track_file(self, src: str, dest: str) -> bool:
-        """Deprecated, to be removed in the next major version: use Library.rename_track_file(), which this calls."""
-        warnings.warn(
-            "DatabaseV2.rename_track_file is deprecated, use Library.rename_track_file instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        # imported here since library imports this module
-        from serato_tools.library import Library  # pylint: disable=import-outside-toplevel
-
-        library = Library(os.path.dirname(self.filepath), database=self)
-        return library.rename_track_file(src, dest)
 
 
 if __name__ == "__main__":

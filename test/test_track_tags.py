@@ -9,8 +9,7 @@ from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_tagdump import get_serato_tagdata
 from serato_tools.track_waveform import TrackWaveform
-from serato_tools.utils import track_tags
-from serato_tools.utils.track_tags import ID3FileTag, SeratoGeobTag, get_geob
+from serato_tools.utils.track_tags import ID3FileTag, get_geob
 
 from test.helpers import TEST_MP3, temp_mp3
 
@@ -35,11 +34,6 @@ class TestCase(unittest.TestCase):
         dumped = dict(get_serato_tagdata(MP3(TEST_MP3)))
         self.assertEqual(dumped["Serato Autotags"], TrackAutotags(TEST_MP3)._raw_data)
         self.assertEqual(dumped["Serato Markers2"], TrackCuesV2(TEST_MP3)._raw_data)
-
-    def test_old_class_names_still_work_but_warn(self):
-        for old, new in (("SeratoTrack", ID3FileTag), ("SeratoTag", SeratoGeobTag)):
-            with self.subTest(old), self.assertWarns(DeprecationWarning):
-                self.assertIs(getattr(track_tags, old), new)
 
     def test_unsupported_file_type_raises(self):
         with self.assertRaises(ValueError):

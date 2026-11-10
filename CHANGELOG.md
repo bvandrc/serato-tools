@@ -2,20 +2,31 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [5.7.0] - 2026-11-10
+## [6.0.0] - 2026-11-10
+
+### Removed
+
+Breaking: everything deprecated in 5.x is removed. Use what each was deprecated in favor of:
+
+- `DatabaseV2.rename_track_file`: use `Library.rename_track_file`, which also updates the crates and smart crates
+- `add_track` on crates and smart crates: use `add_tracks`
+- `remove_track` on the database, crates, and smart crates: use `remove_tracks`
+- The tag classes' read-only `raw_data`: parse, modify, and serialize through each tag's own methods
+- The `SeratoTrack` and `SeratoTag` names in `serato_tools.utils.track_tags`: use `ID3FileTag` and `SeratoGeobTag`
+- `TrackCuesV2.modified`: use `has_changed`
+- The `delete_tags_v1` parameter of `TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and of `Track.set_track_color` and `set_beatgrid_locked`: pass it to `save()` instead. Passing it to an edit is now a TypeError
+
+Breaking: cue snapping moves from `TrackCuesV2` to `Track`, so that each tag class handles only its own tag:
+
+- `TrackCuesV2.snap_positions_to_beat` and `snap_positions_to_beat_rule`: use `Track.snap_cues`, which returns the moves rather than printing them. There's no rule to pass to `modify_entries`: on a `Track`, other edits are saved in the same write
+- `TrackCuesV2.get_snapped_beat_ms`: use `Track.get_snapped_position`
+- `TrackCuesV2.get_beat_position(entry)`: use `track.beatgrid.get_beat_position(entry.position)`
+- `TrackCuesV2.beatgrid`: use a `Track`, which reads the track's beatgrid
 
 ### Features
 
-- Add `Track.snap_cues`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `Track.SnappedCue`, rather than printing it, and `Track.get_snapped_position`, which gives the position a single cue would snap to. Both need the `Track`'s `cues_v2` and `beatgrid` parsed (the default)
-- `serato_snap_cues_v2 --snap_cues` says which cue each move was for
-
-### Deprecations
-
-- `TrackCuesV2`'s snapping methods and attribute are deprecated, and will be removed in the next major version, so that `TrackCuesV2` handles only `Serato Markers2`. Until then they work as before:
-  - `snap_positions_to_beat` and `snap_positions_to_beat_rule`, in favor of `Track.snap_cues` (on a `Track`, other edits are saved in the same write, so there's no rule to combine with them)
-  - `get_snapped_beat_ms`, in favor of `Track.get_snapped_position`
-  - `get_beat_position(entry)`, in favor of `TrackBeatgrid.get_beat_position(entry.position)`
-  - the `beatgrid` attribute, in favor of `Track`, which reads the track's beatgrid
+- Add `Track.snap_cues`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `Track.SnappedCue`, and `Track.get_snapped_position`, which gives the position a single cue would snap to. Both need the `Track`'s `cues_v2` and `beatgrid` parsed (the default)
+- `serato_snap_cues_v2 --snap_cues` says which cue each move was for. Its options are unchanged
 
 ## [5.6.1] - 2026-11-10
 
