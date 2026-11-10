@@ -152,20 +152,7 @@ class TrackCuesV2(SeratoGeobTag):
     @staticmethod
     def _get_entry_class(entry_name: str):
         """The class for an entry named `entry_name`, such as "CUE", or `UnknownEntry` for a name it doesn't know."""
-        return next(
-            (
-                cls
-                for cls in (
-                    TrackCuesV2.BpmLockEntry,
-                    TrackCuesV2.ColorEntry,
-                    TrackCuesV2.CueEntry,
-                    TrackCuesV2.LoopEntry,
-                    TrackCuesV2.FlipEntry,
-                )
-                if cls.NAME == entry_name
-            ),
-            TrackCuesV2.UnknownEntry,
-        )
+        return TrackCuesV2._ENTRY_CLASS_BY_NAME.get(entry_name, TrackCuesV2.UnknownEntry)
 
     class _EntryRepr:
         """Mixin that provides the old Entry-style __repr__ (FIELDS order)."""
@@ -370,6 +357,10 @@ class TrackCuesV2(SeratoGeobTag):
             return self._raw_data
 
     type Entry = UnknownEntry | BpmLockEntry | ColorEntry | CueEntry | LoopEntry | FlipEntry
+
+    _ENTRY_CLASS_BY_NAME: ClassVar[dict[str, type[Entry]]] = {
+        entry_class.NAME: entry_class for entry_class in (BpmLockEntry, ColorEntry, CueEntry, LoopEntry, FlipEntry)
+    }
 
     def _parse(self, data: bytes):
         # the entry classes' _parse() / _serialize() are internal to this module
