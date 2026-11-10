@@ -1,9 +1,8 @@
-"""Shared helpers: the default Serato folder, the package's logger, and small enum, CLI, and error utilities."""
+"""Shared helpers: the default Serato folder, the package's logger, and small CLI and error utilities."""
 
 import logging
 import os
-from typing import Iterable, TypeVar, Type, cast, Any
-from enum import Enum
+from typing import Iterable, TypeVar, cast, Any
 
 T = TypeVar("T")
 
@@ -30,11 +29,6 @@ def parse_cli_keys_and_values(args: list[str]):
 
     # pairs[key] = True  # default to True if no value follows
     return keys_and_values
-
-
-def get_enum_key_from_value(value: str | bytes | int, enum_class: Type[Enum]):
-    """The name of the `enum_class` member whose value is `value`; raises ValueError if there's none."""
-    return enum_class(value).name
 
 
 def to_array(x: T | Iterable[T]) -> Iterable[T]:

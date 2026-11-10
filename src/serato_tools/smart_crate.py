@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 
 from serato_tools.utils.crate_base import CrateBase
-from serato_tools.utils import get_enum_key_from_value, parse_cli_keys_and_values, SERATO_DIR, DataTypeError
+from serato_tools.utils import parse_cli_keys_and_values, SERATO_DIR, DataTypeError
 
 
 class SmartCrate(CrateBase):
@@ -105,14 +105,6 @@ class SmartCrate(CrateBase):
     ]
 
     @staticmethod
-    def _get_rule_field_from_val(value: int) -> str:
-        return get_enum_key_from_value(value, SmartCrate.RuleField)
-
-    @staticmethod
-    def _get_rule_comparison_from_val(value: str) -> str:
-        return get_enum_key_from_value(value, SmartCrate.RuleComparison)
-
-    @staticmethod
     def _get_rule_field_from_key(key: str):
         """The `RuleField` named `key`, in any case; raises KeyError listing the names if there's none."""
         try:
@@ -161,11 +153,11 @@ class SmartCrate(CrateBase):
         if field == SmartCrate.RuleFields.RULE_FIELD:
             if not isinstance(value, int):
                 raise DataTypeError(value, int, field)
-            ret_val += f" ({self._get_rule_field_from_val(value).lower()})"
+            ret_val += f" ({SmartCrate.RuleField(value).name.lower()})"
         elif field == SmartCrate.RuleFields.RULE_COMPARISON:
             if not isinstance(value, str):
                 raise DataTypeError(value, str, field)
-            ret_val += f" ({self._get_rule_comparison_from_val(value)})"
+            ret_val += f" ({SmartCrate.RuleComparison(value).name})"
 
         return ret_val
 

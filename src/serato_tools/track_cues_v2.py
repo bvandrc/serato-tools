@@ -23,7 +23,6 @@ from mutagen.mp3 import HeaderNotFoundError
 
 
 from serato_tools.track_cues_v1 import TrackCuesV1
-from serato_tools.utils import get_enum_key_from_value
 from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
 from serato_tools.track_beatgrid import TrackBeatgrid
 
@@ -149,14 +148,6 @@ class TrackCuesV2(SeratoGeobTag):
 
     def __str__(self) -> str:
         return "\n".join(str(entry) for entry in self.entries)
-
-    @staticmethod
-    def _get_cue_color_key(value: bytes) -> str:
-        return get_enum_key_from_value(value, TrackCuesV2.CueColors)
-
-    @staticmethod
-    def _get_track_color_key(value: bytes) -> str:
-        return get_enum_key_from_value(value, TrackCuesV2.TrackColors)
 
     @staticmethod
     def _get_entry_class(entry_name: str):
@@ -640,7 +631,7 @@ class TrackCuesV2(SeratoGeobTag):
         color_bytes = self.get_track_color()
         if color_bytes is None:
             return None
-        return self._get_track_color_key(color_bytes)
+        return TrackCuesV2.TrackColors(color_bytes).name
 
     def set_track_color(self, color: TrackColors, delete_tags_v1: bool | None = None):
         """Sets the track color in memory; call `save()` to write it to the file.
