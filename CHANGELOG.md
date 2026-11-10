@@ -6,15 +6,15 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
-Breaking: everything deprecated in 5.x is removed. Use what each was deprecated in favor of:
+Breaking: most of what was deprecated in 5.x is removed. Use what each was deprecated in favor of:
 
 - `DatabaseV2.rename_track_file`: use `Library.rename_track_file`, which also updates the crates and smart crates
-- `add_track` on crates and smart crates: use `add_tracks`
-- `remove_track` on the database, crates, and smart crates: use `remove_tracks`
 - The tag classes' read-only `raw_data`: parse, modify, and serialize through each tag's own methods
 - The `SeratoTrack` and `SeratoTag` names in `serato_tools.utils.track_tags`: use `ID3FileTag` and `SeratoGeobTag`
 - `TrackCuesV2.modified`: use `has_changed`
 - The `delete_tags_v1` parameter of `TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and of `Track.set_track_color` and `set_beatgrid_locked`: pass it to `save()` instead. Passing it to an edit is now a TypeError
+
+`add_track` and `remove_track` stay, still deprecated in favor of `add_tracks` and `remove_tracks`.
 
 ## [5.6.1] - 2026-11-10
 

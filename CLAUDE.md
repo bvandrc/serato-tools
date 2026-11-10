@@ -56,7 +56,7 @@ The lifecycle is `parse → self.entries → change through the class's methods 
 - `modify_tracks`, `modify`, `change_track_path`, `filter_tracks`, `remove_tracks`, and `remove_duplicates` return whether anything changed. Methods that save on the caller's behalf (`modify_and_save`, `find_missing`, and `Library`'s methods) use that to skip writing an unchanged file. `save()` itself always writes, since it doubles as "save as".
 - `modify()` takes a list of `ModifyRule` dicts (`{"field": ..., "func": (filename, prev_val) -> new_val | None, "files": [...]}`); returning `None` from `func` means "leave unchanged". A `func` returning `""` removes the field, as does a track entry's `set_value` with `""` (through its `remove_field`), since Serato removes a tag's field when the tag is cleared rather than storing it empty.
 - `modify_tracks(func, files=...)` and `modify()` with every rule limited to `files` skip every other track after reading only its path, which keeps single-track edits fast on a large library.
-- `add_tracks` / `remove_tracks` are the track APIs, taking any number of paths in one pass; there's no single-track version.
+- `add_tracks` / `remove_tracks` are the batch track APIs (one pass each); the singular `add_track` / `remove_track` are deprecated, kept past 6.0.0 for now, and delegate to them.
 - Files can also round-trip through JSON (`to_json_object` / `from_json_object` / `write_json`), with bytes base64-encoded.
 
 ### 2. GEOB tags inside audio files — `utils/track_tags.py`
