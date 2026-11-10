@@ -348,10 +348,7 @@ class SeratoBinFile:
             return [(f, self.get_value(f)) for f in self.fields]
 
     class Track(EntryListCls):
-        """A track's entry.
-
-        `relpath` is its path as stored, with no drive and `/`-separated, read from the `path_key` field.
-        """
+        """A track's entry, with its path as stored (`relpath`: no drive, `/`-separated) read from `path_key`."""
 
         def __init__(self, entries: "SeratoBinFile.EntryList", path_key: str):
             super().__init__(entries)
@@ -402,10 +399,7 @@ class SeratoBinFile:
 
     @staticmethod
     def _get_type(field: str) -> str:
-        """The letter that gives `field`'s value type.
-
-        It's the field name's first letter, except for `vrsn`, which holds text.
-        """
+        """The letter that gives `field`'s value type: its first, except for `vrsn`, which holds text."""
         # vrsn field has no type_id, but contains text ("t")
         return "t" if field == SeratoBinFile.Fields.VERSION else field[0]
 
@@ -449,10 +443,7 @@ class SeratoBinFile:
             yield field, value
 
     def _serialize_item(self, entry: Entry) -> bytes:
-        """An entry's bytes.
-
-        The header comes first, then the value, encoded as its field's type requires.
-        """
+        """An entry's bytes: its header, then its value encoded as its field's type requires."""
         field, value = entry
         field_bytes = field.encode("ascii")
         assert len(field_bytes) == 4
@@ -540,10 +531,7 @@ class SeratoBinFile:
                 yield track
 
     def get_track_paths(self, include_drive: bool = False) -> list[str]:
-        """Each track's path.
-
-        Paths are as stored, with no drive, or with `include_drive`, absolute.
-        """
+        """Each track's path: as stored, with no drive, or with `include_drive`, as an absolute path."""
         return [t.get_full_path() if include_drive else t.relpath for t in self.get_tracks()]
 
     def modify_tracks(self, func: Callable[[Track], Track], files: Optional[list[str]] = None) -> bool:
@@ -656,10 +644,7 @@ class SeratoBinFile:
 
     @staticmethod
     def get_relative_path(filepath: str) -> str:
-        """`filepath` as Serato stores a track path.
-
-        The drive and any leading slash are dropped, and it's `/`-separated.
-        """
+        """`filepath` as Serato stores a track path: without its drive or leading slash, and `/`-separated."""
         filepath = os.path.splitdrive(filepath)[1]
         relpath = os.path.normpath(filepath).replace(os.path.sep, "/").lstrip("/")
         return relpath
@@ -713,10 +698,7 @@ class SeratoBinFile:
     """ (filename: str, prev_value: ValueType | None) -> new_value: ValueType | None """
 
     class ModifyRule(TypedDict):
-        """A change for `modify`.
-
-        `func` gives `field`'s new value for each track, or for only those in `files`.
-        """
+        """A change for `modify`: `func` gives `field`'s new value for each track, or for only those in `files`."""
 
         field: "SeratoBinFile.Fields"
         func: "SeratoBinFile.ModifyFunc"

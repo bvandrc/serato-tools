@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""The legacy `Serato Markers_` tag.
-
-It holds a track's first 5 cues, 9 loops, and color, which `Serato Markers2` also holds.
-"""
+"""The legacy `Serato Markers_` tag: a track's first 5 cues, 9 loops, and color, which `Serato Markers2` also holds."""
 
 import enum
 import io

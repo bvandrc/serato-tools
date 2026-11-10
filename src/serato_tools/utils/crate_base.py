@@ -11,10 +11,7 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 
 
 class CrateBase(SeratoBinFile):
-    """A crate or smart crate file, which holds a list of track paths.
-
-    Subclasses give it an `EXTENSION` and a `DIR`.
-    """
+    """A crate or smart crate file: a list of track paths, which subclasses give an `EXTENSION` and a `DIR`."""
 
     EXTENSION: str
     DIR: str
