@@ -3,7 +3,7 @@ from unittest import mock
 
 from mutagen.id3 import COMM, ID3, Encoding
 
-from serato_tools.track_text_frames import TrackTextFrames
+from serato_tools.track_text_frames import TrackTextFrames, read_comment, write_comment
 
 from test.helpers import temp_mp3
 
@@ -160,6 +160,21 @@ class TestCase(unittest.TestCase):
         frames = TrackTextFrames(self.path)
         frames.set_comment("A Comment")
         self.assertTrue(frames.has_changed, "the other frame would be removed")
+
+    def test_write_comment_on_open_tags(self):
+        # for code that already has the file's tags open, such as an EasyID3 key's setter
+        tags = ID3(self.path)
+        self.assertTrue(write_comment(tags, "A Comment"))
+        self.assertEqual(read_comment(tags), "A Comment", "in memory")
+        self.assertFalse(write_comment(tags, "A Comment"), "already set")
+        tags.save(self.path)
+        self.assertEqual(read_comment(ID3(self.path)), "A Comment")
+        self.assertEqual(TrackTextFrames(self.path).get_comment(), "A Comment")
+
+        tags = ID3(self.path)
+        self.assertTrue(write_comment(tags, ""))
+        tags.save(self.path)
+        self.assertEqual(self.comments(), {}, "both frames removed")
 
 
 if __name__ == "__main__":

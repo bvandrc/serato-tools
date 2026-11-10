@@ -8,6 +8,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `Library.set_db_track_tags` / `set_db_tracks_tags` also set a track's metadata in its ID3 text frames and the database: `title`, `artist`, `album`, `genre`, `key`, `grouping`, `publisher`, `composer`, `year`, `remixer`, `bpm`, `track_number`, `disc_number`, and `comment`. An empty value removes it from both, as Serato does when a tag is cleared
 - Add `TrackTextFrames` (`serato_tools.track_text_frames`), which reads and sets a track file's ID3 text frames and its comment, and `Track.text_frames`
+  - `read_comment` and `write_comment`, in the same module, read and set the comment on a file's tags you already have open. Serato shows a file's first comment frame, so `write_comment` also removes every other one but iTunes' data frames
 - Add `Track.snap_cues_to_beats(tolerance_beats)`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `SnappedCue`. It needs the `Track`'s `cues_v2` and `beatgrid` parsed (the default)
   - `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)` does the same with the `TrackBeatgrid` passed to it
   - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to
