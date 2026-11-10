@@ -55,7 +55,7 @@ class SmartCrate(CrateBase):
 
     @unique
     class RuleField(IntEnum):
-        """The track value a rule tests, as the number Serato stores in `RULE_FIELD`."""
+        """The track field a rule tests, such as artist or BPM, as the number Serato stores in `RULE_FIELD`."""
 
         ADDED = 25
         ALBUM = 8
@@ -162,7 +162,7 @@ class SmartCrate(CrateBase):
         return ret_val
 
     class Rule(CrateBase.EntryListCls):
-        """One of a smart crate's rules: the track value it tests (`field`), the `comparison`, and the `value`."""
+        """One of a smart crate's rules: the track field it tests (`field`), the `comparison`, and the `value`."""
 
         def __init__(self, entries: "CrateBase.EntryList"):
             super().__init__(entries)
