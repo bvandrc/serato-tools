@@ -1,7 +1,7 @@
 import unittest
 from unittest import mock
 
-from mutagen.id3 import ID3
+from mutagen.id3 import ID3, TPE1, Encoding
 
 from serato_tools.track_text_frames import TrackTextFrames
 
@@ -39,9 +39,33 @@ class TestCase(unittest.TestCase):
             frames.save(force=True)
             write.assert_called_once()
 
-    def test_set_unknown_frame_raises(self):
+    def test_set_raises_for_a_frame_id_that_isnt_a_text_frame_stored_by_its_id(self):
+        # COMM and TXXX are text frames stored under a key with their description; TIPL is stored by its ID but holds
+        # pairs, not text; APIC, WOAR, and GEOB are neither
+        for frame_id in ("XXXX", "COMM", "TXXX", "TIPL", "APIC", "WOAR", "GEOB"):
+            with self.subTest(frame_id), self.assertRaises(ValueError):
+                TrackTextFrames(self.path).set(frame_id, "x")
+
+    def test_set_raises_for_text_the_frame_cant_hold(self):
+        frames = TrackTextFrames(self.path)
         with self.assertRaises(ValueError):
-            TrackTextFrames(self.path).set("XXXX", "x")
+            frames.set("TDRC", "not a date")
+        self.assertFalse(frames.has_changed, "nothing set")
+        frames.set("TDRC", "2020-05-01")
+        frames.save()
+        self.assertEqual(TrackTextFrames(self.path).get("TDRC"), "2020-05-01")
+
+    def test_set_replaces_every_value_of_a_multi_valued_frame(self):
+        tags = ID3(self.path)
+        tags.add(TPE1(encoding=Encoding.UTF8, text=["A", "B"]))
+        tags.save(self.path)
+
+        frames = TrackTextFrames(self.path)
+        self.assertEqual(frames.get("TPE1"), "A", "the first value")
+        frames.set("TPE1", "A")
+        self.assertTrue(frames.has_changed, "B would go")
+        frames.save()
+        self.assertEqual(ID3(self.path)["TPE1"].text, ["A"])
 
     def test_has_changed(self):
         frames = TrackTextFrames(self.path)

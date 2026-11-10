@@ -1,14 +1,19 @@
 """A track file's ID3 text frames, such as `TIT2` (title). Needs the `track_tags` extra."""
 
-from mutagen.id3 import Encoding, Frames
+from mutagen.id3 import Encoding, Frames, TextFrame
 
 from serato_tools.utils.track_tags import ID3File, ID3FileOrPath, ID3FileTag, del_tag
 
 
-def _get_text(tagfile: ID3File, key: str) -> str | None:
+def _get_texts(tagfile: ID3File, key: str) -> list[str]:
     frame = tagfile.get(key)
     # str(), since some frames hold other types (TDRC holds ID3TimeStamps)
-    return str(frame.text[0]) if frame is not None and frame.text else None
+    return [str(text) for text in frame.text] if frame is not None else []
+
+
+def _get_text(tagfile: ID3File, key: str) -> str | None:
+    texts = _get_texts(tagfile, key)
+    return texts[0] if texts else None
 
 
 class TrackTextFrames(ID3FileTag):
@@ -29,8 +34,18 @@ class TrackTextFrames(ID3FileTag):
 
     def set(self, frame_id: str, text: str):
         """Sets the frame's text in memory, adding the frame if the file has none; call `save()` to write it."""
-        if frame_id not in Frames:
-            raise ValueError(f"not an ID3 frame ID: {frame_id}")
+        frame_class = Frames.get(frame_id)
+        # only a text frame stored under its bare ID: COMM and TXXX are text frames too, but stored under a key that
+        # adds their description, so get() would never find what was written
+        if frame_class is None or not issubclass(frame_class, TextFrame):
+            raise ValueError(f"not an ID3 text frame stored by its ID: {frame_id}")
+        frame = frame_class(encoding=Encoding.UTF8, text=[text])
+        if frame.HashKey != frame_id:
+            raise ValueError(f"not an ID3 text frame stored by its ID: {frame_id}")
+        # a frame that can't hold the text drops it, as a timestamp frame (TDRC) does text that isn't a date; mutagen
+        # sets a frame's attributes from its specs at runtime, so its types don't declare `text`
+        if [str(t) for t in frame.text] != [text]:  # pyright: ignore[reportAttributeAccessIssue]
+            raise ValueError(f"{frame_id} can't hold {text!r}")
         self._unsaved[frame_id] = text
 
     def _changed_frames(self) -> dict[str, str | None]:
@@ -38,7 +53,8 @@ class TrackTextFrames(ID3FileTag):
         return {
             frame_id: text or None
             for frame_id, text in self._unsaved.items()
-            if _get_text(self.tagfile, frame_id) != (text or None)
+            # compared with all the frame's values, so setting one of several replaces them all
+            if _get_texts(self.tagfile, frame_id) != ([text] if text else [])
         }
 
     @property
