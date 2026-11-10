@@ -682,12 +682,11 @@ class SeratoBinFile:
         rule_files = [set(rule["files"]) if "files" in rule else None for rule in rules]
 
         def _maybe_perform_rule(
-            rule: "SeratoBinFile.ModifyRule",
+            field: "SeratoBinFile.Fields",
             maybe_new_value: "SeratoBinFile.ValueOrNone",
             prev_val: "SeratoBinFile.ValueOrNone",
             track_relpath: str,
         ):
-            field = rule["field"]
             if maybe_new_value is None or maybe_new_value == prev_val:
                 return None
 
@@ -716,7 +715,7 @@ class SeratoBinFile:
                     if track.remove_field(field):
                         logger.info(f"Removed {field}({self.get_field_name(field)}) in library for {track.relpath}")
                     continue
-                maybe_new_value = _maybe_perform_rule(rule, maybe_new_value, prev_val, track.relpath)
+                maybe_new_value = _maybe_perform_rule(field, maybe_new_value, prev_val, track.relpath)
                 if maybe_new_value is not None:
                     track.set_value(field, maybe_new_value)
             return track
