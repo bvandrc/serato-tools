@@ -154,10 +154,12 @@ class CliTestCase(unittest.TestCase):
 
     def test_sets_and_deletes_rules(self):
         self.assertIn(SmartCrate.RuleField.YEAR, self.saved_rules())
-        self.run_cli("--grouping", "str_is", "UNTAGGED", "--plays", "INT_IS_GE", "3", "--year", "delete")
+        self.run_cli("--GROUPING", "str_is", "UNTAGGED", "--Plays", "INT_IS_GE", "3", "--year", "delete")
         rules = self.saved_rules()
-        self.assertEqual(rules[SmartCrate.RuleField.GROUPING], ("cond_is_str", "UNTAGGED"))
-        self.assertEqual(rules[SmartCrate.RuleField.PLAYS], ("cond_greq_uint", 3), "comparison in any case")
+        self.assertEqual(rules[SmartCrate.RuleField.GROUPING], ("cond_is_str", "UNTAGGED"), "field option in any case")
+        self.assertEqual(
+            rules[SmartCrate.RuleField.PLAYS], ("cond_greq_uint", 3), "field option and comparison in any case"
+        )
         self.assertNotIn(SmartCrate.RuleField.YEAR, rules, "DELETE in any case")
 
     def test_deprecated_set_rules_flag_still_works(self):

@@ -9,7 +9,6 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `serato_smartcrate` CLI now takes each rule field as its own option, e.g. `serato_smartcrate Dubstep.scrate --grouping str_is UNTAGGED --year DELETE`
   - `--help` lists the fields and comparisons
   - A bad field, comparison, or number of arguments is rejected before any crate is changed
-  - NOTE: Field options are lowercase only now (`--grouping`, not `--GROUPING`). Comparisons and `DELETE` are still accepted in any case
 
 ### Deprecations
 

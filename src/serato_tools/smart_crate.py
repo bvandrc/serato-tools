@@ -287,7 +287,11 @@ def main():
             dest=f"rule_{rule_field.name.lower()}",
             help=f"COMPARISON VALUE for the {rule_field.name.lower()} rule, or DELETE",
         )
-    parsed = vars(parser.parse_args())
+    # argparse matches options by case, so lowercase a rule field option given in another case (--GROUPING), as the
+    # --set_rules parser accepted it; only exact field names are touched, so a value is never changed
+    rule_options_by_upper = {f"--{field.name}": f"--{field.name.lower()}" for field in SmartCrate.RuleField}
+    argv = [rule_options_by_upper.get(arg.upper(), arg) for arg in sys.argv[1:]]
+    parsed = vars(parser.parse_args(argv))
     rule_args = {field: parsed.pop(f"rule_{field.name.lower()}") for field in SmartCrate.RuleField}
     args = Args(**parsed)
 
