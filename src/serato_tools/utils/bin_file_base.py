@@ -1,4 +1,7 @@
-"""The container format of Serato's library database and crate files: nested entries, each a named, typed value."""
+"""The container format of Serato's library database and crate files.
+
+A file is a list of entries, each a named, typed value, which may itself be a nested list of entries.
+"""
 
 import os
 import io
