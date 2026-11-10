@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 
 from serato_tools.utils.crate_base import CrateBase
-from serato_tools.utils import parse_cli_keys_and_values, SERATO_DIR, DataTypeError
+from serato_tools.utils import SERATO_DIR, DataTypeError
 
 
 class SmartCrate(CrateBase):
@@ -265,6 +265,8 @@ class SmartCrate(CrateBase):
 def main():
     """The `serato_smartcrate` CLI: prints smart crates, lists their tracks, or sets or deletes their rules."""
     import argparse
+
+    from serato_tools.utils.ui import parse_cli_keys_and_values
 
     @dataclass
     class Args:

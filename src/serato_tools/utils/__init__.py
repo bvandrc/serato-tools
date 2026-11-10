@@ -1,4 +1,4 @@
-"""Shared helpers: the default Serato folder, the package's logger, and small CLI and error utilities."""
+"""Shared helpers: the default Serato folder, the package's logger, and the package's error classes."""
 
 import logging
 import os
@@ -9,24 +9,6 @@ logger = logging.getLogger("serato-tools")
 SERATO_DIR_NAME = "_Serato_"
 SERATO_DIR = os.path.join(os.path.expanduser("~"), "Music", SERATO_DIR_NAME)
 SERATO_DRIVE = os.path.splitdrive(SERATO_DIR)[0]
-
-
-def parse_cli_keys_and_values(args: list[str]):
-    """Groups CLI arguments by the `--key` before them, e.g. `--a 1 2 --b` gives `{"a": ["1", "2"], "b": []}`.
-
-    Arguments before the first key are dropped.
-    """
-    keys_and_values: dict[str, list[str | int]] = {}
-    key = None
-    for arg in args:
-        if arg.startswith("--"):
-            key = arg.lstrip("-")
-            keys_and_values[key] = []
-        elif key:
-            keys_and_values[key].append(arg)
-
-    # pairs[key] = True  # default to True if no value follows
-    return keys_and_values
 
 
 class DataTypeError(Exception):

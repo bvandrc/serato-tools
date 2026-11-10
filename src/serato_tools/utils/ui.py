@@ -1,4 +1,4 @@
-"""Terminal prompts, and the editors the CLIs' interactive edit modes open."""
+"""Helpers for the CLIs: parsing arguments argparse can't declare, terminal prompts, and the editors edit modes open."""
 
 import os
 import shutil
@@ -39,3 +39,21 @@ def get_hex_editor():
     if not hex_editor:
         raise Exception("No suitable HEXEDITOR found.")
     return hex_editor
+
+
+def parse_cli_keys_and_values(args: list[str]):
+    """Groups CLI arguments by the `--key` before them, e.g. `--a 1 2 --b` gives `{"a": ["1", "2"], "b": []}`.
+
+    Arguments before the first key are dropped.
+    """
+    keys_and_values: dict[str, list[str | int]] = {}
+    key = None
+    for arg in args:
+        if arg.startswith("--"):
+            key = arg.lstrip("-")
+            keys_and_values[key] = []
+        elif key:
+            keys_and_values[key].append(arg)
+
+    # pairs[key] = True  # default to True if no value follows
+    return keys_and_values
