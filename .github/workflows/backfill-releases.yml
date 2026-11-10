@@ -27,12 +27,12 @@ jobs:
 
       - name: Create the missing releases
         run: |
-          # only mark the newest backfilled release latest if no release is yet, e.g. one made since for 6.0.0
-          had_latest=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+          failed=()
 
           # version, commit it was built from, and date PyPI received it, oldest first
           while read -r version sha published; do
             tag="v$version"
+            newest=$tag
             if gh release view "$tag" > /dev/null 2>&1; then
               echo "$tag has a release already, so it's skipped."
               continue
@@ -42,8 +42,10 @@ jobs:
               notes="No changelog entry for this version; see the commits since the previous release."
             fi
             notes+=$'\n\n'"Published to [PyPI](https://pypi.org/project/serato-tools/$version/) on $published. This release was added afterwards, at the commit it was built from."
-            gh release create "$tag" --target "$sha" --title "$tag" --notes "$notes" --latest=false
-            last_tag=$tag
+            # carry on past a failure, so one version can't hold up the rest
+            if ! gh release create "$tag" --target "$sha" --title "$tag" --notes "$notes" --latest=false; then
+              failed+=("$tag at $sha")
+            fi
           done <<'VERSIONS'
           1.5.1 5db6c7ef4bb7009f4122feab0e86f5a020528bae 2025-04-11
           1.5.2 61584e2cbbae04a559af5c1078269c90bc856cca 2025-04-11
@@ -93,6 +95,16 @@ jobs:
           5.6.1 611f8776291211a216b280da510a085aab3e60de 2026-11-10
           VERSIONS
 
-          if [ -z "$had_latest" ] && [ -n "${last_tag:-}" ]; then
-            gh release edit "$last_tag" --latest
+          # with none marked, GitHub counts the release created last as latest, so mark the newest version latest,
+          # unless a newer release (e.g. one made since for 6.0.0) is
+          latest=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+          if [ "$latest" != "$newest" ] && [ "$(printf '%s\n' "${latest#v}" "${newest#v}" | sort -V | tail -1)" = "${newest#v}" ] \
+            && gh release view "$newest" > /dev/null 2>&1; then
+            gh release edit "$newest" --latest
+          fi
+
+          if [ ${#failed[@]} -gt 0 ]; then
+            # the workflow's token can't create a tag on a commit that changes a workflow file
+            echo "::error::Couldn't create a release for: ${failed[*]}. If its commit changes a workflow file, the workflow's token can't tag it: push the tag yourself, then rerun this."
+            exit 1
           fi
