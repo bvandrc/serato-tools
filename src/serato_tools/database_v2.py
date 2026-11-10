@@ -6,8 +6,8 @@ import os
 from dataclasses import dataclass
 
 
-from serato_tools.utils.bin_file_base import SeratoBinFile
 from serato_tools.utils import SERATO_DIR
+from serato_tools.utils.bin_file_base import SeratoBinFile
 
 
 class DatabaseV2(SeratoBinFile):

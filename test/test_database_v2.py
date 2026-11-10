@@ -9,7 +9,7 @@ import shutil
 from serato_tools.database_v2 import DatabaseV2
 
 # bin_file_base raises the installed package's DataTypeError, so catch that one
-from serato_tools.utils import DataTypeError
+from serato_tools.utils.bin_file_base import DataTypeError
 
 from test.helpers import read_bytes, temp_dir
 

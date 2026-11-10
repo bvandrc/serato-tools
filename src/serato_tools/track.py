@@ -34,7 +34,7 @@ class Track:
         """Opens the track file at `file`, or uses `file` if it's an already open mutagen file, and parses its tags.
 
         Each tag passed False isn't parsed or saved, and using it raises ValueError. `waveform` is False by default,
-        since it's display data that's rarely changed, and it raises ValueError if Serato hasn't built it yet.
+        since it's display data that's rarely changed, and it raises NoWaveformError if Serato hasn't built it yet.
         """
         self.tagfile = open_tagfile(file)
         self._cues_v2 = TrackCuesV2(self.tagfile) if cues_v2 else None

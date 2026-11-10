@@ -2,6 +2,8 @@
 
 import struct
 import io
+from enum import StrEnum, unique
+from typing import ClassVar
 
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3FileType, ID3
@@ -13,6 +15,54 @@ from serato_tools.utils import logger
 # an open track file whose tags can be read and written: an ID3 file (.mp3), an AIFF file, or a file's bare ID3 tags
 type ID3File = ID3FileType | ID3 | AIFF
 type ID3FileOrPath = str | ID3File
+
+
+@unique
+class GeobKeys(StrEnum):
+    """The GEOB frame key of each Serato tag in a track file, each tag class's `GEOB_KEY`.
+
+    `ANALYSIS` and `OFFSETS` have no tag class yet. They're listed so every key Serato writes is here.
+    """
+
+    ANALYSIS = "Serato Analysis"
+    AUTOTAGS = "Serato Autotags"
+    BEATGRID = "Serato BeatGrid"
+    CUES_V1 = "Serato Markers_"
+    CUES_V2 = "Serato Markers2"
+    OFFSETS = "Serato Offsets_"
+    WAVEFORM = "Serato Overview"
+
+
+class MissingTagError(ValueError):
+    """A track file without the Serato tag that was needed, such as one Serato hasn't analyzed yet.
+
+    Catch a subclass to handle one tag's absence, without also catching other ValueErrors, such as a corrupt tag.
+    """
+
+    GEOB_KEY: ClassVar[GeobKeys]
+
+    def __init__(self, filename: str | None = None):
+        """`filename` is the track's, or None for a tag read from bytes."""
+        self.filename = filename
+        super().__init__(f"no {self.GEOB_KEY} tag" + (f": {filename}" if filename else ""))
+
+
+class NoCuesError(MissingTagError):
+    """A track without a `Serato Markers2` tag, so no cues, such as one that hasn't been analyzed or given any."""
+
+    GEOB_KEY = GeobKeys.CUES_V2
+
+
+class NoBeatgridError(MissingTagError):
+    """A track without a `Serato BeatGrid` tag, such as one Serato hasn't analyzed yet."""
+
+    GEOB_KEY = GeobKeys.BEATGRID
+
+
+class NoWaveformError(MissingTagError):
+    """A track without a `Serato Overview` tag, the waveform, such as one Serato hasn't analyzed yet."""
+
+    GEOB_KEY = GeobKeys.WAVEFORM
 
 
 def open_tagfile(file: ID3FileOrPath) -> ID3File:
@@ -90,7 +140,7 @@ class ID3FileTag:
 class SeratoGeobTag(ID3FileTag):
     """One of Serato's GEOB tags, such as `Serato Markers2`: parsed from, and serialized back to, its frame's bytes."""
 
-    GEOB_KEY: str
+    GEOB_KEY: GeobKeys
 
     VERSION_FORMAT = "BB"
     VERSION_LEN = struct.calcsize(VERSION_FORMAT)
@@ -117,6 +167,11 @@ class SeratoGeobTag(ID3FileTag):
 
     def __repr__(self) -> str:
         return str(self._raw_data)
+
+    @property
+    def filename(self) -> str | None:
+        """The track file's path, or None for a tag read from bytes."""
+        return self.tagfile.filename if self.tagfile else None
 
     def _require_tagfile(self) -> ID3File:
         """The tag's open file; raises if it was read from bytes."""

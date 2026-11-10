@@ -13,9 +13,25 @@ import hashlib
 import warnings
 from enum import StrEnum, unique
 import json
-from typing import Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
+from typing import Any, Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
 
-from serato_tools.utils import logger, SERATO_DRIVE, DataTypeError, DeeplyNestedListError
+from serato_tools.utils import logger, SERATO_DRIVE
+
+
+class DataTypeError(Exception):
+    """A value whose type doesn't match the one its field holds."""
+
+    def __init__(self, value: Any, expected_type: type, field: str | None):
+        super().__init__(
+            f"value must be {expected_type.__name__} when field is {field} (type: {type(value).__name__}) (value: {str(value)})"
+        )
+
+
+class DeeplyNestedListError(Exception):
+    """An entry list nested inside a flat one, such as a track's, which this package can't parse into objects."""
+
+    def __init__(self):
+        super().__init__("unexpected type, deeply nested list. if this occurs, need to implement code for it.")
 
 
 class SeratoBinFile:

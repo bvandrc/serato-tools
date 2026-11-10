@@ -7,8 +7,8 @@ import sys
 from dataclasses import dataclass
 
 
-from serato_tools.utils.crate_base import CrateBase
 from serato_tools.utils import SERATO_DIR
+from serato_tools.utils.crate_base import CrateBase
 
 
 class Crate(CrateBase):

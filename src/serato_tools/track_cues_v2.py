@@ -23,7 +23,14 @@ from mutagen.mp3 import HeaderNotFoundError
 
 
 from serato_tools.track_cues_v1 import TrackCuesV1
-from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
+from serato_tools.utils.track_tags import (
+    SeratoGeobTag,
+    del_geob,
+    GeobKeys,
+    MissingTagError,
+    NoBeatgridError,
+    NoCuesError,
+)
 
 if TYPE_CHECKING:
     # only for snap_cues_to_beats' annotation: the beatgrid is passed in, never read from this tag's file
@@ -82,7 +89,7 @@ class TrackCuesV2(SeratoGeobTag):
     call `save()`.
     """
 
-    GEOB_KEY = "Serato Markers2"
+    GEOB_KEY = GeobKeys.CUES_V2
     VERSION = (0x01, 0x01)
 
     # the colors Serato stores; Serato DJ Pro and Lite show each one a little differently (see docs/colors.md)
@@ -653,11 +660,17 @@ class TrackCuesV2(SeratoGeobTag):
         """Moves each cue to its nearest beat in `beatgrid` in memory, and returns the moves.
 
         Where each cue goes is decided by `beatgrid.get_snapped_position`. Pass the track's own beatgrid, as
-        `Track.snap_cues_to_beats` does. Call `save()` to write the change to the file. Raises ValueError if the tag
-        has no entries. A `min_ms_change` below 2 warns, since that moves nearly every cue Serato placed.
+        `Track.snap_cues_to_beats` does. Call `save()` to write the change to the file. A `min_ms_change` below 2
+        warns, since that moves nearly every cue Serato placed.
+
+        Raises NoCuesError for a track without a `Serato Markers2` tag, and NoBeatgridError for one without a beatgrid,
+        such as one Serato hasn't analyzed, which Mixed In Key may already have added cues to. A tag with no cues in it
+        moves nothing.
         """
         if not self.entries:
-            raise ValueError("No entries set")
+            raise NoCuesError(self.filename)
+        if not beatgrid.entries:
+            raise NoBeatgridError(beatgrid.filename)
         if min_ms_change < 2:
             warnings.warn(
                 f"min_ms_change={min_ms_change} snaps cues that are 1 ms off the beat, which is most cues Serato placed",
@@ -766,7 +779,11 @@ def main():
         # imported here, so that the tag's module needs the beatgrid's only for this option
         from serato_tools.track_beatgrid import TrackBeatgrid
 
-        for snapped in tags.snap_cues_to_beats(TrackBeatgrid(tags.tagfile), tolerance_beats):
+        try:
+            snapped_cues = tags.snap_cues_to_beats(TrackBeatgrid(tags.tagfile), tolerance_beats)
+        except MissingTagError as error:
+            sys.exit(f"Can't snap the cues: {error}")
+        for snapped in snapped_cues:
             print(f"Snapped cue {snapped.index + 1} by {snapped.new_position - snapped.old_position} ms")
         tags.save(delete_tags_v1=True)
         sys.exit()
