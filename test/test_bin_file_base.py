@@ -6,7 +6,7 @@ from unittest import mock
 from serato_tools.crate import Crate
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
-from test.helpers import temp_dir
+from test.helpers import read_bytes, temp_dir
 
 
 class PathTestCase(unittest.TestCase):
@@ -142,28 +142,36 @@ class HasChangedTestCase(unittest.TestCase):
         self.assertTrue(crate.has_changed)
 
 
-class SaveIfChangedTestCase(unittest.TestCase):
-    """save_if_changed, through Crate, as HasChangedTestCase."""
+class SaveTestCase(unittest.TestCase):
+    """save, through Crate, as HasChangedTestCase."""
 
     def setUp(self):
-        self.file = os.path.join(temp_dir(self), "Test.crate")
+        self.tmp = temp_dir(self)
+        self.file = os.path.join(self.tmp, "Test.crate")
         shutil.copy("test/data/TestCrate.crate", self.file)
 
-    def test_unchanged_file_isnt_written(self):
+    def test_unchanged_file_isnt_written_unless_forced(self):
         crate = Crate(self.file)
         with mock.patch("builtins.open", wraps=open) as opened:
-            self.assertFalse(crate.save_if_changed())
+            self.assertFalse(crate.save())
         opened.assert_not_called()
+        with mock.patch("builtins.open", wraps=open) as opened:
+            self.assertTrue(crate.save(force=True))
+        opened.assert_called_once_with(self.file, "wb")
 
     def test_changed_file_is_written_once_serialized(self):
         crate = Crate(self.file)
         crate.add_tracks(["/music/track1.mp3"])
         with mock.patch.object(Crate, "to_bytes", autospec=True, side_effect=Crate.to_bytes) as to_bytes:
-            self.assertTrue(crate.save_if_changed())
+            self.assertTrue(crate.save())
         self.assertEqual(to_bytes.call_count, 1, "serialized once, to check and to write")
         self.assertEqual(Crate(self.file).get_track_paths(), crate.get_track_paths(), "written")
-        self.assertFalse(crate.has_changed, "recorded as saved")
-        self.assertFalse(crate.save_if_changed(), "not written again")
+        self.assertFalse(crate.save(), "not written again")
+
+    def test_saving_elsewhere_always_writes(self):
+        copy = os.path.join(self.tmp, "Copy.crate")
+        self.assertTrue(Crate(self.file).save(copy))
+        self.assertEqual(read_bytes(copy), read_bytes(self.file))
 
 
 if __name__ == "__main__":

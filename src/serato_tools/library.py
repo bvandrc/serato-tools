@@ -97,7 +97,7 @@ class Library:
         """
         saved: list[str] = []
         for file in self._get_parsed_bin_files():
-            if file.save_if_changed():
+            if file.save():
                 saved.append(file.filepath)
         return saved
 

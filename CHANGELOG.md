@@ -15,7 +15,6 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to
   - `serato_snap_cues_v2 --snap_cues` now says which cue each move was for, and which tag is missing for a track without cues or a beatgrid. Its options are unchanged
 - Add `Library.save`, which writes each of the library's parsed files that has changed, once, and returns their paths. It saves changes made through `library.database`'s or the crates' own methods, such as `modify`
-- Add `save_if_changed()` to the library database, crates, and smart crates, which writes the file only if it has changed, serializing it once where checking `has_changed` and then saving serializes it twice. `Library.save` uses it
 - Add `Library.batch()`, a context manager: inside `with library.batch():`, `rename_track_file`, `remove_track_files`, and `set_db_tracks_tags` hold back writing the database and crates, and each changed file is written once when the block ends, instead of once per track. The track files themselves still change right away, so it saves even if the block raises
 - `serato_smartcrate` CLI now takes each rule field as its own option, e.g. `serato_smartcrate Dubstep.scrate --grouping str_is UNTAGGED --year DELETE`
   - `--help` lists the fields and comparisons
@@ -29,6 +28,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Breaking: `save()` on the library database, crates, and smart crates skips writing to the file's own path when it hasn't changed since it was loaded or last saved, as the track tag classes' `save()` does, and returns whether it wrote. Pass `force=True` to write anyway, e.g. to overwrite a file changed on disk since it was loaded. Saving to another path always writes. It serializes the file once, to check it and to write it, so `Library.save` does too
 - Breaking: `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`, next to the database and crate code that raises them
 
 ### Removed

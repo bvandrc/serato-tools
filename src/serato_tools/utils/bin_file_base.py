@@ -616,35 +616,33 @@ class SeratoBinFile:
 
         return self.filter_tracks(filter_track)
 
-    def save(self, file: Optional[str] = None):
-        """
-        Writes the file's bytes to `file`, or to the path it was loaded from.
+    def save(self, file: Optional[str] = None, force: bool = False) -> bool:
+        """Writes the file's bytes to `file`, or to the path it was loaded from, and returns whether it wrote them.
+
+        Saving to its own path writes only if the file changed since it was loaded or last saved (`has_changed`), unless
+        `force`; saving to any other path always writes. Serializes the file once, to check it and to write it.
 
         Raises RuntimeError if called before the initial parse has finished, e.g. from a subclass's __init__ before
         it calls super().__init__(), and ValueError for a path the class can't save to, such as a `.json` file.
         """
         file = self._check_save_path(file)
         # serialize before opening, since opening truncates and a serialization error would leave the file empty
-        self._write(file, self.to_bytes())
-
-    def save_if_changed(self) -> bool:
-        """Writes the file to the path it was loaded from if it has changed, and returns whether it did.
-
-        "Changed" is as `has_changed` means it. This serializes the file once, where checking `has_changed` and then
-        calling `save()` serializes it twice. Raises as `save()` does.
-        """
-        file = self._check_save_path(None)
         data = self.to_bytes()
-        if not self._differs_from_saved(data):
+        own_path = self._is_own_path(file)
+        if own_path and not force and not self._differs_from_saved(data):
             return False
-        self._write(file, data)
+        with open(file, "wb") as f:
+            f.write(data)
+        # saving a copy elsewhere leaves this file's own changes unsaved
+        if own_path:
+            self._saved_hash = self._hash(data)
         return True
 
     def _check_save_path(self, file: Optional[str]) -> str:
         """The path to save to, `file` or this file's own path, after checking the file can be saved there.
 
         Raises RuntimeError before the initial parse has finished, and ValueError for a `.json` path. Subclasses extend
-        this to check their own paths, so every way of saving checks them.
+        this to check their own paths, rather than overriding `save()`.
         """
         if not self._parsed:
             raise RuntimeError(f"cannot save a {type(self).__name__} before it has finished parsing")
@@ -653,14 +651,6 @@ class SeratoBinFile:
         if file.lower().endswith(".json"):
             raise ValueError("cannot save raw data to .json")
         return file
-
-    def _write(self, file: str, data: bytes):
-        """Writes `data`, already serialized, to `file`, recording it as saved if `file` is this file's own path."""
-        with open(file, "wb") as f:
-            f.write(data)
-        # saving a copy elsewhere leaves this file's own changes unsaved
-        if self._is_own_path(file):
-            self._saved_hash = self._hash(data)
 
     @classmethod
     def get_field_name(cls, field: str) -> str:
