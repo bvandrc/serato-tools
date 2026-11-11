@@ -54,15 +54,16 @@ class TestCase(unittest.TestCase):
         return type(file)(file.filepath).get_track_paths()
 
     def saved_file_names(self):
-        """Patches every library file's save to also record the saved file's name, into the returned list."""
+        """Records the name of each library file written from now on, however it's saved, into the returned list."""
         saved: list[str] = []
-        original_save = SeratoBinFile.save
 
-        def record_save(file: SeratoBinFile, *args, **kwargs):
-            saved.append(os.path.basename(file.filepath))
-            original_save(file, *args, **kwargs)
+        def record_write(file, *args, **kwargs):
+            if "w" in (args[0] if args else kwargs.get("mode", "r")):
+                saved.append(os.path.basename(file))
+            return open(file, *args, **kwargs)  # pylint: disable=unspecified-encoding
 
-        patcher = mock.patch.object(SeratoBinFile, "save", autospec=True, side_effect=record_save)
+        # every way of saving a bin file opens it for writing in its module
+        patcher = mock.patch("serato_tools.utils.bin_file_base.open", side_effect=record_write, create=True)
         patcher.start()
         self.addCleanup(patcher.stop)
         return saved
@@ -209,6 +210,24 @@ class TestCase(unittest.TestCase):
             library.rename_track_file(second, os.path.join(self.music_dir, "New Second.mp3"))
 
         self.assertEqual(saved, [DatabaseV2.FILENAME], "outer batch saves once")
+
+    def test_save_serializes_each_parsed_file_once(self):
+        track = self.make_track("Track.mp3")
+        self.add_to_database(track)
+        self.make_crate(Crate, "Crate", [track])
+
+        library = Library(self.serato_dir)
+        library.database.modify([{"field": DatabaseV2.Fields.GENRE, "files": [track], "func": lambda *args: "House"}])
+        _ = library.crates
+        with mock.patch.object(
+            SeratoBinFile, "to_bytes", autospec=True, side_effect=SeratoBinFile.to_bytes
+        ) as to_bytes:
+            library.save()
+        self.assertCountEqual(
+            [os.path.basename(f.filepath) for f, in (c.args for c in to_bytes.call_args_list)],
+            [DatabaseV2.FILENAME, "Crate.crate"],
+            "the changed database and the unchanged crate, once each",
+        )
 
     def test_save_writes_direct_changes(self):
         track = self.make_track("Track.mp3")

@@ -1,6 +1,7 @@
 import os
 import shutil
 import unittest
+from unittest import mock
 
 from serato_tools.crate import Crate
 from serato_tools.utils.bin_file_base import SeratoBinFile
@@ -139,6 +140,30 @@ class HasChangedTestCase(unittest.TestCase):
         self.assertFalse(crate.has_changed)
         crate.add_tracks(["/music/track1.mp3"])
         self.assertTrue(crate.has_changed)
+
+
+class SaveIfChangedTestCase(unittest.TestCase):
+    """save_if_changed, through Crate, as HasChangedTestCase."""
+
+    def setUp(self):
+        self.file = os.path.join(temp_dir(self), "Test.crate")
+        shutil.copy("test/data/TestCrate.crate", self.file)
+
+    def test_unchanged_file_isnt_written(self):
+        crate = Crate(self.file)
+        with mock.patch("builtins.open", wraps=open) as opened:
+            self.assertFalse(crate.save_if_changed())
+        opened.assert_not_called()
+
+    def test_changed_file_is_written_once_serialized(self):
+        crate = Crate(self.file)
+        crate.add_tracks(["/music/track1.mp3"])
+        with mock.patch.object(Crate, "to_bytes", autospec=True, side_effect=Crate.to_bytes) as to_bytes:
+            self.assertTrue(crate.save_if_changed())
+        self.assertEqual(to_bytes.call_count, 1, "serialized once, to check and to write")
+        self.assertEqual(Crate(self.file).get_track_paths(), crate.get_track_paths(), "written")
+        self.assertFalse(crate.has_changed, "recorded as saved")
+        self.assertFalse(crate.save_if_changed(), "not written again")
 
 
 if __name__ == "__main__":
