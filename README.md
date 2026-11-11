@@ -289,8 +289,10 @@ def track_rule(track: TrackCuesV2.TrackCuesInfo) -> TrackCuesV2.TrackCuesInfo | 
     return new_track if new_track != track else None
 
 tags.modify_entries(track_rule)
-# delete_tags_v1 (the default) deletes the legacy "Serato Markers_" tag, since a stale one stops changes from appearing in Serato
-tags.save(delete_tags_v1=True)
+# delete_tags_v1 (the default) deletes the legacy "Serato Markers_" tag, since a stale one stops changes from appearing in Serato.
+# save() writes only when the cues changed, so the Grouping set on tags.tagfile above is saved here otherwise
+if not tags.save(delete_tags_v1=True):
+    tags.tagfile.save()
 ```
 
 ### Listing available crates or smart crates
