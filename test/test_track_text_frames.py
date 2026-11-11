@@ -1,7 +1,7 @@
 import unittest
 from unittest import mock
 
-from mutagen.id3 import ID3, TPE1, Encoding
+from mutagen.id3 import COMM, ID3, TPE1, Encoding
 
 from serato_tools.track_text_frames import TrackTextFrames
 
@@ -56,7 +56,7 @@ class TestCase(unittest.TestCase):
     def test_set_raises_for_a_frame_id_that_isnt_a_text_frame_stored_by_its_id(self):
         # COMM and TXXX are text frames stored under a key with their description; TIPL is stored by its ID but holds
         # pairs, not text; APIC, WOAR, and GEOB are neither
-        for frame_id in ("XXXX", "COMM", "TXXX", "TIPL", "APIC", "WOAR", "GEOB"):
+        for frame_id in ("XXXX", "TXXX", "TIPL", "APIC", "WOAR", "GEOB"):
             with self.subTest(frame_id), self.assertRaises(ValueError):
                 TrackTextFrames(self.path).set(frame_id, "x")
 
@@ -119,6 +119,111 @@ class TestCase(unittest.TestCase):
         frames = TrackTextFrames(self.path)
         frames.set("TIT2", "")
         self.assertFalse(frames.has_changed, "already removed")
+
+    def comments(self) -> dict[str, tuple[int, list[str]]]:
+        """The file's COMM frames, by key, with their encoding and text."""
+        tags = ID3(self.path)
+        return {key: (tags[key].encoding, list(tags[key].text)) for key in tags.keys() if key.startswith("COMM")}
+
+    def test_set_comm_writes_the_frames_serato_does(self):
+        # Serato writes a Latin-1 comment to both of these, each Latin-1
+        frames = TrackTextFrames(self.path)
+        frames.set("COMM", "A Comment")
+        self.assertEqual(frames.get("COMM"), "A Comment", "unsaved value read back")
+        frames.save()
+        self.assertEqual(
+            self.comments(),
+            {
+                "COMM::eng": (Encoding.LATIN1, ["A Comment"]),
+                "COMM:ID3v1 Comment:eng": (Encoding.LATIN1, ["A Comment"]),
+            },
+        )
+        self.assertEqual(TrackTextFrames(self.path).get("COMM"), "A Comment")
+
+    def test_set_comm_beyond_latin1_is_utf16_without_the_id3v1_copy(self):
+        frames = TrackTextFrames(self.path)
+        frames.set("COMM", "A Comment")
+        frames.save()
+        frames.set("COMM", "TEST ★")
+        frames.save()
+        # all of it, unlike Serato, which cuts it off by sizing the frame for UTF-16 by its character count
+        self.assertEqual(self.comments(), {"COMM::eng": (Encoding.UTF16, ["TEST ★"])}, "ID3v1 copy removed")
+
+    def test_set_comm_empty_removes_both_frames(self):
+        frames = TrackTextFrames(self.path)
+        frames.set("COMM", "A Comment")
+        frames.save()
+        frames.set("COMM", "")
+        self.assertTrue(frames.has_changed)
+        frames.save()
+        self.assertEqual(self.comments(), {})
+        self.assertIsNone(TrackTextFrames(self.path).get("COMM"))
+
+    def test_set_comm_has_changed(self):
+        frames = TrackTextFrames(self.path)
+        frames.set("COMM", "")
+        self.assertFalse(frames.has_changed, "no comment to remove")
+        frames.set("COMM", "A Comment")
+        self.assertTrue(frames.has_changed)
+        frames.save()
+        frames.set("COMM", "A Comment")
+        self.assertFalse(frames.has_changed, "set to what the file has")
+
+    def add_comments(self, *frames: tuple[str, str, str]):
+        """Adds COMM frames to the file, each (description, language, text)."""
+        tags = ID3(self.path)
+        for desc, lang, text in frames:
+            tags.add(COMM(encoding=Encoding.LATIN1, lang=lang, desc=desc, text=[text]))
+        tags.save(self.path)
+
+    def test_get_comm_is_the_first_comment_frame(self):
+        # Serato shows the file's first COMM frame, whatever its description or language; mutagen saves the smaller first
+        self.add_comments(("", "eng", "A comment longer than the other frame"), ("Songs-DB_Custom1", "eng", "Short"))
+        self.assertEqual(TrackTextFrames(self.path).get("COMM"), "Short")
+
+    def test_get_comm_skips_itunes_frames(self):
+        self.add_comments(("iTunNORM", "eng", " 00000A2B 00000B1C"))
+        self.assertIsNone(TrackTextFrames(self.path).get("COMM"), "iTunes data, not a comment")
+
+    def test_set_comm_removes_every_other_comment_frame_but_itunes(self):
+        self.add_comments(
+            ("", "\0\0\0", "No language"),
+            ("", "deu", "German"),
+            ("Songs-DB_Custom1", "eng", "Custom"),
+            ("iTunNORM", "eng", " 00000A2B"),
+        )
+        frames = TrackTextFrames(self.path)
+        frames.set("COMM", "A Comment")
+        frames.save()
+        self.assertEqual(
+            {key: text for key, (_, text) in self.comments().items()},
+            {
+                "COMM::eng": ["A Comment"],
+                "COMM:ID3v1 Comment:eng": ["A Comment"],
+                "COMM:iTunNORM:eng": [" 00000A2B"],
+            },
+            "iTunes' data kept",
+        )
+        self.assertEqual(TrackTextFrames(self.path).get("COMM"), "A Comment", "now first")
+
+    def test_set_comm_has_changed_with_another_comment_frame(self):
+        frames = TrackTextFrames(self.path)
+        frames.set("COMM", "A Comment")
+        frames.save()
+        self.add_comments(("Songs-DB_Custom1", "eng", "A Label"))
+        frames = TrackTextFrames(self.path)
+        frames.set("COMM", "A Comment")
+        self.assertTrue(frames.has_changed, "the other frame would be removed")
+
+    def test_set_comm_replaces_every_value_of_the_comment_frame(self):
+        tags = ID3(self.path)
+        tags.add(COMM(encoding=Encoding.LATIN1, lang="eng", desc="", text=["A Comment", "Another"]))
+        tags.save(self.path)
+        frames = TrackTextFrames(self.path)
+        frames.set("COMM", "A Comment")
+        self.assertTrue(frames.has_changed, "the second value would go")
+        frames.save()
+        self.assertEqual(ID3(self.path)["COMM::eng"].text, ["A Comment"])
 
 
 if __name__ == "__main__":
