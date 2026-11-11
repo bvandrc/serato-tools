@@ -152,7 +152,7 @@ class TrackTextFrames(ID3FileTag):
 
         `COMM` sets the comment, in the frames Serato writes it to. Every other comment frame is removed, such as one
         another tagger put a label or catalog number in, since Serato would show one that came first in the file
-        instead. iTunes' data frames (`iTunNORM`, ...) are kept.
+        instead. iTunes' data frames (`iTunNORM`, ...) are kept, since Serato ignores them.
         """
         if frame_id == self.Fields.COMMENT:
             self._unsaved[frame_id] = text
