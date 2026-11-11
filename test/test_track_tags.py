@@ -1,5 +1,6 @@
 # pylint: disable=protected-access
 import unittest
+from unittest import mock
 
 from mutagen.mp3 import MP3
 
@@ -24,6 +25,17 @@ class TestCase(unittest.TestCase):
                 tags.delete()
                 tags.save()
                 self.assertIsNone(get_geob(MP3(path), tag_class.GEOB_KEY), "deletion saved")
+
+    def test_save_writes_only_a_changed_tag_unless_forced(self):
+        for tag_class in (TrackCuesV2, TrackCuesV1, TrackBeatgrid, TrackAutotags, TrackWaveform):
+            with self.subTest(tag_class.__name__):
+                tags = tag_class(temp_mp3(self))
+                assert tags.tagfile is not None
+                with mock.patch.object(tags.tagfile, "save") as save:
+                    tags.save()
+                    save.assert_not_called()
+                    tags.save(force=True)
+                    save.assert_called_once()
 
     def test_untested_version_raises_at_construction(self):
         for tag_class in (TrackCuesV2, TrackCuesV1, TrackBeatgrid, TrackAutotags, TrackWaveform):
