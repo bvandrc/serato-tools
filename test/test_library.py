@@ -153,6 +153,30 @@ class TestCase(unittest.TestCase):
             self.assertEqual(self.track_paths(crate), [kept_path], f"{crate.filepath} has only the kept track")
         self.assertEqual(self.track_paths(library.smart_crates[0]), [], "missing track removed from smart crate")
 
+    def test_save_writes_direct_changes(self):
+        track = self.make_track("Track.mp3")
+        self.add_to_database(track)
+
+        saved = self.saved_file_names()
+        library = Library(self.serato_dir)
+        library.database.modify([{"field": DatabaseV2.Fields.GENRE, "files": [track], "func": lambda *args: "House"}])
+        library.save()
+
+        self.assertEqual(saved, [DatabaseV2.FILENAME])
+        self.assertEqual(self.db_values(DatabaseV2.Fields.GENRE)[DatabaseV2.get_relative_path(track)], "House")
+
+    def test_save_skips_unchanged_and_unparsed_files(self):
+        self.make_crate(Crate, "Crate", [self.make_track("Track.mp3")])
+
+        saved = self.saved_file_names()
+        library = Library(self.serato_dir)
+        self.assertEqual(library.save(), [], "nothing parsed")
+        self.assertNotIn("database", vars(library), "save doesn't parse anything")
+
+        _ = library.database, library.crates
+        self.assertEqual(library.save(), [], "nothing changed")
+        self.assertEqual(saved, [])
+
     def copy_analyzed_track(self, name: str) -> str:
         """A copy of the test mp3, which has every Serato tag, as `name` in the music folder."""
         return temp_mp3(self, name, self.music_dir)
