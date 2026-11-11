@@ -62,11 +62,6 @@ def _text_prop(field: TrackTextFrames.Fields) -> _DbTrackProp[str]:
     return _text_frame_prop(field, lambda text: text, lambda text: text)
 
 
-def _bpm_frame_text(bpm: float) -> str:
-    # TBPM holds the BPM without trailing zeros (86, 128.5); the database holds it to 2 places
-    return f"{bpm:.2f}".rstrip("0").rstrip(".")
-
-
 # keyed by DbTrackTags' keys
 _DB_TRACK_PROPS: dict[str, _DbTrackProp[Any]] = {
     # the database holds the color as 0xRRGGBB, the same bytes as the tags hold, as an int
@@ -90,7 +85,10 @@ _DB_TRACK_PROPS: dict[str, _DbTrackProp[Any]] = {
     "composer": _text_prop(TrackTextFrames.Fields.COMPOSER),
     "year": _text_prop(TrackTextFrames.Fields.YEAR),
     "remixer": _text_prop(TrackTextFrames.Fields.REMIXER),
-    "bpm": _text_frame_prop(TrackTextFrames.Fields.BPM, lambda bpm: f"{bpm:.2f}", _bpm_frame_text),
+    # TBPM holds the BPM without trailing zeros (86, 128.5); the database holds it to 2 places
+    "bpm": _text_frame_prop(
+        TrackTextFrames.Fields.BPM, lambda bpm: f"{bpm:.2f}", lambda bpm: f"{bpm:.2f}".rstrip("0").rstrip(".")
+    ),
     "track_number": _text_frame_prop(TrackTextFrames.Fields.TRACK_NUMBER, lambda number: number, str),
     "disc_number": _text_frame_prop(TrackTextFrames.Fields.DISC_NUMBER, lambda number: number, str),
     "comment": _text_prop(TrackTextFrames.Fields.COMMENT),
