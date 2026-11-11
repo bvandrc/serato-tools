@@ -241,7 +241,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(saved, [DatabaseV2.FILENAME])
         self.assertEqual(self.db_values(DatabaseV2.Fields.GENRE)[DatabaseV2.get_relative_path(track)], "House")
 
-    def test_save_writes_a_passed_database_before_its_read(self):
+    def test_save_writes_a_passed_database_before_it_is_read(self):
         track = self.make_track("Track.mp3")
         self.add_to_database(track)
         database = DatabaseV2(self.db_file)
