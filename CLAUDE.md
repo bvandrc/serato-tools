@@ -83,7 +83,7 @@ The lifecycle is `parse → self.entries → change through the class's methods 
 - **`ID3File`** is the open mutagen file type (an `ID3FileType` such as `MP3`, an `AIFF`, or bare `ID3` tags; none is a subclass of another).
 - **`ID3FileTag`** is a value stored in an `ID3File`'s tags: it only holds the file (`tagfile`, opened by `open_tagfile`), and has nothing Serato-specific.
 - **Module functions** (`get_geob`, `set_geob`, `del_geob`, `del_tag`) read and write frames on any open file, for code that needs a frame other than its own (`TrackCuesV2` deleting `Serato Markers_`, `track_tagdump.py`).
-- **Saving:** every tag class's `save()` writes only if the tag changed since it was read or last saved (`has_changed`), unless `force`.
+- **Saving:** every tag class's `save()` writes only if the tag changed since it was read or last saved (`has_changed`), unless `force`, and returns whether it wrote.
 - **`SeratoGeobTag`** subclasses `ID3FileTag`, holding everything GEOB-specific (its own frame, the version check and packing, `_readbytes`). There's one class per GEOB tag, each declaring `GEOB_KEY` and `VERSION` and implementing `_parse` / `_serialize`:
 
 | Class | GEOB tag | Module |

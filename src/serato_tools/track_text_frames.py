@@ -221,7 +221,12 @@ class TrackTextFrames(ID3FileTag):
         self._unsaved = {}
         return changed
 
-    def save(self, force: bool = False):
-        """Writes the frames set since the file was read or last saved, if any changed, or if `force`."""
-        if self._write_to_tagfile() or force:
-            self.tagfile.save()
+    def save(self, force: bool = False) -> bool:
+        """Writes the frames set since the file was read or last saved, if any changed, or if `force`.
+
+        Returns whether it wrote.
+        """
+        if not (self._write_to_tagfile() or force):
+            return False
+        self.tagfile.save()
+        return True

@@ -75,7 +75,7 @@ class TestCase(unittest.TestCase):
         expected_modified_data = read_bytes("test/data/track_cues_v2_modified.bin")
         self.assertEqual(tags._raw_data, expected_modified_data, "modified data serialize")
 
-    def has_tags_v1_after(self, edit: Callable[[TrackCuesV2], None]) -> bool:
+    def has_tags_v1_after(self, edit: Callable[[TrackCuesV2], object]) -> bool:
         """Whether a copy of the test mp3, which has a Serato Markers_ tag, still has it once `edit` has run on it."""
         tmp_file = temp_mp3(self)
         tags = TrackCuesV2(tmp_file)

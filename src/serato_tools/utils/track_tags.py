@@ -249,14 +249,15 @@ class SeratoGeobTag(ID3FileTag):
         self._put_in_tagfile()
         return True
 
-    def save(self, force: bool = False):
+    def save(self, force: bool = False) -> bool:
         """Writes the tag to the file, if it changed since it was read or last saved, or if `force`.
 
-        Raises if it was read from bytes and has a change to write.
+        Returns whether it wrote. Raises if it was read from bytes and has a change to write.
         """
         if not (self.has_changed or force):
-            return
+            return False
         if not self.tagfile:
             raise Exception("no tagfile, no saving")
         self._put_in_tagfile()
         self.tagfile.save()
+        return True

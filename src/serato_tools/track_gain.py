@@ -62,10 +62,15 @@ class TrackGain(ID3FileTag):
         self._tagged = (self.gain, self.peak)
         return True
 
-    def save(self, force: bool = False):
-        """Writes the gain and peak to the file, if they changed since it was read or last saved, or if `force`."""
-        if self._write_to_tagfile() or force:
-            self.tagfile.save()
+    def save(self, force: bool = False) -> bool:
+        """Writes the gain and peak to the file, if they changed since it was read or last saved, or if `force`.
+
+        Returns whether it wrote.
+        """
+        if not (self._write_to_tagfile() or force):
+            return False
+        self.tagfile.save()
+        return True
 
     def delete(self):
         """Deletes the SeratoGain frame in memory, leaving gain and peak None; returns whether there was one."""
