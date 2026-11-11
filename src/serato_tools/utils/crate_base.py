@@ -18,7 +18,7 @@ class CrateBase(SeratoBinFile):
     TRACK_PATH_KEY = SeratoBinFile.Fields.TRACK_PATH
 
     def _stringify_entry(self, entry: SeratoBinFile.EntryFull, indent: int = 0) -> str:
-        field, fieldname, value = entry  # pylint: disable=unused-variable
+        _field, _fieldname, value = entry
         return self._stringify_entries(value, indent) if isinstance(value, list) else str(value)
 
     def _stringify_entries(self, entries: Iterable[SeratoBinFile.EntryFull], indent: int = 0) -> str:

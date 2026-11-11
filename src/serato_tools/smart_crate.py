@@ -125,7 +125,7 @@ class SmartCrate(CrateBase):
         return str(value)
 
     def _stringify_entry(self, entry: CrateBase.EntryFull, indent: int = 0) -> str:
-        field, fieldname, value = entry  # pylint: disable=unused-variable
+        field, _fieldname, value = entry
         if isinstance(value, list):
             return self._stringify_entries(value, indent)
 

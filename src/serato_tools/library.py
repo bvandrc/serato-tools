@@ -3,9 +3,10 @@
 """A Serato library folder as a whole, for changes that have to reach its database and every crate together."""
 
 import os
+from collections.abc import Generator
 from contextlib import contextmanager
 from functools import cached_property
-from typing import TYPE_CHECKING, Iterator, Mapping, Unpack
+from typing import TYPE_CHECKING, Mapping, Unpack
 
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
@@ -102,7 +103,7 @@ class Library:
         return saved
 
     @contextmanager
-    def batch(self) -> Iterator[None]:
+    def batch(self) -> Generator[None]:
         """Holds back this library's saves until the block ends, then writes each changed file once, with `save()`.
 
         Inside the block, `rename_track_file`, `remove_track_files`, and `set_db_tracks_tags` change the database and

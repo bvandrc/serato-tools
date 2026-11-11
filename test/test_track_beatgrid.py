@@ -56,7 +56,7 @@ class TestCase(unittest.TestCase):
                     TrackBeatgrid(data + b"\x00")
 
                 tags = TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin"))
-                tags.entries = (*markers, TrackBeatgrid.Footer(0))  # pyright: ignore[reportAttributeAccessIssue]
+                tags.entries = (*markers, TrackBeatgrid.Footer(0))
                 with self.assertRaises(ValueError, msg="saving"):
                     tags._serialize()
 
