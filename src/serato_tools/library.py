@@ -75,10 +75,12 @@ class Library:
 
     def _get_parsed_bin_files(self) -> list[SeratoBinFile]:
         """The files of `_get_bin_files` that have been parsed, without parsing any others."""
-        # cached_property keeps its value in the instance's vars, and a file that isn't parsed yet can't have changes
+        # cached_property keeps its value in the instance's vars, and a file that isn't parsed yet can't have changes.
+        # A database passed to __init__ is only there once `database` is read, so it's taken from _database until then
         parsed = vars(self)
+        database: DatabaseV2 | None = parsed.get("database", self._database)
         return [
-            *([parsed["database"]] if "database" in parsed else []),
+            *([database] if database is not None else []),
             *parsed.get("crates", []),
             *parsed.get("smart_crates", []),
         ]

@@ -160,8 +160,22 @@ class TestCase(unittest.TestCase):
         saved = self.saved_file_names()
         library = Library(self.serato_dir)
         library.database.modify([{"field": DatabaseV2.Fields.GENRE, "files": [track], "func": lambda *args: "House"}])
-        library.save()
+        self.assertEqual(library.save(), [library.database.filepath])
 
+        self.assertEqual(saved, [DatabaseV2.FILENAME])
+        self.assertEqual(self.db_values(DatabaseV2.Fields.GENRE)[DatabaseV2.get_relative_path(track)], "House")
+
+    def test_save_writes_a_passed_database_before_its_read(self):
+        track = self.make_track("Track.mp3")
+        self.add_to_database(track)
+        database = DatabaseV2(self.db_file)
+        database.modify([{"field": DatabaseV2.Fields.GENRE, "files": [track], "func": lambda *args: "House"}])
+
+        saved = self.saved_file_names()
+        library = Library(self.serato_dir, database=database)
+        self.assertEqual(library.save(), [database.filepath])
+
+        self.assertNotIn("database", vars(library), "save doesn't read library.database")
         self.assertEqual(saved, [DatabaseV2.FILENAME])
         self.assertEqual(self.db_values(DatabaseV2.Fields.GENRE)[DatabaseV2.get_relative_path(track)], "House")
 
