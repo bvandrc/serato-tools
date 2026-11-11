@@ -15,7 +15,7 @@ def _is_latin1(text: str) -> bool:
     return True
 
 
-def _texts(frame: Frame) -> list[str]:
+def _get_texts_from_frame(frame: Frame) -> list[str]:
     # str(), since some frames hold other types (TDRC holds ID3TimeStamps); mutagen sets a frame's attributes from its
     # specs at runtime, so its types don't declare `text`
     return [str(text) for text in frame.text]  # pyright: ignore[reportAttributeAccessIssue]
@@ -23,7 +23,7 @@ def _texts(frame: Frame) -> list[str]:
 
 def _get_texts(tagfile: ID3File, key: str) -> list[str]:
     frame = tagfile.get(key)
-    return _texts(frame) if frame is not None else []
+    return _get_texts_from_frame(frame) if frame is not None else []
 
 
 def _get_text(tagfile: ID3File, key: str) -> str | None:
@@ -159,7 +159,7 @@ class TrackTextFrames(ID3FileTag):
         if not isinstance(frame, TextFrame) or frame.HashKey != frame_id:
             raise ValueError(f"not an ID3 text frame stored by its ID: {frame_id}")
         # a frame that can't hold the text drops it, as a timestamp frame (TDRC) does text that isn't a date
-        if _texts(frame) != [text]:
+        if _get_texts_from_frame(frame) != [text]:
             raise ValueError(f"{frame_id} can't hold {text!r}")
         # loading a file updates its tags to ID3v2.4, which converts (TYER into TDRC, ...) or drops a few older frames,
         # so get() would never find what was written; mutagen lists them only inside that update, so it runs it here
@@ -174,7 +174,7 @@ class TrackTextFrames(ID3FileTag):
             )
         # it rewrites some text too, as TCON's numeric genres ("128" reads as "Club-House"); "" removes the frame
         # instead, so isn't checked
-        loaded = _texts(tags[frame_id])
+        loaded = _get_texts_from_frame(tags[frame_id])
         if text and loaded != [text]:
             raise ValueError(f"loading reads {frame_id} {text!r} as {loaded}")
         self._unsaved[frame_id] = text
