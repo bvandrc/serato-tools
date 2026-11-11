@@ -136,6 +136,25 @@ class ID3FileTag:
         # its changes silently dropped
         raise NotImplementedError(f"{type(self).__name__} doesn't implement _write_to_tagfile")
 
+    def save(self, force: bool = False) -> bool:
+        """Writes the tag to the file, if it changed since it was read or last saved, or if `force`.
+
+        Returns whether it wrote. Raises if it has no tagfile, as a tag read from bytes doesn't, and has a change to write.
+
+        Writes only when this tag has a change, so other unsaved changes to a tagfile passed in (frames set on it
+        directly, or by another tag object sharing it) are only written then: otherwise save the tagfile yourself, or
+        pass `force`.
+        """
+        if not (self.has_changed or force):
+            return False
+        if not self.tagfile:
+            raise Exception("no tagfile, no saving")
+        # a forced save of an unchanged tag puts nothing in the tagfile, so it can't restore a frame another tag
+        # sharing it deleted (TrackCuesV2 deleting a stale Serato Markers_)
+        self._write_to_tagfile()
+        self.tagfile.save()
+        return True
+
 
 class SeratoGeobTag(ID3FileTag):
     """One of Serato's GEOB tags, such as `Serato Markers2`: parsed from, and serialized back to, its frame's bytes."""
@@ -247,21 +266,4 @@ class SeratoGeobTag(ID3FileTag):
         if not self.has_changed:
             return False
         self._put_in_tagfile()
-        return True
-
-    def save(self, force: bool = False) -> bool:
-        """Writes the tag to the file, if it changed since it was read or last saved, or if `force`.
-
-        Returns whether it wrote. Raises if it was read from bytes and has a change to write.
-
-        Writes only when this tag has a change, so other unsaved changes to a tagfile passed in (frames set on it
-        directly, or by another tag object sharing it) are only written then: otherwise save the tagfile yourself, or
-        pass `force`.
-        """
-        if not (self.has_changed or force):
-            return False
-        if not self.tagfile:
-            raise Exception("no tagfile, no saving")
-        self._put_in_tagfile()
-        self.tagfile.save()
         return True

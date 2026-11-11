@@ -84,6 +84,7 @@ The lifecycle is `parse → self.entries → change through the class's methods 
 - **`ID3FileTag`** is a value stored in an `ID3File`'s tags: it only holds the file (`tagfile`, opened by `open_tagfile`), and has nothing Serato-specific.
 - **Module functions** (`get_geob`, `set_geob`, `del_geob`, `del_tag`) read and write frames on any open file, for code that needs a frame other than its own (`TrackCuesV2` deleting `Serato Markers_`, `track_tagdump.py`).
 - **Saving:** every tag class's `save()` writes only if the tag changed since it was read or last saved (`has_changed`), unless `force`, and returns whether it wrote.
+  - It's `ID3FileTag.save()`, which writes through the class's `_write_to_tagfile()`; only `TrackCuesV2` overrides it, for `delete_tags_v1`. A forced save of an unchanged tag puts nothing in the tagfile, so it can't restore a frame another tag sharing it deleted.
   - So other unsaved changes to a tagfile a caller passed in (frames set on it directly, or by another tag object sharing it) are only written along with one of the tag's own. The `save()` docstrings and README say to save the tagfile when `save()` returns False; there's no way to detect them, as mutagen has no unsaved-changes flag.
 - **`SeratoGeobTag`** subclasses `ID3FileTag`, holding everything GEOB-specific (its own frame, the version check and packing, `_readbytes`). There's one class per GEOB tag, each declaring `GEOB_KEY` and `VERSION` and implementing `_parse` / `_serialize`:
 
@@ -116,7 +117,7 @@ Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`
 - **What each tag class implements:**
   - the read-only `has_changed` property;
   - `_write_to_tagfile()`, which puts its unsaved changes into the shared tagfile without saving and returns whether it had any. A `SeratoGeobTag` compares its data (`_raw_data`) with what it read or last saved (`_tagged_raw_data`) rather than with the tagfile, so an unchanged `Serato Markers_` that `TrackCuesV2` deleted isn't put back. `TrackCuesV2._write_to_tagfile` alone takes an argument, `delete_tags_v1`, which `Track.save()` passes it.
-- **Adding a tag class:** implement both (`ID3FileTag`'s raise `NotImplementedError`; it isn't an ABC, so it can still be instantiated), and add it to `Track`: a flag, a property, and an entry in `save()`'s tuple of parsed tags.
+- **Adding a tag class:** implement both (`ID3FileTag`'s raise `NotImplementedError`; it isn't an ABC, so it can still be instantiated), which `save()` is built on, and add it to `Track`: a flag, a property, and an entry in `save()`'s tuple of parsed tags.
 
 **v1/v2 interaction:** current Serato reads `Serato Markers2`, but a stale `Serato Markers_` shadows changes made to it.
 - That's why `TrackCuesV2.save()` and `Track.save()` (and `Library.set_db_tracks_tags`, which passes it on) take `delete_tags_v1=True` by default: writing `Serato Markers2` deletes the v1 tag rather than keeping the two in sync.
