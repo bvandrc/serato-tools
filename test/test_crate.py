@@ -69,6 +69,11 @@ class TestCase(unittest.TestCase):
         self.assertEqual(Crate.DEFAULT_ENTRIES, default_entries, "class default must not be mutated")
         self.assertEqual(b.entries, default_entries, "other instance must not inherit tracks or nested edits")
 
+    def test_saving_needs_the_crate_extension(self):
+        crate = Crate(os.path.join(temp_dir(self), "Test.crate"))
+        with self.assertRaisesRegex(ValueError, "should end with .crate"):
+            crate.save(os.path.join(temp_dir(self), "Test.txt"))
+
     def test_add_tracks_is_saved(self):
         file = os.path.join(temp_dir(self), "Test.crate")
         crate = Crate(file)

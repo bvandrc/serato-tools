@@ -522,7 +522,11 @@ class SeratoBinFile:
         with the file as loaded or saved, not with the file on disk now, which this doesn't reread. A file that didn't
         exist when loaded counts as changed, since saving creates it.
         """
-        return self._saved_hash is None or self._hash(self.to_bytes()) != self._saved_hash
+        return self._differs_from_saved(self.to_bytes())
+
+    def _differs_from_saved(self, data: bytes) -> bool:
+        """Whether `data` differs from the bytes loaded or last saved, or there were none, as for a new file."""
+        return self._saved_hash is None or self._hash(data) != self._saved_hash
 
     def _is_own_path(self, file: str) -> bool:
         """Whether `file` is the file this was loaded from, by any path to it."""
@@ -612,12 +616,14 @@ class SeratoBinFile:
 
         return self.filter_tracks(filter_track)
 
-    def save(self, file: Optional[str] = None):
-        """
-        Writes the file's bytes to `file`, or to the path it was loaded from.
+    def save(self, file: Optional[str] = None, force: bool = False) -> bool:
+        """Writes the file's bytes to `file`, or to the path it was loaded from, and returns whether it wrote them.
+
+        Saving to its own path writes only if the file changed since it was loaded or last saved (`has_changed`), unless
+        `force`; saving to any other path always writes. Serializes the file once, to check it and to write it.
 
         Raises RuntimeError if called before the initial parse has finished, e.g. from a subclass's __init__ before
-        it calls super().__init__().
+        it calls super().__init__(), and ValueError for a path the class can't save to, such as a `.json` file.
         """
         if not self._parsed:
             raise RuntimeError(f"cannot save a {type(self).__name__} before it has finished parsing")
@@ -627,11 +633,15 @@ class SeratoBinFile:
             raise ValueError("cannot save raw data to .json")
         # serialize before opening, since opening truncates and a serialization error would leave the file empty
         data = self.to_bytes()
+        own_path = self._is_own_path(file)
+        if own_path and not force and not self._differs_from_saved(data):
+            return False
         with open(file, "wb") as f:
             f.write(data)
         # saving a copy elsewhere leaves this file's own changes unsaved
-        if self._is_own_path(file):
+        if own_path:
             self._saved_hash = self._hash(data)
+        return True
 
     @classmethod
     def get_field_name(cls, field: str) -> str:

@@ -92,13 +92,12 @@ class Library:
         """Writes every parsed file that has changed, and returns the paths of the ones written.
 
         Saves changes made through `database`'s or the crates' own methods, such as `modify`; `batch()` calls it for this
-        class's own methods. Each file is serialized to check it, as its `has_changed` does, so call this once, after all
-        of the changes.
+        class's own methods. Each parsed file is serialized once, to check it and to write it if it changed, so call this
+        once, after all of the changes.
         """
         saved: list[str] = []
         for file in self._get_parsed_bin_files():
-            if file.has_changed:
-                file.save()
+            if file.save():
                 saved.append(file.filepath)
         return saved
 
