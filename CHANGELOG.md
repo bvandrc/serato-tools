@@ -2,6 +2,12 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixes
+
+- `TrackCuesV1` raises ValueError for a `Serato Markers_` tag unlike any Serato writes (e.g. not 5 cues and 9 loops), rather than risk rewriting one it doesn't understand
+
 ## [6.0.0] - 2026-11-10
 
 ### Features
