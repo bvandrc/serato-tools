@@ -62,6 +62,11 @@ def _text_prop(field: TrackTextFrames.Fields) -> _DbTrackProp[str]:
     return _text_frame_prop(field, lambda text: text, lambda text: text)
 
 
+def _int_prop(field: TrackTextFrames.Fields) -> _DbTrackProp[int]:
+    # an int in the database, and its digits in the frame
+    return _text_frame_prop(field, lambda number: number, str)
+
+
 # keyed by DbTrackTags' keys
 _DB_TRACK_PROPS: dict[str, _DbTrackProp[Any]] = {
     # the database holds the color as 0xRRGGBB, the same bytes as the tags hold, as an int
@@ -89,8 +94,8 @@ _DB_TRACK_PROPS: dict[str, _DbTrackProp[Any]] = {
     "bpm": _text_frame_prop(
         TrackTextFrames.Fields.BPM, lambda bpm: f"{bpm:.2f}", lambda bpm: f"{bpm:.2f}".rstrip("0").rstrip(".")
     ),
-    "track_number": _text_frame_prop(TrackTextFrames.Fields.TRACK_NUMBER, lambda number: number, str),
-    "disc_number": _text_frame_prop(TrackTextFrames.Fields.DISC_NUMBER, lambda number: number, str),
+    "track_number": _int_prop(TrackTextFrames.Fields.TRACK_NUMBER),
+    "disc_number": _int_prop(TrackTextFrames.Fields.DISC_NUMBER),
     "comment": _text_prop(TrackTextFrames.Fields.COMMENT),
 }
 assert set(_DB_TRACK_PROPS) == DbTrackTags.__optional_keys__, "every DbTrackTags key needs a property, and only those"
