@@ -81,24 +81,6 @@ class _SeratoComment:
         return bool(changes)
 
 
-def read_comment(tagfile: ID3File) -> str | None:
-    """The comment Serato shows for a file's open tags, or None if it has none.
-
-    For code that already has the tags open, such as a mutagen `EasyID3` key's getter; `TrackTextFrames.get` with
-    `Fields.COMMENT` does the same for a `TrackTextFrames`.
-    """
-    return _SeratoComment(tagfile).read()
-
-
-def write_comment(tagfile: ID3File, text: str) -> bool:
-    """Sets the comment in a file's open tags, in memory, as Serato writes it; returns whether anything changed.
-
-    For code that already has the tags open, such as a mutagen `EasyID3` key's setter: save the tags to write it.
-    `TrackTextFrames.set` with `Fields.COMMENT` does the same for a `TrackTextFrames`, which writes it on `save()`.
-    """
-    return _SeratoComment(tagfile).write(text)
-
-
 class TrackTextFrames(ID3FileTag):
     """A track file's ID3 text frames, such as `TIT2` (title), and its comment (`COMM`), read and set by frame ID.
 
@@ -125,6 +107,24 @@ class TrackTextFrames(ID3FileTag):
         DISC_NUMBER = "TPOS"
         # the comment Serato shows and writes, rather than a single frame: see `get` and `set`
         COMMENT = "COMM"
+
+    @staticmethod
+    def read_comment(tagfile: ID3File) -> str | None:
+        """The comment Serato shows for a file's open tags, or None if it has none.
+
+        For code that already has the tags open, such as a mutagen `EasyID3` key's getter; `get` with `Fields.COMMENT`
+        does the same for a `TrackTextFrames`.
+        """
+        return _SeratoComment(tagfile).read()
+
+    @staticmethod
+    def write_comment(tagfile: ID3File, text: str) -> bool:
+        """Sets the comment in a file's open tags, in memory, as Serato writes it; returns whether anything changed.
+
+        For code that already has the tags open, such as a mutagen `EasyID3` key's setter: save the tags to write it.
+        `set` with `Fields.COMMENT` does the same for a `TrackTextFrames`, which writes it on `save()`.
+        """
+        return _SeratoComment(tagfile).write(text)
 
     def __init__(self, file: ID3FileOrPath):
         super().__init__(file)

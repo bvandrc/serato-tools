@@ -3,7 +3,7 @@ from unittest import mock
 
 from mutagen.id3 import COMM, ID3, TPE1, Encoding
 
-from serato_tools.track_text_frames import TrackTextFrames, read_comment, write_comment
+from serato_tools.track_text_frames import TrackTextFrames
 
 from test.helpers import temp_mp3
 
@@ -227,16 +227,16 @@ class TestCase(unittest.TestCase):
 
     def test_read_and_write_comment_on_open_tags(self):
         tags = ID3(self.path)
-        self.assertTrue(write_comment(tags, "A Comment"))
-        self.assertEqual(read_comment(tags), "A Comment", "in memory, before saving")
-        self.assertFalse(write_comment(tags, "A Comment"), "already set")
+        self.assertTrue(TrackTextFrames.write_comment(tags, "A Comment"))
+        self.assertEqual(TrackTextFrames.read_comment(tags), "A Comment", "in memory, before saving")
+        self.assertFalse(TrackTextFrames.write_comment(tags, "A Comment"), "already set")
         self.assertEqual(TrackTextFrames(self.path).get("COMM"), None, "not written until saved")
         tags.save(self.path)
-        self.assertEqual(read_comment(ID3(self.path)), "A Comment")
+        self.assertEqual(TrackTextFrames.read_comment(ID3(self.path)), "A Comment")
         self.assertEqual(TrackTextFrames(self.path).get("COMM"), "A Comment")
 
         tags = ID3(self.path)
-        self.assertTrue(write_comment(tags, ""))
+        self.assertTrue(TrackTextFrames.write_comment(tags, ""))
         tags.save(self.path)
         self.assertEqual(self.comments(), {}, "both frames removed")
 
