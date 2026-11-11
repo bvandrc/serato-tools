@@ -131,6 +131,7 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
       - Every value is converted for the database, and every file read and changed in memory, before any file is saved, so a bad value or unreadable file changes nothing.
       - Every file is written before the database, which is saved once, in one `modify_tracks` pass.
     - **A track not in the database** only has its file's tags set, with a warning.
+    - **`write_files=False`** skips the files entirely (no `Track` is opened), for callers whose files already hold the values; the values are still converted, so a bad one raises before the database changes.
     - **Optional extra:** `Library` reaches `db_track_props` only through `_db_track_props()`, which imports it on first use and raises an ImportError naming the extra without it, so the rest of `Library` doesn't need the optional `track_tags` extra.
 - `usb_export.py` composes `Crate`, `SmartCrate`, and `DatabaseV2`: it flattens all tracks into one folder on the drive, dedupes by basename, rewrites crate/database paths to the new layout, and copies only changed files.
 - `SERATO_DIR` (`~/Music/_Serato_`) in `utils/__init__.py` is the default root for all library lookups.

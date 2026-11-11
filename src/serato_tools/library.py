@@ -162,11 +162,15 @@ class Library:
                 os.remove(filepath)
                 logger.info(f"deleted {filepath}")
 
-    def set_db_track_tags(self, filepath: str, *, delete_tags_v1: bool = True, **tags: Unpack["DbTrackTags"]) -> bool:
+    def set_db_track_tags(
+        self, filepath: str, *, delete_tags_v1: bool = True, write_files: bool = True, **tags: Unpack["DbTrackTags"]
+    ) -> bool:
         """Sets values in the track file's tags and in the database, as set_db_tracks_tags does for many tracks."""
-        return self.set_db_tracks_tags({filepath: tags}, delete_tags_v1=delete_tags_v1)
+        return self.set_db_tracks_tags({filepath: tags}, delete_tags_v1=delete_tags_v1, write_files=write_files)
 
-    def set_db_tracks_tags(self, tracks: Mapping[str, "DbTrackTags"], delete_tags_v1: bool = True) -> bool:
+    def set_db_tracks_tags(
+        self, tracks: Mapping[str, "DbTrackTags"], delete_tags_v1: bool = True, write_files: bool = True
+    ) -> bool:
         """Sets values in each track file's tags and in the database, so Serato shows them right away.
 
         `tracks` maps each file's path to the values to set (see DbTrackTags). Returns whether the database changed.
@@ -177,6 +181,8 @@ class Library:
         - A bad key or value, or a file that can't be read, raises before any file or the database is changed.
         - Every file is written before the database, which is saved once: here, or, inside `batch()`, when it ends.
         - A track that isn't in the database only has its file's tags set, with a warning.
+        - With `write_files=False`, only the database is set, for files that already hold the values, such as ones the
+          caller just wrote: the files aren't opened, and `delete_tags_v1` doesn't apply.
         - See TrackCuesV2.save for `delete_tags_v1`.
         """
         props = _db_track_props()
@@ -185,7 +191,8 @@ class Library:
             DatabaseV2.get_relative_path(filepath).upper(): props.to_db_values(tags)
             for filepath, tags in tracks.items()
         }
-        props.write_db_track_tags_to_files(tracks, delete_tags_v1)
+        if write_files:
+            props.write_db_track_tags_to_files(tracks, delete_tags_v1)
 
         found: set[str] = set()
 

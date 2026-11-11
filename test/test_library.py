@@ -439,6 +439,33 @@ class TestCase(unittest.TestCase):
                 self.assertEqual(saved, [], "database not saved")
                 self.assertEqual(TrackCuesV2(first).get_track_color(), b"\xbb\xbb\xbb", "first file not changed")
 
+    def test_set_db_tracks_tags_without_writing_files_sets_only_the_database(self):
+        track = self.copy_analyzed_track("Written.mp3")
+        self.add_to_database(track)
+        with open(track, "rb") as f:
+            file_bytes = f.read()
+
+        saved = self.saved_file_names()
+        changed = Library(self.serato_dir).set_db_tracks_tags(
+            {track: {"color": TrackCuesV2.TrackColors.PURPLE, "composer": "A Composer"}}, write_files=False
+        )
+
+        self.assertTrue(changed)
+        self.assertEqual(saved, [DatabaseV2.FILENAME], "database saved")
+        relpath = DatabaseV2.get_relative_path(track)
+        self.assertEqual(self.db_values(DatabaseV2.Fields.COLOR)[relpath], 0xBB99FF, "color set in db")
+        self.assertEqual(self.db_values(DatabaseV2.Fields.COMPOSER)[relpath], "A Composer", "composer set in db")
+        with open(track, "rb") as f:
+            self.assertEqual(f.read(), file_bytes, "file left as it was")
+
+    def test_set_db_track_tags_without_writing_files_doesnt_open_the_file(self):
+        # an unsupported file type would raise when opened
+        with self.assertLogs(level="WARNING"):
+            changed = Library(self.serato_dir).set_db_track_tags(
+                "Unopened.flac", color=TrackCuesV2.TrackColors.RED, write_files=False
+            )
+        self.assertFalse(changed, "not in the database, so nothing changed")
+
     def test_set_db_tracks_tags_with_no_values_doesnt_open_the_file(self):
         # an unsupported file type would raise when opened
         self.assertFalse(Library(self.serato_dir).set_db_tracks_tags({"Unopened.flac": {}}))
