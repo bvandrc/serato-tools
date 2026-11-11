@@ -29,7 +29,6 @@ class DbTrackTags(TypedDict, total=False):
     composer: str
     year: str
     remixer: str
-    bpm: float
     track_number: int
     disc_number: int
     comment: str
@@ -90,10 +89,6 @@ _DB_TRACK_PROPS: dict[str, _DbTrackProp[Any]] = {
     "composer": _text_prop(TrackTextFrames.Fields.COMPOSER),
     "year": _text_prop(TrackTextFrames.Fields.YEAR),
     "remixer": _text_prop(TrackTextFrames.Fields.REMIXER),
-    # TBPM holds the BPM without trailing zeros (86, 128.5); the database holds it to 2 places
-    "bpm": _text_frame_prop(
-        TrackTextFrames.Fields.BPM, lambda bpm: f"{bpm:.2f}", lambda bpm: f"{bpm:.2f}".rstrip("0").rstrip(".")
-    ),
     "track_number": _int_prop(TrackTextFrames.Fields.TRACK_NUMBER),
     "disc_number": _int_prop(TrackTextFrames.Fields.DISC_NUMBER),
     "comment": _text_prop(TrackTextFrames.Fields.COMMENT),

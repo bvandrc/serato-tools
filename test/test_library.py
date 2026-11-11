@@ -199,7 +199,6 @@ class TestCase(unittest.TestCase):
             "composer": ("A Composer", "TCOM", "A Composer", DatabaseV2.Fields.COMPOSER, "A Composer"),
             "year": ("2020", "TDRC", "2020", DatabaseV2.Fields.YEAR, "2020"),
             "remixer": ("A Remixer", "TPE4", "A Remixer", DatabaseV2.Fields.REMIXER, "A Remixer"),
-            "bpm": (128.5, "TBPM", "128.5", DatabaseV2.Fields.BPM, "128.50"),
             "track_number": (3, "TRCK", "3", DatabaseV2.Fields.TRACK_NUMBER, 3),
             "disc_number": (2, "TPOS", "2", DatabaseV2.Fields.DISC_NUMBER, 2),
         }
