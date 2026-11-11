@@ -8,6 +8,7 @@ from serato_tools.utils.track_tags import ID3File, ID3FileOrPath, ID3FileTag, de
 
 
 def _is_latin1(text: str) -> bool:
+    """Whether Latin-1 can hold the text."""
     try:
         text.encode("latin-1")
     except UnicodeEncodeError:
@@ -16,17 +17,20 @@ def _is_latin1(text: str) -> bool:
 
 
 def _get_texts_from_frame(frame: Frame) -> list[str]:
+    """Every value of a text frame, as text."""
     # str(), since some frames hold other types (TDRC holds ID3TimeStamps); mutagen sets a frame's attributes from its
     # specs at runtime, so its types don't declare `text`
     return [str(text) for text in frame.text]  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def _get_texts(tagfile: ID3File, key: str) -> list[str]:
+    """Every value of the frame `key`, as text, or none if the file has no such frame."""
     frame = tagfile.get(key)
     return _get_texts_from_frame(frame) if frame is not None else []
 
 
 def _get_text(tagfile: ID3File, key: str) -> str | None:
+    """The first value of the frame `key`, as text, or None if the file has no such frame."""
     texts = _get_texts(tagfile, key)
     return texts[0] if texts else None
 
@@ -85,6 +89,7 @@ class _SeratoComment:
         return {key: self._frame(key, new) for key, new in texts.items() if _differs(self.tagfile, key, new)}
 
     def _frame(self, key: str, text: str | None) -> COMM | None:
+        """The COMM frame Serato writes under `key` for `text`, or None to remove it."""
         if text is None:
             return None
         if key == self.KEY:
