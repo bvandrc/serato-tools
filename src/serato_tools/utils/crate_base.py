@@ -43,12 +43,15 @@ class CrateBase(SeratoBinFile):
             track_paths = [os.path.splitext(os.path.basename(t))[0] for t in track_paths]
         print("\n".join(track_paths))
 
-    def _check_save_path(self, file: Optional[str]) -> str:
-        """As `SeratoBinFile._check_save_path`, and raises ValueError for a path without this class's `EXTENSION`."""
-        file = super()._check_save_path(file)
+    def save(self, file: Optional[str] = None, force: bool = False) -> bool:
+        """As `SeratoBinFile.save`, but raises ValueError if `file` doesn't end with this class's `EXTENSION`."""
+        if file is None:
+            file = self.filepath
+
         if not file.endswith(self.EXTENSION):
             raise ValueError(f"file should end with {self.EXTENSION}: " + file)
-        return file
+
+        return super().save(file, force)
 
     def add_track(self, filepath: str):
         """Deprecated, to be removed in the next major version: use add_tracks(), which this calls."""

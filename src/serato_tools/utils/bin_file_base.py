@@ -625,7 +625,12 @@ class SeratoBinFile:
         Raises RuntimeError if called before the initial parse has finished, e.g. from a subclass's __init__ before
         it calls super().__init__(), and ValueError for a path the class can't save to, such as a `.json` file.
         """
-        file = self._check_save_path(file)
+        if not self._parsed:
+            raise RuntimeError(f"cannot save a {type(self).__name__} before it has finished parsing")
+        if file is None:
+            file = self.filepath
+        if file.lower().endswith(".json"):
+            raise ValueError("cannot save raw data to .json")
         # serialize before opening, since opening truncates and a serialization error would leave the file empty
         data = self.to_bytes()
         own_path = self._is_own_path(file)
@@ -637,20 +642,6 @@ class SeratoBinFile:
         if own_path:
             self._saved_hash = self._hash(data)
         return True
-
-    def _check_save_path(self, file: Optional[str]) -> str:
-        """The path to save to, `file` or this file's own path, after checking the file can be saved there.
-
-        Raises RuntimeError before the initial parse has finished, and ValueError for a `.json` path. Subclasses extend
-        this to check their own paths, rather than overriding `save()`.
-        """
-        if not self._parsed:
-            raise RuntimeError(f"cannot save a {type(self).__name__} before it has finished parsing")
-        if file is None:
-            file = self.filepath
-        if file.lower().endswith(".json"):
-            raise ValueError("cannot save raw data to .json")
-        return file
 
     @classmethod
     def get_field_name(cls, field: str) -> str:
