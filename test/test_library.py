@@ -1,16 +1,15 @@
-import unittest
-from unittest import mock
 import os
 import shutil
 import subprocess
 import sys
+import unittest
 import warnings
-
-from serato_tools.library import Library
+from unittest import mock
 
 # library.py imports the installed package's classes, so build fixtures and patch with those
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
+from serato_tools.library import Library
 from serato_tools.smart_crate import SmartCrate
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
@@ -221,11 +220,11 @@ class TestCase(unittest.TestCase):
         library = Library(self.serato_dir)
 
         library.set_db_track_tags(track, comment="A Comment")
-        self.assertEqual(TrackTextFrames(track).get_comment(), "A Comment", "file")
+        self.assertEqual(TrackTextFrames(track).get(TrackTextFrames.Fields.COMMENT), "A Comment", "file")
         self.assertEqual(self.db_values(DatabaseV2.Fields.COMMENT)[relpath], "A Comment", "database")
 
         library.set_db_track_tags(track, comment="")
-        self.assertIsNone(TrackTextFrames(track).get_comment(), "removed from the file")
+        self.assertIsNone(TrackTextFrames(track).get(TrackTextFrames.Fields.COMMENT), "removed from the file")
         self.assertNotIn(relpath, self.db_values(DatabaseV2.Fields.COMMENT), "removed from the database")
 
     def test_set_db_tracks_tags_sets_each_its_own_values(self):

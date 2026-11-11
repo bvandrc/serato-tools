@@ -39,7 +39,11 @@ jobs:
       with:
         working-directory: .
 
-    # black's output doesn't depend on the Python version
+    # isort's and black's output don't depend on the Python version
+    - name: Import Order Check (isort)
+      if: matrix.python-version == '3.12'
+      run: isort --check-only --diff .
+
     - name: Format Check (Black)
       if: matrix.python-version == '3.12'
       uses: psf/black@stable

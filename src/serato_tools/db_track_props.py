@@ -10,6 +10,7 @@ from typing import Any, Callable, Mapping, TypedDict
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.track import Track
 from serato_tools.track_cues_v2 import TrackCuesV2
+from serato_tools.track_text_frames import TrackTextFrames
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
 
@@ -42,9 +43,23 @@ class _DbTrackProp[T]:
     write: Callable[[Track, T], None]
 
 
-def _text_frame_prop(db_field: DatabaseV2.Fields, frame_id: str) -> _DbTrackProp[str]:
-    # a value held as the same text in the database and in an ID3 text frame
-    return _DbTrackProp[str](db_field, lambda text: text, lambda track, text: track.text_frames.set(frame_id, text))
+def _text_frame_prop[T](
+    field: TrackTextFrames.Fields,
+    to_db_val: Callable[[T], SeratoBinFile.BasicValue],
+    to_frame_text: Callable[[T], str],
+) -> _DbTrackProp[T]:
+    # a value held in an ID3 text frame and in the database field of the same name, as TrackTextFrames.Fields names
+    # them after DatabaseV2.Fields
+    return _DbTrackProp[T](
+        DatabaseV2.Fields[field.name],
+        to_db_val,
+        lambda track, value: track.text_frames.set(field, to_frame_text(value)),
+    )
+
+
+def _text_prop(field: TrackTextFrames.Fields) -> _DbTrackProp[str]:
+    # the same text in the database and in the frame
+    return _text_frame_prop(field, lambda text: text, lambda text: text)
 
 
 def _bpm_frame_text(bpm: float) -> str:
@@ -65,30 +80,20 @@ _DB_TRACK_PROPS: dict[str, _DbTrackProp[Any]] = {
         lambda locked: locked,
         Track.set_beatgrid_locked,
     ),
-    "title": _text_frame_prop(DatabaseV2.Fields.TITLE, "TIT2"),
-    "artist": _text_frame_prop(DatabaseV2.Fields.ARTIST, "TPE1"),
-    "album": _text_frame_prop(DatabaseV2.Fields.ALBUM, "TALB"),
-    "genre": _text_frame_prop(DatabaseV2.Fields.GENRE, "TCON"),
-    "key": _text_frame_prop(DatabaseV2.Fields.KEY, "TKEY"),
-    "grouping": _text_frame_prop(DatabaseV2.Fields.GROUPING, "TIT1"),
-    "publisher": _text_frame_prop(DatabaseV2.Fields.PUBLISHER, "TPUB"),
-    "composer": _text_frame_prop(DatabaseV2.Fields.COMPOSER, "TCOM"),
-    "year": _text_frame_prop(DatabaseV2.Fields.YEAR, "TDRC"),
-    "remixer": _text_frame_prop(DatabaseV2.Fields.REMIXER, "TPE4"),
-    "bpm": _DbTrackProp[float](
-        DatabaseV2.Fields.BPM,
-        lambda bpm: f"{bpm:.2f}",
-        lambda track, bpm: track.text_frames.set("TBPM", _bpm_frame_text(bpm)),
-    ),
-    "track_number": _DbTrackProp[int](
-        DatabaseV2.Fields.TRACK_NUMBER, lambda number: number, lambda track, n: track.text_frames.set("TRCK", str(n))
-    ),
-    "disc_number": _DbTrackProp[int](
-        DatabaseV2.Fields.DISC_NUMBER, lambda number: number, lambda track, n: track.text_frames.set("TPOS", str(n))
-    ),
-    "comment": _DbTrackProp[str](
-        DatabaseV2.Fields.COMMENT, lambda text: text, lambda track, text: track.text_frames.set_comment(text)
-    ),
+    "title": _text_prop(TrackTextFrames.Fields.TITLE),
+    "artist": _text_prop(TrackTextFrames.Fields.ARTIST),
+    "album": _text_prop(TrackTextFrames.Fields.ALBUM),
+    "genre": _text_prop(TrackTextFrames.Fields.GENRE),
+    "key": _text_prop(TrackTextFrames.Fields.KEY),
+    "grouping": _text_prop(TrackTextFrames.Fields.GROUPING),
+    "publisher": _text_prop(TrackTextFrames.Fields.PUBLISHER),
+    "composer": _text_prop(TrackTextFrames.Fields.COMPOSER),
+    "year": _text_prop(TrackTextFrames.Fields.YEAR),
+    "remixer": _text_prop(TrackTextFrames.Fields.REMIXER),
+    "bpm": _text_frame_prop(TrackTextFrames.Fields.BPM, lambda bpm: f"{bpm:.2f}", _bpm_frame_text),
+    "track_number": _text_frame_prop(TrackTextFrames.Fields.TRACK_NUMBER, lambda number: number, str),
+    "disc_number": _text_frame_prop(TrackTextFrames.Fields.DISC_NUMBER, lambda number: number, str),
+    "comment": _text_prop(TrackTextFrames.Fields.COMMENT),
 }
 assert set(_DB_TRACK_PROPS) == DbTrackTags.__optional_keys__, "every DbTrackTags key needs a property, and only those"
 

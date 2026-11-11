@@ -10,16 +10,15 @@ import collections
 import io
 import struct
 import sys
-from typing import cast, overload, TypeVar, Unpack
 from dataclasses import dataclass
+from typing import TypeVar, Unpack, cast, overload
 
 from mutagen._file import FileType
-from mutagen.mp3 import HeaderNotFoundError
 from mutagen.id3 import ID3
-
+from mutagen.mp3 import HeaderNotFoundError
 
 from serato_tools.utils import logger
-from serato_tools.utils.track_tags import SeratoGeobTag, GeobKeys, NoBeatgridError
+from serato_tools.utils.track_tags import GeobKeys, NoBeatgridError, SeratoGeobTag
 
 _T = TypeVar("_T")
 

@@ -1,4 +1,4 @@
-"""A track file's Serato tags, read from one open file and saved in one write.
+"""A track file's Serato tags and ID3 text frames, read from one open file and saved in one write.
 
 Needs the `track_tags` extra (mutagen).
 """
@@ -14,7 +14,7 @@ from serato_tools.utils.track_tags import ID3FileOrPath, ID3FileTag, open_tagfil
 
 
 class Track:
-    """A track file's Serato tags, read from one open file and saved in one write.
+    """A track file's Serato tags and ID3 text frames, read from one open file and saved in one write.
 
     Change tags through their own methods (e.g. `track.cues_v2.set_beatgrid_locked(...)`), then call this class's
     `save()` once, rather than each tag's own `save()`, which writes the whole file every time. Only ID3 files (.mp3,

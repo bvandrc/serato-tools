@@ -5,24 +5,23 @@ The crates' tracks are copied to one folder on the drive, with a library that po
 Also the `serato_usb_export` CLI.
 """
 
-import os
 import filecmp
 import fnmatch
-import shutil
-import re
+import os
 import platform
-from typing import Optional
+import re
+import shutil
 from dataclasses import dataclass
+from typing import Optional
 
-
-from serato_tools.database_v2 import DatabaseV2
 from serato_tools.crate import Crate
+from serato_tools.database_v2 import DatabaseV2
 from serato_tools.smart_crate import SmartCrate
 from serato_tools.utils import (
-    logger,
-    SERATO_DIR_NAME,
     SERATO_DIR as LOCAL_SERATO_DIR,
+    SERATO_DIR_NAME,
     SERATO_DRIVE as LOCAL_SERATO_DRIVE,
+    logger,
 )
 
 # TODO: put in folders if there are different locations locally for the same basename

@@ -1,6 +1,6 @@
-import unittest
 import copy
 import os
+import unittest
 
 from serato_tools.crate import Crate
 

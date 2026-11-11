@@ -38,7 +38,7 @@ waveform_drawing = [
 ]
 beatgrid_analysis = ["mutagen", "librosa", "numpy"]
 all = ["serato-tools[track_tags,waveform_drawing,beatgrid_analysis]"]
-dev = ["black", "pylint", "pyright"]
+dev = ["black", "isort", "pylint", "pyright"]
 
 [project.urls]
 Homepage = "https://pypi.org/project/serato-tools/"
@@ -60,6 +60,15 @@ include = ["serato_tools*"]
 
 [tool.black]
 line-length = 120
+
+# Groups the imports into the standard library, third-party packages, and this repo's modules, each sorted.
+[tool.isort]
+profile = "black"
+line_length = 120
+known_first_party = ["serato_tools"]
+# the tests' shared helpers, in their own group after the package's imports
+known_local_folder = ["test"]
+combine_as_imports = true
 
 [tool.pyright]
 disableBytesTypePromotions = true

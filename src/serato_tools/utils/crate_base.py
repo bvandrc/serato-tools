@@ -4,8 +4,7 @@
 
 import os
 import warnings
-from typing import Optional, Iterable
-
+from typing import Iterable, Optional
 
 from serato_tools.utils.bin_file_base import SeratoBinFile
 

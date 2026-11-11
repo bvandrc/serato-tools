@@ -19,7 +19,7 @@ Work in the repo's `.venv` (gitignored), with the package installed editable so 
 ```bash
 python -m venv .venv
 source .venv/Scripts/activate                                     # Git Bash on Windows; .venv/bin/activate elsewhere
-pip install -e ".[all,dev]"                                  # all optional deps + black, pylint, pyright
+pip install -e ".[all,dev]"                                  # all optional deps + black, isort, pylint, pyright
 ```
 
 ```bash
@@ -28,14 +28,15 @@ python -m unittest test.test_crate                                # one module
 python -m unittest test.test_crate.TestCase.test_add_tracks_is_saved  # one test
 pylint $(git ls-files '*.py')                                     # lint (config in .pylintrc, most C/R checks disabled)
 pyright                                                           # type check (config in pyproject.toml)
+isort .                                                           # sort imports (config in pyproject.toml)
 black .                                                           # format, line-length 120
 ```
 
-This is a Python repo with no package manager scripts, so `black .` is the "format script" the conventions require before every commit; CI enforces it with `psf/black@stable`.
+This is a Python repo with no package manager scripts, so `isort .` then `black .` is the "format script" the conventions require before every commit; CI checks both.
 
 Tests import the installed `serato_tools` (editable locally, a regular install in CI) and open fixtures by paths relative to the repo root, so `python -m unittest` only works from there.
 
-CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pylint and pyright, plus black once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15. Lint runs on every version because neither tool pins one: both check against the running interpreter, so 3.12 catches use of anything newer and later versions catch deprecations and removals. The `main` ruleset requires these checks by name, so renaming a job or matrix entry means updating the ruleset too. Tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `unittest.skipUnless` / `skipIf`, with a matching test for the other OS family.
+CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pylint and pyright, plus isort and black once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15. Lint runs on every version because neither tool pins one: both check against the running interpreter, so 3.12 catches use of anything newer and later versions catch deprecations and removals. The `main` ruleset requires these checks by name, so renaming a job or matrix entry means updating the ruleset too. Tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `unittest.skipUnless` / `skipIf`, with a matching test for the other OS family.
 
 Bump `version` in `pyproject.toml` and add a `CHANGELOG.md` entry for user-visible changes. Publishing a GitHub release then publishes that version to PyPI, through `.github/workflows/release.yml`: its tag must be `v` + the version (e.g. `v6.0.0`), or the workflow fails before building. A release published with empty notes gets the version's `CHANGELOG.md` section as its notes, and the built distributions are attached to it. PyPI's trusted publisher names that workflow file and its `pypi` environment, so renaming either means updating it on PyPI too.
 
@@ -75,11 +76,29 @@ Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`
 
 `TrackGain` (`track_gain.py`) subclasses `ID3FileTag` directly, since Serato stores gain as an ID3 `RVA2:SeratoGain` frame rather than a GEOB.
 
-`TrackTextFrames` (`track_text_frames.py`) also subclasses `ID3FileTag`: it gets and sets ID3 text frames (`TIT2`, `TBPM`, ...) by frame ID, adding a missing frame, and writes only frames whose text changed. Setting `""` removes the frame. Its comment goes in the `COMM` frames Serato writes, found by setting one in Serato: `('', 'eng')`, Latin-1 when the text fits and UTF-16 otherwise, plus `('ID3v1 Comment', 'eng')` only for Latin-1 text.
+`TrackTextFrames` (`track_text_frames.py`) also subclasses `ID3FileTag`: it gets and sets ID3 text frames (`TIT2`, `TBPM`, ...), adding a missing frame, and writes only frames whose text changed.
+- **Naming a frame:** by its ID, or through its `Fields` StrEnum, named as `DatabaseV2.Fields` names the field holding the same value (`Fields.TITLE` is `"TIT2"`).
+- **Setting:** `""` removes the frame, and setting a frame replaces all its values. `set` takes only a text frame stored under its bare ID (not `TXXX`, which its description keys too), or `COMM` for the comment. It raises for text it wouldn't read back, such as:
+  - a `TDRC` that isn't a date;
+  - a numeric `TCON` genre, which loading turns into a name;
+  - an ID3v2.3-only frame, which loading converts or drops.
+- **The comment (`COMM`, `Fields.COMMENT`):**
+  - `get` gives the file's first comment frame, as Serato shows it.
+  - `set` puts the comment in the `COMM` frames Serato writes, found by setting one in Serato: `('', 'eng')`, Latin-1 when the text fits and UTF-16 otherwise, plus `('ID3v1 Comment', 'eng')` only for Latin-1 text.
+  - `read_comment` / `write_comment` read and change the comment in `tagfile` directly, without saving, for code such as an `EasyID3` key's getter and setter.
 
-`Track` (`track.py`) isn't a tag itself (no base class): it parses each of these, `TrackGain`, and `TrackTextFrames`, from one open `ID3File` in its constructor, choosing which with a keyword flag per tag (`cues_v2`, `cues_v1`, `beatgrid`, `autotags`, `gain`, `text_frames` default True, `waveform` False). A tag passed False is never constructed, so it's neither parsed nor saved, and its property raises ValueError naming the flag. Its `save()` writes every change in one `tagfile.save()`, skipping it when nothing changed, and its read-only `has_changed` says beforehand whether it would write. Each tag class implements the read-only `has_changed` property, and `_write_to_tagfile()`, which puts its unsaved changes into the shared tagfile without saving and returns whether it had any; a `SeratoGeobTag` compares its data (`_raw_data`) with what it read or last saved (`_tagged_raw_data`) rather than with the tagfile, so an unchanged `Serato Markers_` that `TrackCuesV2` deleted isn't put back. `TrackCuesV2._write_to_tagfile` alone takes an argument, `delete_tags_v1`, which `Track.save()` passes it. A new tag class has to implement both (`ID3FileTag`'s raise `NotImplementedError`; it isn't an ABC, so it can still be instantiated) and be added to `Track`: a flag, a property, and an entry in `save()`'s tuple of parsed tags.
+`Track` (`track.py`) isn't a tag itself (no base class): it parses each of these, `TrackGain`, and `TrackTextFrames`, from one open `ID3File` in its constructor.
+- **Which tags:** a keyword flag per tag chooses which it parses (`cues_v2`, `cues_v1`, `beatgrid`, `autotags`, `gain`, `text_frames` default True, `waveform` False). A tag passed False is never constructed, so it's neither parsed nor saved, and its property raises ValueError naming the flag.
+- **Saving:** its `save()` writes every change in one `tagfile.save()`, skipping it when nothing changed, and its read-only `has_changed` says beforehand whether it would write.
+- **What each tag class implements:**
+  - the read-only `has_changed` property;
+  - `_write_to_tagfile()`, which puts its unsaved changes into the shared tagfile without saving and returns whether it had any. A `SeratoGeobTag` compares its data (`_raw_data`) with what it read or last saved (`_tagged_raw_data`) rather than with the tagfile, so an unchanged `Serato Markers_` that `TrackCuesV2` deleted isn't put back. `TrackCuesV2._write_to_tagfile` alone takes an argument, `delete_tags_v1`, which `Track.save()` passes it.
+- **Adding a tag class:** implement both (`ID3FileTag`'s raise `NotImplementedError`; it isn't an ABC, so it can still be instantiated), and add it to `Track`: a flag, a property, and an entry in `save()`'s tuple of parsed tags.
 
-**v1/v2 interaction:** current Serato reads `Serato Markers2`, but a stale `Serato Markers_` shadows changes made to it. That's why `TrackCuesV2.save()` and `Track.save()` (and `Library.set_db_tracks_tags`, which passes it on) take `delete_tags_v1=True` by default — writing `Serato Markers2` deletes the v1 tag rather than keeping the two in sync. It's a save option, not an edit option, because the deletion happens only when `TrackCuesV2` writes (in its `_put_in_tagfile`, which `_write_to_tagfile` and `save` pass it to), so an edit that changed nothing, or was changed back, can't have it written by another tag's save. The edit methods (`modify_entries`, `set_track_color`, `set_beatgrid_locked`, on `TrackCuesV2` and `Track`) still accept a deprecated `delete_tags_v1`: `modify_entries` warns, with `skip_file_prefixes` so the warning points at the caller's code, and records a False in `_edits_keep_tags_v1`, which keeps the v1 tag at the next write unless another edit since the last write didn't pass False.
+**v1/v2 interaction:** current Serato reads `Serato Markers2`, but a stale `Serato Markers_` shadows changes made to it.
+- That's why `TrackCuesV2.save()` and `Track.save()` (and `Library.set_db_tracks_tags`, which passes it on) take `delete_tags_v1=True` by default: writing `Serato Markers2` deletes the v1 tag rather than keeping the two in sync.
+- It's a save option, not an edit option, because the deletion happens only when `TrackCuesV2` writes (in its `_put_in_tagfile`, which `_write_to_tagfile` and `save` pass it to). So an edit that changed nothing, or was changed back, can't have it written by another tag's save.
+- The edit methods (`modify_entries`, `set_track_color`, `set_beatgrid_locked`, on `TrackCuesV2` and `Track`) still accept a deprecated `delete_tags_v1`. `modify_entries` warns, with `skip_file_prefixes` so the warning points at the caller's code, and records a False in `_edits_keep_tags_v1`, which keeps the v1 tag at the next write unless another edit since the last write didn't pass False.
 
 `TrackCuesV2` exposes each entry kind (`CueEntry`, `LoopEntry`, `ColorEntry`, `FlipEntry`, `BpmLockEntry`) as a dataclass, aggregated into `TrackCuesInfo`; `modify_entries(callback)` hands the callback the whole `TrackCuesInfo` and expects a new one back (use `dataclasses.replace`) or `None` for no change. Each entry class (and `TrackCuesV1.Entry`) converts with `_parse()` / `_serialize()`, which are internal to its module: callers go through `modify_entries` and `save()`, so the tag class and its CLI are the only users. Pylint's `protected-access` is disabled per function where they're called.
 
