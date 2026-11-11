@@ -53,7 +53,7 @@ class TrackTextFrames(ID3FileTag):
         # the comment Serato shows and writes, rather than a single frame: see `get` and `set`
         COMMENT = "COMM"
 
-    class _Comment:
+    class _SeratoComment:
         """The comment Serato shows and writes, in the COMM frames of an open file's tags."""
 
         # Serato writes a comment to an empty-description COMM frame, and to an "ID3v1 Comment" one too when ID3v1 can
@@ -107,7 +107,7 @@ class TrackTextFrames(ID3FileTag):
     def __init__(self, file: ID3FileOrPath):
         super().__init__(file)
         self._unsaved: dict[str, str] = {}
-        self._comment = self._Comment(self.tagfile)
+        self._serato_comment = self._SeratoComment(self.tagfile)
 
     def get(self, frame_id: str) -> str | None:
         """The frame's text, including any not yet saved, or None if the file has no such frame.
@@ -117,7 +117,7 @@ class TrackTextFrames(ID3FileTag):
         """
         if frame_id in self._unsaved:
             return self._unsaved[frame_id] or None
-        return self._comment.read() if frame_id == self.Fields.COMMENT else _get_text(self.tagfile, frame_id)
+        return self._serato_comment.read() if frame_id == self.Fields.COMMENT else _get_text(self.tagfile, frame_id)
 
     def set(self, frame_id: str, text: str):
         """Sets the frame's text in memory, adding the frame if the file has none; call `save()` to write it.
@@ -171,7 +171,7 @@ class TrackTextFrames(ID3FileTag):
     def has_changed(self) -> bool:
         """Whether a frame set since the file was read or last saved differs from it, so that saving would write."""
         comment = self._unsaved.get(self.Fields.COMMENT)
-        return bool(self._changed_frames()) or (comment is not None and bool(self._comment.changes(comment)))
+        return bool(self._changed_frames()) or (comment is not None and bool(self._serato_comment.changes(comment)))
 
     def _write_to_tagfile(self) -> bool:
         changed = self._changed_frames()
@@ -181,7 +181,7 @@ class TrackTextFrames(ID3FileTag):
             else:
                 self.tagfile[frame_id] = Frames[frame_id](encoding=Encoding.UTF8, text=[text])
         comment = self._unsaved.get(self.Fields.COMMENT)
-        comment_changed = comment is not None and self._comment.write(comment)
+        comment_changed = comment is not None and self._serato_comment.write(comment)
         self._unsaved = {}
         return bool(changed) or comment_changed
 
