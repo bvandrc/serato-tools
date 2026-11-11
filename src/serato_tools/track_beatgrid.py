@@ -11,7 +11,7 @@ import io
 import struct
 import sys
 from dataclasses import dataclass
-from typing import TypeVar, Unpack, cast, overload
+from typing import cast, overload
 
 from mutagen._file import FileType
 from mutagen.id3 import ID3
@@ -19,8 +19,6 @@ from mutagen.mp3 import HeaderNotFoundError
 
 from serato_tools.utils import logger
 from serato_tools.utils.track_tags import GeobKeys, NoBeatgridError, SeratoGeobTag
-
-_T = TypeVar("_T")
 
 
 class TrackBeatgrid(SeratoGeobTag):
@@ -50,7 +48,7 @@ class TrackBeatgrid(SeratoGeobTag):
         NonTerminalBeatgridMarker._fields + ("bpm",),
     )
 
-    _EntryList = tuple[Unpack[tuple[_T, ...]], TerminalBeatgridMarker, Footer]
+    type _EntryList[T] = tuple[*tuple[T, ...], "TrackBeatgrid.TerminalBeatgridMarker", "TrackBeatgrid.Footer"]
     type EntryList = _EntryList[NonTerminalBeatgridMarker]
     type EntryListEnhanced = _EntryList[NonTerminalBeatgridMarkerEnhanced]
 
@@ -111,25 +109,25 @@ class TrackBeatgrid(SeratoGeobTag):
         yield TrackBeatgrid.Footer(footer_value)
         assert fp.read() == b""
 
-    __SplitEntryList = tuple[list[_T], TerminalBeatgridMarker, Footer]
+    type __SplitEntryList[T] = tuple[list[T], "TrackBeatgrid.TerminalBeatgridMarker", "TrackBeatgrid.Footer"]
 
     @overload
     def _check_and_split(self) -> "__SplitEntryList[NonTerminalBeatgridMarker]": ...
     @overload
-    def _check_and_split(self, entries: "_EntryList[_T]") -> "__SplitEntryList[_T]": ...
-    def _check_and_split(self, entries: "_EntryList[_T] | None" = None):
+    def _check_and_split[T](self, entries: "_EntryList[T]") -> "__SplitEntryList[T]": ...
+    def _check_and_split[T](self, entries: "_EntryList[T] | None" = None):
         """Splits `entries`, or `self.entries`, into the non-terminal markers, the terminal marker, and the footer.
 
         Raises NoBeatgridError if there are none, and ValueError if they aren't in that order with one terminal marker
         and one footer.
         """
         if entries is None:
-            entries = cast("TrackBeatgrid._EntryList[_T]", self.entries)
+            entries = cast("TrackBeatgrid._EntryList[T]", self.entries)
 
         if not entries:
             raise NoBeatgridError(self.filename)
 
-        nonterminal_markers: list[_T] = []
+        nonterminal_markers: list[T] = []
         terminal_markers: list[TrackBeatgrid.TerminalBeatgridMarker] = []
         footers: list[TrackBeatgrid.Footer] = []
 
@@ -137,7 +135,7 @@ class TrackBeatgrid(SeratoGeobTag):
             if isinstance(
                 entry, (TrackBeatgrid.NonTerminalBeatgridMarker, TrackBeatgrid.NonTerminalBeatgridMarkerEnhanced)
             ):
-                nonterminal_markers.append(cast(_T, entry))
+                nonterminal_markers.append(cast(T, entry))
             elif isinstance(entry, TrackBeatgrid.TerminalBeatgridMarker):
                 terminal_markers.append(entry)
             elif isinstance(entry, TrackBeatgrid.Footer):
