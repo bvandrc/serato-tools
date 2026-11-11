@@ -26,6 +26,58 @@ def _get_text(tagfile: ID3File, key: str) -> str | None:
     return texts[0] if texts else None
 
 
+class _SeratoComment:
+    """The comment Serato shows and writes, in the COMM frames of an open file's tags."""
+
+    # Serato writes a comment to an empty-description COMM frame, and to an "ID3v1 Comment" one too when ID3v1 can
+    # hold the text (Latin-1). It removes both when the comment is cleared. It reads the file's first COMM frame,
+    # whatever its description or language, except iTunes' own (iTunNORM, iTunSMPB, ...), which hold data rather
+    # than a comment.
+    LANG = "eng"
+    V1_DESC = "ID3v1 Comment"
+    KEY = f"COMM::{LANG}"
+    V1_KEY = f"COMM:{V1_DESC}:{LANG}"
+
+    def __init__(self, tagfile: ID3File):
+        self.tagfile = tagfile
+
+    def keys(self) -> list[str]:
+        """The keys of the file's COMM frames that Serato could show, in the file's order: all but iTunes' data."""
+        return [key for key in self.tagfile.keys() if key.startswith("COMM:") and not key.startswith("COMM:iTun")]
+
+    def read(self) -> str | None:
+        """The comment Serato shows, or None if the file has none."""
+        # the file's first, as Serato reads it: mutagen keeps the frames in the file's order
+        keys = self.keys()
+        return _get_text(self.tagfile, keys[0]) if keys else None
+
+    def changes(self, text: str) -> dict[str, str | None]:
+        """Each COMM frame, by key, whose text would change for a comment of `text`, with its new text.
+
+        None removes the frame.
+        """
+        # every other frame goes: mutagen saves frames smallest first, so a shorter one would come first in the
+        # file, and Serato would show it
+        texts: dict[str, str | None] = {key: None for key in self.keys()}
+        texts[self.KEY] = text or None
+        texts[self.V1_KEY] = text if text and _is_latin1(text) else None
+        return {key: new for key, new in texts.items() if _get_texts(self.tagfile, key) != ([new] if new else [])}
+
+    def write(self, text: str) -> bool:
+        """Puts the comment in the frames Serato writes it to, without saving; returns whether anything changed."""
+        changes = self.changes(text)
+        for key, new in changes.items():
+            if new is None:
+                del_tag(self.tagfile, key)
+            elif key == self.KEY:
+                # Latin-1 when it fits, as Serato writes it, and UTF-16 otherwise
+                encoding = Encoding.LATIN1 if _is_latin1(new) else Encoding.UTF16
+                self.tagfile[key] = COMM(encoding=encoding, lang=self.LANG, desc="", text=[new])
+            else:
+                self.tagfile[key] = COMM(encoding=Encoding.LATIN1, lang=self.LANG, desc=self.V1_DESC, text=[new])
+        return bool(changes)
+
+
 class TrackTextFrames(ID3FileTag):
     """A track file's ID3 text frames, such as `TIT2` (title), and its comment (`COMM`), read and set by frame ID.
 
@@ -53,61 +105,10 @@ class TrackTextFrames(ID3FileTag):
         # the comment Serato shows and writes, rather than a single frame: see `get` and `set`
         COMMENT = "COMM"
 
-    class _SeratoComment:
-        """The comment Serato shows and writes, in the COMM frames of an open file's tags."""
-
-        # Serato writes a comment to an empty-description COMM frame, and to an "ID3v1 Comment" one too when ID3v1 can
-        # hold the text (Latin-1). It removes both when the comment is cleared. It reads the file's first COMM frame,
-        # whatever its description or language, except iTunes' own (iTunNORM, iTunSMPB, ...), which hold data rather
-        # than a comment.
-        LANG = "eng"
-        V1_DESC = "ID3v1 Comment"
-        KEY = f"COMM::{LANG}"
-        V1_KEY = f"COMM:{V1_DESC}:{LANG}"
-
-        def __init__(self, tagfile: ID3File):
-            self.tagfile = tagfile
-
-        def keys(self) -> list[str]:
-            """The keys of the file's COMM frames that Serato could show, in the file's order: all but iTunes' data."""
-            return [key for key in self.tagfile.keys() if key.startswith("COMM:") and not key.startswith("COMM:iTun")]
-
-        def read(self) -> str | None:
-            """The comment Serato shows, or None if the file has none."""
-            # the file's first, as Serato reads it: mutagen keeps the frames in the file's order
-            keys = self.keys()
-            return _get_text(self.tagfile, keys[0]) if keys else None
-
-        def changes(self, text: str) -> dict[str, str | None]:
-            """Each COMM frame, by key, whose text would change for a comment of `text`, with its new text.
-
-            None removes the frame.
-            """
-            # every other frame goes: mutagen saves frames smallest first, so a shorter one would come first in the
-            # file, and Serato would show it
-            texts: dict[str, str | None] = {key: None for key in self.keys()}
-            texts[self.KEY] = text or None
-            texts[self.V1_KEY] = text if text and _is_latin1(text) else None
-            return {key: new for key, new in texts.items() if _get_texts(self.tagfile, key) != ([new] if new else [])}
-
-        def write(self, text: str) -> bool:
-            """Puts the comment in the frames Serato writes it to, without saving; returns whether anything changed."""
-            changes = self.changes(text)
-            for key, new in changes.items():
-                if new is None:
-                    del_tag(self.tagfile, key)
-                elif key == self.KEY:
-                    # Latin-1 when it fits, as Serato writes it, and UTF-16 otherwise
-                    encoding = Encoding.LATIN1 if _is_latin1(new) else Encoding.UTF16
-                    self.tagfile[key] = COMM(encoding=encoding, lang=self.LANG, desc="", text=[new])
-                else:
-                    self.tagfile[key] = COMM(encoding=Encoding.LATIN1, lang=self.LANG, desc=self.V1_DESC, text=[new])
-            return bool(changes)
-
     def __init__(self, file: ID3FileOrPath):
         super().__init__(file)
         self._unsaved: dict[str, str] = {}
-        self._serato_comment = self._SeratoComment(self.tagfile)
+        self._serato_comment = _SeratoComment(self.tagfile)
 
     def get(self, frame_id: str) -> str | None:
         """The frame's text, including any not yet saved, or None if the file has no such frame.
