@@ -108,24 +108,6 @@ class TrackTextFrames(ID3FileTag):
         # the comment Serato shows and writes, rather than a single frame: see `get` and `set`
         COMMENT = "COMM"
 
-    @staticmethod
-    def read_comment(tagfile: ID3File) -> str | None:
-        """The comment Serato shows for a file's open tags, or None if it has none.
-
-        For code that already has the tags open, such as a mutagen `EasyID3` key's getter; `get` with `Fields.COMMENT`
-        does the same for a `TrackTextFrames`.
-        """
-        return _SeratoComment(tagfile).read()
-
-    @staticmethod
-    def write_comment(tagfile: ID3File, text: str) -> bool:
-        """Sets the comment in a file's open tags, in memory, as Serato writes it; returns whether anything changed.
-
-        For code that already has the tags open, such as a mutagen `EasyID3` key's setter: save the tags to write it.
-        `set` with `Fields.COMMENT` does the same for a `TrackTextFrames`, which writes it on `save()`.
-        """
-        return _SeratoComment(tagfile).write(text)
-
     def __init__(self, file: ID3FileOrPath):
         super().__init__(file)
         self._unsaved: dict[str, str] = {}
@@ -180,6 +162,23 @@ class TrackTextFrames(ID3FileTag):
         if text and loaded != [text]:
             raise ValueError(f"loading reads {frame_id} {text!r} as {loaded}")
         self._unsaved[frame_id] = text
+
+    def read_comment(self) -> str | None:
+        """The comment Serato shows for the tags as they are in `tagfile` now, or None if it has none.
+
+        For code that changes the open tags itself, such as a mutagen `EasyID3` key's getter; `get` with
+        `Fields.COMMENT` also returns a comment `set` but not yet saved.
+        """
+        return self._serato_comment.read()
+
+    def write_comment(self, text: str) -> bool:
+        """Puts the comment in `tagfile` now, as Serato writes it, without saving; returns whether anything changed.
+
+        For code that saves the open tags itself, such as a mutagen `EasyID3` key's setter. `set` with
+        `Fields.COMMENT` instead holds the comment until `save()`; this replaces one set that way and not yet saved.
+        """
+        self._unsaved.pop(self.Fields.COMMENT, None)
+        return self._serato_comment.write(text)
 
     def _changed_frames(self) -> dict[str, str | None]:
         """Each text frame, by ID, whose text would change on saving, with its new text; None removes it."""

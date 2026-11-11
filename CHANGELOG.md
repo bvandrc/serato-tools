@@ -9,7 +9,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Add `TrackTextFrames` (`serato_tools.track_text_frames`), which reads and sets a track file's ID3 text frames, and `Track.text_frames`. Setting a frame to `""` removes it, as Serato does when a tag is cleared
   - `TrackTextFrames.Fields` names the frames Serato shows a column for (`Fields.TITLE`, `Fields.GENRE`, ...), as `DatabaseV2.Fields` does, to pass to `get` and `set` in place of the frame ID
   - `Fields.COMMENT` (`COMM`) is the comment: `get` reads it from the file's first comment frame, as Serato shows it, and `set` writes it to the `COMM` frames Serato writes it to. Setting it also removes every other comment frame but iTunes' data frames, since Serato would show one that came first
-  - `TrackTextFrames.read_comment(tagfile)` and `write_comment(tagfile, text)`, static methods, do the same on a file's tags you already have open, without saving
+  - `TrackTextFrames.read_comment()` and `write_comment(text)` read and change the comment in its open tags (`tagfile`) directly, without saving, for code that saves the tags itself
 - Add `Track.snap_cues_to_beats(tolerance_beats)`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `SnappedCue`. It needs the `Track`'s `cues_v2` and `beatgrid` parsed (the default)
   - `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)` does the same with the `TrackBeatgrid` passed to it
   - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to

@@ -227,18 +227,27 @@ class TestCase(unittest.TestCase):
 
     def test_read_and_write_comment_on_open_tags(self):
         tags = ID3(self.path)
-        self.assertTrue(TrackTextFrames.write_comment(tags, "A Comment"))
-        self.assertEqual(TrackTextFrames.read_comment(tags), "A Comment", "in memory, before saving")
-        self.assertFalse(TrackTextFrames.write_comment(tags, "A Comment"), "already set")
-        self.assertEqual(TrackTextFrames(self.path).get("COMM"), None, "not written until saved")
+        frames = TrackTextFrames(tags)
+        self.assertTrue(frames.write_comment("A Comment"))
+        self.assertEqual(frames.read_comment(), "A Comment", "in memory, before saving")
+        self.assertFalse(frames.write_comment("A Comment"), "already set")
+        self.assertIsNone(TrackTextFrames(self.path).get("COMM"), "not written until saved")
         tags.save(self.path)
-        self.assertEqual(TrackTextFrames.read_comment(ID3(self.path)), "A Comment")
-        self.assertEqual(TrackTextFrames(self.path).get("COMM"), "A Comment")
+        self.assertEqual(TrackTextFrames(ID3(self.path)).read_comment(), "A Comment")
 
         tags = ID3(self.path)
-        self.assertTrue(TrackTextFrames.write_comment(tags, ""))
+        TrackTextFrames(tags).write_comment("")
         tags.save(self.path)
         self.assertEqual(self.comments(), {}, "both frames removed")
+
+    def test_write_comment_replaces_one_set_and_not_yet_saved(self):
+        frames = TrackTextFrames(self.path)
+        frames.set("COMM", "Set")
+        frames.write_comment("Written")
+        self.assertEqual(frames.get("COMM"), "Written")
+        self.assertFalse(frames.has_changed, "nothing left for save() to write")
+        frames.tagfile.save()
+        self.assertEqual(TrackTextFrames(self.path).get("COMM"), "Written")
 
 
 if __name__ == "__main__":
