@@ -65,8 +65,8 @@ class TrackTextFrames(ID3FileTag):
         # sets a frame's attributes from its specs at runtime, so its types don't declare `text`
         if [str(t) for t in frame.text] != [text]:  # pyright: ignore[reportAttributeAccessIssue]
             raise ValueError(f"{frame_id} can't hold {text!r}")
-        # loading a file updates its tags to ID3v2.4, which converts (TYER into TDRC, ...) or drops a few older frames, so
-        # get() would never find what was written; mutagen lists them only inside that update, so it's run on the frame
+        # loading a file updates its tags to ID3v2.4, which converts (TYER into TDRC, ...) or drops a few older frames,
+        # so get() would never find what was written; mutagen lists them only inside that update, so it's run on the frame
         tags = ID3()
         tags.add(frame)
         tags.update_to_v24()
@@ -76,7 +76,8 @@ class TrackTextFrames(ID3FileTag):
                 if tags
                 else f"loading drops {frame_id}"
             )
-        # it rewrites some text too, as TCON's numeric genres ("128" reads as "Club-House"); "" removes the frame instead
+        # it rewrites some text too, as TCON's numeric genres ("128" reads as "Club-House"); "" removes the frame
+        # instead, so isn't checked
         loaded = [str(t) for t in tags[frame_id].text]
         if text and loaded != [text]:
             raise ValueError(f"loading reads {frame_id} {text!r} as {loaded}")
