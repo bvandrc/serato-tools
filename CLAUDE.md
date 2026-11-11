@@ -114,7 +114,9 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
     - Smart crates are included because Serato re-adds a missing path from a smart crate to the database as a blank "?" entry.
     - New operations that have to reach the whole library (database and every crate) belong on `Library`, not on `DatabaseV2`.
     - Pass `Library(database=...)` an already-loaded database so the two don't overwrite each other's saves.
-  - **Saving:** `Library.save()` writes each parsed file whose `has_changed` is true, so it saves changes made through `library.database`'s or the crates' own methods, such as `modify`.
+  - **Saving:** `Library.save()` writes each parsed file whose `has_changed` is true.
+    - With `save=False`, `rename_track_file` and `remove_track_files` leave saving to it, so many changes write each file once.
+    - It also saves changes made through `library.database`'s or the crates' own methods, such as `modify`.
   - **Values in both the track file and the database:** `set_db_track_tags` / `set_db_tracks_tags` set values that live in both (Serato shows the database, and only rescans a file's tags when the track is loaded or on "Rescan File Tags").
     - **Which values:** the keys of the `DbTrackTags` TypedDict in `db_track_props.py`, each backed by an entry in its `_DB_TRACK_PROPS` table, so adding a value means adding to both. Each entry gives:
       - the database field;
