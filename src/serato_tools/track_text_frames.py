@@ -26,7 +26,7 @@ class TrackTextFrames(ID3FileTag):
 
     @unique
     class Tags(StrEnum):
-        """The text frames Serato shows a column for, named as Serato names them; each is the frame's ID, for `get` and `set`."""
+        """The text frames Serato shows a column for, by Serato's name for each; each is the frame's ID."""
 
         TITLE = "TIT2"
         ARTIST = "TPE1"
