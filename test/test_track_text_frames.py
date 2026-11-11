@@ -30,6 +30,20 @@ class TestCase(unittest.TestCase):
         self.assertEqual(saved.get("TIT2"), "New Title")
         self.assertEqual(saved.get("TPE4"), "A Remixer", "missing frame added")
 
+    def test_fields_name_the_frames_get_and_set_take(self):
+        self.assertEqual(TrackTextFrames(self.path).get(TrackTextFrames.Fields.TITLE), "Frequency Shift", "TIT2")
+        texts = {TrackTextFrames.Fields.YEAR: "2020", TrackTextFrames.Fields.GENRE: "Dubstep"}
+        frames = TrackTextFrames(self.path)
+        for field in TrackTextFrames.Fields:
+            with self.subTest(field.name):
+                frames.set(field, texts.get(field, "1"))
+        frames.save()
+        saved = TrackTextFrames(self.path)
+        for field in TrackTextFrames.Fields:
+            with self.subTest(field.name):
+                self.assertEqual(saved.get(field), texts.get(field, "1"))
+                self.assertEqual(saved.get(field.value), texts.get(field, "1"), "the same frame as its ID")
+
     def test_save_skips_writing_when_unchanged(self):
         frames = TrackTextFrames(self.path)
         frames.set("TIT2", "Frequency Shift")
@@ -94,7 +108,7 @@ class TestCase(unittest.TestCase):
         self.assertFalse(frames.has_changed, "saved")
 
     def test_set_empty_removes_the_frame(self):
-        # as Serato does when a tag is cleared, rather than keeping it empty
+        # as Serato does when a field is cleared, rather than keeping it empty
         frames = TrackTextFrames(self.path)
         frames.set("TIT2", "")
         self.assertIsNone(frames.get("TIT2"), "unsaved")

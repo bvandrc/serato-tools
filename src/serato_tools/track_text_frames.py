@@ -1,5 +1,7 @@
 """A track file's ID3 text frames, such as `TIT2` (title). Needs the `track_tags` extra."""
 
+from enum import StrEnum, unique
+
 from mutagen.id3 import ID3, Encoding, Frames, TextFrame
 
 from serato_tools.utils.track_tags import ID3File, ID3FileOrPath, ID3FileTag, del_tag
@@ -21,6 +23,25 @@ class TrackTextFrames(ID3FileTag):
 
     Setting a frame to `""` removes it, as Serato does when a tag is cleared.
     """
+
+    @unique
+    class Fields(StrEnum):
+        """The text frames Serato shows a column for, each the frame's ID, named as `DatabaseV2.Fields` names them."""
+
+        TITLE = "TIT2"
+        ARTIST = "TPE1"
+        ALBUM = "TALB"
+        GENRE = "TCON"
+        KEY = "TKEY"
+        GROUPING = "TIT1"
+        # Serato's "label" column
+        PUBLISHER = "TPUB"
+        COMPOSER = "TCOM"
+        YEAR = "TDRC"
+        REMIXER = "TPE4"
+        BPM = "TBPM"
+        TRACK_NUMBER = "TRCK"
+        DISC_NUMBER = "TPOS"
 
     def __init__(self, file: ID3FileOrPath):
         super().__init__(file)
@@ -44,8 +65,8 @@ class TrackTextFrames(ID3FileTag):
         # sets a frame's attributes from its specs at runtime, so its types don't declare `text`
         if [str(t) for t in frame.text] != [text]:  # pyright: ignore[reportAttributeAccessIssue]
             raise ValueError(f"{frame_id} can't hold {text!r}")
-        # loading a file updates its tags to ID3v2.4, which converts (TYER into TDRC, ...) or drops a few older frames, so
-        # get() would never find what was written; mutagen lists them only inside that update, so it's run on the frame
+        # loading a file updates its tags to ID3v2.4, which converts (TYER into TDRC, ...) or drops a few older frames,
+        # so get() would never find what was written; mutagen lists them only inside that update, so it runs it here
         tags = ID3()
         tags.add(frame)
         tags.update_to_v24()
@@ -55,7 +76,8 @@ class TrackTextFrames(ID3FileTag):
                 if tags
                 else f"loading drops {frame_id}"
             )
-        # it rewrites some text too, as TCON's numeric genres ("128" reads as "Club-House"); "" removes the frame instead
+        # it rewrites some text too, as TCON's numeric genres ("128" reads as "Club-House"); "" removes the frame
+        # instead, so isn't checked
         loaded = [str(t) for t in tags[frame_id].text]
         if text and loaded != [text]:
             raise ValueError(f"loading reads {frame_id} {text!r} as {loaded}")
