@@ -66,6 +66,10 @@ class TrackGain(ID3FileTag):
         """Writes the gain and peak to the file, if they changed since it was read or last saved, or if `force`.
 
         Returns whether it wrote.
+
+        Writes only when this tag has a change, so other unsaved changes to a tagfile passed in (frames set on it
+        directly, or by another tag object sharing it) are only written then: otherwise save the tagfile yourself, or
+        pass `force`.
         """
         if not (self._write_to_tagfile() or force):
             return False

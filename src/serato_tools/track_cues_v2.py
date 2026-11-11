@@ -591,6 +591,10 @@ class TrackCuesV2(SeratoGeobTag):
 
         Returns whether it wrote.
 
+        Writes only when this tag has a change, so other unsaved changes to a tagfile passed in (frames set on it
+        directly, or by another tag object sharing it) are only written then: otherwise save the tagfile yourself, or
+        pass `force`.
+
         Args:
             force: Write the tag even if it hasn't changed.
             delete_tags_v1: When writing, delete the legacy `Serato Markers_` tag, because a stale one stops changes to this tag from appearing in Serato. No issues have been found from deleting it, but use caution with versions of Serato before 3, which may still read it.

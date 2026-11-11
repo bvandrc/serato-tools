@@ -253,6 +253,10 @@ class SeratoGeobTag(ID3FileTag):
         """Writes the tag to the file, if it changed since it was read or last saved, or if `force`.
 
         Returns whether it wrote. Raises if it was read from bytes and has a change to write.
+
+        Writes only when this tag has a change, so other unsaved changes to a tagfile passed in (frames set on it
+        directly, or by another tag object sharing it) are only written then: otherwise save the tagfile yourself, or
+        pass `force`.
         """
         if not (self.has_changed or force):
             return False

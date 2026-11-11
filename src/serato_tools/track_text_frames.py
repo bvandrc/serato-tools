@@ -225,6 +225,10 @@ class TrackTextFrames(ID3FileTag):
         """Writes the frames set since the file was read or last saved, if any changed, or if `force`.
 
         Returns whether it wrote.
+
+        Writes only when this tag has a change, so other unsaved changes to a tagfile passed in (frames set on it
+        directly, or by another tag object sharing it) are only written then: otherwise save the tagfile yourself, or
+        pass `force`.
         """
         if not (self._write_to_tagfile() or force):
             return False
