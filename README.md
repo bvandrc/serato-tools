@@ -100,13 +100,15 @@ library.rename_track_file(
 library.remove_track_files(["/Users/Username/Music/Dubstep/Raaket - ILL (Radio Edit).mp3"])  # deletes the files too
 ```
 
-Each of those writes the library files that contain the track. For many changes, pass `save=False` and call `save()` once at the end, which writes each changed file once. It also saves changes made through `library.database`'s or the crates' own methods, such as `modify`. The track files themselves still change right away, so make sure `save()` runs:
+Each of those writes the library files that contain the track. For many changes, put them in a `batch()`, which writes each changed file once, when the block ends. The track files themselves still change right away, so the library is saved even if the block raises:
 
 ```python
-for src, dest in renames:
-    library.rename_track_file(src, dest, save=False)
-library.save()
+with library.batch():
+    for src, dest in renames:
+        library.rename_track_file(src, dest)
 ```
+
+To save changes made through `library.database`'s or the crates' own methods, such as `modify`, call `library.save()`, which writes each file that changed, once, and returns their paths.
 
 ### Modifying the database file
 
@@ -222,6 +224,8 @@ library.set_db_track_tags('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', grou
 ```
 
 Only ID3 files (.mp3, .aiff, .aif) are currently supported. A track Serato hasn't analyzed yet gets the color or lock added to its tags, as Serato writes them.
+
+Inside a `library.batch()` (see [above](#renaming-or-removing-track-files-across-the-library)), the database is written when the batch ends, along with any renames or removals in it, rather than once per call.
 
 Avoid `Track.set_track_color` / `set_beatgrid_locked` (or `TrackCuesV2`'s), or `DatabaseV2.modify` on the `COLOR` / `BEATGRID_LOCKED` fields, on their own, since each changes only one of the two.
 

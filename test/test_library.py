@@ -153,7 +153,7 @@ class TestCase(unittest.TestCase):
             self.assertEqual(self.track_paths(crate), [kept_path], f"{crate.filepath} has only the kept track")
         self.assertEqual(self.track_paths(library.smart_crates[0]), [], "missing track removed from smart crate")
 
-    def test_save_writes_batched_changes_once(self):
+    def test_batch_writes_each_changed_file_once(self):
         first, second = self.make_track("First.mp3"), self.make_track("Second.mp3")
         removed = self.make_track("Removed.mp3")
         self.add_to_database(first, second, removed)
@@ -163,18 +163,16 @@ class TestCase(unittest.TestCase):
         saved = self.saved_file_names()
         library = Library(self.serato_dir)
         new_first, new_second = (os.path.join(self.music_dir, name) for name in ["New First.mp3", "New Second.mp3"])
-        library.rename_track_file(first, new_first, save=False)
-        library.rename_track_file(second, new_second, save=False)
-        library.remove_track_files([removed], save=False)
+        with library.batch():
+            library.rename_track_file(first, new_first)
+            library.rename_track_file(second, new_second)
+            library.remove_track_files([removed])
 
-        self.assertEqual(saved, [], "nothing written yet")
-        self.assertTrue(os.path.exists(new_first), "track file renamed right away")
-        self.assertFalse(os.path.exists(removed), "track file deleted right away")
-
-        written = library.save()
+            self.assertEqual(saved, [], "nothing written yet")
+            self.assertTrue(os.path.exists(new_first), "track file renamed right away")
+            self.assertFalse(os.path.exists(removed), "track file deleted right away")
 
         self.assertCountEqual(saved, [DatabaseV2.FILENAME, "With.crate", "Without.crate"], "each file written once")
-        self.assertCountEqual([os.path.basename(p) for p in written], saved, "returns the files written")
         new_paths = [DatabaseV2.get_relative_path(p) for p in [new_first, new_second]]
         db_paths = self.track_paths(library.database)
         for path in new_paths:
@@ -183,6 +181,34 @@ class TestCase(unittest.TestCase):
         # by name: crates are listed in directory order, which isn't sorted on every filesystem
         crate = next(c for c in library.crates if os.path.basename(c.filepath) == "With.crate")
         self.assertEqual(self.track_paths(crate), new_paths, "crate paths updated")
+
+    def test_batch_saves_when_the_block_raises(self):
+        src, dest = self.make_track("Old.mp3"), os.path.join(self.music_dir, "New.mp3")
+        self.add_to_database(src)
+
+        saved = self.saved_file_names()
+        library = Library(self.serato_dir)
+        with self.assertRaises(RuntimeError, msg="the exception still propagates"):
+            with library.batch():
+                library.rename_track_file(src, dest)
+                raise RuntimeError("stopped partway")
+
+        self.assertEqual(saved, [DatabaseV2.FILENAME])
+        self.assertIn(DatabaseV2.get_relative_path(dest), self.track_paths(library.database), "points at renamed file")
+
+    def test_nested_batch_saves_when_the_outermost_ends(self):
+        first, second = self.make_track("First.mp3"), self.make_track("Second.mp3")
+        self.add_to_database(first, second)
+
+        saved = self.saved_file_names()
+        library = Library(self.serato_dir)
+        with library.batch():
+            with library.batch():
+                library.rename_track_file(first, os.path.join(self.music_dir, "New First.mp3"))
+            self.assertEqual(saved, [], "inner batch doesn't save")
+            library.rename_track_file(second, os.path.join(self.music_dir, "New Second.mp3"))
+
+        self.assertEqual(saved, [DatabaseV2.FILENAME], "outer batch saves once")
 
     def test_save_writes_direct_changes(self):
         track = self.make_track("Track.mp3")
@@ -294,6 +320,22 @@ class TestCase(unittest.TestCase):
         library.set_db_track_tags(track, comment="")
         self.assertIsNone(TrackTextFrames(track).get(TrackTextFrames.Fields.COMMENT), "removed from the file")
         self.assertNotIn(relpath, self.db_values(DatabaseV2.Fields.COMMENT), "removed from the database")
+
+    def test_set_db_track_tags_in_a_batch_saves_the_database_when_it_ends(self):
+        track = self.copy_analyzed_track("Colored.mp3")
+        self.add_to_database(track)
+
+        saved = self.saved_file_names()
+        library = Library(self.serato_dir)
+        with library.batch():
+            self.assertTrue(library.set_db_track_tags(track, color=TrackCuesV2.TrackColors.PURPLE))
+            self.assertEqual(saved, [], "database not written yet")
+            self.assertEqual(
+                TrackCuesV2(track).get_track_color(), TrackCuesV2.TrackColors.PURPLE.value, "file tagged right away"
+            )
+
+        self.assertEqual(saved, [DatabaseV2.FILENAME])
+        self.assertEqual(self.db_values(DatabaseV2.Fields.COLOR)[DatabaseV2.get_relative_path(track)], 0xBB99FF)
 
     def test_set_db_tracks_tags_sets_each_its_own_values(self):
         red, blue = self.copy_analyzed_track("Red.mp3"), self.copy_analyzed_track("Blue.mp3")

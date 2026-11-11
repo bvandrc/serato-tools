@@ -3,8 +3,9 @@
 """A Serato library folder as a whole, for changes that have to reach its database and every crate together."""
 
 import os
+from contextlib import contextmanager
 from functools import cached_property
-from typing import TYPE_CHECKING, Mapping, Unpack
+from typing import TYPE_CHECKING, Iterator, Mapping, Unpack
 
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
@@ -45,6 +46,8 @@ class Library:
         """Pass `database` to use one already loaded, along with any unsaved changes it has, instead of parsing it."""
         self.serato_dir = serato_dir
         self._database = database
+        # how many batch() blocks are open; while any is, this class's methods leave saving to the outermost one
+        self._batch_depth = 0
 
     @cached_property
     def database(self) -> DatabaseV2:
@@ -88,9 +91,9 @@ class Library:
     def save(self) -> list[str]:
         """Writes every parsed file that has changed, and returns the paths of the ones written.
 
-        Saves changes from any source: `save=False` on this class's methods, or changes made through `database`'s or the
-        crates' own methods, such as `modify`. Each file is serialized to check it, as its `has_changed` does, so call
-        this once, after all of the changes.
+        Saves changes made through `database`'s or the crates' own methods, such as `modify`; `batch()` calls it for this
+        class's own methods. Each file is serialized to check it, as its `has_changed` does, so call this once, after all
+        of the changes.
         """
         saved: list[str] = []
         for file in self._get_parsed_bin_files():
@@ -99,13 +102,33 @@ class Library:
                 saved.append(file.filepath)
         return saved
 
-    def rename_track_file(self, src: str, dest: str, save: bool = True) -> bool:
+    @contextmanager
+    def batch(self) -> Iterator[None]:
+        """Holds back this library's saves until the block ends, then writes each changed file once, with `save()`.
+
+        Inside the block, `rename_track_file`, `remove_track_files`, and `set_db_tracks_tags` change the database and
+        crates without writing them, so many changes don't rewrite the database once per track. Track files are still
+        renamed, deleted, or tagged right away, so the library is saved when the block ends even if it raises, keeping it
+        pointed at them. A batch inside another saves only when the outermost one ends.
+        """
+        self._batch_depth += 1
+        try:
+            yield
+        finally:
+            self._batch_depth -= 1
+            if not self._batch_depth:
+                self.save()
+
+    def _save_unless_batching(self, file: SeratoBinFile):
+        """Saves `file` now, unless a `batch()` is open, which will save it when it ends."""
+        if not self._batch_depth:
+            file.save()
+
+    def rename_track_file(self, src: str, dest: str) -> bool:
         """Renames the file, and points the database and crates at the new path, so the track isn't missing in Serato.
 
         Returns whether it renamed the file. It does nothing, and returns False, if a different file already exists at
-        `dest`. Only the files that contain the track are saved. Pass `save=False` when renaming many tracks, then call
-        `save()` once, so each library file is only written once. The track file is still renamed right away, so the
-        track is missing in Serato until `save()` is called.
+        `dest`. Only the files that contain the track are saved, or, inside `batch()`, left for it to save once.
         """
         # os.rename only raises FileExistsError on Windows; on POSIX it silently overwrites, so check
         # first. A case-only rename is fine: on case-insensitive filesystems dest is then the same file.
@@ -122,20 +145,19 @@ class Library:
             return False
 
         for file in self._get_bin_files():
-            if file.change_track_path(src, dest) and save:
-                file.save()
+            if file.change_track_path(src, dest):
+                self._save_unless_batching(file)
         return True
 
-    def remove_track_files(self, filepaths: list[str], save: bool = True):
+    def remove_track_files(self, filepaths: list[str]):
         """Removes the tracks from the database and crates, then deletes their files.
 
         Paths whose file is already gone are still removed from the library, which cleans up missing tracks. Only the
-        files that contain one of the tracks are saved. With `save=False`, call `save()` once after all of the changes,
-        as with `rename_track_file`.
+        files that contain one of the tracks are saved, or, inside `batch()`, left for it to save once.
         """
         for file in self._get_bin_files():
-            if file.remove_tracks(filepaths) and save:
-                file.save()
+            if file.remove_tracks(filepaths):
+                self._save_unless_batching(file)
         for filepath in filepaths:
             if os.path.exists(filepath):
                 os.remove(filepath)
@@ -154,7 +176,7 @@ class Library:
         - Only ID3 files (.mp3, .aiff, .aif) are currently supported.
         - A track whose tags don't have a value yet, since Serato hasn't analyzed it, gets it added as Serato writes it.
         - A bad key or value, or a file that can't be read, raises before any file or the database is changed.
-        - Every file is written before the database, which is saved once.
+        - Every file is written before the database, which is saved once: here, or, inside `batch()`, when it ends.
         - A track that isn't in the database only has its file's tags set, with a warning.
         - See TrackCuesV2.save for `delete_tags_v1`.
         """
@@ -181,5 +203,5 @@ class Library:
             if DatabaseV2.get_relative_path(filepath).upper() not in found:
                 logger.warning(f"track isn't in the database, so only its file's tags were set: {filepath}")
         if changed:
-            self.database.save()
+            self._save_unless_batching(self.database)
         return changed
