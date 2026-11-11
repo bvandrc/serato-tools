@@ -139,7 +139,9 @@ class TrackTextFrames(ID3FileTag):
         """
         if frame_id in self._unsaved:
             return self._unsaved[frame_id] or None
-        return self._serato_comment.read() if frame_id == self.Fields.COMMENT else _get_text(self.tagfile, frame_id)
+        if frame_id == self.Fields.COMMENT:
+            return self._serato_comment.read()
+        return _get_text(self.tagfile, frame_id)
 
     def set(self, frame_id: str, text: str):
         """Sets the frame's text in memory, adding the frame if the file has none; call `save()` to write it.
