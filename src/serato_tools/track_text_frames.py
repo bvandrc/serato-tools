@@ -1,5 +1,7 @@
 """A track file's ID3 text frames, such as `TIT2` (title). Needs the `track_tags` extra."""
 
+from enum import StrEnum, unique
+
 from mutagen.id3 import ID3, Encoding, Frames, TextFrame
 
 from serato_tools.utils.track_tags import ID3File, ID3FileOrPath, ID3FileTag, del_tag
@@ -21,6 +23,25 @@ class TrackTextFrames(ID3FileTag):
 
     Setting a frame to `""` removes it, as Serato does when a tag is cleared.
     """
+
+    @unique
+    class Tags(StrEnum):
+        """The text frames Serato shows a column for, named as Serato names them; each is the frame's ID, for `get` and `set`."""
+
+        TITLE = "TIT2"
+        ARTIST = "TPE1"
+        ALBUM = "TALB"
+        GENRE = "TCON"
+        KEY = "TKEY"
+        GROUPING = "TIT1"
+        # Serato's "label"
+        PUBLISHER = "TPUB"
+        COMPOSER = "TCOM"
+        YEAR = "TDRC"
+        REMIXER = "TPE4"
+        BPM = "TBPM"
+        TRACK_NUMBER = "TRCK"
+        DISC_NUMBER = "TPOS"
 
     def __init__(self, file: ID3FileOrPath):
         super().__init__(file)
