@@ -60,6 +60,9 @@ class _SeratoComment:
         # file, and Serato would show it
         texts: dict[str, str | None] = {key: None for key in self.keys()}
         texts[self.KEY] = text or None
+        # the whole text, though Serato cuts its copy to about 29 characters: a cut-off copy is smaller, so mutagen
+        # would save it before the main frame, and Serato would show the cut-off one; with the whole text, its longer
+        # description keeps it after the main frame
         texts[self.V1_KEY] = text if text and _is_latin1(text) else None
         return {key: new for key, new in texts.items() if _get_texts(self.tagfile, key) != ([new] if new else [])}
 
@@ -76,6 +79,24 @@ class _SeratoComment:
             else:
                 self.tagfile[key] = COMM(encoding=Encoding.LATIN1, lang=self.LANG, desc=self.V1_DESC, text=[new])
         return bool(changes)
+
+
+def read_comment(tagfile: ID3File) -> str | None:
+    """The comment Serato shows for a file's open tags, or None if it has none.
+
+    For code that already has the tags open, such as a mutagen `EasyID3` key's getter; `TrackTextFrames.get` with
+    `Fields.COMMENT` does the same for a `TrackTextFrames`.
+    """
+    return _SeratoComment(tagfile).read()
+
+
+def write_comment(tagfile: ID3File, text: str) -> bool:
+    """Sets the comment in a file's open tags, in memory, as Serato writes it; returns whether anything changed.
+
+    For code that already has the tags open, such as a mutagen `EasyID3` key's setter: save the tags to write it.
+    `TrackTextFrames.set` with `Fields.COMMENT` does the same for a `TrackTextFrames`, which writes it on `save()`.
+    """
+    return _SeratoComment(tagfile).write(text)
 
 
 class TrackTextFrames(ID3FileTag):
