@@ -2,7 +2,7 @@
 
 from enum import StrEnum, unique
 
-from mutagen.id3 import COMM, ID3, Encoding, Frames, TextFrame
+from mutagen.id3 import COMM, ID3, Encoding, Frame, Frames, TextFrame
 
 from serato_tools.utils.track_tags import ID3File, ID3FileOrPath, ID3FileTag, del_tag
 
@@ -15,15 +15,36 @@ def _is_latin1(text: str) -> bool:
     return True
 
 
+def _texts(frame: Frame) -> list[str]:
+    # str(), since some frames hold other types (TDRC holds ID3TimeStamps); mutagen sets a frame's attributes from its
+    # specs at runtime, so its types don't declare `text`
+    return [str(text) for text in frame.text]  # pyright: ignore[reportAttributeAccessIssue]
+
+
 def _get_texts(tagfile: ID3File, key: str) -> list[str]:
     frame = tagfile.get(key)
-    # str(), since some frames hold other types (TDRC holds ID3TimeStamps)
-    return [str(text) for text in frame.text] if frame is not None else []
+    return _texts(frame) if frame is not None else []
 
 
 def _get_text(tagfile: ID3File, key: str) -> str | None:
     texts = _get_texts(tagfile, key)
     return texts[0] if texts else None
+
+
+def _differs(tagfile: ID3File, key: str, text: str | None) -> bool:
+    """Whether the frame `key` holds anything but `text` alone, or, for a None or `""` text, exists at all."""
+    # compared with all the frame's values, so setting one of several replaces them all
+    return _get_texts(tagfile, key) != ([text] if text else [])
+
+
+def _put_frames(tagfile: ID3File, frames: dict[str, Frame | None]) -> bool:
+    """Puts each frame in the file's tags by key, without saving; None removes it. Returns whether there were any."""
+    for key, frame in frames.items():
+        if frame is None:
+            del_tag(tagfile, key)
+        else:
+            tagfile[key] = frame
+    return bool(frames)
 
 
 class _SeratoComment:
@@ -51,11 +72,8 @@ class _SeratoComment:
         keys = self.keys()
         return _get_text(self.tagfile, keys[0]) if keys else None
 
-    def changes(self, text: str) -> dict[str, str | None]:
-        """Each COMM frame, by key, whose text would change for a comment of `text`, with its new text.
-
-        None removes the frame.
-        """
+    def changes(self, text: str) -> dict[str, Frame | None]:
+        """Each COMM frame, by key, that would change for a comment of `text`, as its new frame; None removes it."""
         # every other frame goes: mutagen saves frames smallest first, so a shorter one would come first in the
         # file, and Serato would show it
         texts: dict[str, str | None] = {key: None for key in self.keys()}
@@ -64,21 +82,20 @@ class _SeratoComment:
         # would save it before the main frame, and Serato would show the cut-off one; with the whole text, its longer
         # description keeps it after the main frame
         texts[self.V1_KEY] = text if text and _is_latin1(text) else None
-        return {key: new for key, new in texts.items() if _get_texts(self.tagfile, key) != ([new] if new else [])}
+        return {key: self._frame(key, new) for key, new in texts.items() if _differs(self.tagfile, key, new)}
+
+    def _frame(self, key: str, text: str | None) -> COMM | None:
+        if text is None:
+            return None
+        if key == self.KEY:
+            # Latin-1 when it fits, as Serato writes it, and UTF-16 otherwise
+            encoding = Encoding.LATIN1 if _is_latin1(text) else Encoding.UTF16
+            return COMM(encoding=encoding, lang=self.LANG, desc="", text=[text])
+        return COMM(encoding=Encoding.LATIN1, lang=self.LANG, desc=self.V1_DESC, text=[text])
 
     def write(self, text: str) -> bool:
         """Puts the comment in the frames Serato writes it to, without saving; returns whether anything changed."""
-        changes = self.changes(text)
-        for key, new in changes.items():
-            if new is None:
-                del_tag(self.tagfile, key)
-            elif key == self.KEY:
-                # Latin-1 when it fits, as Serato writes it, and UTF-16 otherwise
-                encoding = Encoding.LATIN1 if _is_latin1(new) else Encoding.UTF16
-                self.tagfile[key] = COMM(encoding=encoding, lang=self.LANG, desc="", text=[new])
-            else:
-                self.tagfile[key] = COMM(encoding=Encoding.LATIN1, lang=self.LANG, desc=self.V1_DESC, text=[new])
-        return bool(changes)
+        return _put_frames(self.tagfile, self.changes(text))
 
 
 class TrackTextFrames(ID3FileTag):
@@ -141,9 +158,8 @@ class TrackTextFrames(ID3FileTag):
         frame = frame_class(encoding=Encoding.UTF8, text=[text]) if frame_class else None
         if not isinstance(frame, TextFrame) or frame.HashKey != frame_id:
             raise ValueError(f"not an ID3 text frame stored by its ID: {frame_id}")
-        # a frame that can't hold the text drops it, as a timestamp frame (TDRC) does text that isn't a date; mutagen
-        # sets a frame's attributes from its specs at runtime, so its types don't declare `text`
-        if [str(t) for t in frame.text] != [text]:  # pyright: ignore[reportAttributeAccessIssue]
+        # a frame that can't hold the text drops it, as a timestamp frame (TDRC) does text that isn't a date
+        if _texts(frame) != [text]:
             raise ValueError(f"{frame_id} can't hold {text!r}")
         # loading a file updates its tags to ID3v2.4, which converts (TYER into TDRC, ...) or drops a few older frames,
         # so get() would never find what was written; mutagen lists them only inside that update, so it runs it here
@@ -158,7 +174,7 @@ class TrackTextFrames(ID3FileTag):
             )
         # it rewrites some text too, as TCON's numeric genres ("128" reads as "Club-House"); "" removes the frame
         # instead, so isn't checked
-        loaded = [str(t) for t in tags[frame_id].text]
+        loaded = _texts(tags[frame_id])
         if text and loaded != [text]:
             raise ValueError(f"loading reads {frame_id} {text!r} as {loaded}")
         self._unsaved[frame_id] = text
@@ -180,33 +196,25 @@ class TrackTextFrames(ID3FileTag):
         self._unsaved.pop(self.Fields.COMMENT, None)
         return self._serato_comment.write(text)
 
-    def _changed_frames(self) -> dict[str, str | None]:
-        """Each text frame, by ID, whose text would change on saving, with its new text; None removes it."""
-        return {
-            frame_id: text or None
-            for frame_id, text in self._unsaved.items()
-            if frame_id != self.Fields.COMMENT
-            # compared with all the frame's values, so setting one of several replaces them all
-            and _get_texts(self.tagfile, frame_id) != ([text] if text else [])
-        }
+    def _changes(self) -> dict[str, Frame | None]:
+        """Each frame, by key, that saving would change, as its new frame; None removes it."""
+        changes: dict[str, Frame | None] = {}
+        for frame_id, text in self._unsaved.items():
+            if frame_id == self.Fields.COMMENT:
+                changes.update(self._serato_comment.changes(text))
+            elif _differs(self.tagfile, frame_id, text):
+                changes[frame_id] = Frames[frame_id](encoding=Encoding.UTF8, text=[text]) if text else None
+        return changes
 
     @property
     def has_changed(self) -> bool:
         """Whether a frame set since the file was read or last saved differs from it, so that saving would write."""
-        comment = self._unsaved.get(self.Fields.COMMENT)
-        return bool(self._changed_frames()) or (comment is not None and bool(self._serato_comment.changes(comment)))
+        return bool(self._changes())
 
     def _write_to_tagfile(self) -> bool:
-        changed = self._changed_frames()
-        for frame_id, text in changed.items():
-            if text is None:
-                del_tag(self.tagfile, frame_id)
-            else:
-                self.tagfile[frame_id] = Frames[frame_id](encoding=Encoding.UTF8, text=[text])
-        comment = self._unsaved.get(self.Fields.COMMENT)
-        comment_changed = comment is not None and self._serato_comment.write(comment)
+        changed = _put_frames(self.tagfile, self._changes())
         self._unsaved = {}
-        return bool(changed) or comment_changed
+        return changed
 
     def save(self, force: bool = False):
         """Writes the frames set since the file was read or last saved, if any changed, or if `force`."""
