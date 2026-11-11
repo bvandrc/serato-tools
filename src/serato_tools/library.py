@@ -88,8 +88,9 @@ class Library:
     def save(self) -> list[str]:
         """Writes every parsed file that has changed, and returns the paths of the ones written.
 
-        Saves changes made through `database`'s or the crates' own methods, such as `modify`. Each file is serialized to
-        check it, as its `has_changed` does, so call this once, after all of the changes.
+        Saves changes from any source: `save=False` on this class's methods, or changes made through `database`'s or the
+        crates' own methods, such as `modify`. Each file is serialized to check it, as its `has_changed` does, so call
+        this once, after all of the changes.
         """
         saved: list[str] = []
         for file in self._get_parsed_bin_files():
@@ -98,11 +99,13 @@ class Library:
                 saved.append(file.filepath)
         return saved
 
-    def rename_track_file(self, src: str, dest: str) -> bool:
+    def rename_track_file(self, src: str, dest: str, save: bool = True) -> bool:
         """Renames the file, and points the database and crates at the new path, so the track isn't missing in Serato.
 
         Returns whether it renamed the file. It does nothing, and returns False, if a different file already exists at
-        `dest`. Only the files that contain the track are saved.
+        `dest`. Only the files that contain the track are saved. Pass `save=False` when renaming many tracks, then call
+        `save()` once, so each library file is only written once. The track file is still renamed right away, so the
+        track is missing in Serato until `save()` is called.
         """
         # os.rename only raises FileExistsError on Windows; on POSIX it silently overwrites, so check
         # first. A case-only rename is fine: on case-insensitive filesystems dest is then the same file.
@@ -119,18 +122,19 @@ class Library:
             return False
 
         for file in self._get_bin_files():
-            if file.change_track_path(src, dest):
+            if file.change_track_path(src, dest) and save:
                 file.save()
         return True
 
-    def remove_track_files(self, filepaths: list[str]):
+    def remove_track_files(self, filepaths: list[str], save: bool = True):
         """Removes the tracks from the database and crates, then deletes their files.
 
         Paths whose file is already gone are still removed from the library, which cleans up missing tracks. Only the
-        files that contain one of the tracks are saved.
+        files that contain one of the tracks are saved. With `save=False`, call `save()` once after all of the changes,
+        as with `rename_track_file`.
         """
         for file in self._get_bin_files():
-            if file.remove_tracks(filepaths):
+            if file.remove_tracks(filepaths) and save:
                 file.save()
         for filepath in filepaths:
             if os.path.exists(filepath):
