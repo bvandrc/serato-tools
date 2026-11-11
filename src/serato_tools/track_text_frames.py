@@ -25,8 +25,8 @@ class TrackTextFrames(ID3FileTag):
     """
 
     @unique
-    class Tags(StrEnum):
-        """The text frames Serato shows a column for, by Serato's name for each; each is the frame's ID."""
+    class Fields(StrEnum):
+        """The text frames Serato shows a column for, each the frame's ID, named as `DatabaseV2.Fields` names them."""
 
         TITLE = "TIT2"
         ARTIST = "TPE1"
@@ -34,7 +34,7 @@ class TrackTextFrames(ID3FileTag):
         GENRE = "TCON"
         KEY = "TKEY"
         GROUPING = "TIT1"
-        # Serato's "label"
+        # Serato's "label" column
         PUBLISHER = "TPUB"
         COMPOSER = "TCOM"
         YEAR = "TDRC"

@@ -7,7 +7,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Features
 
 - Add `TrackTextFrames` (`serato_tools.track_text_frames`), which reads and sets a track file's ID3 text frames, and `Track.text_frames`. Setting a frame to `""` removes it, as Serato does when a tag is cleared
-  - `TrackTextFrames.Tags` names the frames Serato shows a column for (`Tags.TITLE`, `Tags.GENRE`, ...), to pass to `get` and `set` in place of the frame ID
+  - `TrackTextFrames.Fields` names the frames Serato shows a column for (`Fields.TITLE`, `Fields.GENRE`, ...), as `DatabaseV2.Fields` does, to pass to `get` and `set` in place of the frame ID
 - Add `Track.snap_cues_to_beats(tolerance_beats)`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `SnappedCue`. It needs the `Track`'s `cues_v2` and `beatgrid` parsed (the default)
   - `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)` does the same with the `TrackBeatgrid` passed to it
   - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to
