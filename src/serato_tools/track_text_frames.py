@@ -6,14 +6,6 @@ from mutagen.id3 import COMM, ID3, Encoding, Frames, TextFrame
 
 from serato_tools.utils.track_tags import ID3FileOrPath, ID3FileTag, del_tag
 
-# Serato writes a comment to an empty-description COMM frame, and to an "ID3v1 Comment" one too when ID3v1 can hold the
-# text (Latin-1). It removes both when the comment is cleared. It reads the file's first COMM frame, whatever its
-# description or language, except iTunes' own (iTunNORM, iTunSMPB, ...), which hold data rather than a comment.
-_COMMENT_LANG = "eng"
-_V1_COMMENT_DESC = "ID3v1 Comment"
-_COMMENT_KEY = f"COMM::{_COMMENT_LANG}"
-_V1_COMMENT_KEY = f"COMM:{_V1_COMMENT_DESC}:{_COMMENT_LANG}"
-
 
 def _is_latin1(text: str) -> bool:
     try:
@@ -49,6 +41,15 @@ class TrackTextFrames(ID3FileTag):
         DISC_NUMBER = "TPOS"
         # the comment Serato shows and writes, rather than a single frame: see `get` and `set`
         COMMENT = "COMM"
+
+    # Serato writes a comment to an empty-description COMM frame, and to an "ID3v1 Comment" one too when ID3v1 can
+    # hold the text (Latin-1). It removes both when the comment is cleared. It reads the file's first COMM frame,
+    # whatever its description or language, except iTunes' own (iTunNORM, iTunSMPB, ...), which hold data rather than
+    # a comment.
+    _COMMENT_LANG = "eng"
+    _V1_COMMENT_DESC = "ID3v1 Comment"
+    _COMMENT_KEY = f"COMM::{_COMMENT_LANG}"
+    _V1_COMMENT_KEY = f"COMM:{_V1_COMMENT_DESC}:{_COMMENT_LANG}"
 
     def __init__(self, file: ID3FileOrPath):
         super().__init__(file)
@@ -161,8 +162,8 @@ class TrackTextFrames(ID3FileTag):
         # every other frame goes: mutagen saves frames smallest first, so a shorter one would come first in the file,
         # and Serato would show it
         texts: dict[str, str | None] = {key: None for key in self._comment_keys()}
-        texts[_COMMENT_KEY] = text or None
-        texts[_V1_COMMENT_KEY] = text if text and _is_latin1(text) else None
+        texts[self._COMMENT_KEY] = text or None
+        texts[self._V1_COMMENT_KEY] = text if text and _is_latin1(text) else None
         return {key: new for key, new in texts.items() if self._get_texts(key) != ([new] if new else [])}
 
     def _write_comment(self, text: str) -> bool:
@@ -171,12 +172,12 @@ class TrackTextFrames(ID3FileTag):
         for key, new in changes.items():
             if new is None:
                 del_tag(self.tagfile, key)
-            elif key == _COMMENT_KEY:
+            elif key == self._COMMENT_KEY:
                 # Latin-1 when it fits, as Serato writes it, and UTF-16 otherwise
                 encoding = Encoding.LATIN1 if _is_latin1(new) else Encoding.UTF16
-                self.tagfile[key] = COMM(encoding=encoding, lang=_COMMENT_LANG, desc="", text=[new])
+                self.tagfile[key] = COMM(encoding=encoding, lang=self._COMMENT_LANG, desc="", text=[new])
             else:
                 self.tagfile[key] = COMM(
-                    encoding=Encoding.LATIN1, lang=_COMMENT_LANG, desc=_V1_COMMENT_DESC, text=[new]
+                    encoding=Encoding.LATIN1, lang=self._COMMENT_LANG, desc=self._V1_COMMENT_DESC, text=[new]
                 )
         return bool(changes)
