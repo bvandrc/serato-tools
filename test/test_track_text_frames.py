@@ -54,6 +54,14 @@ class TestCase(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "into TDRC; set that instead"):
             TrackTextFrames(self.path).set("TYER", "2020")
 
+    def test_set_raises_for_text_loading_rewrites(self):
+        # loading turns numeric genres into names, so the genre would silently change
+        for text in ("1", "128", "RX", "(1)Rock"):
+            with self.subTest(text), self.assertRaisesRegex(ValueError, "loading reads TCON"):
+                TrackTextFrames(self.path).set("TCON", text)
+        TrackTextFrames(self.path).set("TCON", "Dubstep")
+        TrackTextFrames(self.path).set("TCON", "")  # removes it, so nothing is read back
+
     def test_set_raises_for_text_the_frame_cant_hold(self):
         frames = TrackTextFrames(self.path)
         with self.assertRaises(ValueError):

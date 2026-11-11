@@ -55,6 +55,10 @@ class TrackTextFrames(ID3FileTag):
                 if tags
                 else f"loading drops {frame_id}"
             )
+        # it rewrites some text too, as TCON's numeric genres ("128" reads as "Club-House"); "" removes the frame instead
+        loaded = [str(t) for t in tags[frame_id].text]
+        if text and loaded != [text]:
+            raise ValueError(f"loading reads {frame_id} {text!r} as {loaded}")
         self._unsaved[frame_id] = text
 
     def _changed_frames(self) -> dict[str, str | None]:

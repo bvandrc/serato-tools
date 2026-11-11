@@ -76,7 +76,7 @@ Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`
 
 `TrackGain` (`track_gain.py`) subclasses `ID3FileTag` directly, since Serato stores gain as an ID3 `RVA2:SeratoGain` frame rather than a GEOB.
 
-`TrackTextFrames` (`track_text_frames.py`) also subclasses `ID3FileTag`: it gets and sets ID3 text frames (`TIT2`, `TBPM`, ...) by frame ID, adding a missing frame, and writes only frames whose text changed. Setting `""` removes the frame. `set` takes only a text frame stored under its bare ID (not `COMM` or `TXXX`, which their description keys too) and raises for text the frame can't hold, such as a `TDRC` that isn't a date; setting a frame replaces all its values.
+`TrackTextFrames` (`track_text_frames.py`) also subclasses `ID3FileTag`: it gets and sets ID3 text frames (`TIT2`, `TBPM`, ...) by frame ID, adding a missing frame, and writes only frames whose text changed. Setting `""` removes the frame. `set` takes only a text frame stored under its bare ID (not `COMM` or `TXXX`, which their description keys too) and raises for text it wouldn't read back, such as a `TDRC` that isn't a date, a numeric `TCON` genre (which loading turns into a name), or an ID3v2.3-only frame (which loading converts or drops); setting a frame replaces all its values.
 
 `Track` (`track.py`) isn't a tag itself (no base class): it parses each of these, `TrackGain`, and `TrackTextFrames`, from one open `ID3File` in its constructor.
 - **Which tags:** a keyword flag per tag chooses which it parses (`cues_v2`, `cues_v1`, `beatgrid`, `autotags`, `gain`, `text_frames` default True, `waveform` False). A tag passed False is never constructed, so it's neither parsed nor saved, and its property raises ValueError naming the flag.
