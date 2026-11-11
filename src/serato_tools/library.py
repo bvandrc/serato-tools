@@ -73,6 +73,31 @@ class Library:
         # the database as blank "?" entries
         return [self.database, *self.crates, *self.smart_crates]
 
+    def _get_parsed_bin_files(self) -> list[SeratoBinFile]:
+        """The files of `_get_bin_files` that have been parsed, without parsing any others."""
+        # cached_property keeps its value in the instance's vars, and a file that isn't parsed yet can't have changes.
+        # A database passed to __init__ is only there once `database` is read, so it's taken from _database until then
+        parsed = vars(self)
+        database: DatabaseV2 | None = parsed.get("database", self._database)
+        return [
+            *([database] if database is not None else []),
+            *parsed.get("crates", []),
+            *parsed.get("smart_crates", []),
+        ]
+
+    def save(self) -> list[str]:
+        """Writes every parsed file that has changed, and returns the paths of the ones written.
+
+        Saves changes made through `database`'s or the crates' own methods, such as `modify`. Each file is serialized to
+        check it, as its `has_changed` does, so call this once, after all of the changes.
+        """
+        saved: list[str] = []
+        for file in self._get_parsed_bin_files():
+            if file.has_changed:
+                file.save()
+                saved.append(file.filepath)
+        return saved
+
     def rename_track_file(self, src: str, dest: str) -> bool:
         """Renames the file, and points the database and crates at the new path, so the track isn't missing in Serato.
 

@@ -330,7 +330,9 @@ def main():
                 else:
                     # set_rule stores the value in the field the comparison expects, parsing it as needed
                     crate.set_rule(field, *rule)
-            crate.save()
+            # a rule set to the value it already has changes nothing, so don't rewrite the file
+            if crate.has_changed:
+                crate.save()
         elif args.list_tracks or args.filenames_only:
             crate.print_track_paths(filenames_only=args.filenames_only)
         else:
