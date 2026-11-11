@@ -66,7 +66,7 @@ class TrackTextFrames(ID3FileTag):
         if [str(t) for t in frame.text] != [text]:  # pyright: ignore[reportAttributeAccessIssue]
             raise ValueError(f"{frame_id} can't hold {text!r}")
         # loading a file updates its tags to ID3v2.4, which converts (TYER into TDRC, ...) or drops a few older frames,
-        # so get() would never find what was written; mutagen lists them only inside that update, so it's run on the frame
+        # so get() would never find what was written; mutagen lists them only inside that update, so it runs it here
         tags = ID3()
         tags.add(frame)
         tags.update_to_v24()
