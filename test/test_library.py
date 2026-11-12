@@ -53,6 +53,14 @@ class TestCase(unittest.TestCase):
         """The track paths in `file` as saved, read again from disk rather than from its entries in memory."""
         return type(file)(file.filepath).get_track_paths()
 
+    def files_named(self, library: Library, names: list[str]) -> list[SeratoBinFile]:
+        """The library's database and crates whose file names are in `names`."""
+        return [
+            f
+            for f in [library.database, *library.crates, *library.smart_crates]
+            if os.path.basename(f.filepath) in names
+        ]
+
     def saved_file_names(self):
         """Records the name of each library file written from now on, however it's saved, into the returned list."""
         saved: list[str] = []
@@ -87,11 +95,12 @@ class TestCase(unittest.TestCase):
 
         saved = self.saved_file_names()
         library = Library(self.serato_dir)
-        renamed = library.rename_track_file(src, dest)
+        result = library.rename_track_file(src, dest)
 
-        self.assertTrue(renamed, "returns that it renamed")
+        self.assertTrue(result.renamed, "returns that it renamed")
         self.assertTrue(os.path.exists(dest) and not os.path.exists(src), "file renamed")
         self.assertCountEqual(saved, [DatabaseV2.FILENAME, "With.crate", "Smart.scrate"], "only files with track saved")
+        self.assertCountEqual(result.library_files_changed, [f.filepath for f in self.files_named(library, saved)])
         old_path, new_path = DatabaseV2.get_relative_path(src), DatabaseV2.get_relative_path(dest)
         db_paths = self.track_paths(library.database)
         self.assertIn(new_path, db_paths, "db path updated")
@@ -120,9 +129,10 @@ class TestCase(unittest.TestCase):
         saved = self.saved_file_names()
         # os.rename silently overwrites on POSIX, unlike on Windows, so test with that
         with mock.patch("os.rename", side_effect=os.replace):
-            renamed = Library(self.serato_dir).rename_track_file(src, dest)
+            result = Library(self.serato_dir).rename_track_file(src, dest)
 
-        self.assertFalse(renamed, "returns that it didn't rename")
+        self.assertFalse(result.renamed, "returns that it didn't rename")
+        self.assertEqual(result.library_files_changed, [], "lists no library file")
         self.assertTrue(os.path.exists(src), "src left in place")
         self.assertEqual(saved, [], "nothing saved")
 
@@ -140,11 +150,13 @@ class TestCase(unittest.TestCase):
 
         saved = self.saved_file_names()
         library = Library(self.serato_dir)
-        library.remove_track_files([removed, missing])
+        result = library.remove_track_files([removed, missing])
 
         self.assertFalse(os.path.exists(removed), "file deleted")
         self.assertTrue(os.path.exists(kept), "other file kept")
+        self.assertEqual(result.files_deleted, [removed], "lists only the file that was there to delete")
         self.assertCountEqual(saved, [DatabaseV2.FILENAME, "With.crate", "Smart.scrate"], "only files with track saved")
+        self.assertCountEqual(result.library_files_changed, [f.filepath for f in self.files_named(library, saved)])
         kept_path = DatabaseV2.get_relative_path(kept)
         db_paths = self.track_paths(library.database)
         self.assertIn(kept_path, db_paths, "other track kept in db")
@@ -167,9 +179,14 @@ class TestCase(unittest.TestCase):
         with library.batch():
             library.rename_track_file(first, new_first)
             library.rename_track_file(second, new_second)
-            library.remove_track_files([removed])
+            removed_result = library.remove_track_files([removed])
 
             self.assertEqual(saved, [], "nothing written yet")
+            self.assertCountEqual(
+                removed_result.library_files_changed,
+                [f.filepath for f in self.files_named(library, [DatabaseV2.FILENAME, "Without.crate"])],
+                "lists the files it changed, though they aren't written until the block ends",
+            )
             self.assertTrue(os.path.exists(new_first), "track file renamed right away")
             self.assertFalse(os.path.exists(removed), "track file deleted right away")
 

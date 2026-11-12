@@ -30,6 +30,32 @@ class DbTrackTagsResult:
     """The track files whose tags changed, so were written, as their paths were passed, in the order given."""
 
 
+@dataclass(frozen=True)
+class RenameTrackFileResult:
+    """What `Library.rename_track_file` changed."""
+
+    renamed: bool
+    """Whether it renamed the file. False when a different file already exists at `dest`, which changes nothing."""
+    library_files_changed: list[str]
+    """The paths of the database, crates, and smart crates that held the track's path, so were changed to the new one.
+
+    Inside `batch()`, they're saved when the block ends.
+    """
+
+
+@dataclass(frozen=True)
+class RemoveTrackFilesResult:
+    """What `Library.remove_track_files` changed."""
+
+    library_files_changed: list[str]
+    """The paths of the database, crates, and smart crates that held one of the tracks, so had it removed.
+
+    Inside `batch()`, they're saved when the block ends.
+    """
+    files_deleted: list[str]
+    """The track files deleted, as their paths were passed, in the order given. A file already gone isn't listed."""
+
+
 def _db_track_props():  # return type left to pyright, which infers the module and so checks its attributes
     """The db_track_props module, for the methods that change track files.
 
@@ -135,44 +161,53 @@ class Library:
         if not self._batch_depth:
             file.save()
 
-    def rename_track_file(self, src: str, dest: str) -> bool:
+    def rename_track_file(self, src: str, dest: str) -> RenameTrackFileResult:
         """Renames the file, and points the database and crates at the new path, so the track isn't missing in Serato.
 
-        Returns whether it renamed the file. It does nothing, and returns False, if a different file already exists at
-        `dest`. Only the files that contain the track are saved, or, inside `batch()`, left for it to save once.
+        Returns whether it renamed the file, and which library files it changed (see RenameTrackFileResult). It does
+        nothing if a different file already exists at `dest`. Only the files that contain the track are saved, or,
+        inside `batch()`, left for it to save once.
         """
         # os.rename only raises FileExistsError on Windows; on POSIX it silently overwrites, so check
         # first. A case-only rename is fine: on case-insensitive filesystems dest is then the same file.
         # If src is missing, samefile raises FileNotFoundError, just as the rename itself would.
         if os.path.exists(dest) and not os.path.samefile(src, dest):
             logger.error(f"File already exists with change: {src}")
-            return False
+            return RenameTrackFileResult(renamed=False, library_files_changed=[])
         try:
             os.rename(src=src, dst=dest)
             logger.info(f"renamed {src} to {dest}")
         except FileExistsError:
             # can't just do os.path.exists, doesn't pick up case changes for certain filesystems
             logger.error(f"File already exists with change: {src}")
-            return False
+            return RenameTrackFileResult(renamed=False, library_files_changed=[])
 
+        changed: list[str] = []
         for file in self._get_bin_files():
             if file.change_track_path(src, dest):
                 self._save_unless_batching(file)
-        return True
+                changed.append(file.filepath)
+        return RenameTrackFileResult(renamed=True, library_files_changed=changed)
 
-    def remove_track_files(self, filepaths: list[str]):
+    def remove_track_files(self, filepaths: list[str]) -> RemoveTrackFilesResult:
         """Removes the tracks from the database and crates, then deletes their files.
 
-        Paths whose file is already gone are still removed from the library, which cleans up missing tracks. Only the
-        files that contain one of the tracks are saved, or, inside `batch()`, left for it to save once.
+        Returns which library files it changed, and which track files it deleted (see RemoveTrackFilesResult). Paths
+        whose file is already gone are still removed from the library, which cleans up missing tracks. Only the files
+        that contain one of the tracks are saved, or, inside `batch()`, left for it to save once.
         """
+        changed: list[str] = []
         for file in self._get_bin_files():
             if file.remove_tracks(filepaths):
                 self._save_unless_batching(file)
+                changed.append(file.filepath)
+        deleted: list[str] = []
         for filepath in filepaths:
             if os.path.exists(filepath):
                 os.remove(filepath)
                 logger.info(f"deleted {filepath}")
+                deleted.append(filepath)
+        return RemoveTrackFilesResult(library_files_changed=changed, files_deleted=deleted)
 
     def set_db_track_tags(
         self, filepath: str, *, delete_tags_v1: bool = True, **tags: Unpack["DbTrackTags"]
