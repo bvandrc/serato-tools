@@ -215,6 +215,9 @@ library.set_db_tracks_tags({
     '/Users/Username/Music/Dubstep/Raaket - ILL.mp3': {'color': TrackCuesV2.TrackColors.PURPLE},
     '/Users/Username/Music/Dubstep/Other.mp3': {'color': TrackCuesV2.TrackColors.BLUE1, 'beatgrid_locked': False},
 })
+# both return whether the database changed, and which track files were written
+result = library.set_db_track_tags('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', color=TrackCuesV2.TrackColors.PURPLE)
+result.database_changed, result.files_written
 ```
 
 The same goes for a track's metadata, which Serato keeps both in the file's ID3 text frames and in the database: `title`, `artist`, `album`, `genre`, `key`, `grouping`, `publisher`, `composer`, `year`, `remixer`, `track_number`, `disc_number`, and `comment`. An empty value removes it, as clearing it in Serato does.
