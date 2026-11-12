@@ -47,13 +47,13 @@ class RenameTrackFileResult:
 class RemoveTrackFilesResult:
     """What `Library.remove_track_files` changed."""
 
+    files_deleted: list[str]
+    """The track files deleted, as their paths were passed, in the order given. A file already gone isn't listed."""
     library_files_changed: list[str]
     """The paths of the database, crates, and smart crates that held one of the tracks, so had it removed.
 
     Inside `batch()`, they're saved when the block ends.
     """
-    files_deleted: list[str]
-    """The track files deleted, as their paths were passed, in the order given. A file already gone isn't listed."""
 
 
 def _db_track_props():  # return type left to pyright, which infers the module and so checks its attributes
@@ -192,7 +192,7 @@ class Library:
     def remove_track_files(self, filepaths: list[str]) -> RemoveTrackFilesResult:
         """Removes the tracks from the database and crates, then deletes their files.
 
-        Returns which library files it changed, and which track files it deleted (see RemoveTrackFilesResult). Paths
+        Returns which track files it deleted, and which library files it changed (see RemoveTrackFilesResult). Paths
         whose file is already gone are still removed from the library, which cleans up missing tracks. Only the files
         that contain one of the tracks are saved, or, inside `batch()`, left for it to save once.
         """
@@ -207,7 +207,7 @@ class Library:
                 os.remove(filepath)
                 logger.info(f"deleted {filepath}")
                 deleted.append(filepath)
-        return RemoveTrackFilesResult(library_files_changed=changed, files_deleted=deleted)
+        return RemoveTrackFilesResult(files_deleted=deleted, library_files_changed=changed)
 
     def set_db_track_tags(
         self, filepath: str, *, delete_tags_v1: bool = True, **tags: Unpack["DbTrackTags"]

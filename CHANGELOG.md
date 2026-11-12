@@ -33,7 +33,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - If you pass in a tagfile with other unsaved changes, such as frames you set on it, and relied on one of these four classes' `save()` to write them, save the tagfile yourself when `save()` returns False (`tagfile.save()`), or pass `force=True`.
 - Breaking: `Library.set_db_tracks_tags` and `set_db_track_tags` return a `DbTrackTagsResult` rather than a bool: `database_changed`, as the bool was, and `files_written`, the paths of the track files whose tags changed, so were written. Read `.database_changed` where you used the bool, since the result is always truthy.
 - Breaking: `Library.rename_track_file` returns a `RenameTrackFileResult` rather than a bool: `renamed`, as the bool was, and `library_files_changed`, the paths of the database, crates, and smart crates it changed. Read `.renamed` where you used the bool, since the result is always truthy.
-- `Library.remove_track_files` returns a `RemoveTrackFilesResult`: `library_files_changed`, the paths of the database, crates, and smart crates it changed, and `files_deleted`, the track files it deleted.
+- `Library.remove_track_files` returns a `RemoveTrackFilesResult`: `files_deleted`, the track files it deleted, and `library_files_changed`, the paths of the database, crates, and smart crates it changed.
 - Breaking: `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`, next to the database and crate code that raises them.
 
 ### Removed
