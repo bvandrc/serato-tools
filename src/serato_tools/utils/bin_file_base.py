@@ -822,8 +822,7 @@ class SeratoBinFile:
                     print(f"missing: {track_path}")
                     new_location = None
                     if new_dir is not None:
-                        possible_new_loc = os.path.join(new_dir, os.path.basename(track_path))
-                        if os.path.isfile(possible_new_loc):
+                        if os.path.isfile(possible_new_loc := os.path.join(new_dir, os.path.basename(track_path))):
                             new_location = possible_new_loc
                     if not new_location:
                         while True:

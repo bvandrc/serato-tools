@@ -32,8 +32,7 @@ def _uniq_by_basename(paths: list[str]):
     basenames: set[str] = set()
     return_paths: list[str] = []
     for path in paths:
-        basename = os.path.basename(path)
-        if basename not in basenames:
+        if (basename := os.path.basename(path)) not in basenames:
             basenames.add(basename)
             return_paths.append(path)
     return return_paths
@@ -136,8 +135,7 @@ def copy_crates_to_usb(
             new_lines = []
             for line in lines:
                 if line.startswith(CRATE_KEY):
-                    value = line[len(CRATE_KEY) :]
-                    if value != "Stems":
+                    if (value := line[len(CRATE_KEY) :]) != "Stems":
                         line = f"{CRATE_KEY}{root_crate}%%{value}"
                 new_lines.append(line)
             lines = new_lines

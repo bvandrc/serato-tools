@@ -15,16 +15,14 @@ def ui_ask(question: str, choices: Mapping[str, str], default: Optional[str] = N
     text = f"{question} [{choices_str}]? "
 
     while True:
-        answer = input(text).lower() or default
-        if answer in choices:
+        if (answer := input(text).lower() or default) in choices:
             return answer
         print("\n".join(f"{choice} - {desc}" for choice, desc in (*choices.items(), ("?", "print help"))))
 
 
 def _find_editor(env_var: str, default: str) -> str:
     """The path to the program named by the environment variable `env_var`, or to `default`; raises if not found."""
-    editor = shutil.which(os.getenv(env_var, default))
-    if not editor:
+    if not (editor := shutil.which(os.getenv(env_var, default))):
         raise Exception(f"No suitable {env_var} found.")
     return editor
 
