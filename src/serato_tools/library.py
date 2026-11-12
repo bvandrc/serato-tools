@@ -5,6 +5,7 @@
 import os
 from collections.abc import Generator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from functools import cached_property
 from typing import TYPE_CHECKING, Mapping, Unpack
 
@@ -17,6 +18,16 @@ from serato_tools.utils.crate_base import CrateBase
 
 if TYPE_CHECKING:
     from serato_tools.db_track_props import DbTrackTags
+
+
+@dataclass(frozen=True)
+class DbTrackTagsResult:
+    """What `Library.set_db_tracks_tags` (or `set_db_track_tags`) changed."""
+
+    database_changed: bool
+    """Whether the database changed. Inside `batch()`, it's saved when the block ends."""
+    files_written: list[str]
+    """The track files whose tags changed, so were written, as their paths were passed, in the order given."""
 
 
 def _db_track_props():  # return type left to pyright, which infers the module and so checks its attributes
@@ -163,14 +174,17 @@ class Library:
                 os.remove(filepath)
                 logger.info(f"deleted {filepath}")
 
-    def set_db_track_tags(self, filepath: str, *, delete_tags_v1: bool = True, **tags: Unpack["DbTrackTags"]) -> bool:
+    def set_db_track_tags(
+        self, filepath: str, *, delete_tags_v1: bool = True, **tags: Unpack["DbTrackTags"]
+    ) -> DbTrackTagsResult:
         """Sets values in the track file's tags and in the database, as set_db_tracks_tags does for many tracks."""
         return self.set_db_tracks_tags({filepath: tags}, delete_tags_v1=delete_tags_v1)
 
-    def set_db_tracks_tags(self, tracks: Mapping[str, "DbTrackTags"], delete_tags_v1: bool = True) -> bool:
+    def set_db_tracks_tags(self, tracks: Mapping[str, "DbTrackTags"], delete_tags_v1: bool = True) -> DbTrackTagsResult:
         """Sets values in each track file's tags and in the database, so Serato shows them right away.
 
-        `tracks` maps each file's path to the values to set (see DbTrackTags). Returns whether the database changed.
+        `tracks` maps each file's path to the values to set (see DbTrackTags). Returns whether the database changed, and
+        which files were written (see DbTrackTagsResult).
 
         - Needs the `track_tags` extra, and raises ImportError without it.
         - Only ID3 files (.mp3, .aiff, .aif) are currently supported.
@@ -186,7 +200,7 @@ class Library:
             DatabaseV2.get_relative_path(filepath).upper(): props.to_db_values(tags)
             for filepath, tags in tracks.items()
         }
-        props.write_db_track_tags_to_files(tracks, delete_tags_v1)
+        files_written = props.write_db_track_tags_to_files(tracks, delete_tags_v1)
 
         found: set[str] = set()
 
@@ -204,4 +218,4 @@ class Library:
                 logger.warning(f"track isn't in the database, so only its file's tags were set: {filepath}")
         if changed:
             self._save_unless_batching(self.database)
-        return changed
+        return DbTrackTagsResult(database_changed=changed, files_written=files_written)

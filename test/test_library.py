@@ -281,11 +281,12 @@ class TestCase(unittest.TestCase):
         self.add_to_database(track, other)
 
         saved = self.saved_file_names()
-        changed = Library(self.serato_dir).set_db_track_tags(
+        result = Library(self.serato_dir).set_db_track_tags(
             track, color=TrackCuesV2.TrackColors.PURPLE, beatgrid_locked=True
         )
 
-        self.assertTrue(changed)
+        self.assertTrue(result.database_changed)
+        self.assertEqual(result.files_written, [track])
         self.assertEqual(saved, [DatabaseV2.FILENAME], "database saved once")
         tags = TrackCuesV2(track)
         self.assertEqual(tags.get_track_color(), TrackCuesV2.TrackColors.PURPLE.value, "color set in tags")
@@ -347,7 +348,7 @@ class TestCase(unittest.TestCase):
         saved = self.saved_file_names()
         library = Library(self.serato_dir)
         with library.batch():
-            self.assertTrue(library.set_db_track_tags(track, color=TrackCuesV2.TrackColors.PURPLE))
+            self.assertTrue(library.set_db_track_tags(track, color=TrackCuesV2.TrackColors.PURPLE).database_changed)
             self.assertEqual(saved, [], "database not written yet")
             self.assertEqual(
                 TrackCuesV2(track).get_track_color(), TrackCuesV2.TrackColors.PURPLE.value, "file tagged right away"
@@ -395,8 +396,23 @@ class TestCase(unittest.TestCase):
         library.set_db_track_tags(track, color=TrackCuesV2.TrackColors.GREY)
 
         saved = self.saved_file_names()
-        self.assertFalse(library.set_db_track_tags(track, color=TrackCuesV2.TrackColors.GREY))
+        result = library.set_db_track_tags(track, color=TrackCuesV2.TrackColors.GREY)
+        self.assertFalse(result.database_changed)
+        self.assertEqual(result.files_written, [], "file not written")
         self.assertEqual(saved, [], "database not saved")
+
+    def test_set_db_tracks_tags_lists_only_the_files_it_wrote(self):
+        changed, unchanged = self.copy_analyzed_track("Changed.mp3"), self.copy_analyzed_track("Unchanged.mp3")
+        self.add_to_database(changed, unchanged)
+        library = Library(self.serato_dir)
+        library.set_db_track_tags(unchanged, color=TrackCuesV2.TrackColors.GREY)
+
+        result = library.set_db_tracks_tags(
+            {changed: {"color": TrackCuesV2.TrackColors.PURPLE}, unchanged: {"color": TrackCuesV2.TrackColors.GREY}}
+        )
+
+        self.assertTrue(result.database_changed)
+        self.assertEqual(result.files_written, [changed])
 
     def test_set_db_track_tags_creates_a_missing_tag(self):
         track = untagged_mp3(self, "New.mp3", self.music_dir)
@@ -441,15 +457,18 @@ class TestCase(unittest.TestCase):
 
     def test_set_db_tracks_tags_with_no_values_doesnt_open_the_file(self):
         # an unsupported file type would raise when opened
-        self.assertFalse(Library(self.serato_dir).set_db_tracks_tags({"Unopened.flac": {}}))
+        result = Library(self.serato_dir).set_db_tracks_tags({"Unopened.flac": {}})
+        self.assertFalse(result.database_changed)
+        self.assertEqual(result.files_written, [])
 
     def test_set_db_track_tags_track_not_in_database_warns(self):
         track = self.copy_analyzed_track("Unknown.mp3")
 
         with self.assertLogs(level="WARNING") as logs:
-            changed = Library(self.serato_dir).set_db_track_tags(track, color=TrackCuesV2.TrackColors.RED)
+            result = Library(self.serato_dir).set_db_track_tags(track, color=TrackCuesV2.TrackColors.RED)
 
-        self.assertFalse(changed, "database unchanged")
+        self.assertFalse(result.database_changed, "database unchanged")
+        self.assertEqual(result.files_written, [track], "file still written")
         self.assertIn("isn't in the database", "\n".join(logs.output))
         self.assertEqual(TrackCuesV2(track).get_track_color(), TrackCuesV2.TrackColors.RED.value, "file still set")
 

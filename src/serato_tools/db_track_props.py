@@ -103,8 +103,8 @@ def _check_db_track_tags(tags: DbTrackTags):
         raise ValueError(f"unknown track tags: {sorted(unknown)}, expected some of {sorted(_DB_TRACK_PROPS)}")
 
 
-def write_db_track_tags_to_files(tracks: Mapping[str, DbTrackTags], delete_tags_v1: bool = True):
-    """Sets each track's values in its file's own tags, saving each file that changed.
+def write_db_track_tags_to_files(tracks: Mapping[str, DbTrackTags], delete_tags_v1: bool = True) -> list[str]:
+    """Sets each track's values in its file's own tags, saving each file that changed, and returns those files' paths.
 
     `tracks` maps each file's path to its values. Every file is read and every value set before any file is saved, so
     a bad key or value, or a file that can't be read, raises without changing any file. See TrackCuesV2.save for
@@ -112,7 +112,7 @@ def write_db_track_tags_to_files(tracks: Mapping[str, DbTrackTags], delete_tags_
     """
     for tags in tracks.values():
         _check_db_track_tags(tags)
-    changed_tracks: list[Track] = []
+    changed_tracks: list[tuple[str, Track]] = []
     for filepath, tags in tracks.items():
         if not tags:
             continue
@@ -120,9 +120,8 @@ def write_db_track_tags_to_files(tracks: Mapping[str, DbTrackTags], delete_tags_
         track = Track(filepath, cues_v1=False, beatgrid=False, autotags=False, gain=False)
         for key, value in tags.items():
             _DB_TRACK_PROPS[key].write(track, value)
-        changed_tracks.append(track)
-    for track in changed_tracks:
-        track.save(delete_tags_v1)
+        changed_tracks.append((filepath, track))
+    return [filepath for filepath, track in changed_tracks if track.save(delete_tags_v1)]
 
 
 def to_db_values(tags: DbTrackTags) -> dict[DatabaseV2.Fields, SeratoBinFile.BasicValue]:
