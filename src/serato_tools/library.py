@@ -30,6 +30,19 @@ class DbTrackTagsResult:
     """The track files whose tags changed, so were written, as their paths were passed, in the order given."""
 
 
+@dataclass(frozen=True)
+class RemoveTrackFilesResult:
+    """What `Library.remove_track_files` changed."""
+
+    files_deleted: list[str]
+    """The track files deleted, as their paths were passed, in the order given. A file already gone isn't listed."""
+    library_files_changed: list[str]
+    """The paths of the database, crates, and smart crates that held one of the tracks, so had it removed.
+
+    Inside `batch()`, they're saved when the block ends.
+    """
+
+
 def _db_track_props():  # return type left to pyright, which infers the module and so checks its attributes
     """The db_track_props module, for the methods that change track files.
 
@@ -135,44 +148,49 @@ class Library:
         if not self._batch_depth:
             file.save()
 
-    def rename_track_file(self, src: str, dest: str) -> bool:
+    def rename_track_file(self, src: str, dest: str) -> list[str]:
         """Renames the file, and points the database and crates at the new path, so the track isn't missing in Serato.
 
-        Returns whether it renamed the file. It does nothing, and returns False, if a different file already exists at
-        `dest`. Only the files that contain the track are saved, or, inside `batch()`, left for it to save once.
+        Returns the paths of the database, crates, and smart crates that held the track, so were changed: empty when
+        none did, e.g. for a file Serato hasn't imported. Only those are saved, or, inside `batch()`, left for it to
+        save once. Raises FileExistsError, changing nothing, if a different file already exists at `dest`.
         """
         # os.rename only raises FileExistsError on Windows; on POSIX it silently overwrites, so check
         # first. A case-only rename is fine: on case-insensitive filesystems dest is then the same file.
         # If src is missing, samefile raises FileNotFoundError, just as the rename itself would.
         if os.path.exists(dest) and not os.path.samefile(src, dest):
-            logger.error(f"File already exists with change: {src}")
-            return False
-        try:
-            os.rename(src=src, dst=dest)
-            logger.info(f"renamed {src} to {dest}")
-        except FileExistsError:
-            # can't just do os.path.exists, doesn't pick up case changes for certain filesystems
-            logger.error(f"File already exists with change: {src}")
-            return False
+            raise FileExistsError(f"can't rename {src}: a different file already exists at {dest}")
+        # where os.path.exists misses a clash, e.g. a case change on some filesystems, os.rename raises
+        # FileExistsError itself on Windows
+        os.rename(src=src, dst=dest)
+        logger.info(f"renamed {src} to {dest}")
 
+        changed: list[str] = []
         for file in self._get_bin_files():
             if file.change_track_path(src, dest):
                 self._save_unless_batching(file)
-        return True
+                changed.append(file.filepath)
+        return changed
 
-    def remove_track_files(self, filepaths: list[str]):
+    def remove_track_files(self, filepaths: list[str]) -> RemoveTrackFilesResult:
         """Removes the tracks from the database and crates, then deletes their files.
 
-        Paths whose file is already gone are still removed from the library, which cleans up missing tracks. Only the
-        files that contain one of the tracks are saved, or, inside `batch()`, left for it to save once.
+        Returns which track files it deleted, and which library files it changed (see RemoveTrackFilesResult). Paths
+        whose file is already gone are still removed from the library, which cleans up missing tracks. Only the files
+        that contain one of the tracks are saved, or, inside `batch()`, left for it to save once.
         """
+        changed: list[str] = []
         for file in self._get_bin_files():
             if file.remove_tracks(filepaths):
                 self._save_unless_batching(file)
+                changed.append(file.filepath)
+        deleted: list[str] = []
         for filepath in filepaths:
             if os.path.exists(filepath):
                 os.remove(filepath)
                 logger.info(f"deleted {filepath}")
+                deleted.append(filepath)
+        return RemoveTrackFilesResult(files_deleted=deleted, library_files_changed=changed)
 
     def set_db_track_tags(
         self, filepath: str, *, delete_tags_v1: bool = True, **tags: Unpack["DbTrackTags"]

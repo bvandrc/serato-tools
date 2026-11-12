@@ -140,6 +140,7 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
   - **The `serato_snap_cues_v2` CLI** (`track_cues_v2:main`) reads a `TrackBeatgrid` from its open file only for `--snap_cues`.
 - `Library` (`library.py`) holds one library folder's `DatabaseV2`, `Crate`s, and `SmartCrate`s, each parsed on first use and then kept.
   - **Whole-library operations:** `rename_track_file` and `remove_track_files` change the files on disk and update every one of them that contains the track, saving only those.
+    - Each returns the paths of the library files it changed, which inside `batch()` aren't written until the block ends: `rename_track_file` as a list, and `remove_track_files` as its `RemoveTrackFilesResult`'s `library_files_changed`, beside `files_deleted`. `rename_track_file` raises `FileExistsError` rather than overwrite a different file at `dest`.
     - Smart crates are included because Serato re-adds a missing path from a smart crate to the database as a blank "?" entry.
     - New operations that have to reach the whole library (database and every crate) belong on `Library`, not on `DatabaseV2`.
     - Pass `Library(database=...)` an already-loaded database so the two don't overwrite each other's saves.
