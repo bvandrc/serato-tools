@@ -95,12 +95,11 @@ class TestCase(unittest.TestCase):
 
         saved = self.saved_file_names()
         library = Library(self.serato_dir)
-        result = library.rename_track_file(src, dest)
+        changed = library.rename_track_file(src, dest)
 
-        self.assertTrue(result.renamed, "returns that it renamed")
         self.assertTrue(os.path.exists(dest) and not os.path.exists(src), "file renamed")
         self.assertCountEqual(saved, [DatabaseV2.FILENAME, "With.crate", "Smart.scrate"], "only files with track saved")
-        self.assertCountEqual(result.library_files_changed, [f.filepath for f in self.files_named(library, saved)])
+        self.assertCountEqual(changed, [f.filepath for f in self.files_named(library, saved)], "returns those files")
         old_path, new_path = DatabaseV2.get_relative_path(src), DatabaseV2.get_relative_path(dest)
         db_paths = self.track_paths(library.database)
         self.assertIn(new_path, db_paths, "db path updated")
@@ -128,12 +127,32 @@ class TestCase(unittest.TestCase):
 
         saved = self.saved_file_names()
         # os.rename silently overwrites on POSIX, unlike on Windows, so test with that
-        with mock.patch("os.rename", side_effect=os.replace):
-            result = Library(self.serato_dir).rename_track_file(src, dest)
+        with mock.patch("os.rename", side_effect=os.replace), self.assertRaises(FileExistsError):
+            Library(self.serato_dir).rename_track_file(src, dest)
 
-        self.assertFalse(result.renamed, "returns that it didn't rename")
-        self.assertEqual(result.library_files_changed, [], "lists no library file")
         self.assertTrue(os.path.exists(src), "src left in place")
+        self.assertEqual(saved, [], "nothing saved")
+
+    def test_rename_track_file_raises_a_clash_os_rename_finds(self):
+        src, dest = self.make_track("Old.mp3"), os.path.join(self.music_dir, "New.mp3")
+        self.add_to_database(src)
+
+        saved = self.saved_file_names()
+        # as on Windows, for a clash os.path.exists misses, such as a case change on some filesystems
+        with mock.patch("os.rename", side_effect=FileExistsError), self.assertRaises(FileExistsError):
+            Library(self.serato_dir).rename_track_file(src, dest)
+
+        self.assertEqual(saved, [], "nothing saved")
+        self.assertIn(DatabaseV2.get_relative_path(src), self.track_paths(DatabaseV2(self.db_file)), "db unchanged")
+
+    def test_rename_track_file_not_in_the_library(self):
+        src, dest = self.make_track("Unimported.mp3"), os.path.join(self.music_dir, "New.mp3")
+
+        saved = self.saved_file_names()
+        changed = Library(self.serato_dir).rename_track_file(src, dest)
+
+        self.assertTrue(os.path.exists(dest) and not os.path.exists(src), "file still renamed")
+        self.assertEqual(changed, [], "no library file changed")
         self.assertEqual(saved, [], "nothing saved")
 
     def test_remove_track_files(self):
