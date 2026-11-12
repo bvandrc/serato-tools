@@ -41,7 +41,7 @@ CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pylint and pyright, plus 
 - **Required checks:** the `main` ruleset requires these checks by name, so renaming a job or matrix entry means updating the ruleset too.
 - **OS-specific tests:** tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `unittest.skipUnless` / `skipIf`, with a matching test for the other OS family.
 
-Bump `version` in `pyproject.toml` and add a `CHANGELOG.md` entry for user-visible changes. Publishing a GitHub release then publishes that version to PyPI, through `.github/workflows/release.yml`:
+Bump `version` in `pyproject.toml` and add a `CHANGELOG.md` entry for user-visible changes. End every sentence of a changelog entry with a period, the last one included, so an entry of two sentences doesn't end one with a period and not the other. Publishing a GitHub release then publishes that version to PyPI, through `.github/workflows/release.yml`:
 - **Tag:** it must be `v` + the version (e.g. `v6.0.0`), or the workflow fails before building.
 - **Notes:** a release published with empty notes gets the version's `CHANGELOG.md` section as its notes, and the built distributions are attached to it.
 - **Trusted publisher:** PyPI's names that workflow file and its `pypi` environment, so renaming either means updating it on PyPI too.
