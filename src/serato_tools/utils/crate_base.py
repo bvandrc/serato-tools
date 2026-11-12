@@ -18,7 +18,7 @@ class CrateBase(SeratoBinFile):
     TRACK_PATH_KEY = SeratoBinFile.Fields.TRACK_PATH
 
     def _stringify_entry(self, entry: SeratoBinFile.EntryFull, indent: int = 0) -> str:
-        field, fieldname, value = entry  # pylint: disable=unused-variable
+        _field, _fieldname, value = entry
         return self._stringify_entries(value, indent) if isinstance(value, list) else str(value)
 
     def _stringify_entries(self, entries: Iterable[SeratoBinFile.EntryFull], indent: int = 0) -> str:
@@ -43,7 +43,7 @@ class CrateBase(SeratoBinFile):
             track_paths = [os.path.splitext(os.path.basename(t))[0] for t in track_paths]
         print("\n".join(track_paths))
 
-    def save(self, file: Optional[str] = None):
+    def save(self, file: Optional[str] = None, force: bool = False) -> bool:
         """As `SeratoBinFile.save`, but raises ValueError if `file` doesn't end with this class's `EXTENSION`."""
         if file is None:
             file = self.filepath
@@ -51,7 +51,7 @@ class CrateBase(SeratoBinFile):
         if not file.endswith(self.EXTENSION):
             raise ValueError(f"file should end with {self.EXTENSION}: " + file)
 
-        super().save(file)
+        return super().save(file, force)
 
     def add_track(self, filepath: str):
         """Deprecated, to be removed in the next major version: use add_tracks(), which this calls."""

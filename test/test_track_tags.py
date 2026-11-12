@@ -1,5 +1,6 @@
 # pylint: disable=protected-access
 import unittest
+from unittest import mock
 
 from mutagen.mp3 import MP3
 
@@ -7,7 +8,9 @@ from serato_tools.track_autotags import TrackAutotags
 from serato_tools.track_beatgrid import TrackBeatgrid
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
+from serato_tools.track_gain import TrackGain
 from serato_tools.track_tagdump import get_serato_tagdata
+from serato_tools.track_text_frames import TrackTextFrames
 from serato_tools.track_waveform import TrackWaveform
 from serato_tools.utils.track_tags import ID3FileTag, get_geob
 
@@ -22,8 +25,36 @@ class TestCase(unittest.TestCase):
                 self.assertIsNotNone(get_geob(MP3(path), tag_class.GEOB_KEY), "fixture has the tag")
                 tags = tag_class(path)
                 tags.delete()
-                tags.save()
+                self.assertTrue(tags.save(), "returns that it wrote")
                 self.assertIsNone(get_geob(MP3(path), tag_class.GEOB_KEY), "deletion saved")
+
+    def test_save_writes_only_a_changed_tag_unless_forced(self):
+        for tag_class in (TrackCuesV2, TrackCuesV1, TrackBeatgrid, TrackAutotags, TrackWaveform):
+            with self.subTest(tag_class.__name__):
+                tags = tag_class(temp_mp3(self))
+                assert tags.tagfile is not None
+                with mock.patch.object(tags.tagfile, "save") as save:
+                    tags.save()
+                    save.assert_not_called()
+                    tags.save(force=True)
+                    save.assert_called_once()
+
+    def test_save_returns_whether_it_wrote(self):
+        for tag_class in (
+            TrackCuesV2,
+            TrackCuesV1,
+            TrackBeatgrid,
+            TrackAutotags,
+            TrackWaveform,
+            TrackGain,
+            TrackTextFrames,
+        ):
+            with self.subTest(tag_class.__name__):
+                tags = tag_class(temp_mp3(self))
+                assert tags.tagfile is not None
+                with mock.patch.object(tags.tagfile, "save"):
+                    self.assertIs(tags.save(), False, "unchanged")
+                    self.assertIs(tags.save(force=True), True, "forced")
 
     def test_untested_version_raises_at_construction(self):
         for tag_class in (TrackCuesV2, TrackCuesV1, TrackBeatgrid, TrackAutotags, TrackWaveform):

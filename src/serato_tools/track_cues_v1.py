@@ -159,7 +159,7 @@ class TrackCuesV1(SeratoGeobTag):
         self._check_version(fp.read(self.VERSION_LEN))
 
         num_entries = struct.unpack(">I", fp.read(4))[0]
-        for i in range(num_entries):  # pylint: disable=unused-variable
+        for _ in range(num_entries):
             entry_data = fp.read(0x16)
             assert len(entry_data) == 0x16
 

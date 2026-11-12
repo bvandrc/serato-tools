@@ -166,6 +166,11 @@ class CliTestCase(unittest.TestCase):
         self.run_cli("--genre", "str_is", "G", "--album", "str_is", "A")
         self.assertEqual(list(self.saved_rules())[-2:], [SmartCrate.RuleField.GENRE, SmartCrate.RuleField.ALBUM])
 
+    def test_rules_set_to_their_values_dont_rewrite_the_crate(self):
+        with mock.patch("serato_tools.utils.bin_file_base.open", wraps=open, create=True) as opened:
+            self.run_cli("--year", "str_is", "2000", "--label", "str_contains", "YT")
+        self.assertEqual([c for c in opened.call_args_list if "wb" in c.args], [], "nothing written")
+
     def test_without_rule_options_prints_the_crate_and_changes_nothing(self):
         before = read_bytes(self.path)
         self.assertIn("SmartCrate Rule", self.run_cli())

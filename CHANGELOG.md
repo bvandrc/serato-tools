@@ -14,9 +14,12 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)` does the same with the `TrackBeatgrid` passed to it.
   - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to.
   - `serato_snap_cues_v2 --snap_cues` now says which cue each move was for, and which tag is missing for a track without cues or a beatgrid. Its options are unchanged.
+- Add `Library.save`, which writes each of the library's parsed files that has changed, once, and returns their paths. It saves changes made through `library.database`'s or the crates' own methods, such as `modify`.
+- Add `Library.batch()`, a context manager: inside `with library.batch():`, `rename_track_file`, `remove_track_files`, and `set_db_tracks_tags` hold back writing the database and crates, and each changed file is written once when the block ends, instead of once per track. The track files themselves still change right away, so it saves even if the block raises.
 - `serato_smartcrate` CLI now takes each rule field as its own option, e.g. `serato_smartcrate Dubstep.scrate --grouping str_is UNTAGGED --year DELETE`.
   - `--help` lists the fields and comparisons.
   - A bad field, comparison, value, or number of arguments is rejected before any crate is changed.
+  - A crate whose rules the options leave as they were isn't rewritten.
   - Breaking: `--set_rules` is removed. Pass the rule options directly, without it.
 - A track missing a tag that's needed, such as one Serato hasn't analyzed yet, raises an error saying which tag and file: `NoCuesError`, `NoBeatgridError`, or `NoWaveformError`, all `MissingTagError`s in `serato_tools.utils.track_tags`. Catch one to handle that case without also catching a corrupt tag. They're still `ValueError`s, so existing `except ValueError` code keeps working.
   - Breaking: `TrackBeatgrid.find_nearest_beat` raises `NoBeatgridError` without a beatgrid, rather than returning None, which read as "no beat nearby".
@@ -25,6 +28,9 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Breaking: `save()` on the library database, crates, and smart crates skips writing to the file's own path when it hasn't changed since it was loaded or last saved, as the track tag classes' `save()` does, and returns whether it wrote. Pass `force=True` to write anyway, e.g. to overwrite a file changed on disk since it was loaded. Saving to another path always writes. It serializes the file once, to check it and to write it, so `Library.save` does too.
+- Breaking: `save()` on `TrackCuesV1`, `TrackBeatgrid`, `TrackAutotags`, and `TrackWaveform` skips writing when the tag hasn't changed since it was read or last saved, as every other tag class's `save()` already does. Pass `force=True` to write anyway. Every tag class's `save()` now also returns whether it wrote, as `Track.save()` and the database's and crates' `save()` do.
+  - If you pass in a tagfile with other unsaved changes, such as frames you set on it, and relied on one of these four classes' `save()` to write them, save the tagfile yourself when `save()` returns False (`tagfile.save()`), or pass `force=True`.
 - Breaking: `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`, next to the database and crate code that raises them.
 
 ### Removed
