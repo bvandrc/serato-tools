@@ -16,22 +16,6 @@ class CrateBase(SeratoBinFile):
     DIR_PATH: str
     TRACK_PATH_KEY = SeratoBinFile.Fields.TRACK_PATH
 
-    # the sort and columns Serato gives a new crate or smart crate, which follow the version (and a smart crate's
-    # settings) in each one's DEFAULT_ENTRIES
-    DEFAULT_VIEW_ENTRIES: SeratoBinFile.EntryList = [
-        (
-            SeratoBinFile.Fields.SORTING,
-            [(SeratoBinFile.Fields.COLUMN_NAME, "key"), (SeratoBinFile.Fields.REVERSE_ORDER, False)],
-        ),
-        *(
-            (
-                SeratoBinFile.Fields.COLUMN,
-                [(SeratoBinFile.Fields.COLUMN_NAME, column), (SeratoBinFile.Fields.COLUMN_WIDTH, "0")],
-            )
-            for column in ("song", "playCount", "artist", "bpm", "key", "album", "length", "comment", "added")
-        ),
-    ]
-
     def _stringify_entry(self, entry: SeratoBinFile.EntryFull, indent: int = 0) -> str:
         _field, _fieldname, value = entry
         return self._stringify_entries(value, indent) if isinstance(value, list) else str(value)
