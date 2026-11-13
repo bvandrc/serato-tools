@@ -39,23 +39,20 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
-Breaking: most of what was deprecated in 5.x is removed. Use what each was deprecated in favor of:
+Breaking: everything deprecated in 5.x is removed. Use what each was deprecated in favor of:
 
 - `DatabaseV2.rename_track_file`: use `Library.rename_track_file`, which also updates the crates and smart crates.
 - The tag classes' read-only `raw_data`: parse, modify, and serialize through each tag's own methods.
 - The `SeratoTrack` and `SeratoTag` names in `serato_tools.utils.track_tags`: use `ID3FileTag` and `SeratoGeobTag`.
 - `TrackCuesV2.modified`: use `has_changed`.
+- `add_track` and `remove_track`: use `add_tracks` and `remove_tracks`.
+- Passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`): pass it to `save()`, or to `Track.save()`.
 
 Breaking: `TrackCuesV2` no longer reads the beatgrid from its own file for cue snapping. It's passed one instead, so that each tag class reads only its own tag:
 
 - `TrackCuesV2.snap_positions_to_beat` and `snap_positions_to_beat_rule`: use `Track.snap_cues_to_beats`, or `TrackCuesV2.snap_cues_to_beats(beatgrid, ...)` with a beatgrid you pass it. Both return the moves rather than printing them. There's no rule to pass to `modify_entries`: snap, then make any other edits, before saving.
 - `TrackCuesV2.get_snapped_beat_ms`: use `TrackBeatgrid.get_snapped_position` (e.g. `track.beatgrid.get_snapped_position`).
 - `TrackCuesV2.get_beat_position(entry)`: use `beatgrid.get_beat_position(entry.position)`.
-
-These stay, still deprecated:
-
-- `add_track` and `remove_track`, in favor of `add_tracks` and `remove_tracks`.
-- Passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`), in favor of passing it to `save()`.
 
 ## [5.6.1] - 2026-11-10
 
