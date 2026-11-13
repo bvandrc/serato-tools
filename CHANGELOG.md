@@ -35,7 +35,6 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Breaking: `Library.rename_track_file` returns the paths of the database, crates, and smart crates it changed, rather than a bool. The list is empty when none held the track, such as a file Serato hasn't imported.
   - Breaking: it raises `FileExistsError` when a different file already exists at `dest`, rather than logging an error and returning False. Catch it where you checked for False.
 - `Library.remove_track_files` returns a `RemoveTrackFilesResult`: `files_deleted`, the track files it deleted, and `library_files_changed`, the paths of the database, crates, and smart crates it changed.
-- Saving a tag class read from bytes, which has no file to write to, raises `ValueError` rather than a bare `Exception`, saying so.
 - Breaking: `TrackCuesV1.Entry` and `TrackCuesV1.Color` are dataclasses, so entries with the same values are equal. `Color` is no longer a subclass of `Entry`: check for a cue or loop slot with `isinstance(entry, TrackCuesV1.Entry)` as before, which a `Color` no longer passes.
 - The tag CLIs (`serato_snap_cues_v2`, `serato_beatgrid`, and running `track_cues_v1`, `track_autotags`, or `track_waveform` as a module) read a file of the tag's own bytes, such as one `serato_tagdump` writes, and write an edit back to it. They used to raise for any file that isn't .mp3, .aiff, or .aif.
 - The cue CLIs' edit mode (`serato_snap_cues_v2 -e`, and `track_cues_v1 -e` run as a module) keeps an entry when you choose to leave it unchanged after the editor fails or you write content that isn't valid, rather than dropping it from the tag. It also works on Windows, where the editor couldn't open the file it was given.
@@ -45,7 +44,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
-Breaking: everything deprecated in 5.x is removed, along with a few redundant names. Use what replaces each:
+Breaking: most of what was deprecated in 5.x is removed, along with a redundant name. Use what replaces each:
 
 - `DatabaseV2.rename_track_file`: use `Library.rename_track_file`, which also updates the crates and smart crates.
 - The tag classes' read-only `raw_data`: parse, modify, and serialize through each tag's own methods.
@@ -53,13 +52,14 @@ Breaking: everything deprecated in 5.x is removed, along with a few redundant na
 - `TrackCuesV2.modified`: use `has_changed`.
 - `add_track` and `remove_track`: use `add_tracks` and `remove_tracks`.
 - `get_entries_filtered(track_matcher)` on the database, crates, and smart crates: use `get_entries(track_matcher)`.
-- Passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`): pass it to `save()`, or to `Track.save()`.
 
 Breaking: `TrackCuesV2` no longer reads the beatgrid from its own file for cue snapping. It's passed one instead, so that each tag class reads only its own tag:
 
 - `TrackCuesV2.snap_positions_to_beat` and `snap_positions_to_beat_rule`: use `Track.snap_cues_to_beats`, or `TrackCuesV2.snap_cues_to_beats(beatgrid, ...)` with a beatgrid you pass it. Both return the moves rather than printing them. There's no rule to pass to `modify_entries`: snap, then make any other edits, before saving.
 - `TrackCuesV2.get_snapped_beat_ms`: use `TrackBeatgrid.get_snapped_position` (e.g. `track.beatgrid.get_snapped_position`).
 - `TrackCuesV2.get_beat_position(entry)`: use `beatgrid.get_beat_position(entry.position)`.
+
+This stays, still deprecated until 7.0: passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`), in favor of passing it to `save()`.
 
 ## [5.6.1] - 2026-11-10
 

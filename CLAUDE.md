@@ -123,6 +123,7 @@ Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`
 **v1/v2 interaction:** current Serato reads `Serato Markers2`, but a stale `Serato Markers_` shadows changes made to it.
 - That's why `TrackCuesV2.save()` and `Track.save()` (and `Library.set_db_tracks_tags`, which passes it on) take `delete_tags_v1=True` by default: writing `Serato Markers2` deletes the v1 tag rather than keeping the two in sync.
 - It's a save option, not an edit option, because the deletion happens only when `TrackCuesV2` writes (in its `_put_in_tagfile`, which `_write_to_tagfile` and `save` pass it to). So an edit that changed nothing, or was changed back, can't have it written by another tag's save.
+- The edit methods (`modify_entries`, `set_track_color`, `set_beatgrid_locked`, on `TrackCuesV2` and `Track`) still accept a deprecated `delete_tags_v1`. `modify_entries` warns, with `skip_file_prefixes` so the warning points at the caller's code, and records a False in `_edits_keep_tags_v1`, which keeps the v1 tag at the next write unless another edit since the last write didn't pass False.
 
 `TrackCuesV2` exposes each entry kind (`CueEntry`, `LoopEntry`, `ColorEntry`, `FlipEntry`, `BpmLockEntry`) as a dataclass, aggregated into `TrackCuesInfo`.
 - **Editing:** `modify_entries(callback)` hands the callback the whole `TrackCuesInfo` and expects a new one back (use `dataclasses.replace`) or `None` for no change.
