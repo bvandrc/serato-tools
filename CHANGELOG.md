@@ -36,6 +36,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Breaking: it raises `FileExistsError` when a different file already exists at `dest`, rather than logging an error and returning False. Catch it where you checked for False.
 - `Library.remove_track_files` returns a `RemoveTrackFilesResult`: `files_deleted`, the track files it deleted, and `library_files_changed`, the paths of the database, crates, and smart crates it changed.
 - Saving a tag class read from bytes, which has no file to write to, raises `ValueError` rather than a bare `Exception`, saying so.
+- Breaking: `TrackCuesV1.Entry` and `TrackCuesV1.Color` are dataclasses, so entries with the same values are equal. `Color` is no longer a subclass of `Entry`: check for a cue or loop slot with `isinstance(entry, TrackCuesV1.Entry)` as before, which a `Color` no longer passes.
 - Breaking: `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`, next to the database and crate code that raises them.
 
 ### Removed
