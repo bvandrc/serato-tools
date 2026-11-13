@@ -9,9 +9,7 @@ import sys
 from dataclasses import dataclass
 from typing import ClassVar
 
-from mutagen.mp3 import HeaderNotFoundError
-
-from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag
+from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag, open_tag_or_dump, save_tag_or_dump
 
 
 def _decode_bytes_32(data: bytes) -> bytes:
@@ -222,12 +220,7 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--edit", action="store_true")
     args = Args(**vars(parser.parse_args()))
 
-    try:
-        tags = TrackCuesV1(args.file)
-    except HeaderNotFoundError:
-        with open(args.file, mode="rb") as fp:
-            data = fp.read()
-        tags = TrackCuesV1(data)
+    tags = open_tag_or_dump(TrackCuesV1, args.file)
 
     if args.edit:
         text_editor = get_text_editor()
@@ -389,8 +382,4 @@ if __name__ == "__main__":
         else:
             tags.entries = new_entries
             tags._serialize()
-            if tags.tagfile:
-                tags.save()
-            else:
-                with open(args.file, mode="wb") as fp:
-                    fp.write(tags._raw_data or b"")  # pylint: disable=protected-access
+            save_tag_or_dump(tags, args.file)
