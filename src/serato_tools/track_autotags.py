@@ -20,7 +20,6 @@ class TrackAutotags(SeratoGeobTag):
     VERSION = (0x01, 0x01)
 
     def __init__(self, file_or_data: SeratoGeobTag.FileOrData):
-        self._raw_data: bytes | None = None
         super().__init__(file_or_data)
 
         self.bpm: float | None = None

@@ -144,7 +144,6 @@ class TrackCuesV2(SeratoGeobTag):
         BLACK = b"\x99\x99\x99"
 
     def __init__(self, file_or_data: SeratoGeobTag.FileOrData):
-        self._raw_data: bytes | None = None
         super().__init__(file_or_data)
 
         self.entries: list[TrackCuesV2.Entry] = []

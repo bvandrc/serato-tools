@@ -53,7 +53,6 @@ class TrackBeatgrid(SeratoGeobTag):
     type EntryListEnhanced = _EntryList[NonTerminalBeatgridMarkerEnhanced]
 
     def __init__(self, file_or_data: SeratoGeobTag.FileOrData):
-        self._raw_data: bytes | None = None
         super().__init__(file_or_data)
 
         self.entries: TrackBeatgrid.EntryList | None = None
