@@ -85,11 +85,13 @@ class TrackCuesV1(SeratoGeobTag):
             end_position_set = None
             for field, value in zip(cls.FIELDS, info):
                 if field == "start_position_set":
-                    assert value in (0x00, 0x7F)
+                    if value not in (0x00, 0x7F):
+                        raise ValueError(f"start_position_set is 00 or 7f, not {value:02x}")
                     value = value != 0x7F
                     start_position_set = value
                 elif field == "end_position_set":
-                    assert value in (0x00, 0x7F)
+                    if value not in (0x00, 0x7F):
+                        raise ValueError(f"end_position_set is 00 or 7f, not {value:02x}")
                     value = value != 0x7F
                     end_position_set = value
                 elif field == "start_position":
@@ -161,7 +163,8 @@ class TrackCuesV1(SeratoGeobTag):
         num_entries = struct.unpack(">I", fp.read(4))[0]
         for _ in range(num_entries):
             entry_data = fp.read(0x16)
-            assert len(entry_data) == 0x16
+            if len(entry_data) != 0x16:
+                raise ValueError(f"tag ends partway through an entry: {len(entry_data)} of its 22 bytes")
 
             entry = TrackCuesV1.Entry._parse(entry_data)
             yield entry
@@ -314,8 +317,8 @@ if __name__ == "__main__":
                                 cp = configparser.ConfigParser()
                                 cp.read_string(output.decode())
                                 sections = tuple(sorted(cp.sections()))
-                                if action != "a":
-                                    assert len(sections) == 1
+                                if action != "a" and len(sections) != 1:
+                                    raise ValueError(f"expected exactly one entry, got {len(sections)}")
 
                                 results = []
                                 for section in sections:
