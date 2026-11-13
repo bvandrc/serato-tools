@@ -21,9 +21,12 @@ def ui_ask(question: str, choices: Mapping[str, str], default: Optional[str] = N
 
 
 def _find_editor(env_var: str, default: str) -> str:
-    """The path to the program named by the environment variable `env_var`, or to `default`; raises if not found."""
+    """The path to the program named by the environment variable `env_var`, or to `default`.
+
+    Raises FileNotFoundError if it isn't found.
+    """
     if not (editor := shutil.which(os.getenv(env_var, default))):
-        raise Exception(f"No suitable {env_var} found.")
+        raise FileNotFoundError(f"no editor found: set {env_var} to one")
     return editor
 
 

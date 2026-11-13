@@ -230,7 +230,7 @@ class SmartCrate(CrateBase):
 
     def find_missing(self):
         """Always raises, since a smart crate's tracks come from its rules."""
-        raise Exception("cannot be done on smart crate")
+        raise TypeError("a smart crate's tracks come from its rules, so it can't have missing tracks to find")
 
 
 def main():

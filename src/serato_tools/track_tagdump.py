@@ -4,6 +4,7 @@
 
 import base64
 import os
+import sys
 from dataclasses import dataclass
 
 import mutagen._file
@@ -23,10 +24,8 @@ def get_serato_tagdata(tagfile: mutagen._file.FileType, decode: bool = False):
     Reads ID3 (MP3, AIFF), FLAC, MP4, and Ogg Vorbis files. FLAC and MP4 files store each tag base64-encoded, which
     `decode` decodes; otherwise, and for Ogg Vorbis, the data is given as stored.
     """
-    if not tagfile:
-        raise Exception("tagfile is None")
     if not tagfile.tags:
-        raise Exception("no tags")
+        raise ValueError(f"file has no tags: {tagfile.filename}")
 
     if isinstance(tagfile, (mutagen.mp3.MP3, mutagen.aiff.AIFF)):
         for tagname in tagfile.tags.keys():
@@ -102,7 +101,7 @@ if __name__ == "__main__":
     tagfile: mutagen._file.FileType | None = mutagen._file.File(args.input_file)
 
     if not tagfile:
-        raise Exception("couldn't parse file")
+        sys.exit(f"not an audio file mutagen can read: {args.input_file}")
 
     for field, value in get_serato_tagdata(tagfile, decode=args.decode):
         log_str = f'field {field} { "decoded " if args.decode else "" }value: {value}'
