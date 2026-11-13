@@ -86,6 +86,14 @@ class TestCase(unittest.TestCase):
         tags.set(bpm=128)
         self.assertTrue(tags.has_changed, "differs from the bytes given")
 
+    def test_saving_a_change_to_a_tag_read_from_bytes_raises(self):
+        for tag_class in (TrackCuesV2, TrackAutotags):  # TrackCuesV2 has its own save()
+            with self.subTest(tag_class.__name__):
+                tags = tag_class(tag_class(TEST_MP3)._raw_data or b"")
+                tags.delete()
+                with self.assertRaisesRegex(ValueError, "read from bytes"):
+                    tags.save()
+
 
 if __name__ == "__main__":
     unittest.main()
