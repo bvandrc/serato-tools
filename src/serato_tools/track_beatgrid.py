@@ -14,12 +14,10 @@ from typing import cast, overload, TypeVar, Unpack
 from dataclasses import dataclass
 
 from mutagen._file import FileType
-from mutagen.mp3 import HeaderNotFoundError
 from mutagen.id3 import ID3
 
-
 from serato_tools.utils import logger
-from serato_tools.utils.track_tags import SeratoGeobTag, GeobKeys, NoBeatgridError
+from serato_tools.utils.track_tags import GeobKeys, NoBeatgridError, SeratoGeobTag, open_tag_file_or_data
 
 _T = TypeVar("_T")
 
@@ -389,12 +387,7 @@ def main():
     parser.add_argument("-a", "--analyze", action="store_true", help="Analyze dynamic beatgrid and write to file")
     args = Args(**vars(parser.parse_args()))
 
-    try:
-        tags = TrackBeatgrid(args.file)
-    except HeaderNotFoundError:
-        with open(args.file, mode="rb") as fp:
-            data = fp.read()
-        tags = TrackBeatgrid(data)
+    tags = open_tag_file_or_data(TrackBeatgrid, args.file)
 
     if args.analyze and tags.tagfile:
         tags.analyze_and_write()

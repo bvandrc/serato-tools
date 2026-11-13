@@ -19,11 +19,9 @@ import dataclasses
 from dataclasses import dataclass, field
 
 
-from mutagen.mp3 import HeaderNotFoundError
-
 
 from serato_tools.track_cues_v1 import TrackCuesV1
-from serato_tools.utils.track_tags import SeratoGeobTag, del_geob, GeobKeys, NoCuesError
+from serato_tools.utils.track_tags import SeratoGeobTag, del_geob, GeobKeys, NoCuesError, open_tag_file_or_data
 from serato_tools.track_beatgrid import TrackBeatgrid
 
 # the sizes Serato writes the tag at, in an ID3 file: 470 bytes, or larger by a multiple of 512
@@ -770,12 +768,7 @@ def main():
     parser.add_argument("-e", "--edit", action="store_true")
     args = Args(**vars(parser.parse_args()))
 
-    try:
-        tags = TrackCuesV2(args.file)
-    except HeaderNotFoundError:
-        with open(args.file, mode="rb") as fp:
-            data = fp.read()
-        tags = TrackCuesV2(data)
+    tags = open_tag_file_or_data(TrackCuesV2, args.file)
 
     if args.set_color:
         try:

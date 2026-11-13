@@ -10,9 +10,9 @@ from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_tagdump import get_serato_tagdata
 from serato_tools.track_waveform import TrackWaveform
 from serato_tools.utils import track_tags
-from serato_tools.utils.track_tags import ID3FileTag, SeratoGeobTag, get_geob
+from serato_tools.utils.track_tags import ID3FileTag, SeratoGeobTag, get_geob, open_tag_file_or_data
 
-from test.helpers import TEST_MP3, temp_mp3
+from test.helpers import TEST_MP3, read_bytes, temp_mp3
 
 
 class TestCase(unittest.TestCase):
@@ -60,6 +60,22 @@ class TestCase(unittest.TestCase):
         self.assertFalse(tags.has_changed, "as given")
         tags.set(bpm=128)
         self.assertTrue(tags.has_changed, "differs from the bytes given")
+
+    def test_open_tag_file_or_data_reads_an_audio_file_or_the_tags_own_bytes(self):
+        fixtures = {
+            TrackCuesV2: "track_cues_v2",
+            TrackCuesV1: "track_cues_v1",
+            TrackBeatgrid: "track_beatgrid",
+            TrackAutotags: "track_autotags",
+            TrackWaveform: "track_waveform",
+        }
+        for tag_class, name in fixtures.items():
+            with self.subTest(tag_class.__name__):
+                data_file = f"test/data/{name}.bin"
+                tags = open_tag_file_or_data(tag_class, data_file)
+                self.assertIsNone(tags.tagfile, "read as bytes")
+                self.assertEqual(tags._raw_data, read_bytes(data_file))
+                self.assertIsNotNone(open_tag_file_or_data(tag_class, TEST_MP3).tagfile, "read as audio")
 
 
 if __name__ == "__main__":

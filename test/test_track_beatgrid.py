@@ -6,7 +6,7 @@ from unittest import mock
 from serato_tools.track_beatgrid import TrackBeatgrid, main
 from serato_tools.utils.track_tags import NoBeatgridError
 
-from test.helpers import TEST_MP3, read_bytes, temp_mp3
+from test.helpers import read_bytes, temp_mp3
 
 
 class TestCase(unittest.TestCase):

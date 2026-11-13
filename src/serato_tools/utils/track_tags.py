@@ -66,6 +66,11 @@ class NoWaveformError(MissingTagError):
     GEOB_KEY = GeobKeys.WAVEFORM
 
 
+# the track file types open_tagfile opens, by extension
+_MP3_EXTENSIONS = (".mp3",)
+_AIFF_EXTENSIONS = (".aiff", ".aif")
+
+
 def open_tagfile(file: ID3FileOrPath) -> ID3File:
     """Opens the track file at `file` with mutagen, or returns `file` if it's already open.
 
@@ -74,9 +79,9 @@ def open_tagfile(file: ID3FileOrPath) -> ID3File:
     if not isinstance(file, str):
         return file
     try:
-        if file.lower().endswith(".mp3"):
+        if file.lower().endswith(_MP3_EXTENSIONS):
             return MP3(file)
-        if file.lower().endswith((".aiff", ".aif")):
+        if file.lower().endswith(_AIFF_EXTENSIONS):
             return AIFF(file)
     except:
         logger.error(f"Mutagen error for file {file}")
@@ -283,3 +288,13 @@ def __getattr__(name: str):
         )
         return new
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+def open_tag_file_or_data[T: SeratoGeobTag](tag_class: type[T], path: str) -> T:
+    """The tag read from `path`, for a CLI: an audio file, or any other file as the tag's own bytes.
+
+    A file of the tag's own bytes is one `serato_tagdump` writes (`Serato Markers2.octet-stream`), or a test fixture.
+    """
+    if path.lower().endswith(_MP3_EXTENSIONS + _AIFF_EXTENSIONS):
+        return tag_class(path)
+    with open(path, "rb") as f:
+        return tag_class(f.read())
