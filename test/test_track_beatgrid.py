@@ -134,3 +134,17 @@ class TestCase(unittest.TestCase):
         with mock.patch("sys.argv", ["serato_beatgrid", path]), self.assertRaises(SystemExit) as caught:
             main()
         self.assertEqual(caught.exception.code, f"no Serato BeatGrid tag: {path}")
+
+    def test_bytes_after_the_footer_raise(self):
+        with self.assertRaisesRegex(ValueError, "1 bytes after its footer"):
+            TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin") + b"\x00")
+
+    def test_entries_out_of_order_raise_on_saving(self):
+        tags = TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin"))
+        for name, entries in (
+            ("no terminal marker", (Marker(1.0, 4), TrackBeatgrid.Footer(0))),
+            ("the footer first", (TrackBeatgrid.Footer(0), Last(2.0, 120.0))),
+        ):
+            with self.subTest(name), self.assertRaises(ValueError):
+                tags.entries = entries  # pyright: ignore[reportAttributeAccessIssue]
+                tags._serialize()

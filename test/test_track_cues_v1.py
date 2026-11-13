@@ -40,6 +40,16 @@ class TestCase(unittest.TestCase):
         with self.assertRaises(ValueError, msg="entries without a trailing Color must not serialize"):
             tags._serialize()
 
+    def test_malformed_tag_raises(self):
+        bad_flag = bytearray(self.file_data)
+        bad_flag[6] = 0x01  # the first entry's start position set flag
+        for name, data in (
+            ("a set flag that isn't 00 or 7f", bytes(bad_flag)),
+            ("cut off partway through an entry", self.file_data[:20]),
+        ):
+            with self.subTest(name), self.assertRaises(ValueError):
+                TrackCuesV1(data)
+
 
 if __name__ == "__main__":
     unittest.main()

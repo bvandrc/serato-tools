@@ -5,6 +5,7 @@ from enum import StrEnum, unique
 from unittest import mock
 
 from serato_tools.crate import Crate
+from serato_tools.database_v2 import DatabaseV2
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
 from test.helpers import read_bytes, temp_dir
@@ -70,6 +71,25 @@ class FieldsTestCase(unittest.TestCase):
         self.assertEqual(ExtendedCrate.get_field_name("uxtr"), "Extra Thing")
         self.assertNotIn("uxtr", Crate.FIELDS, "the class it extends is unchanged")
         self.assertEqual(Crate.get_field_name("uxtr"), "Unknown Field")
+
+
+class ParseTestCase(unittest.TestCase):
+    def test_a_file_cut_off_raises(self):
+        data = read_bytes("test/data/database_v2_test.bin")
+        tmp = temp_dir(self)
+        for name, cut_at in (("partway through a header", 3), ("partway through an entry", len(data) - 1)):
+            with self.subTest(name):
+                path = os.path.join(tmp, f"{cut_at}.crate")
+                with open(path, "wb") as f:
+                    f.write(data[:cut_at])
+                with self.assertRaisesRegex(ValueError, "file ends partway through"):
+                    DatabaseV2(path)
+
+    def test_modify_with_two_rules_for_a_field_raises(self):
+        db = DatabaseV2("test/data/database_v2_test.bin")
+        rule: SeratoBinFile.ModifyRule = {"field": DatabaseV2.Fields.GENRE, "func": lambda *args: None}
+        with self.assertRaisesRegex(ValueError, "1 rule per field"):
+            db.modify([rule, rule])
 
 
 class TrackTestCase(unittest.TestCase):

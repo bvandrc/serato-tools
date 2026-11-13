@@ -105,7 +105,8 @@ class TrackBeatgrid(SeratoGeobTag):
         footer_byte = fp.read(1)
         footer_value = struct.unpack("B", footer_byte)[0] if len(footer_byte) == 1 else 0
         yield TrackBeatgrid.Footer(footer_value)
-        assert fp.read() == b""
+        if rest := fp.read():
+            raise ValueError(f"beatgrid has {len(rest)} bytes after its footer")
 
     type __SplitEntryList[T] = tuple[list[T], "TrackBeatgrid.TerminalBeatgridMarker", "TrackBeatgrid.Footer"]
 
@@ -141,10 +142,14 @@ class TrackBeatgrid(SeratoGeobTag):
             else:
                 raise TypeError(f"unexpected value type {entry}")
 
-        assert len(terminal_markers) == 1, f"should only be 1 terminal marker, but #: {len(terminal_markers)}"
-        assert len(footers) == 1, f"should only be 1 footer, but #: {len(footers)}"
-        assert isinstance(entries[-1], TrackBeatgrid.Footer), "last item should be a footer"
-        assert isinstance(entries[-2], TrackBeatgrid.TerminalBeatgridMarker), "last item should be a terminal marker"
+        if len(terminal_markers) != 1 or len(footers) != 1:
+            raise ValueError(
+                f"beatgrid has {len(terminal_markers)} terminal markers and {len(footers)} footers, not 1 of each"
+            )
+        if not isinstance(entries[-1], TrackBeatgrid.Footer):
+            raise ValueError("a beatgrid's last entry is its footer")
+        if not isinstance(entries[-2], TrackBeatgrid.TerminalBeatgridMarker):
+            raise ValueError("a beatgrid's footer comes right after its terminal marker")
         return (nonterminal_markers, terminal_markers[0], footers[0])
 
     @staticmethod

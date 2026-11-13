@@ -33,7 +33,8 @@ def _encode_bytes_32(data: bytes) -> bytes:
 
 def _parse_position_set(value: int) -> bool:
     """Whether a slot's position is set: Serato stores 00 for set, and 7f for unset."""
-    assert value in (0x00, 0x7F)
+    if value not in (0x00, 0x7F):
+        raise ValueError(f"a position's set flag is 00 or 7f, not {value:02x}")
     return value != 0x7F
 
 
@@ -167,7 +168,8 @@ class TrackCuesV1(SeratoGeobTag):
         num_entries = struct.unpack(">I", fp.read(4))[0]
         for _ in range(num_entries):
             entry_data = fp.read(0x16)
-            assert len(entry_data) == 0x16
+            if len(entry_data) != 0x16:
+                raise ValueError(f"tag ends partway through an entry: {len(entry_data)} of its 22 bytes")
 
             entry = TrackCuesV1.Entry._parse(entry_data)
             yield entry
