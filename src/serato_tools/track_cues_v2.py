@@ -41,8 +41,8 @@ _GROWTH_STEP = 512
 # cue 8: Serato numbers its cue pads from 0
 _MAX_CUE_INDEX = 7
 
-# the package's folder: a warning skips its frames, to point at the caller's code even when it came through another
-# of the package's methods (Track.snap_cues_to_beats)
+# the package's folder: a deprecation warning skips its frames, to point at the caller's code even when it came through
+# another of the package's methods (Track.set_track_color)
 _PACKAGE_DIR = os.path.dirname(__file__) + os.sep
 
 # Every tag Serato DJ Pro 2 was seen writing passes the entry checks below, so an entry that doesn't is one this class
@@ -150,6 +150,10 @@ class TrackCuesV2(SeratoGeobTag):
         self.entries: list[TrackCuesV2.Entry] = []
         if self._raw_data is not None:
             self.entries = list(self._parse(self._raw_data))
+
+        # whether every edit since this tag last wrote passed the deprecated delete_tags_v1=False, which keeps Serato
+        # Markers_ as before it was deprecated; None when no edit has changed anything since
+        self._edits_keep_tags_v1: bool | None = None
 
     def __str__(self) -> str:
         return "\n".join(str(entry) for entry in self.entries)
@@ -538,12 +542,25 @@ class TrackCuesV2(SeratoGeobTag):
 
     type ModifyCallback = Callable[["TrackCuesInfo"], "TrackCuesInfo | None"]
 
-    def modify_entries(self, modify_callback: ModifyCallback) -> None:
-        """Replaces the entries with what `modify_callback` returns for them, or leaves them if it returns None."""
+    def modify_entries(self, modify_callback: ModifyCallback, delete_tags_v1: bool | None = None) -> None:
+        """Replaces the entries with what `modify_callback` returns for them, or leaves them if it returns None.
+
+        `delete_tags_v1` is deprecated, to be removed in the next major version: pass it to `save()` instead. Until
+        then, passing False keeps `Serato Markers_` at the next save, unless another edit since the last save didn't pass
+        False.
+        """
+        if delete_tags_v1 is not None:
+            warnings.warn(
+                "passing delete_tags_v1 to an edit is deprecated and will be removed in a future major version, pass it to save() instead",
+                DeprecationWarning,
+                skip_file_prefixes=(_PACKAGE_DIR,),
+            )
         track = self._from_entries()
         new_track = modify_callback(track)
         if new_track is None:
             return
+        # any edit that didn't pass False deletes Serato Markers_, as it did when each edit chose
+        self._edits_keep_tags_v1 = delete_tags_v1 is False and self._edits_keep_tags_v1 is not False
         self.entries = new_track.to_entries()
         self._serialize()
 
@@ -552,9 +569,10 @@ class TrackCuesV2(SeratoGeobTag):
         super()._put_in_tagfile()
         # deleted only here, when this tag writes, and not by the edit: deleted from the shared tagfile for an edit
         # that changed nothing, or was changed back, it would be written by another tag's save
-        if delete_tags_v1 and self.tagfile:
+        if delete_tags_v1 and not self._edits_keep_tags_v1 and self.tagfile:
             # TODO: keep Serato Markers_ in sync with Markers2 instead of deleting it
             del_geob(self.tagfile, TrackCuesV1.GEOB_KEY)
+        self._edits_keep_tags_v1 = None
 
     def _write_to_tagfile(self, delete_tags_v1: bool = True) -> bool:
         if not self.has_changed:
@@ -602,10 +620,11 @@ class TrackCuesV2(SeratoGeobTag):
         """
         return None if (color_bytes := self.get_track_color()) is None else TrackCuesV2.TrackColors(color_bytes).name
 
-    def set_track_color(self, color: TrackColors):
+    def set_track_color(self, color: TrackColors, delete_tags_v1: bool | None = None):
         """Sets the track color in memory; call `save()` to write it to the file.
 
         Adds the color entry, and the tag itself, if the track doesn't have them yet, as Serato writes them.
+        `delete_tags_v1` is deprecated: see `modify_entries`.
         """
 
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
@@ -617,12 +636,13 @@ class TrackCuesV2(SeratoGeobTag):
             new_track = dataclasses.replace(track, color=new_color)
             return new_track if new_track != track else None
 
-        self.modify_entries(rule)
+        self.modify_entries(rule, delete_tags_v1)
 
-    def set_beatgrid_locked(self, locked: bool):
+    def set_beatgrid_locked(self, locked: bool, delete_tags_v1: bool | None = None):
         """Locks or unlocks the track's beatgrid in memory; call `save()` to write it to the file.
 
         Adds the BPM lock entry, and the tag itself, if the track doesn't have them yet, as Serato writes them.
+        `delete_tags_v1` is deprecated: see `modify_entries`.
         """
 
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
@@ -630,7 +650,7 @@ class TrackCuesV2(SeratoGeobTag):
                 return None
             return dataclasses.replace(track, bpm_lock=TrackCuesV2.BpmLockEntry(enabled=locked))
 
-        self.modify_entries(rule)
+        self.modify_entries(rule, delete_tags_v1)
 
     @dataclass(frozen=True)
     class SnappedCue:
