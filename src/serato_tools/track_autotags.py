@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from serato_tools.utils import logger
-from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag, open_tag_or_dump
+from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag, open_tag_or_dump, save_tag_or_dump
 
 
 class TrackAutotags(SeratoGeobTag):
@@ -128,10 +128,6 @@ if __name__ == "__main__":
             raise
 
         tags.set(bpm=bpm, autogain=autogain, gaindb=gaindb)
-        if tags.tagfile:
-            tags.save()
-        else:
-            with open(args.file, mode="wb") as fp:
-                fp.write(tags._raw_data or b"")  # pylint: disable=protected-access
+        save_tag_or_dump(tags, args.file)
     else:
         print(str(tags))
