@@ -7,10 +7,8 @@ import sys
 from dataclasses import dataclass
 from typing import Optional
 
-from mutagen.mp3 import HeaderNotFoundError
-
 from serato_tools.utils import logger
-from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag
+from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag, open_tag_file_or_data
 
 
 class TrackAutotags(SeratoGeobTag):
@@ -98,12 +96,7 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--edit", action="store_true")
     args = Args(**vars(parser.parse_args()))
 
-    try:
-        tags = TrackAutotags(args.file)
-    except HeaderNotFoundError:
-        with open(args.file, mode="rb") as fp:
-            data = fp.read()
-        tags = TrackAutotags(data)
+    tags = open_tag_file_or_data(TrackAutotags, args.file)
 
     if args.edit:
         editor = get_text_editor()
