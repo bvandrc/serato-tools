@@ -53,7 +53,7 @@ Breaking: `TrackCuesV2` no longer reads the beatgrid from its own file for cue s
 - `TrackCuesV2.get_snapped_beat_ms`: use `TrackBeatgrid.get_snapped_position` (e.g. `track.beatgrid.get_snapped_position`).
 - `TrackCuesV2.get_beat_position(entry)`: use `beatgrid.get_beat_position(entry.position)`.
 
-This stays, still deprecated until 7.0: passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`), in favor of passing it to `save()`.
+This stays, still deprecated until a future major release: passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`), in favor of passing it to `save()`.
 
 ## [5.6.1] - 2026-11-10
 
