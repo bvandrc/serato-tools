@@ -149,7 +149,7 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
     - **Batching:** inside `with library.batch():`, `rename_track_file`, `remove_track_files`, and `set_db_tracks_tags` change the files in memory without writing them (`_save_unless_batching`), and `batch()` calls `save()` when the outermost block ends, so many changes write each file once.
       - It saves in a `finally`, even when the block raises, since the track files were already changed on disk and the library has to point at them.
       - Nested batches count depth (`_batch_depth`), so only the outermost one saves.
-      - A new `Library` method that saves has to go through `_save_unless_batching` too.
+      - A new `Library` method that saves has to go through `_save_unless_batching` too, or through `_change_bin_files`, which applies a change to every library file and saves those it changed with it.
   - **Values in both the track file and the database:** `set_db_track_tags` / `set_db_tracks_tags` set values that live in both (Serato shows the database, and only rescans a file's tags when the track is loaded or on "Rescan File Tags").
     - **Which values:** the keys of the `DbTrackTags` TypedDict in `db_track_props.py`, each backed by an entry in its `_DB_TRACK_PROPS` table, so adding a value means adding to both. Each entry gives:
       - the database field;

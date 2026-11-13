@@ -7,7 +7,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING, Mapping, Unpack
+from typing import TYPE_CHECKING, Callable, Mapping, Unpack
 
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
@@ -148,6 +148,15 @@ class Library:
         if not self._batch_depth:
             file.save()
 
+    def _change_bin_files(self, change: Callable[[SeratoBinFile], bool]) -> list[str]:
+        """Applies `change` to every library file, saving each it changed unless batching; returns their paths."""
+        changed: list[str] = []
+        for file in self._get_bin_files():
+            if change(file):
+                self._save_unless_batching(file)
+                changed.append(file.filepath)
+        return changed
+
     def rename_track_file(self, src: str, dest: str) -> list[str]:
         """Renames the file, and points the database and crates at the new path, so the track isn't missing in Serato.
 
@@ -165,12 +174,7 @@ class Library:
         os.rename(src=src, dst=dest)
         logger.info(f"renamed {src} to {dest}")
 
-        changed: list[str] = []
-        for file in self._get_bin_files():
-            if file.change_track_path(src, dest):
-                self._save_unless_batching(file)
-                changed.append(file.filepath)
-        return changed
+        return self._change_bin_files(lambda file: file.change_track_path(src, dest))
 
     def remove_track_files(self, filepaths: list[str]) -> RemoveTrackFilesResult:
         """Removes the tracks from the database and crates, then deletes their files.
@@ -179,11 +183,7 @@ class Library:
         whose file is already gone are still removed from the library, which cleans up missing tracks. Only the files
         that contain one of the tracks are saved, or, inside `batch()`, left for it to save once.
         """
-        changed: list[str] = []
-        for file in self._get_bin_files():
-            if file.remove_tracks(filepaths):
-                self._save_unless_batching(file)
-                changed.append(file.filepath)
+        changed = self._change_bin_files(lambda file: file.remove_tracks(filepaths))
         deleted: list[str] = []
         for filepath in filepaths:
             if os.path.exists(filepath):
