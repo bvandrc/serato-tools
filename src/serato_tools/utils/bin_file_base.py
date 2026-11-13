@@ -12,19 +12,7 @@ import os
 import re
 import struct
 from enum import StrEnum, unique
-from typing import (
-    Any,
-    Callable,
-    Collection,
-    Generator,
-    Iterable,
-    Iterator,
-    NotRequired,
-    Optional,
-    Pattern,
-    TypedDict,
-    cast,
-)
+from typing import Any, Callable, Collection, Generator, Iterable, NotRequired, Optional, Pattern, TypedDict, cast
 
 from serato_tools.utils import SERATO_DRIVE, logger
 
@@ -43,25 +31,6 @@ class DeeplyNestedListError(Exception):
 
     def __init__(self):
         super().__init__("unexpected type, deeply nested list. if this occurs, need to implement code for it.")
-
-
-def _field_values(field_enums: tuple[type[StrEnum], ...]) -> frozenset[str]:
-    """Every field name in `field_enums`."""
-    return frozenset(member.value for field_enum in field_enums for member in field_enum)
-
-
-def _field_names(field_enums: tuple[type[StrEnum], ...]) -> dict[str, str]:
-    """A readable name for each field in `field_enums`, from its member's name: "File Path" for `FILE_PATH`."""
-    return {
-        # DATE_ADDED_T and DATE_ADDED_U hold the same time, so both are "Date Added"
-        member.value: member.name.replace("_", " ")
-        .title()
-        .replace("Smartcrate", "SmartCrate")
-        .replace("Added U", "Added")
-        .replace("Added T", "Added")
-        for field_enum in field_enums
-        for member in field_enum
-    }
 
 
 class SeratoBinFile:
@@ -136,10 +105,8 @@ class SeratoBinFile:
     # rule fields) extends this, which extends what _check_valid_field accepts and get_field_name resolves
     FIELD_ENUMS: tuple[type[StrEnum], ...] = (Fields,)
 
-    # derived from FIELD_ENUMS, here and for each subclass in __init_subclass__, so they can't drift from it
-    FIELDS: frozenset[str] = _field_values(FIELD_ENUMS)
-    # a readable name per field, built once per class, since printing or JSON-dumping a large database names every one
-    _FIELD_NAMES: dict[str, str] = _field_names(FIELD_ENUMS)
+    # derived from FIELD_ENUMS so the two can't drift; redefine it alongside FIELD_ENUMS in a subclass
+    FIELDS = frozenset(f.value for field_enum in FIELD_ENUMS for f in field_enum)
 
     type ParsedField = Fields | str
     type BasicValue = str | bytes | int | bool
@@ -163,11 +130,6 @@ class SeratoBinFile:
 
     # a hash of the file's bytes as loaded or last saved to its own path, for has_changed; None if it didn't exist
     _saved_hash: bytes | None = None
-
-    def __init_subclass__(cls, **kwargs: Any):
-        super().__init_subclass__(**kwargs)
-        cls.FIELDS = _field_values(cls.FIELD_ENUMS)
-        cls._FIELD_NAMES = _field_names(cls.FIELD_ENUMS)
 
     def __init__(self, file: str):
         """Parses `file`, either Serato's binary format or JSON as `write_json` writes it.
@@ -575,28 +537,17 @@ class SeratoBinFile:
         except OSError:  # either doesn't exist, so they can't be the same file
             return False
 
-    def _entry_lists(self, field: str) -> Iterator[tuple[int, EntryList]]:
-        """The index in `entries` and the value of each top-level entry named `field`, which holds an entry list."""
-        for i, (entry_field, value) in enumerate(self.entries):
-            if entry_field == field:
-                if not isinstance(value, list):
-                    raise DataTypeError(value, list, entry_field)
-                yield i, value
-
-    def _filter_entry_lists(self, field: str, keep: Callable[[EntryList], bool]) -> bool:
-        """Removes each top-level entry named `field` whose entry list `keep` returns False for; returns if any were."""
-        removed = {i for i, value in self._entry_lists(field) if not keep(value)}
-        if removed:
-            self.entries = [entry for i, entry in enumerate(self.entries) if i not in removed]
-        return bool(removed)
-
     def get_tracks(self) -> Generator[Track, None, None]:
         """Each track entry, as a `Track`.
 
         A `Track` holds copies of the entry's values, so changing one doesn't change the file: use `modify_tracks`.
         """
-        for _, value in self._entry_lists(SeratoBinFile.Fields.TRACK):
-            yield self._get_track(value)
+        for field, value in self.entries:
+            if field == SeratoBinFile.Fields.TRACK:
+                if not isinstance(value, list):
+                    raise DataTypeError(value, list, field)
+                track = self._get_track(value)
+                yield track
 
     def get_track_paths(self, include_drive: bool = False) -> list[str]:
         """Each track's path: as stored, with no drive, or with `include_drive`, as an absolute path."""
@@ -611,23 +562,37 @@ class SeratoBinFile:
         """
         relpaths = None if files is None else {SeratoBinFile.get_relative_path(f).upper() for f in files}
         changed = False
-        for i, value in self._entry_lists(SeratoBinFile.Fields.TRACK):
-            if relpaths is not None:
-                # check the path first: building a Track, running func, and comparing the result costs far more
-                relpath = self._get_entry_value(value, self.TRACK_PATH_KEY)
-                if isinstance(relpath, str) and relpath.upper() not in relpaths:
-                    continue
-            track = self._get_track(value)
-            # Track copies the values out of `value`, so this compares against the untouched original
-            new_entries = func(track).to_entries()
-            if new_entries != value:
-                self.entries[i] = (SeratoBinFile.Fields.TRACK, new_entries)
-                changed = True
+        for i, (field, value) in enumerate(self.entries):
+            if field == SeratoBinFile.Fields.TRACK:
+                if not isinstance(value, list):
+                    raise DataTypeError(value, list, field)
+                if relpaths is not None:
+                    # check the path first: building a Track, running func, and comparing the result costs far more
+                    relpath = self._get_entry_value(value, self.TRACK_PATH_KEY)
+                    if isinstance(relpath, str) and relpath.upper() not in relpaths:
+                        continue
+                track = self._get_track(value)
+                # Track copies the values out of `value`, so this compares against the untouched original
+                new_entries = func(track).to_entries()
+                if new_entries != value:
+                    self.entries[i] = (field, new_entries)
+                    changed = True
         return changed
 
     def filter_tracks(self, func: Callable[[Track], bool]) -> bool:
         """Keeps only the tracks `func` returns True for, and returns whether any track was removed."""
-        return self._filter_entry_lists(SeratoBinFile.Fields.TRACK, lambda value: func(self._get_track(value)))
+        new_entries: "SeratoBinFile.EntryList" = []
+        for field, value in self.entries:
+            if field == SeratoBinFile.Fields.TRACK:
+                if not isinstance(value, list):
+                    raise DataTypeError(value, list, field)
+                track = self._get_track(value)
+                if not func(track):
+                    continue
+            new_entries.append((field, value))
+        removed = len(new_entries) != len(self.entries)
+        self.entries = new_entries
+        return removed
 
     def remove_tracks(self, filepaths: Iterable[str]) -> bool:
         """Removes every track whose path is in `filepaths`, in one pass, and returns whether any was removed."""
@@ -675,7 +640,20 @@ class SeratoBinFile:
     @classmethod
     def get_field_name(cls, field: str) -> str:
         """A readable name for `field`, such as "File Path" for `pfil`, or "Unknown Field" if it isn't known."""
-        return cls._FIELD_NAMES.get(field, "Unknown Field")
+        # a map built once per class, since printing or JSON-dumping a large database names every field; checked in
+        # vars(cls), not by attribute, so a subclass with its own FIELD_ENUMS doesn't use the base's map
+        if "_field_names" not in vars(cls):
+            cls._field_names = {
+                # DATE_ADDED_T and DATE_ADDED_U hold the same time, so both are "Date Added"
+                member.value: member.name.replace("_", " ")
+                .title()
+                .replace("Smartcrate", "SmartCrate")
+                .replace("Added U", "Added")
+                .replace("Added T", "Added")
+                for field_enum in cls.FIELD_ENUMS
+                for member in field_enum
+            }
+        return cls._field_names.get(field, "Unknown Field")
 
     @classmethod
     def _check_valid_field(cls, field: str):
@@ -704,27 +682,35 @@ class SeratoBinFile:
         drive = os.path.splitdrive(filepath)[0]
         return os.path.normpath(filepath if drive else os.path.join(SERATO_DRIVE, os.sep, filepath))
 
-    def get_entries(self, track_matcher: Optional[str | Pattern[str]] = None) -> Generator[EntryFull, None, None]:
-        """Each entry with its field's readable name, as is each entry in a nested entry list.
+    def get_entries(self) -> Generator[EntryFull, None, None]:
+        """Get entry fieldnames."""
+        yield from self.__get_entries_internal(track_matcher=None)
 
-        Given `track_matcher`, a regex, only the tracks whose path it matches (ignoring case) are included. Raises
-        DeeplyNestedListError for an entry list nested in a nested one.
-        """
+    def get_entries_filtered(self, track_matcher: str | Pattern[str]) -> Generator[EntryFull, None, None]:
+        """Get entry fieldnames with track matching filter."""
+        yield from self.__get_entries_internal(track_matcher=track_matcher)
+
+    def __get_entries_internal(self, track_matcher: Optional[str | Pattern[str]]) -> Generator[EntryFull, None, None]:
+        """Internal implementation for getting entry fieldnames."""
         for field, value in self.entries:
             if isinstance(value, list):
-                if (
-                    track_matcher
-                    and field == SeratoBinFile.Fields.TRACK
-                    and not re.search(track_matcher, self._get_track(value).relpath, re.IGNORECASE)
-                ):
-                    continue
-                named: list[SeratoBinFile.EntryFull] = []
-                for nested_field, nested_value in value:
-                    if isinstance(nested_value, list):
-                        logger.error(f"error on field: {field} value: {value}")
-                        raise DeeplyNestedListError
-                    named.append((nested_field, self.get_field_name(nested_field), nested_value))
-                value = named
+                if track_matcher and field == SeratoBinFile.Fields.TRACK:
+                    if not isinstance(value, list):
+                        raise DataTypeError(value, list, field)
+                    track = self.__class__.Track(value, path_key=self.TRACK_PATH_KEY)
+                    if not bool(re.search(track_matcher, track.relpath, re.IGNORECASE)):
+                        continue
+
+                try:
+                    new_entries: list[SeratoBinFile.EntryFull] = []
+                    for f, v in value:
+                        if isinstance(v, list):
+                            raise DeeplyNestedListError
+                        new_entries.append((f, self.get_field_name(f), v))
+                except:
+                    logger.error(f"error on field: {field} value: {value}")
+                    raise
+                value = new_entries
 
             yield field, self.get_field_name(field), value
 
@@ -817,34 +803,44 @@ class SeratoBinFile:
         Each answer can be the file's new path; a folder, where it and later missing tracks are looked for by name; or
         "s" to skip it.
         """
+        new_entries: SeratoBinFile.EntryList = []
         new_dir: str | None = None
-
-        def relocate(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
-            nonlocal new_dir
-            track_path = track.get_full_path()
-            if os.path.isfile(track_path):
-                return track
-            print(f"missing: {track_path}")
-            filename = os.path.basename(track_path)
-            new_location = None
-            if new_dir is not None and os.path.isfile(in_new_dir := os.path.join(new_dir, filename)):
-                new_location = in_new_dir
-            while not new_location:
-                answer = os.path.normpath(
-                    input('enter new location of file, or directory to look for missing files, or "s" to skip:')
-                    .strip()
-                    .strip('"')
-                )
-                if answer == "s":
-                    return track
-                if os.path.isdir(answer):
-                    new_dir = answer
-                    answer = os.path.join(new_dir, filename)
-                if os.path.exists(answer):
-                    new_location = answer
-            print("   new_location: " + new_location)
-            track.set_path(new_location)
-            return track
-
-        if self.modify_tracks(relocate):
+        changed = False
+        for field, value in self.entries:
+            if field == SeratoBinFile.Fields.TRACK:
+                if not isinstance(value, list):
+                    raise DataTypeError(value, list, field)
+                track = self._get_track(value)
+                track_path = track.get_full_path()
+                if not os.path.isfile(track_path):
+                    print(f"missing: {track_path}")
+                    new_location = None
+                    if new_dir is not None:
+                        if os.path.isfile(possible_new_loc := os.path.join(new_dir, os.path.basename(track_path))):
+                            new_location = possible_new_loc
+                    if not new_location:
+                        while True:
+                            new_location = os.path.normpath(
+                                input(
+                                    'enter new location of file, or directory to look for missing files, or "s" to skip:'
+                                )
+                                .strip()
+                                .strip('"')
+                            )
+                            if new_location == "s":
+                                new_location = None
+                                break
+                            if os.path.isdir(new_location):
+                                new_dir = new_location
+                                new_location = os.path.join(new_dir, os.path.basename(track_path))
+                            if os.path.exists(new_location):
+                                break
+                    if new_location:
+                        print("   new_location: " + new_location)
+                        track.set_path(new_location)
+                        changed = True
+                value = track.to_entries()
+            new_entries.append((field, value))
+        self.entries = new_entries
+        if changed:
             self.save()

@@ -61,7 +61,7 @@ Subclasses (`DatabaseV2`, `CrateBase` → `Crate` / `SmartCrate`):
 - **Field names:**
   - Common ones live in the `SeratoBinFile.Fields` StrEnum. Fields whose meaning is only guessed are listed in a comment there, unnamed, rather than given a name that may be wrong.
   - The smart-crate-only fields (rules and their values) live in `SmartCrate.RuleFields`.
-  - Each class lists its valid set in `FIELD_ENUMS`, so a rule field in a database or regular crate is rejected. `__init_subclass__` derives the `FIELDS` frozenset and the readable field names from it, so a subclass sets only `FIELD_ENUMS`.
+  - Each class lists its valid set in `FIELD_ENUMS`, with the `FIELDS` frozenset derived from it, so a rule field in a database or regular crate is rejected.
 - **Smart crate rule values:** a rule holds exactly one of the `RULE_VALUE_FIELDS`, picked by its comparison's type suffix (`cond_*_str`/`_time`/`_uint`), never by the value's Python type. `set_rule` and `Rule.set_value` coerce the value to match, as Serato does.
 
 The lifecycle is `parse → self.entries → change through the class's methods → to_bytes() → save()`:

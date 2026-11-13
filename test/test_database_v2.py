@@ -4,7 +4,6 @@ import json
 import os
 import shutil
 import unittest
-from typing import Iterable
 from unittest import mock
 
 from serato_tools.database_v2 import DatabaseV2
@@ -144,28 +143,6 @@ class TestCase(unittest.TestCase):
         track = next(t for t in DatabaseV2(db_file).get_tracks() if t.relpath == target)
         self.assertNotIn(DatabaseV2.Fields.GROUPING, track.fields, "removed in the saved file")
 
-    def test_get_entries_matching_tracks(self):
-        db = DatabaseV2("test/data/database_v2_test.bin")
-
-        def track_paths(entries: Iterable[DatabaseV2.EntryFull]) -> list[str]:
-            return [
-                str(dict((f, v) for f, _, v in value)[DatabaseV2.Fields.FILE_PATH])
-                for field, _, value in entries
-                if field == DatabaseV2.Fields.TRACK and isinstance(value, list)
-            ]
-
-        self.assertEqual(track_paths(db.get_entries()), db.get_track_paths(), "every track by default")
-        self.assertEqual(
-            track_paths(db.get_entries(track_matcher="d'EVILS")),
-            ["Users/bvand/Music/DJ Tracks/SiR - D'Evils.mp3"],
-            "only the tracks the regex matches, ignoring case",
-        )
-        self.assertEqual(
-            [entry for entry in db.get_entries("d'evils") if entry[0] != DatabaseV2.Fields.TRACK],
-            [entry for entry in db.get_entries() if entry[0] != DatabaseV2.Fields.TRACK],
-            "every other entry",
-        )
-
     def test_find_missing_skips_save_when_nothing_relocated(self):
         tmp = temp_dir(self)
         db_file = os.path.join(tmp, "database V2")
@@ -178,24 +155,6 @@ class TestCase(unittest.TestCase):
             db.find_missing()
 
         self.assertFalse(os.path.exists(db_file), "nothing relocated, so not saved")
-
-    def test_find_missing_relocates_tracks_found_in_a_folder_given(self):
-        tmp = temp_dir(self)
-        db_file = os.path.join(tmp, "database V2")
-        shutil.copy("test/data/database_v2_test.bin", db_file)
-        db = DatabaseV2(db_file)
-        first, *rest = db.get_track_paths()
-        found_dir = os.path.join(tmp, "found")
-        os.mkdir(found_dir)
-        found = os.path.join(found_dir, os.path.basename(first))
-        open(found, "wb").close()  # pylint: disable=consider-using-with
-
-        # the folder for the first track, which later missing tracks are also looked for in; "s" skips the rest
-        answers = iter([found_dir])
-        with mock.patch("builtins.input", side_effect=lambda prompt: next(answers, "s")), mock.patch("builtins.print"):
-            db.find_missing()
-
-        self.assertEqual(DatabaseV2(db_file).get_track_paths(), [DatabaseV2.get_relative_path(found), *rest], "saved")
 
     def test_save_leaves_file_as_it_was_on_error(self):
         orig = read_bytes("test/data/database_v2_test.bin")
