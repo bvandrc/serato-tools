@@ -8,7 +8,7 @@ It can draw the overview as an image, which needs the `waveform_drawing` extra (
 import io
 from dataclasses import dataclass
 
-from serato_tools.utils import logger
+from serato_tools.utils import _AssertionValueError, logger
 from serato_tools.utils.track_tags import GeobKeys, NoWaveformError, SeratoGeobTag, open_tag_file_or_data
 
 
@@ -45,7 +45,8 @@ class TrackWaveform(SeratoGeobTag):
 
         rows: list[bytearray] = []
         for x in iter(lambda: fp.read(16), b""):
-            assert len(x) == 16
+            if len(x) != 16:
+                raise _AssertionValueError(f"waveform ends with a row of {len(x)} bytes, not 16")
             rows.append(bytearray(x))
         return rows
 

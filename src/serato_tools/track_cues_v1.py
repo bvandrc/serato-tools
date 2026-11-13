@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from mutagen.mp3 import HeaderNotFoundError
 
 
+from serato_tools.utils import _AssertionValueError
 from serato_tools.utils.track_tags import SeratoGeobTag, GeobKeys
 
 
@@ -89,11 +90,13 @@ class TrackCuesV1(SeratoGeobTag):
             end_position_set = None
             for field, value in zip(cls.FIELDS, info):
                 if field == "start_position_set":
-                    assert value in (0x00, 0x7F)
+                    if value not in (0x00, 0x7F):
+                        raise _AssertionValueError(f"start_position_set is 00 or 7f, not {value:02x}")
                     value = value != 0x7F
                     start_position_set = value
                 elif field == "end_position_set":
-                    assert value in (0x00, 0x7F)
+                    if value not in (0x00, 0x7F):
+                        raise _AssertionValueError(f"end_position_set is 00 or 7f, not {value:02x}")
                     value = value != 0x7F
                     end_position_set = value
                 elif field == "start_position":
@@ -165,7 +168,8 @@ class TrackCuesV1(SeratoGeobTag):
         num_entries = struct.unpack(">I", fp.read(4))[0]
         for i in range(num_entries):  # pylint: disable=unused-variable
             entry_data = fp.read(0x16)
-            assert len(entry_data) == 0x16
+            if len(entry_data) != 0x16:
+                raise _AssertionValueError(f"tag ends partway through an entry: {len(entry_data)} of its 22 bytes")
 
             entry = TrackCuesV1.Entry._parse(entry_data)
             yield entry
@@ -318,8 +322,8 @@ if __name__ == "__main__":
                                 cp = configparser.ConfigParser()
                                 cp.read_string(output.decode())
                                 sections = tuple(sorted(cp.sections()))
-                                if action != "a":
-                                    assert len(sections) == 1
+                                if action != "a" and len(sections) != 1:
+                                    raise _AssertionValueError(f"expected exactly one entry, got {len(sections)}")
 
                                 results = []
                                 for section in sections:

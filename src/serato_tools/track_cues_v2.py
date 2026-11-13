@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 
 
 
+from serato_tools.utils import _AssertionValueError
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils.track_tags import SeratoGeobTag, del_geob, GeobKeys, NoCuesError, open_tag_file_or_data
 from serato_tools.track_beatgrid import TrackBeatgrid
@@ -389,7 +390,8 @@ class TrackCuesV2(SeratoGeobTag):
             if not entry_name:
                 break
             entry_len = struct.unpack(">I", fp.read(4))[0]
-            assert entry_len > 0
+            if entry_len == 0:
+                raise _AssertionValueError(f"{entry_name} entry has no data")
 
             entry_class = TrackCuesV2._get_entry_class(entry_name)
             yield entry_class._parse(fp.read(entry_len))

@@ -25,3 +25,7 @@ class DeeplyNestedListError(Exception):
 
     def __init__(self):
         super().__init__("unexpected type, deeply nested list. if this occurs, need to implement code for it.")
+
+
+class _AssertionValueError(ValueError, AssertionError):
+    """A malformed file or value, raised where 5.6 asserted: a ValueError, and an AssertionError until 6.0."""
