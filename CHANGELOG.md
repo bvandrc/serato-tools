@@ -43,13 +43,14 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
-Breaking: everything deprecated in 5.x is removed. Use what each was deprecated in favor of:
+Breaking: everything deprecated in 5.x is removed, along with a few redundant names. Use what replaces each:
 
 - `DatabaseV2.rename_track_file`: use `Library.rename_track_file`, which also updates the crates and smart crates.
 - The tag classes' read-only `raw_data`: parse, modify, and serialize through each tag's own methods.
 - The `SeratoTrack` and `SeratoTag` names in `serato_tools.utils.track_tags`: use `ID3FileTag` and `SeratoGeobTag`.
 - `TrackCuesV2.modified`: use `has_changed`.
 - `add_track` and `remove_track`: use `add_tracks` and `remove_tracks`.
+- `get_entries_filtered(track_matcher)` on the database, crates, and smart crates: use `get_entries(track_matcher)`.
 - Passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`): pass it to `save()`, or to `Track.save()`.
 
 Breaking: `TrackCuesV2` no longer reads the beatgrid from its own file for cue snapping. It's passed one instead, so that each tag class reads only its own tag:
