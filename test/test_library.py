@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import sys
 import unittest
+import warnings
 from unittest import mock
 
 # library.py imports the installed package's classes, so build fixtures and patch with those
@@ -410,7 +411,9 @@ class TestCase(unittest.TestCase):
 
     def test_set_db_track_tags_deletes_tags_v1_unless_told_not_to(self):
         for delete_tags_v1 in (True, False):
-            with self.subTest(delete_tags_v1=delete_tags_v1):
+            with self.subTest(delete_tags_v1=delete_tags_v1), warnings.catch_warnings():
+                # passed to each file's save, not to the deprecated parameter on its edits
+                warnings.simplefilter("error", DeprecationWarning)
                 track = self.copy_analyzed_track(f"Delete{delete_tags_v1}.mp3")
                 self.add_to_database(track)
 
