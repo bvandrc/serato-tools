@@ -27,6 +27,7 @@ from serato_tools.utils.track_tags import (
     SeratoGeobTag,
     del_geob,
     open_tag_file_or_data,
+    save_tag_file_or_data,
 )
 
 if TYPE_CHECKING:
@@ -754,7 +755,7 @@ def main():
             raise ValueError(f"Invalid track color {args.set_color!r}, must be one of: {valid}") from exc
 
         tags.set_track_color(color)
-        tags.save()
+        save_tag_file_or_data(tags, args.file)
         sys.exit()
 
     if args.snap_cues:
@@ -910,11 +911,7 @@ def main():
         else:
             tags.entries = new_entries
             tags._serialize()
-            if tags.tagfile:
-                tags.save()
-            else:
-                with open(args.file, mode="wb") as fp:
-                    fp.write(tags._raw_data or b"")  # pylint: disable=protected-access
+            save_tag_file_or_data(tags, args.file)
 
 
 if __name__ == "__main__":
