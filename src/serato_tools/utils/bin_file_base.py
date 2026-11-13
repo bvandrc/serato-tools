@@ -11,7 +11,6 @@ import json
 import os
 import re
 import struct
-import warnings
 from enum import StrEnum, unique
 from typing import Any, Callable, Generator, Iterable, NotRequired, Optional, Pattern, TypedDict, cast
 
@@ -594,11 +593,6 @@ class SeratoBinFile:
         removed = len(new_entries) != len(self.entries)
         self.entries = new_entries
         return removed
-
-    def remove_track(self, filepath: str) -> bool:
-        """Deprecated, to be removed in the next major version: use remove_tracks(), which this calls."""
-        warnings.warn("remove_track is deprecated, use remove_tracks instead", DeprecationWarning, stacklevel=2)
-        return self.remove_tracks([filepath])
 
     def remove_tracks(self, filepaths: Iterable[str]) -> bool:
         """Removes every track whose path is in `filepaths`, in one pass, and returns whether any was removed."""

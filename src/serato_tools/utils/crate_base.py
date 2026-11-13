@@ -3,7 +3,6 @@
 """What crates and smart crates share: their file extension and folder, track paths, and how they print."""
 
 import os
-import warnings
 from typing import Iterable, Optional
 
 from serato_tools.utils.bin_file_base import SeratoBinFile
@@ -53,11 +52,6 @@ class CrateBase(SeratoBinFile):
 
         return super().save(file, force)
 
-    def add_track(self, filepath: str):
-        """Deprecated, to be removed in the next major version: use add_tracks(), which this calls."""
-        warnings.warn("add_track is deprecated, use add_tracks instead", DeprecationWarning, stacklevel=2)
-        self.add_tracks([filepath])
-
     def add_tracks(self, filepaths: Iterable[str]):
         """Adds the tracks not already in the crate. Filepaths must include the containing dir."""
         # build the existing-path set once: checking get_track_paths() per added file costs a pass over
@@ -73,7 +67,7 @@ class CrateBase(SeratoBinFile):
         dir_tracks = [self.get_relative_path(os.path.join(dir, t)) for t in os.listdir(dir)]
 
         if replace:
-            # one filter pass instead of a full remove_track scan per removed track
+            # one filter pass instead of a full scan per removed track
             dir_track_set = set(dir_tracks)
             self.filter_tracks(lambda track: track.relpath in dir_track_set)
 
