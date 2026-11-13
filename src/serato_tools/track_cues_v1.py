@@ -7,48 +7,10 @@ import io
 import struct
 import sys
 from dataclasses import dataclass
-from typing import ClassVar
 
-from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag, open_tag_or_dump, save_tag_or_dump
+from mutagen.mp3 import HeaderNotFoundError
 
-
-def _decode_bytes_32(data: bytes) -> bytes:
-    """3 bytes, from the 4 Serato stores them as, 7 bits to a byte."""
-    w, x, y, z = struct.unpack("BBBB", data)
-    c = (z & 0x7F) | ((y & 0x01) << 7)
-    b = ((y & 0x7F) >> 1) | ((x & 0x03) << 6)
-    a = ((x & 0x7F) >> 2) | ((w & 0x07) << 5)
-    return struct.pack("BBB", a, b, c)
-
-
-def _encode_bytes_32(data: bytes) -> bytes:
-    """3 bytes as the 4 Serato stores them, 7 bits to a byte."""
-    a, b, c = struct.unpack("BBB", data)
-    z = c & 0x7F
-    y = ((c >> 7) | (b << 1)) & 0x7F
-    x = ((b >> 6) | (a << 2)) & 0x7F
-    w = a >> 5
-    return bytes([w, x, y, z])
-
-
-def _parse_position_set(value: int) -> bool:
-    """Whether a slot's position is set: Serato stores 00 for set, and 7f for unset."""
-    assert value in (0x00, 0x7F)
-    return value != 0x7F
-
-
-def _serialize_position_set(is_set: bool) -> int:
-    return 0x00 if is_set else 0x7F
-
-
-def _parse_position(data: bytes) -> int:
-    """A position in milliseconds, from its 4 stored bytes."""
-    return struct.unpack(">I", _decode_bytes_32(data).rjust(4, b"\x00"))[0]
-
-
-def _serialize_position(position: int | None) -> bytes:
-    """A position's 4 stored bytes: 7f bytes for an unset one, as Serato writes it."""
-    return b"\x7f\x7f\x7f\x7f" if position is None else _encode_bytes_32(struct.pack(">I", position)[1:])
+from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag
 
 
 class TrackCuesV1(SeratoGeobTag):
@@ -71,36 +33,18 @@ class TrackCuesV1(SeratoGeobTag):
         LOOP = 3
 
     def __init__(self, file_or_data: SeratoGeobTag.FileOrData):
+        self._raw_data: bytes | None
         super().__init__(file_or_data)
 
         self.entries: list[TrackCuesV1.Entry | TrackCuesV1.Color] = []
         if self._raw_data is not None:
             self.entries = list(self._parse(self._raw_data))
 
-    class _EntryRepr:
-        """Mixin for a repr of the entry's `FIELDS`, named by the class alone, as `Entry(...)`."""
-
-        FIELDS: ClassVar[tuple[str, ...]]
-
-        def __repr__(self) -> str:
-            return "{}({})".format(
-                type(self).__name__, ", ".join("{}={!r}".format(f, getattr(self, f)) for f in self.FIELDS)
-            )
-
-    @dataclass(repr=False)
-    class Entry(_EntryRepr):
+    class Entry(object):
         """A cue or loop slot, with positions in milliseconds, or None where unset, and its color as RGB bytes."""
 
-        start_position_set: bool
-        start_position: int | None
-        end_position_set: bool
-        end_position: int | None
-        field5: bytes
-        color: bytes
-        type: "TrackCuesV1.EntryType"
-        is_locked: int
-        FORMAT: ClassVar[str] = ">B4sB4s6s4sBB"
-        FIELDS: ClassVar[tuple[str, ...]] = (
+        FORMAT = ">B4sB4s6s4sBB"
+        FIELDS = (
             "start_position_set",
             "start_position",
             "end_position_set",
@@ -110,53 +54,103 @@ class TrackCuesV1(SeratoGeobTag):
             "type",
             "is_locked",
         )
+        type: bytes | str
+
+        def __init__(self, *args):
+            assert len(args) == len(self.FIELDS)
+            for field, value in zip(self.FIELDS, args):
+                setattr(self, field, value)
+
+        def __repr__(self) -> str:
+            return "{name}({data})".format(
+                name=self.__class__.__name__,
+                data=", ".join("{}={!r}".format(name, getattr(self, name)) for name in self.FIELDS),
+            )
 
         @classmethod
         def _parse(cls, data: bytes):
-            start_set, start, end_set, end, field5, color, entry_type, is_locked = struct.unpack(
-                cls.FORMAT, data[: struct.calcsize(cls.FORMAT)]
-            )
-            start_position_set = _parse_position_set(start_set)
-            end_position_set = _parse_position_set(end_set)
-            return cls(
-                start_position_set,
-                _parse_position(start) if start_position_set else None,
-                end_position_set,
-                _parse_position(end) if end_position_set else None,
-                field5,
-                _decode_bytes_32(color),
-                TrackCuesV1.EntryType(entry_type),
-                is_locked,
-            )
+            def _decode_bytes_32(data: bytes):
+                """Decode 4 byte Serato binary format into 3 byte plain text."""
+                w, x, y, z = struct.unpack("BBBB", data)
+                c = (z & 0x7F) | ((y & 0x01) << 7)
+                b = ((y & 0x7F) >> 1) | ((x & 0x03) << 6)
+                a = ((x & 0x7F) >> 2) | ((w & 0x07) << 5)
+                return struct.pack("BBB", a, b, c)
+
+            info_size = struct.calcsize(cls.FORMAT)
+            info = struct.unpack(cls.FORMAT, data[:info_size])
+            entry_data = []
+
+            start_position_set = None
+            end_position_set = None
+            for field, value in zip(cls.FIELDS, info):
+                if field == "start_position_set":
+                    assert value in (0x00, 0x7F)
+                    value = value != 0x7F
+                    start_position_set = value
+                elif field == "end_position_set":
+                    assert value in (0x00, 0x7F)
+                    value = value != 0x7F
+                    end_position_set = value
+                elif field == "start_position":
+                    assert start_position_set is not None
+                    if start_position_set:
+                        assert isinstance(value, bytes)
+                        value = struct.unpack(">I", _decode_bytes_32(value).rjust(4, b"\x00"))[0]
+                    else:
+                        value = None
+                elif field == "end_position":
+                    assert end_position_set is not None
+                    if end_position_set:
+                        assert isinstance(value, bytes)
+                        value = struct.unpack(">I", _decode_bytes_32(value).rjust(4, b"\x00"))[0]
+                    else:
+                        value = None
+                elif field == "color":
+                    assert isinstance(value, bytes)
+                    value = _decode_bytes_32(value)
+                elif field == "type":
+                    value = TrackCuesV1.EntryType(value)
+                entry_data.append(value)
+
+            return cls(*entry_data)
 
         def _serialize(self):
-            return struct.pack(
-                self.FORMAT,
-                _serialize_position_set(self.start_position_set),
-                _serialize_position(self.start_position),
-                _serialize_position_set(self.end_position_set),
-                _serialize_position(self.end_position),
-                self.field5,
-                _encode_bytes_32(self.color),
-                int(self.type),
-                self.is_locked,
-            )
+            def _encode_bytes_32(data: bytes):
+                """Encode 3 byte plain text into 4 byte Serato binary format."""
+                a, b, c = struct.unpack("BBB", data)
+                z = c & 0x7F
+                y = ((c >> 7) | (b << 1)) & 0x7F
+                x = ((b >> 6) | (a << 2)) & 0x7F
+                w = a >> 5
+                return bytes(bytearray([w, x, y, z]))
 
-    @dataclass(repr=False)
-    class Color(_EntryRepr):
+            entry_data = []
+            for field in self.FIELDS:
+                value = getattr(self, field)
+                if field == "start_position_set":
+                    value = 0x7F if not value else 0x00
+                elif field == "end_position_set":
+                    value = 0x7F if not value else 0x00
+                elif field == "color":
+                    value = _encode_bytes_32(value)
+                elif field in ("start_position", "end_position"):
+                    # an unset position is stored as 7f bytes, as Serato writes it; FORMAT packs the field as 4s, so
+                    # it has to be bytes, not the int 0x7F7F7F7F
+                    if value is None:
+                        value = b"\x7f\x7f\x7f\x7f"
+                    else:
+                        value = _encode_bytes_32(struct.pack(">I", value)[1:])
+                elif field == "type":
+                    value = int(value)
+                entry_data.append(value)
+            return struct.pack(self.FORMAT, *entry_data)
+
+    class Color(Entry):
         """The track color, as RGB bytes, which ends the tag."""
 
-        color: bytes
-        FORMAT: ClassVar[str] = ">4s"
-        FIELDS: ClassVar[tuple[str, ...]] = ("color",)
-
-        @classmethod
-        def _parse(cls, data: bytes):
-            (color,) = struct.unpack(cls.FORMAT, data[: struct.calcsize(cls.FORMAT)])
-            return cls(_decode_bytes_32(color))
-
-        def _serialize(self):
-            return struct.pack(self.FORMAT, _encode_bytes_32(self.color))
+        FORMAT = ">4s"
+        FIELDS = ("color",)
 
     def _parse(self, data: bytes):
         # the entry classes' _parse() / _serialize() are internal to this module
@@ -220,18 +214,23 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--edit", action="store_true")
     args = Args(**vars(parser.parse_args()))
 
-    tags = open_tag_or_dump(TrackCuesV1, args.file)
+    try:
+        tags = TrackCuesV1(args.file)
+    except HeaderNotFoundError:
+        with open(args.file, mode="rb") as fp:
+            data = fp.read()
+        tags = TrackCuesV1(data)
 
     if args.edit:
         text_editor = get_text_editor()
         hex_editor = get_hex_editor()
 
-    entries = tags.entries
+    entries: list[TrackCuesV1.Entry] = tags.entries
     if not entries:
         # a parsed tag always has at least the trailing Color entry, so empty means the tag is not set
         print(f'File has no "{TrackCuesV1.GEOB_KEY}" tag.')
         sys.exit()
-    new_entries: list[TrackCuesV1.Entry | TrackCuesV1.Color] = []
+    new_entries: list[TrackCuesV1.Entry] = []
     width = math.floor(math.log10(len(entries))) + 1
     action: str | None = None
     for entry_index, entry in enumerate(entries):
@@ -264,7 +263,7 @@ if __name__ == "__main__":
                                         "{:{}d}: {}".format(
                                             i,
                                             width,
-                                            (repr(e.type) if isinstance(e, TrackCuesV1.Entry) else "Color"),
+                                            (repr(e.type) if e.__class__ == TrackCuesV1.Entry else "Color"),
                                         ),
                                         e,
                                     )
@@ -273,7 +272,7 @@ if __name__ == "__main__":
                             else:
                                 entries_to_edit = (
                                     (
-                                        (repr(entry.type) if isinstance(entry, TrackCuesV1.Entry) else "Color"),
+                                        (repr(entry.type) if entry.__class__ == TrackCuesV1.Entry else "Color"),
                                         entry,
                                     ),
                                 )
@@ -382,4 +381,8 @@ if __name__ == "__main__":
         else:
             tags.entries = new_entries
             tags._serialize()
-            save_tag_or_dump(tags, args.file)
+            if tags.tagfile:
+                tags.save()
+            else:
+                with open(args.file, mode="wb") as fp:
+                    fp.write(tags._raw_data or b"")  # pylint: disable=protected-access
