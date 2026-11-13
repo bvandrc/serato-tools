@@ -202,13 +202,9 @@ if __name__ == "__main__":
     # this script is part of the module, so it uses the tag's and its entries' internal _parse() / _serialize()
     # pylint: disable=protected-access
     import argparse
-    import ast
-    import configparser
-    import math
-    import subprocess
-    import tempfile
+    from typing import Any
 
-    from serato_tools.utils.ui import get_hex_editor, get_text_editor, ui_ask
+    from serato_tools.utils.ui import EntryEditing, edit_entries, print_entries
 
     @dataclass
     class Args:
@@ -222,164 +218,39 @@ if __name__ == "__main__":
 
     tags = open_tag_or_dump(TrackCuesV1, args.file)
 
-    if args.edit:
-        text_editor = get_text_editor()
-        hex_editor = get_hex_editor()
-
-    entries = tags.entries
-    if not entries:
+    if not tags.entries:
         # a parsed tag always has at least the trailing Color entry, so empty means the tag is not set
         print(f'File has no "{TrackCuesV1.GEOB_KEY}" tag.')
         sys.exit()
-    new_entries: list[TrackCuesV1.Entry | TrackCuesV1.Color] = []
-    width = math.floor(math.log10(len(entries))) + 1
-    action: str | None = None
-    for entry_index, entry in enumerate(entries):
-        if args.edit:
-            if action not in ("q", "_"):
-                print("{:{}d}: {!r}".format(entry_index, width, entry))
-                action = ui_ask(
-                    "Edit this entry",
-                    {
-                        "y": "edit this entry",
-                        "n": "do not edit this entry",
-                        "q": "quit; do not edit this entry or any of the remaining ones",
-                        "a": "edit this entry and all later entries in the file",
-                        "b": "edit raw bytes",
-                        "r": "remove this entry",
-                    },
-                    default="n",
-                )
+    if not args.edit:
+        print_entries(tags.entries)
+        sys.exit()
 
-            if action in ("y", "a", "b"):
-                while True:
-                    with tempfile.NamedTemporaryFile() as f:
-                        if action == "b":
-                            f.write(entry._serialize())
-                            editor = hex_editor  # pyright: ignore[reportPossiblyUnboundVariable]
-                        else:
-                            if action == "a":
-                                entries_to_edit = (
-                                    (
-                                        "{:{}d}: {}".format(
-                                            i,
-                                            width,
-                                            (repr(e.type) if isinstance(e, TrackCuesV1.Entry) else "Color"),
-                                        ),
-                                        e,
-                                    )
-                                    for i, e in enumerate(entries[entry_index:], start=entry_index)
-                                )
-                            else:
-                                entries_to_edit = (
-                                    (
-                                        (repr(entry.type) if isinstance(entry, TrackCuesV1.Entry) else "Color"),
-                                        entry,
-                                    ),
-                                )
+    def entry_from_section(name: str, values: dict[str, Any]) -> TrackCuesV1.Entry | TrackCuesV1.Color:
+        entry_class = TrackCuesV1.Color if name == "Color" else TrackCuesV1.Entry
+        entry = entry_class(*(values[field] for field in entry_class.FIELDS))
+        # through its bytes and back, so an entry parsing would reject raises here
+        return entry_class._parse(entry._serialize())
 
-                            for section, e in entries_to_edit:
-                                f.write("[{}]\n".format(section).encode())
-                                for field in e.FIELDS:
-                                    value = getattr(e, field)
-                                    if field == "type":
-                                        value = int(value)
-                                    f.write(
-                                        "{}: {!r}\n".format(
-                                            field,
-                                            value,
-                                        ).encode()
-                                    )
-                                f.write(b"\n")
-                            editor = text_editor  # pyright: ignore[reportPossiblyUnboundVariable]
-                        f.flush()
-                        status = subprocess.call((editor, f.name))
-                        f.seek(0)
-                        output = f.read()
+    def entry_field_values(entry: TrackCuesV1.Entry | TrackCuesV1.Color):
+        for field in entry.FIELDS:
+            value = getattr(entry, field)
+            # the type as its number, which reads back as a literal
+            yield field, int(value) if field == "type" else value
 
-                    if status != 0:
-                        if (
-                            ui_ask(
-                                "Command failed, retry",
-                                {
-                                    "y": "edit again",
-                                    "n": "leave unchanged",
-                                },
-                            )
-                            == "n"
-                        ):
-                            break
-                    else:
-                        try:
-                            if action != "b":
-                                cp = configparser.ConfigParser()
-                                cp.read_string(output.decode())
-                                sections = tuple(sorted(cp.sections()))
-                                if action != "a":
-                                    assert len(sections) == 1
-
-                                results = []
-                                for section in sections:
-                                    l, s, r = section.partition(": ")
-                                    name = r if s else l
-                                    cls = TrackCuesV1.Color if name == "Color" else TrackCuesV1.Entry
-                                    e = cls(
-                                        *(
-                                            ast.literal_eval(
-                                                cp.get(section, field),
-                                            )
-                                            for field in cls.FIELDS
-                                        )
-                                    )
-                                    results.append(cls._parse(e._serialize()))
-                            else:
-                                results = [entry._parse(output)]
-                        except Exception as e:  # pylint: disable=broad-exception-caught
-                            print(str(e))
-                            if (
-                                ui_ask(
-                                    "Content seems to be invalid, retry",
-                                    {
-                                        "y": "edit again",
-                                        "n": "leave unchanged",
-                                    },
-                                )
-                                == "n"
-                            ):
-                                break
-                        else:
-                            for i, e in enumerate(results, start=entry_index):
-                                print("{:{}d}: {!r}".format(i, width, e))
-                            subaction = ui_ask(
-                                "Above content is valid, save changes",
-                                {
-                                    "y": "save current changes",
-                                    "n": "discard changes",
-                                    "e": "edit again",
-                                },
-                                default="y",
-                            )
-                            if subaction == "y":
-                                new_entries.extend(results)
-                                if action == "a":
-                                    action = "_"
-                                break
-                            elif subaction == "n":
-                                if action == "a":
-                                    action = "q"
-                                new_entries.append(entry)
-                                break
-            elif action in ("r", "_"):
-                continue
-            else:
-                new_entries.append(entry)
-        else:
-            print("{:{}d}: {!r}".format(entry_index, width, entry))
-
-    if args.edit:
-        if new_entries == entries:
-            print("No changes made.")
-        else:
-            tags.entries = new_entries
-            tags._serialize()
-            save_tag_or_dump(tags, args.file)
+    new_entries = edit_entries(
+        tags.entries,
+        EntryEditing[TrackCuesV1.Entry | TrackCuesV1.Color](
+            section_name=lambda entry: repr(entry.type) if isinstance(entry, TrackCuesV1.Entry) else "Color",
+            field_values=entry_field_values,
+            from_section=entry_from_section,
+            to_bytes=lambda entry: entry._serialize(),
+            from_bytes=lambda entry, data: type(entry)._parse(data),
+        ),
+    )
+    if new_entries == tags.entries:
+        print("No changes made.")
+    else:
+        tags.entries = new_entries
+        tags._serialize()
+        save_tag_or_dump(tags, args.file)
