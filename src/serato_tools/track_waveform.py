@@ -45,7 +45,8 @@ class TrackWaveform(SeratoGeobTag):
 
         rows: list[bytearray] = []
         for x in iter(lambda: fp.read(16), b""):
-            assert len(x) == 16
+            if len(x) != 16:
+                raise ValueError(f"waveform ends with a row of {len(x)} bytes, not 16")
             rows.append(bytearray(x))
         return rows
 

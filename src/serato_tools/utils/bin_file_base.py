@@ -423,7 +423,8 @@ class SeratoBinFile:
         fp = io.BytesIO(item_data)
         version_set = False
         for header in iter(lambda: fp.read(8), b""):
-            assert len(header) == 8
+            if len(header) != 8:
+                raise ValueError(f"file ends partway through an entry's header: {header!r}")
             field_ascii: bytes
             length: int
             field_ascii, length = struct.unpack(">4sI", header)
@@ -431,7 +432,8 @@ class SeratoBinFile:
             type_id: str = SeratoBinFile._get_type(field)
 
             data = fp.read(length)
-            assert len(data) == length
+            if len(data) != length:
+                raise ValueError(f"file ends partway through a {field} entry: {len(data)} of its {length} bytes")
 
             value: SeratoBinFile.Value
             if type_id in ("o", "r"):  #  struct
@@ -461,7 +463,8 @@ class SeratoBinFile:
         """An entry's bytes: its header, then its value encoded as its field's type requires."""
         field, value = entry
         field_bytes = field.encode("ascii")
-        assert len(field_bytes) == 4
+        if len(field_bytes) != 4:
+            raise ValueError(f"field names are 4 characters: {field!r}")
 
         if field == SeratoBinFile.Fields.VERSION:
             self._check_version(value)
@@ -732,9 +735,8 @@ class SeratoBinFile:
         """
         # check rule fields
         all_field_names = [rule["field"] for rule in rules]
-        assert len(list(rules)) == len(
-            list(set(all_field_names))
-        ), f"must only have 1 function per field. fields passed: {str(sorted(all_field_names))}"
+        if len(all_field_names) != len(set(all_field_names)):
+            raise ValueError(f"must only have 1 rule per field. fields passed: {sorted(all_field_names)}")
         for field in all_field_names:
             self._check_valid_field(field)
 

@@ -24,6 +24,10 @@ class TestCase(unittest.TestCase):
             TrackWaveform(path)
         self.assertEqual(caught.exception.filename, path)
 
+    def test_a_partial_row_raises(self):
+        with self.assertRaisesRegex(ValueError, "row of 5 bytes"):
+            TrackWaveform(read_bytes("test/data/track_waveform.bin") + b"\x00" * 5)
+
 
 if __name__ == "__main__":
     unittest.main()
