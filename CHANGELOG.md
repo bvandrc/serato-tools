@@ -38,6 +38,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Methods that took a list of track paths or rules take any collection of them, such as a set or a tuple.
 - A database, crate, or Serato tag that's cut off or malformed raises `ValueError` saying what's wrong, rather than an `AssertionError`.
 - The tag CLIs (`serato_snap_cues_v2`, `serato_beatgrid`, and running `track_autotags` or `track_waveform` as a module) read a file of the tag's own bytes, such as one `serato_tagdump` writes, and write an edit back to it. They used to raise for any file that isn't .mp3, .aiff, or .aif.
+- `serato_snap_cues_v2 -e`, the edit mode, keeps an entry when you choose to leave it unchanged after the editor fails or you write content that isn't valid, rather than dropping it from the tag. It also works on Windows, where the editor couldn't open the file it was given.
 - Breaking: `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`, next to the database and crate code that raises them.
 
 ### Removed
