@@ -3,7 +3,7 @@
 """A Serato library folder as a whole, for changes that have to reach its database and every crate together."""
 
 import os
-from collections.abc import Generator
+from collections.abc import Collection, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import cached_property
@@ -172,7 +172,7 @@ class Library:
                 changed.append(file.filepath)
         return changed
 
-    def remove_track_files(self, filepaths: list[str]) -> RemoveTrackFilesResult:
+    def remove_track_files(self, filepaths: Collection[str]) -> RemoveTrackFilesResult:
         """Removes the tracks from the database and crates, then deletes their files.
 
         Returns which track files it deleted, and which library files it changed (see RemoveTrackFilesResult). Paths
@@ -230,7 +230,7 @@ class Library:
                 track.set_value(field, value)
             return track
 
-        changed = self.database.modify_tracks(set_values, files=list(tracks))
+        changed = self.database.modify_tracks(set_values, files=tracks)
         for filepath in tracks:
             if DatabaseV2.get_relative_path(filepath).upper() not in found:
                 logger.warning(f"track isn't in the database, so only its file's tags were set: {filepath}")

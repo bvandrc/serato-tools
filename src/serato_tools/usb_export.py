@@ -12,7 +12,7 @@ import platform
 import re
 import shutil
 from dataclasses import dataclass
-from typing import Optional
+from typing import Iterable, Optional
 
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
@@ -39,7 +39,7 @@ def _uniq_by_basename(paths: list[str]):
 
 
 def copy_crates_to_usb(
-    crate_files: list[str], dest_drive_dir: str, dest_tracks_dir: str, root_crate: Optional[str] = None
+    crate_files: Iterable[str], dest_drive_dir: str, dest_tracks_dir: str, root_crate: Optional[str] = None
 ):
     """Copies the crates in `crate_files`, and their tracks, to the drive at `dest_drive_dir`.
 
