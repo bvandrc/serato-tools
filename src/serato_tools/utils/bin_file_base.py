@@ -12,7 +12,19 @@ import os
 import re
 import struct
 from enum import StrEnum, unique
-from typing import Any, Callable, Generator, Iterable, Iterator, NotRequired, Optional, Pattern, TypedDict, cast
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Generator,
+    Iterable,
+    Iterator,
+    NotRequired,
+    Optional,
+    Pattern,
+    TypedDict,
+    cast,
+)
 
 from serato_tools.utils import SERATO_DRIVE, logger
 
@@ -590,7 +602,7 @@ class SeratoBinFile:
         """Each track's path: as stored, with no drive, or with `include_drive`, as an absolute path."""
         return [t.get_full_path() if include_drive else t.relpath for t in self.get_tracks()]
 
-    def modify_tracks(self, func: Callable[[Track], Track], files: Optional[list[str]] = None) -> bool:
+    def modify_tracks(self, func: Callable[[Track], Track], files: Optional[Iterable[str]] = None) -> bool:
         """
         Replaces each track with what `func` returns for it, and returns whether any track changed.
 
@@ -724,9 +736,9 @@ class SeratoBinFile:
 
         field: "SeratoBinFile.Fields"
         func: "SeratoBinFile.ModifyFunc"
-        files: NotRequired[list[str]]
+        files: NotRequired[Collection[str]]
 
-    def modify(self, rules: list[ModifyRule]) -> bool:
+    def modify(self, rules: Collection[ModifyRule]) -> bool:
         """Applies `rules` to every track, and returns whether any track changed.
 
         A rule whose `func` returns `""` removes the field from the track, as Serato does when a tag is cleared. A rule
@@ -785,7 +797,7 @@ class SeratoBinFile:
 
         return self.modify_tracks(modify_track, files=only_files)
 
-    def modify_and_save(self, rules: list[ModifyRule], file: Optional[str] = None):
+    def modify_and_save(self, rules: Collection[ModifyRule], file: Optional[str] = None):
         """
         Applies `rules` to every track, then saves.
 
