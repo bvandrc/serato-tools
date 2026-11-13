@@ -1,6 +1,4 @@
 # pylint: disable=protected-access
-import os
-import shutil
 import unittest
 from unittest import mock
 
@@ -14,9 +12,9 @@ from serato_tools.track_gain import TrackGain
 from serato_tools.track_tagdump import get_serato_tagdata
 from serato_tools.track_text_frames import TrackTextFrames
 from serato_tools.track_waveform import TrackWaveform
-from serato_tools.utils.track_tags import ID3FileTag, get_geob, open_tag_or_dump, save_tag_or_dump
+from serato_tools.utils.track_tags import ID3FileTag, get_geob, open_tag_or_dump
 
-from test.helpers import TEST_MP3, read_bytes, temp_dir, temp_mp3
+from test.helpers import TEST_MP3, read_bytes, temp_mp3
 
 
 class TestCase(unittest.TestCase):
@@ -111,22 +109,6 @@ class TestCase(unittest.TestCase):
                 self.assertIsNone(tags.tagfile, "read as bytes")
                 self.assertEqual(tags._raw_data, read_bytes(dump))
                 self.assertIsNotNone(open_tag_or_dump(tag_class, TEST_MP3).tagfile, "read as audio")
-
-    def test_save_tag_or_dump_writes_a_changed_dump_back(self):
-        dump = os.path.join(temp_dir(self), "Serato Autotags.octet-stream")
-        shutil.copy("test/data/track_autotags.bin", dump)
-        tags = open_tag_or_dump(TrackAutotags, dump)
-        self.assertFalse(save_tag_or_dump(tags, dump), "unchanged")
-        tags.set(bpm=128)
-        self.assertTrue(save_tag_or_dump(tags, dump))
-        self.assertEqual(TrackAutotags(read_bytes(dump)).bpm, 128)
-
-    def test_save_tag_or_dump_saves_an_audio_file(self):
-        path = temp_mp3(self)
-        tags = open_tag_or_dump(TrackAutotags, path)
-        tags.set(bpm=128)
-        self.assertTrue(save_tag_or_dump(tags, path))
-        self.assertEqual(TrackAutotags(path).bpm, 128)
 
 
 if __name__ == "__main__":

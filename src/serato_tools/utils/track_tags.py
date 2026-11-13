@@ -277,23 +277,8 @@ def open_tag_or_dump[T: SeratoGeobTag](tag_class: type[T], path: str) -> T:
     """The tag read from `path`, for a CLI: an audio file, or any other file as the tag's own bytes.
 
     A file of the tag's own bytes is one `serato_tagdump` writes (`Serato Markers2.octet-stream`), or a test fixture.
-    Write it back with `save_tag_or_dump`.
     """
     if path.lower().endswith(_MP3_EXTENSIONS + _AIFF_EXTENSIONS):
         return tag_class(path)
     with open(path, "rb") as f:
         return tag_class(f.read())
-
-
-def save_tag_or_dump(tag: SeratoGeobTag, path: str) -> bool:
-    """Saves a tag `open_tag_or_dump` read from `path`, if it changed, and returns whether it wrote.
-
-    A tag read from an audio file is saved to it; one read from the tag's own bytes writes its bytes back to `path`.
-    """
-    if tag.tagfile:
-        return tag.save()
-    if not tag.has_changed:
-        return False
-    with open(path, "wb") as f:
-        f.write(tag._raw_data or b"")  # pylint: disable=protected-access
-    return True
