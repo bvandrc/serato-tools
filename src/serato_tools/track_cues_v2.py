@@ -18,8 +18,6 @@ from dataclasses import dataclass, field
 from enum import Enum, unique
 from typing import TYPE_CHECKING, Callable, ClassVar, Sequence
 
-from mutagen.mp3 import HeaderNotFoundError
-
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils.track_tags import (
     GeobKeys,
@@ -28,6 +26,7 @@ from serato_tools.utils.track_tags import (
     NoCuesError,
     SeratoGeobTag,
     del_geob,
+    open_tag_file_or_data,
 )
 
 if TYPE_CHECKING:
@@ -745,12 +744,7 @@ def main():
     parser.add_argument("-e", "--edit", action="store_true")
     args = Args(**vars(parser.parse_args()))
 
-    try:
-        tags = TrackCuesV2(args.file)
-    except HeaderNotFoundError:
-        with open(args.file, mode="rb") as fp:
-            data = fp.read()
-        tags = TrackCuesV2(data)
+    tags = open_tag_file_or_data(TrackCuesV2, args.file)
 
     if args.set_color:
         try:

@@ -8,10 +8,8 @@ It can draw the overview as an image, which needs the `waveform_drawing` extra (
 import io
 from dataclasses import dataclass
 
-from mutagen.mp3 import HeaderNotFoundError
-
 from serato_tools.utils import logger
-from serato_tools.utils.track_tags import GeobKeys, NoWaveformError, SeratoGeobTag
+from serato_tools.utils.track_tags import GeobKeys, NoWaveformError, SeratoGeobTag, open_tag_file_or_data
 
 
 class TrackWaveform(SeratoGeobTag):
@@ -93,12 +91,7 @@ if __name__ == "__main__":
     parser.add_argument("file")
     args = Args(**vars(parser.parse_args()))
 
-    try:
-        tags = TrackWaveform(args.file)
-    except HeaderNotFoundError:
-        with open(args.file, mode="rb") as fp:
-            data = fp.read()
-        tags = TrackWaveform(data)
+    tags = open_tag_file_or_data(TrackWaveform, args.file)
 
     img = tags.draw_image()
     img.show()
