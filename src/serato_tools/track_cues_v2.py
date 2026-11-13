@@ -583,10 +583,11 @@ class TrackCuesV2(SeratoGeobTag):
         """
         if not (self.has_changed or force):
             return False
-        if not self.tagfile:
-            raise Exception("no tagfile, no saving")
+        tagfile = self._require_tagfile()
+        # unlike ID3FileTag.save, a forced save puts the tag in the tagfile even unchanged, so that it deletes a stale
+        # Serato Markers_ too
         self._put_in_tagfile(delete_tags_v1)
-        self.tagfile.save()
+        tagfile.save()
         return True
 
     def get_track_color(self) -> bytes | None:

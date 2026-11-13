@@ -84,7 +84,8 @@ The lifecycle is `parse → self.entries → change through the class's methods 
 - **`ID3FileTag`** is a value stored in an `ID3File`'s tags: it only holds the file (`tagfile`, opened by `open_tagfile`), and has nothing Serato-specific.
 - **Module functions** (`get_geob`, `set_geob`, `del_geob`, `del_tag`) read and write frames on any open file, for code that needs a frame other than its own (`TrackCuesV2` deleting `Serato Markers_`, `track_tagdump.py`).
 - **Saving:** every tag class's `save()` writes only if the tag changed since it was read or last saved (`has_changed`), unless `force`, and returns whether it wrote.
-  - It's `ID3FileTag.save()`, which writes through the class's `_write_to_tagfile()`; only `TrackCuesV2` overrides it, for `delete_tags_v1`. A forced save of an unchanged tag puts nothing in the tagfile, so it can't restore a frame another tag sharing it deleted.
+  - It's `ID3FileTag.save()`, which writes through the class's `_write_to_tagfile()`. A forced save of an unchanged tag puts nothing in the tagfile, so it can't restore a frame another tag sharing it deleted.
+  - Only `TrackCuesV2` overrides it, for `delete_tags_v1`. Its forced save puts its own frame back even unchanged, so that it also deletes a stale `Serato Markers_`.
   - So other unsaved changes to a tagfile a caller passed in (frames set on it directly, or by another tag object sharing it) are only written along with one of the tag's own. The `save()` docstrings and README say to save the tagfile when `save()` returns False; there's no way to detect them, as mutagen has no unsaved-changes flag.
 - **`SeratoGeobTag`** subclasses `ID3FileTag`, holding everything GEOB-specific (its own frame, the version check and packing, `_readbytes`). There's one class per GEOB tag, each declaring `GEOB_KEY` and `VERSION` and implementing `_parse` / `_serialize`:
 
