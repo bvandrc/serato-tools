@@ -3,13 +3,65 @@ import struct
 import unittest
 from unittest import mock
 
+from mutagen.mp3 import MP3
+
 from serato_tools.track_beatgrid import TrackBeatgrid, main
-from serato_tools.utils.track_tags import NoBeatgridError
+from serato_tools.utils.beatgrid_analyze import BeatGridInfo
+from serato_tools.utils.track_tags import GeobKeys, NoBeatgridError, set_geob
 
 from test.helpers import TEST_MP3, read_bytes, temp_mp3
 
+Marker = TrackBeatgrid.NonTerminalBeatgridMarker
+Last = TrackBeatgrid.TerminalBeatgridMarker
+
+# 4 beats at 60 BPM, 8 at 240, then 120 to the end
+GRID = (Marker(0.0, 4), Marker(4.0, 8), Last(6.0, 120.0))
+
+
+def grid_bytes(markers: tuple[Marker | Last, ...]) -> bytes:
+    """The tag's bytes for a grid of `markers`."""
+    data = b"\x01\x00" + struct.pack(">I", len(markers))
+    for marker in markers:
+        data += struct.pack(">f", marker.position_s)
+        data += struct.pack(">f" if isinstance(marker, Last) else ">I", marker[1])
+    return data + b"\x00"
+
 
 class TestCase(unittest.TestCase):
+    def mp3_with_grid(self, markers: tuple[Marker | Last, ...]) -> str:
+        path = temp_mp3(self)
+        tagfile = MP3(path)
+        set_geob(tagfile, GeobKeys.BEATGRID, grid_bytes(markers))
+        tagfile.save()
+        return path
+
+    def test_get_beat_position_across_markers(self):
+        beatgrid = TrackBeatgrid(grid_bytes(GRID))
+        for position_ms, beats in ((0, 0), (2000, 2), (4000, 4), (5000, 8), (6000, 12), (7000, 14)):
+            with self.subTest(position_ms):
+                self.assertAlmostEqual(beatgrid.get_beat_position(position_ms), beats)
+
+    def test_get_beats_across_markers(self):
+        beats = TrackBeatgrid(self.mp3_with_grid(GRID)).get_beats()
+        self.assertEqual(
+            [(beat.position_s, beat.bpm) for beat in beats[:14]],
+            [
+                *((float(i), 60.0) for i in range(4)),
+                *((4.0 + i / 4, 240.0) for i in range(8)),
+                (6.0, 120.0),
+                (6.5, 120.0),
+            ],
+        )
+        self.assertLessEqual(beats[-1].position_s, MP3(TEST_MP3).info.length, "to the end of the track")
+
+    def test_analyze_and_write_replaces_the_beats_found(self):
+        beatgrid = TrackBeatgrid(self.mp3_with_grid(GRID))
+        beatgrid.get_beats()
+        analyzed = BeatGridInfo(100.0, [], 1.0, 0.0, 1.0, downbeats=[0.5, 2.9])
+        with mock.patch("serato_tools.utils.beatgrid_analyze.analyze_beatgrid", return_value=analyzed):
+            beatgrid.analyze_and_write()
+        self.assertEqual(beatgrid.find_nearest_beat(520, 0.1), 500.0, "the new grid's first beat")
+
     def test_parse_and_serialize(self):
         file_data = read_bytes("test/data/track_beatgrid.bin")
         tags = TrackBeatgrid(file_data)
@@ -37,8 +89,6 @@ class TestCase(unittest.TestCase):
         self.assertIsNone(beatgrid.get_snapped_position(beat_ms + 60, 1 / 1000), "outside tolerance")
 
     def test_a_grid_serato_wouldnt_write_raises(self):
-        Marker = TrackBeatgrid.NonTerminalBeatgridMarker
-        Last = TrackBeatgrid.TerminalBeatgridMarker
         cases = {
             "a marker with 0 beats": (Marker(1.0, 0), Last(2.0, 120.0)),
             "a marker at the same position as the one before": (Marker(1.0, 4), Last(1.0, 120.0)),
@@ -48,12 +98,8 @@ class TestCase(unittest.TestCase):
         }
         for name, markers in cases.items():
             with self.subTest(name):
-                data = b"\x01\x00" + struct.pack(">I", len(markers))
-                for marker in markers:
-                    data += struct.pack(">f", marker.position_s)
-                    data += struct.pack(">f" if isinstance(marker, Last) else ">I", marker[1])
                 with self.assertRaises(ValueError, msg="parsing"):
-                    TrackBeatgrid(data + b"\x00")
+                    TrackBeatgrid(grid_bytes(markers))
 
                 tags = TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin"))
                 tags.entries = (*markers, TrackBeatgrid.Footer(0))
