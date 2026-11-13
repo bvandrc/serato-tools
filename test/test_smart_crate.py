@@ -45,6 +45,10 @@ class TestCase(unittest.TestCase):
         self.assertEqual(crate.to_bytes(), read_bytes(file), "to_bytes")
         self.check_lines(crate.__str__(), expected)
 
+    def test_find_missing_raises(self):
+        with self.assertRaises(TypeError, msg="its tracks come from its rules"):
+            SmartCrate("test/data/TestSmartCrate.scrate").find_missing()
+
     def test_add_rule(self):
         file = os.path.abspath("test/data/TestSmartCrate.scrate")
 

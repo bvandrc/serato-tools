@@ -37,7 +37,15 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `Library.remove_track_files` returns a `RemoveTrackFilesResult`: `files_deleted`, the track files it deleted, and `library_files_changed`, the paths of the database, crates, and smart crates it changed.
 - Methods that took a list of track paths or rules take any collection of them, such as a set or a tuple.
 - The tag CLIs (`serato_snap_cues_v2`, `serato_beatgrid`, and running `track_autotags` or `track_waveform` as a module) read a file of the tag's own bytes, such as one `serato_tagdump` writes. They used to raise for any file that isn't .mp3, .aiff, or .aif.
+<<<<<<< HEAD
+- Errors that were a bare `Exception` have a specific type, with a message saying what's wrong. Each is still an `Exception`, so existing `except Exception` code keeps working:
+  - `ValueError` for `get_serato_tagdata` on a file without tags, `TrackBeatgrid.analyze_and_write` on a tag read from bytes, and a track with more than one stems file in `copy_crates_to_usb`.
+  - `TypeError` for `SmartCrate.find_missing`.
+  - `FileNotFoundError` when no editor is found for a CLI's edit mode.
+  - `ImportError`, saying to install the `waveform_drawing` extra, for `TrackWaveform.draw_image` without pillow.
+=======
 - A database, crate, or Serato tag that's cut off or malformed raises `ValueError` saying what's wrong, rather than an `AssertionError`.
+>>>>>>> refactor/split-usb-export
 - Breaking: `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`, next to the database and crate code that raises them.
 
 ### Removed

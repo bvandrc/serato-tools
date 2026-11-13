@@ -358,13 +358,12 @@ class TrackBeatgrid(SeratoGeobTag):
         `beatgrid_analysis` extra (librosa and numpy), and takes seconds. An MP3's grid may be off by tens of ms, since
         the analysis decodes it differently than Serato does.
         """
-        if not self.tagfile:
-            raise Exception("No tagfile set")
+        tagfile = self._require_tagfile()
 
         from serato_tools.utils.beatgrid_analyze import analyze_beatgrid
 
-        bpm = float(str(self.tagfile["TBPM"]))
-        filename = cast(str, self.tagfile.filename)
+        bpm = float(str(tagfile["TBPM"]))
+        filename = cast(str, tagfile.filename)
 
         # Serato's beatgrid positions are times in audio as Serato's own MP3 decoder decodes it. Other decoders start
         # MP3s at a different point: Serato's times are about 26 ms (44.1 kHz) or 24 ms (48 kHz) late for FFmpeg or

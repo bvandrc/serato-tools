@@ -225,11 +225,7 @@ def _copy_tracks(track_paths: list[str], dest_dir: str):
 
         stem_files = find_stem_files(src_path)
         if len(stem_files) > 1:
-            error = "should not have more than 1 stem file for: " + src_path
-            print(error)
-            print("Files found:")
-            print("\n".join(stem_files))
-            raise Exception(error)
+            raise ValueError(f"more than 1 stems file for {src_path}: {', '.join(stem_files)}")
         if stem_files:
             maybe_copy(stem_files[0])
     print("\n")

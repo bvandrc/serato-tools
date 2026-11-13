@@ -102,3 +102,7 @@ class TestCase(unittest.TestCase):
             with self.subTest(name), self.assertRaises(ValueError):
                 tags.entries = entries  # pyright: ignore[reportAttributeAccessIssue]
                 tags._serialize()
+
+    def test_analyzing_a_tag_read_from_bytes_raises(self):
+        with self.assertRaisesRegex(ValueError, "read from bytes"):
+            TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin")).analyze_and_write()

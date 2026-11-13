@@ -7,7 +7,6 @@ import sys
 from dataclasses import dataclass
 from typing import Optional
 
-from serato_tools.utils import logger
 from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag, open_tag_file_or_data
 
 
@@ -109,10 +108,7 @@ if __name__ == "__main__":
             output = f.read()
 
         if status != 0:
-            ERROR_STR = f"Command executation failed with status: {status}"
-            print(ERROR_STR, file=sys.stderr)
-            logger.error(ERROR_STR)
-            raise Exception(ERROR_STR)
+            sys.exit(f"the editor exited with status {status}, so no changes were made")
 
         cp = configparser.ConfigParser()
         try:
@@ -121,11 +117,8 @@ if __name__ == "__main__":
             bpm = cp.getfloat(SECTION, "bpm")
             autogain = cp.getfloat(SECTION, "autogain")
             gaindb = cp.getfloat(SECTION, "gaindb")
-        except Exception:
-            ERROR_STR = "Invalid input, no changes made"
-            print(ERROR_STR, file=sys.stderr)
-            logger.error(ERROR_STR)
-            raise
+        except (configparser.Error, ValueError) as error:
+            sys.exit(f"invalid input, so no changes were made: {error}")
 
         tags.set(bpm=bpm, autogain=autogain, gaindb=gaindb)
         if tags.tagfile:

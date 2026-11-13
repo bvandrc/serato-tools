@@ -157,6 +157,11 @@ class CopyCratesToUsbTestCase(unittest.TestCase):
         self.assertFalse(os.path.exists(stale), "the drive's _Serato_ folder is replaced")
         self.assertTrue(os.path.exists(self.dest("_Serato_", Crate.DIR, "House.crate")))
 
+    def test_a_track_with_two_stems_files_raises(self):
+        self.add_track(os.path.join(self.music, "one", "a (2).serato-stems"))
+        with self.assertRaisesRegex(ValueError, "more than 1 stems file"):
+            usb_export.copy_crates_to_usb([self.house], self.drive, "Tracks")
+
 
 class TestCase(unittest.TestCase):
     def _run_main(self, drive: str, system: str) -> str:
