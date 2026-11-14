@@ -74,8 +74,14 @@ class CrateBase(SeratoBinFile):
                 existing.add(relpath)
 
     def add_tracks_from_dir(self, dir: str, replace: bool = False):
-        """Adds every file directly in `dir`; with `replace`, first removes every track that isn't one of them."""
-        dir_tracks = [self.get_relative_path(os.path.join(dir, t)) for t in os.listdir(dir)]
+        """Adds every file directly in `dir` but hidden ones, such as `.DS_Store`; with `replace`, first removes every
+        track that isn't one of them."""
+        dir_tracks = [
+            self.get_relative_path(path)
+            for name in os.listdir(dir)
+            # not a subfolder, which isn't a track
+            if not name.startswith(".") and os.path.isfile(path := os.path.join(dir, name))
+        ]
 
         if replace:
             # one filter pass instead of a full remove_track scan per removed track
