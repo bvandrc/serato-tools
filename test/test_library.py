@@ -15,6 +15,7 @@ from serato_tools.smart_crate import SmartCrate
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.utils.bin_file_base import SeratoBinFile
+from serato_tools.utils import DataTypeError
 
 from test.helpers import temp_dir, temp_mp3, untagged_mp3
 
@@ -248,6 +249,17 @@ class TestCase(unittest.TestCase):
             )
         self.assertEqual(saved, [], "database not saved")
         self.assertEqual(TrackCuesV2(track).get_track_color(), b"\xbb\xbb\xbb", "file not changed")
+
+    def test_set_db_track_tags_value_the_database_cant_hold_changes_nothing(self):
+        track = self.copy_analyzed_track("Track.mp3")
+        self.add_to_database(track)
+
+        saved = self.saved_file_names()
+        with self.assertRaises(DataTypeError):
+            # an int, which the file's tags take as a bool, but the database's bool field doesn't
+            Library(self.serato_dir).set_db_track_tags(track, beatgrid_locked=1)  # type: ignore[arg-type]
+        self.assertEqual(saved, [], "database not saved")
+        self.assertFalse(TrackCuesV2(track).is_beatgrid_locked(), "file not changed")
 
     def test_set_db_tracks_tags_failing_later_track_changes_nothing(self):
         first = self.copy_analyzed_track("First.mp3")

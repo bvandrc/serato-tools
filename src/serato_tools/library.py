@@ -135,11 +135,14 @@ class Library:
         - See TrackCuesV2.save for `delete_tags_v1`.
         """
         props = _db_track_props()
-        # converted before any file is written, so a value the database can't hold changes nothing
+        # converted and checked before any file is written, so a value the database can't hold changes nothing
         db_values = {
             DatabaseV2.get_relative_path(filepath).upper(): props.to_db_values(tags)
             for filepath, tags in tracks.items()
         }
+        for values in db_values.values():
+            for field, value in values.items():
+                SeratoBinFile.check_value(field, value)
         props.write_db_track_tags_to_files(tracks, delete_tags_v1)
 
         found: set[str] = set()
