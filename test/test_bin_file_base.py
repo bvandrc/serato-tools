@@ -1,5 +1,4 @@
 import os
-import shutil
 import unittest
 from unittest import mock
 
@@ -7,7 +6,7 @@ from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
-from test.helpers import read_bytes, temp_dir
+from test.helpers import TEST_CRATE, TEST_DATABASE, read_bytes, temp_copy, temp_dir
 
 
 class PathTestCase(unittest.TestCase):
@@ -58,7 +57,7 @@ class PathTestCase(unittest.TestCase):
 
 class ParseTestCase(unittest.TestCase):
     def test_a_file_cut_off_raises(self):
-        data = read_bytes("test/data/database_v2_test.bin")
+        data = read_bytes(TEST_DATABASE)
         tmp = temp_dir(self)
         for name, cut_at in (("partway through a header", 3), ("partway through an entry", len(data) - 1)):
             with self.subTest(name):
@@ -69,7 +68,7 @@ class ParseTestCase(unittest.TestCase):
                     DatabaseV2(path)
 
     def test_modify_with_two_rules_for_a_field_raises(self):
-        db = DatabaseV2("test/data/database_v2_test.bin")
+        db = DatabaseV2(TEST_DATABASE)
         rule: SeratoBinFile.ModifyRule = {"field": DatabaseV2.Fields.GENRE, "func": lambda *args: None}
         with self.assertRaisesRegex(ValueError, "1 rule per field"):
             db.modify([rule, rule])
@@ -91,45 +90,55 @@ class TrackTestCase(unittest.TestCase):
     def test_remove_field(self):
         path, genre = SeratoBinFile.Fields.FILE_PATH.value, SeratoBinFile.Fields.GENRE.value
         track = SeratoBinFile.Track([(path, "a.mp3"), (genre, "House")], path_key=path)
+        only_path = [(path, "a.mp3")]
 
         self.assertTrue(track.remove_field(genre), "reports removal")
-        self.assertEqual(track.to_entries(), [(path, "a.mp3")], "removed from the entries written back")
+        self.assertEqual(track.to_entries(), only_path, "removed from the entries written back")
         self.assertFalse(track.remove_field(genre), "reports no change when already gone")
-        with self.assertRaises(ValueError, msg="a track can't be without its path"):
-            track.remove_field(path)
-        self.assertEqual(track.to_entries(), [(path, "a.mp3")], "path kept")
 
-    def test_set_empty_value_removes_field(self):
         # as Serato does when a tag is cleared
-        path, genre = SeratoBinFile.Fields.FILE_PATH.value, SeratoBinFile.Fields.GENRE.value
-        track = SeratoBinFile.Track([(path, "a.mp3"), (genre, "House")], path_key=path)
-
+        track.set_value(genre, "House")
         track.set_value(genre, "")
-        self.assertEqual(track.to_entries(), [(path, "a.mp3")], "removed rather than set empty")
+        self.assertEqual(track.to_entries(), only_path, "set_value empty removes it, rather than setting it empty")
         track.set_value(genre, "")
-        self.assertEqual(track.to_entries(), [(path, "a.mp3")], "not added when already gone")
-        with self.assertRaises(ValueError, msg="a track can't be without its path"):
-            track.set_value(path, "")
+        self.assertEqual(track.to_entries(), only_path, "set_value empty doesn't add it when already gone")
+
+        for remove_path in (lambda: track.remove_field(path), lambda: track.set_value(path, "")):
+            with self.assertRaises(ValueError, msg="a track can't be without its path"):
+                remove_path()
+        self.assertEqual(track.to_entries(), only_path, "path kept")
 
 
-class HasChangedTestCase(unittest.TestCase):
-    """has_changed, through Crate, the smallest of the bin file classes."""
+class SaveTestCase(unittest.TestCase):
+    """has_changed and save, through Crate, the smallest of the bin file classes."""
 
     def setUp(self):
         self.tmp = temp_dir(self)
-        self.file = os.path.join(self.tmp, "Test.crate")
-        shutil.copy("test/data/TestCrate.crate", self.file)
+        self.file = temp_copy(self, TEST_CRATE, "Test.crate", self.tmp)
 
-    def test_has_changed(self):
+    def test_save_writes_its_own_file_only_when_changed(self):
         crate = Crate(self.file)
         self.assertFalse(crate.has_changed, "as loaded")
+        with mock.patch("builtins.open", wraps=open) as opened:
+            self.assertFalse(crate.save(), "unchanged")
+        opened.assert_not_called()
+        with mock.patch("builtins.open", wraps=open) as opened:
+            self.assertTrue(crate.save(force=True), "forced")
+        opened.assert_called_once_with(self.file, "wb")
+        copy = os.path.join(self.tmp, "Copy.crate")
+        self.assertTrue(crate.save(copy), "saving elsewhere always writes")
+        self.assertEqual(read_bytes(copy), read_bytes(self.file), "as it was")
 
         crate.add_tracks(["/music/track1.mp3"])
         self.assertTrue(crate.has_changed, "track added")
-        crate.save(os.path.join(self.tmp, "Copy.crate"))
+        crate.save(copy)
         self.assertTrue(crate.has_changed, "saving a copy elsewhere leaves its own file unsaved")
-        crate.save()
+        with mock.patch.object(Crate, "to_bytes", autospec=True, side_effect=Crate.to_bytes) as to_bytes:
+            self.assertTrue(crate.save())
+        self.assertEqual(to_bytes.call_count, 1, "serialized once, to check and to write")
+        self.assertEqual(Crate(self.file).get_track_paths(), crate.get_track_paths(), "written")
         self.assertFalse(crate.has_changed, "saved")
+        self.assertFalse(crate.save(), "not written again")
 
         sorting = crate.entries[1][1]
         assert isinstance(sorting, list)
@@ -148,10 +157,13 @@ class HasChangedTestCase(unittest.TestCase):
         self.assertFalse(crate.has_changed)
 
     def test_new_file_has_changed_until_saved(self):
-        crate = Crate(os.path.join(self.tmp, "New.crate"))
+        file = os.path.join(self.tmp, "New.crate")
+        crate = Crate(file)
         self.assertTrue(crate.has_changed, "saving creates the file")
+        crate.add_tracks(["/music/track1.mp3"])
         crate.save()
         self.assertFalse(crate.has_changed)
+        self.assertEqual(Crate(file).get_track_paths(), crate.get_track_paths(), "created with its tracks")
 
     def test_file_loaded_from_json_hasnt_changed(self):
         json_file = os.path.join(self.tmp, "Test.json")
@@ -160,38 +172,6 @@ class HasChangedTestCase(unittest.TestCase):
         self.assertFalse(crate.has_changed)
         crate.add_tracks(["/music/track1.mp3"])
         self.assertTrue(crate.has_changed)
-
-
-class SaveTestCase(unittest.TestCase):
-    """save, through Crate, as HasChangedTestCase."""
-
-    def setUp(self):
-        self.tmp = temp_dir(self)
-        self.file = os.path.join(self.tmp, "Test.crate")
-        shutil.copy("test/data/TestCrate.crate", self.file)
-
-    def test_unchanged_file_isnt_written_unless_forced(self):
-        crate = Crate(self.file)
-        with mock.patch("builtins.open", wraps=open) as opened:
-            self.assertFalse(crate.save())
-        opened.assert_not_called()
-        with mock.patch("builtins.open", wraps=open) as opened:
-            self.assertTrue(crate.save(force=True))
-        opened.assert_called_once_with(self.file, "wb")
-
-    def test_changed_file_is_written_once_serialized(self):
-        crate = Crate(self.file)
-        crate.add_tracks(["/music/track1.mp3"])
-        with mock.patch.object(Crate, "to_bytes", autospec=True, side_effect=Crate.to_bytes) as to_bytes:
-            self.assertTrue(crate.save())
-        self.assertEqual(to_bytes.call_count, 1, "serialized once, to check and to write")
-        self.assertEqual(Crate(self.file).get_track_paths(), crate.get_track_paths(), "written")
-        self.assertFalse(crate.save(), "not written again")
-
-    def test_saving_elsewhere_always_writes(self):
-        copy = os.path.join(self.tmp, "Copy.crate")
-        self.assertTrue(Crate(self.file).save(copy))
-        self.assertEqual(read_bytes(copy), read_bytes(self.file))
 
 
 if __name__ == "__main__":

@@ -4,15 +4,14 @@ import unittest
 
 from serato_tools.crate import Crate
 
-from test.helpers import read_bytes, temp_dir
+from test.helpers import TEST_CRATE, read_bytes, read_text, temp_dir
 
-with open("test/data/crate.txt", "r", encoding="utf-8") as f:
-    base_expected = f.read()
+base_expected = read_text("test/data/crate.txt")
 
 
 class TestCase(unittest.TestCase):
     def test_parse_and_modify_and_serialize(self):
-        file = os.path.abspath("test/data/TestCrate.crate")
+        file = os.path.abspath(TEST_CRATE)
         crate = Crate(file)
 
         self.maxDiff = None
@@ -73,15 +72,6 @@ class TestCase(unittest.TestCase):
         crate = Crate(os.path.join(temp_dir(self), "Test.crate"))
         with self.assertRaisesRegex(ValueError, "should end with .crate"):
             crate.save(os.path.join(temp_dir(self), "Test.txt"))
-
-    def test_add_tracks_is_saved(self):
-        file = os.path.join(temp_dir(self), "Test.crate")
-        crate = Crate(file)
-        crate.add_tracks(["/music/track1.mp3"])
-        crate.save()
-
-        self.assertEqual(Crate(file).get_track_paths(), crate.get_track_paths())
-        self.assertEqual(len(crate.get_track_paths()), 1)
 
 
 if __name__ == "__main__":

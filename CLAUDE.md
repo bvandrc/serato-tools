@@ -25,7 +25,7 @@ pip install -e ".[all,dev]"                                  # all optional deps
 ```bash
 python -m unittest                                                # full suite
 python -m unittest test.test_crate                                # one module
-python -m unittest test.test_crate.TestCase.test_add_tracks_is_saved  # one test
+python -m unittest test.test_crate.TestCase.test_saving_needs_the_crate_extension  # one test
 pylint $(git ls-files '*.py')                                     # lint (config in .pylintrc, most C/R checks disabled)
 pyright                                                           # type check (config in pyproject.toml)
 isort .                                                           # sort imports (config in pyproject.toml)

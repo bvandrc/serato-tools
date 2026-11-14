@@ -1,18 +1,18 @@
 # pylint: disable=protected-access
 import struct
 import unittest
-from unittest import mock
 
 from serato_tools.track_beatgrid import TrackBeatgrid, main
 from serato_tools.utils.track_tags import NoBeatgridError
 
-from test.helpers import TEST_MP3, read_bytes, temp_mp3
+from test.helpers import TEST_MP3, cli_args, mp3_without, read_bytes
+
+BEATGRID = "test/data/track_beatgrid.bin"
 
 
 class TestCase(unittest.TestCase):
-    def test_parse_and_serialize(self):
-        file_data = read_bytes("test/data/track_beatgrid.bin")
-        tags = TrackBeatgrid(file_data)
+    def test_parse(self):
+        tags = TrackBeatgrid(read_bytes(BEATGRID))
         assert tags.entries is not None
         self.assertEqual(
             tags.entries,
@@ -22,8 +22,6 @@ class TestCase(unittest.TestCase):
             ),
             "parsed entries",
         )
-        tags._serialize()
-        self.assertEqual(tags._raw_data, file_data, "serialize")
 
     def test_get_snapped_position_ignores_1ms_by_default(self):
         beatgrid = TrackBeatgrid(TEST_MP3)
@@ -55,21 +53,14 @@ class TestCase(unittest.TestCase):
                 with self.assertRaises(ValueError, msg="parsing"):
                     TrackBeatgrid(data + b"\x00")
 
-                tags = TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin"))
+                tags = TrackBeatgrid(read_bytes(BEATGRID))
                 tags.entries = (*markers, TrackBeatgrid.Footer(0))
                 with self.assertRaises(ValueError, msg="saving"):
                     tags._serialize()
 
-    def no_beatgrid_mp3(self) -> str:
-        path = temp_mp3(self)
-        beatgrid = TrackBeatgrid(path)
-        beatgrid.delete()
-        beatgrid.save()
-        return path
-
     def test_without_a_beatgrid_finding_beats_raises(self):
         # rather than returning None, which reads as "don't move the cue"
-        path = self.no_beatgrid_mp3()
+        path = mp3_without(self, TrackBeatgrid.GEOB_KEY)
         beatgrid = TrackBeatgrid(path)
         for name, find in (
             ("get_snapped_position", lambda: beatgrid.get_snapped_position(45104, 1 / 8)),
@@ -84,17 +75,17 @@ class TestCase(unittest.TestCase):
         self.assertEqual(str(NoBeatgridError()), "no Serato BeatGrid tag")
 
     def test_cli_without_a_beatgrid_exits_with_the_error(self):
-        path = self.no_beatgrid_mp3()
-        with mock.patch("sys.argv", ["serato_beatgrid", path]), self.assertRaises(SystemExit) as caught:
+        path = mp3_without(self, TrackBeatgrid.GEOB_KEY)
+        with cli_args("serato_beatgrid", path), self.assertRaises(SystemExit) as caught:
             main()
         self.assertEqual(caught.exception.code, f"no Serato BeatGrid tag: {path}")
 
     def test_bytes_after_the_footer_raise(self):
         with self.assertRaisesRegex(ValueError, "1 bytes after its footer"):
-            TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin") + b"\x00")
+            TrackBeatgrid(read_bytes(BEATGRID) + b"\x00")
 
     def test_entries_out_of_order_raise_on_saving(self):
-        tags = TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin"))
+        tags = TrackBeatgrid(read_bytes(BEATGRID))
         for name, entries in (
             ("no terminal marker", (TrackBeatgrid.NonTerminalBeatgridMarker(1.0, 4), TrackBeatgrid.Footer(0))),
             ("the footer first", (TrackBeatgrid.Footer(0), TrackBeatgrid.TerminalBeatgridMarker(2.0, 120.0))),

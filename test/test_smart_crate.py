@@ -1,9 +1,6 @@
 # pylint: disable=protected-access
-import contextlib
 import copy
-import io
 import os
-import shutil
 import unittest
 from typing import cast
 from unittest import mock
@@ -11,10 +8,24 @@ from unittest import mock
 from serato_tools.smart_crate import SmartCrate, main
 from serato_tools.utils.bin_file_base import DataTypeError
 
-from test.helpers import read_bytes, temp_dir
+from test.helpers import TEST_SMART_CRATE, cli_args, read_bytes, read_text, temp_copy
 
-with open("test/data/smart_crate.txt", "r", encoding="utf-8") as f:
-    expected = f.read()
+SMART_CRATE = os.path.abspath(TEST_SMART_CRATE)
+expected = read_text("test/data/smart_crate.txt")
+
+
+def rule_entries(
+    comparison: SmartCrate.RuleComparison,
+    field: SmartCrate.RuleField,
+    value_field: SmartCrate.RuleFields,
+    value: str | int,
+) -> SmartCrate.EntryList:
+    """A rule's entries, as Serato writes them."""
+    return [
+        (SmartCrate.RuleFields.RULE_COMPARISON.value, comparison.value),
+        (SmartCrate.RuleFields.RULE_FIELD.value, field.value),
+        (value_field.value, value),
+    ]
 
 
 def make_rule(
@@ -23,13 +34,7 @@ def make_rule(
     value_field: SmartCrate.RuleFields,
     value: str | int,
 ) -> SmartCrate.Rule:
-    return SmartCrate.Rule(
-        [
-            (SmartCrate.RuleFields.RULE_COMPARISON.value, comparison.value),
-            (SmartCrate.RuleFields.RULE_FIELD.value, field.value),
-            (value_field.value, value),
-        ]
-    )
+    return SmartCrate.Rule(rule_entries(comparison, field, value_field, value))
 
 
 class TestCase(unittest.TestCase):
@@ -40,17 +45,12 @@ class TestCase(unittest.TestCase):
         self.maxDiff = None
         self.assertMultiLineEqual(given, exp)
 
-    def test_parse(self):
-        file = os.path.abspath("test/data/TestSmartCrate.scrate")
-        crate = SmartCrate(file)
+    def test_parse_and_add_rule(self):
+        crate = SmartCrate(SMART_CRATE)
 
-        self.assertEqual(crate.to_bytes(), read_bytes(file), "to_bytes")
+        self.assertEqual(crate.to_bytes(), read_bytes(SMART_CRATE), "to_bytes")
         self.check_lines(crate.__str__(), expected)
 
-    def test_add_rule(self):
-        file = os.path.abspath("test/data/TestSmartCrate.scrate")
-
-        crate = SmartCrate(file)
         crate.set_rule(SmartCrate.RuleField.ALBUM, SmartCrate.RuleComparison.STR_IS_NOT, "albo")
         self.check_lines(
             crate.__str__(),
@@ -59,7 +59,7 @@ class TestCase(unittest.TestCase):
         )
 
     def test_set_rule_on_malformed_crate_changes_nothing(self):
-        crate = SmartCrate(os.path.abspath("test/data/TestSmartCrate.scrate"))
+        crate = SmartCrate(SMART_CRATE)
         # a rule entry after the GROUPING rule that holds text rather than an entry list
         crate.entries.append((SmartCrate.RuleFields.SMARTCRATE_RULE.value, "not a rule"))
         entries_before = copy.deepcopy(crate.entries)
@@ -69,7 +69,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(crate.entries, entries_before, "a rule before the malformed one must not be replaced")
 
     def test_delete_rule_returns_whether_removed(self):
-        crate = SmartCrate(os.path.abspath("test/data/TestSmartCrate.scrate"))
+        crate = SmartCrate(SMART_CRATE)
 
         self.assertFalse(crate.delete_rule(SmartCrate.RuleField.ALBUM), "the crate has no album rule")
         self.assertFalse(crate.has_changed)
@@ -114,11 +114,12 @@ class TestCase(unittest.TestCase):
         rule.set_value(100)
         self.assertEqual(
             rule.to_entries(),
-            [
-                (SmartCrate.RuleFields.RULE_COMPARISON.value, SmartCrate.RuleComparison.STR_IS.value),
-                (SmartCrate.RuleFields.RULE_FIELD.value, SmartCrate.RuleField.ARTIST.value),
-                (SmartCrate.RuleFields.RULE_VALUE_TEXT.value, "100"),
-            ],
+            rule_entries(
+                SmartCrate.RuleComparison.STR_IS,
+                SmartCrate.RuleField.ARTIST,
+                SmartCrate.RuleFields.RULE_VALUE_TEXT,
+                "100",
+            ),
             "a string comparison's value must be stored as text, whatever type was passed",
         )
 
@@ -130,11 +131,12 @@ class TestCase(unittest.TestCase):
         rule.set_value("100")
         self.assertEqual(
             rule.to_entries(),
-            [
-                (SmartCrate.RuleFields.RULE_COMPARISON.value, SmartCrate.RuleComparison.INT_IS_GE.value),
-                (SmartCrate.RuleFields.RULE_FIELD.value, SmartCrate.RuleField.PLAYS.value),
-                (SmartCrate.RuleFields.RULE_VALUE_INTEGER.value, 100),
-            ],
+            rule_entries(
+                SmartCrate.RuleComparison.INT_IS_GE,
+                SmartCrate.RuleField.PLAYS,
+                SmartCrate.RuleFields.RULE_VALUE_INTEGER,
+                100,
+            ),
             "old text value field must be replaced in place, not kept alongside the integer field",
         )
 
@@ -148,17 +150,11 @@ class TestCase(unittest.TestCase):
 
 class CliTestCase(unittest.TestCase):
     def setUp(self):
-        self.path = os.path.join(temp_dir(self), "test.scrate")
-        shutil.copy("test/data/TestSmartCrate.scrate", self.path)
+        self.path = temp_copy(self, TEST_SMART_CRATE)
 
     def run_cli(self, *args: str) -> str:
         """Runs `serato_smartcrate` on the test smart crate's copy with `args`, and returns what it printed to stdout."""
-        stdout = io.StringIO()
-        with (
-            mock.patch("sys.argv", ["serato_smartcrate", self.path, *args]),
-            contextlib.redirect_stdout(stdout),
-            contextlib.redirect_stderr(io.StringIO()),
-        ):
+        with cli_args("serato_smartcrate", self.path, *args) as stdout:
             main()
         return stdout.getvalue()
 

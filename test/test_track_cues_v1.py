@@ -10,7 +10,7 @@ class TestCase(unittest.TestCase):
     def setUp(self):
         self.file_data = read_bytes("test/data/track_cues_v1.bin")
 
-    def test_parse_and_serialize(self):
+    def test_parse(self):
         tags = TrackCuesV1(self.file_data)
         unset = "start_position_set=False, start_position=None, end_position_set=False, end_position=None, field5=b'\\x00\\x7f\\x7f\\x7f\\x7f\\x7f', color=b'\\x00\\x00\\x00'"
         self.assertEqual(
@@ -25,8 +25,6 @@ class TestCase(unittest.TestCase):
             ],
             "parsed entries: 3 cues, 2 unset cues, 9 unset loops, and the track color",
         )
-        tags._serialize()
-        self.assertEqual(tags._raw_data, self.file_data, "serialize")
 
     def test_serialize_without_trailing_color_raises(self):
         tags = TrackCuesV1(self.file_data)

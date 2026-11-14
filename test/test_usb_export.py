@@ -4,7 +4,7 @@ from unittest import mock
 
 from serato_tools import usb_export
 
-from test.helpers import temp_dir
+from test.helpers import cli_args, temp_dir
 
 
 class GetCrateFilesTestCase(unittest.TestCase):
@@ -66,9 +66,8 @@ class GetCrateFilesTestCase(unittest.TestCase):
 class TestCase(unittest.TestCase):
     def _run_main(self, drive: str, system: str) -> str:
         """Runs the CLI with `--drive drive` as if on `system`, and returns the drive folder it exports to."""
-        argv = ["serato_usb_export", "--drive", drive, "--crates", "*"]
         with (
-            mock.patch("sys.argv", argv),
+            cli_args("serato_usb_export", "--drive", drive, "--crates", "*"),
             mock.patch.object(usb_export.platform, "system", return_value=system),
             mock.patch.object(usb_export, "get_crate_files", return_value=[]),
             mock.patch.object(usb_export, "copy_crates_to_usb") as copy_crates_to_usb,

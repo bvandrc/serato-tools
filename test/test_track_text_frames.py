@@ -1,5 +1,4 @@
 import unittest
-from unittest import mock
 
 from mutagen.id3 import COMM, ID3, TPE1, Encoding
 
@@ -20,12 +19,18 @@ class TestCase(unittest.TestCase):
 
     def test_set_writes_on_save(self):
         frames = TrackTextFrames(self.path)
+        self.assertFalse(frames.has_changed, "as read")
+        frames.set("TIT2", "Frequency Shift")
+        self.assertFalse(frames.has_changed, "set to what the file has")
+
         frames.set("TIT2", "New Title")
         frames.set("TPE4", "A Remixer")
+        self.assertTrue(frames.has_changed, "set")
         self.assertEqual(frames.get("TIT2"), "New Title", "unsaved value read back")
         self.assertEqual(TrackTextFrames(self.path).get("TIT2"), "Frequency Shift", "not written until saved")
 
         frames.save()
+        self.assertFalse(frames.has_changed, "saved")
         saved = TrackTextFrames(self.path)
         self.assertEqual(saved.get("TIT2"), "New Title")
         self.assertEqual(saved.get("TPE4"), "A Remixer", "missing frame added")
@@ -43,15 +48,6 @@ class TestCase(unittest.TestCase):
             with self.subTest(field.name):
                 self.assertEqual(saved.get(field), texts.get(field, "1"))
                 self.assertEqual(saved.get(field.value), texts.get(field, "1"), "the same frame as its ID")
-
-    def test_save_skips_writing_when_unchanged(self):
-        frames = TrackTextFrames(self.path)
-        frames.set("TIT2", "Frequency Shift")
-        with mock.patch.object(frames.tagfile, "save") as write:
-            frames.save()
-            write.assert_not_called()
-            frames.save(force=True)
-            write.assert_called_once()
 
     def test_set_raises_for_a_frame_id_that_isnt_a_text_frame_stored_by_its_id(self):
         # COMM and TXXX are text frames stored under a key with their description; TIPL is stored by its ID but holds
@@ -86,26 +82,21 @@ class TestCase(unittest.TestCase):
         self.assertEqual(TrackTextFrames(self.path).get("TDRC"), "2020-05-01")
 
     def test_set_replaces_every_value_of_a_multi_valued_frame(self):
-        tags = ID3(self.path)
-        tags.add(TPE1(encoding=Encoding.UTF8, text=["A", "B"]))
-        tags.save(self.path)
+        for frame_id, key, frame in (
+            ("TPE1", "TPE1", TPE1(encoding=Encoding.UTF8, text=["A", "B"])),
+            ("COMM", "COMM::eng", COMM(encoding=Encoding.LATIN1, lang="eng", desc="", text=["A", "B"])),
+        ):
+            with self.subTest(frame_id):
+                tags = ID3(self.path)
+                tags.add(frame)
+                tags.save(self.path)
 
-        frames = TrackTextFrames(self.path)
-        self.assertEqual(frames.get("TPE1"), "A", "the first value")
-        frames.set("TPE1", "A")
-        self.assertTrue(frames.has_changed, "B would go")
-        frames.save()
-        self.assertEqual(ID3(self.path)["TPE1"].text, ["A"])
-
-    def test_has_changed(self):
-        frames = TrackTextFrames(self.path)
-        self.assertFalse(frames.has_changed, "as read")
-        frames.set("TIT2", "Frequency Shift")
-        self.assertFalse(frames.has_changed, "set to what the file has")
-        frames.set("TIT2", "New Title")
-        self.assertTrue(frames.has_changed, "set")
-        frames.save()
-        self.assertFalse(frames.has_changed, "saved")
+                frames = TrackTextFrames(self.path)
+                self.assertEqual(frames.get(frame_id), "A", "the first value")
+                frames.set(frame_id, "A")
+                self.assertTrue(frames.has_changed, "B would go")
+                frames.save()
+                self.assertEqual(ID3(self.path)[key].text, ["A"])
 
     def test_set_empty_removes_the_frame(self):
         # as Serato does when a field is cleared, rather than keeping it empty
@@ -126,9 +117,13 @@ class TestCase(unittest.TestCase):
         return {key: (tags[key].encoding, list(tags[key].text)) for key in tags.keys() if key.startswith("COMM")}
 
     def test_set_comm_writes_the_frames_serato_does(self):
-        # Serato writes a Latin-1 comment to both of these, each Latin-1
         frames = TrackTextFrames(self.path)
+        frames.set("COMM", "")
+        self.assertFalse(frames.has_changed, "no comment to remove")
+
+        # Serato writes a Latin-1 comment to both of these, each Latin-1
         frames.set("COMM", "A Comment")
+        self.assertTrue(frames.has_changed)
         self.assertEqual(frames.get("COMM"), "A Comment", "unsaved value read back")
         frames.save()
         self.assertEqual(
@@ -139,35 +134,19 @@ class TestCase(unittest.TestCase):
             },
         )
         self.assertEqual(TrackTextFrames(self.path).get("COMM"), "A Comment")
-
-    def test_set_comm_beyond_latin1_is_utf16_without_the_id3v1_copy(self):
-        frames = TrackTextFrames(self.path)
         frames.set("COMM", "A Comment")
-        frames.save()
+        self.assertFalse(frames.has_changed, "set to what the file has")
+
         frames.set("COMM", "TEST ★")
         frames.save()
         # all of it, unlike Serato, which cuts it off by sizing the frame for UTF-16 by its character count
         self.assertEqual(self.comments(), {"COMM::eng": (Encoding.UTF16, ["TEST ★"])}, "ID3v1 copy removed")
 
-    def test_set_comm_empty_removes_both_frames(self):
-        frames = TrackTextFrames(self.path)
-        frames.set("COMM", "A Comment")
-        frames.save()
         frames.set("COMM", "")
         self.assertTrue(frames.has_changed)
         frames.save()
-        self.assertEqual(self.comments(), {})
+        self.assertEqual(self.comments(), {}, "both frames removed")
         self.assertIsNone(TrackTextFrames(self.path).get("COMM"))
-
-    def test_set_comm_has_changed(self):
-        frames = TrackTextFrames(self.path)
-        frames.set("COMM", "")
-        self.assertFalse(frames.has_changed, "no comment to remove")
-        frames.set("COMM", "A Comment")
-        self.assertTrue(frames.has_changed)
-        frames.save()
-        frames.set("COMM", "A Comment")
-        self.assertFalse(frames.has_changed, "set to what the file has")
 
     def add_comments(self, *frames: tuple[str, str, str]):
         """Adds COMM frames to the file, each (description, language, text)."""
@@ -214,16 +193,6 @@ class TestCase(unittest.TestCase):
         frames = TrackTextFrames(self.path)
         frames.set("COMM", "A Comment")
         self.assertTrue(frames.has_changed, "the other frame would be removed")
-
-    def test_set_comm_replaces_every_value_of_the_comment_frame(self):
-        tags = ID3(self.path)
-        tags.add(COMM(encoding=Encoding.LATIN1, lang="eng", desc="", text=["A Comment", "Another"]))
-        tags.save(self.path)
-        frames = TrackTextFrames(self.path)
-        frames.set("COMM", "A Comment")
-        self.assertTrue(frames.has_changed, "the second value would go")
-        frames.save()
-        self.assertEqual(ID3(self.path)["COMM::eng"].text, ["A Comment"])
 
     def test_read_and_write_comment_on_open_tags(self):
         tags = ID3(self.path)

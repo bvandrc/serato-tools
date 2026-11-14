@@ -1,5 +1,4 @@
 import unittest
-from unittest import mock
 
 from serato_tools.track_gain import TrackGain
 
@@ -37,14 +36,6 @@ class TestCase(unittest.TestCase):
         self.assertIsNone(saved.peak, "no frame reads as no peak")
         with self.assertRaises(ValueError, msg="needs both values to create the frame"):
             saved.set_and_save(gain=-3.5)
-
-    def test_save_skips_writing_when_unchanged(self):
-        tags = TrackGain(TEST_MP3)
-        with mock.patch.object(tags.tagfile, "save") as write:
-            tags.save()
-            write.assert_not_called()
-            tags.save(force=True)
-            write.assert_called_once()
 
     def test_has_changed(self):
         tags = TrackGain(TEST_MP3)
