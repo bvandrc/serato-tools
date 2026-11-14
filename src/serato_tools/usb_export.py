@@ -26,6 +26,9 @@ from serato_tools.utils import (
 
 # TODO: put in folders if there are different locations locally for the same basename
 
+# the extension of the file Serato keeps a track's stems in, beside the track
+STEMS_EXTENSION = ".serato-stems"
+
 
 def _uniq_by_basename(paths: list[str]):
     """`paths` without any whose filename an earlier one already has."""
@@ -182,9 +185,11 @@ def copy_crates_to_usb(
                 dir_filenames = os.listdir(dirname)
             except OSError:
                 dir_filenames = []
-            stem_files_by_dir[dirname] = [f for f in dir_filenames if f.endswith(".serato-stems")]
-        track_name = os.path.splitext(basename)[0]
-        return [os.path.join(dirname, f) for f in stem_files_by_dir[dirname] if f.startswith(track_name)]
+            stem_files_by_dir[dirname] = [f for f in dir_filenames if f.endswith(STEMS_EXTENSION)]
+        # named after the track, with or without its extension: matching by prefix would also find another track's,
+        # such as "B Extended.serato-stems" for "B.mp3"
+        stem_names = {os.path.splitext(basename)[0] + STEMS_EXTENSION, basename + STEMS_EXTENSION}
+        return [os.path.join(dirname, f) for f in stem_files_by_dir[dirname] if f in stem_names]
 
     def maybe_copy(src_path: str, dst_path: str):
         if not os.path.exists(src_path):
