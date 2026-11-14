@@ -4,12 +4,21 @@ import unittest
 from unittest import mock
 
 from serato_tools.track_beatgrid import TrackBeatgrid, main
+from serato_tools.utils.beatgrid_analyze import BeatGridInfo
 from serato_tools.utils.track_tags import NoBeatgridError
 
 from test.helpers import TEST_MP3, read_bytes, temp_mp3
 
 
 class TestCase(unittest.TestCase):
+    def test_analyze_and_write_replaces_the_beats_found(self):
+        beatgrid = TrackBeatgrid(temp_mp3(self))
+        beatgrid.get_beats()
+        analyzed = BeatGridInfo(100.0, [], 1.0, 0.0, 1.0, downbeats=[0.5, 2.9])
+        with mock.patch("serato_tools.utils.beatgrid_analyze.analyze_beatgrid", return_value=analyzed):
+            beatgrid.analyze_and_write()
+        self.assertEqual(beatgrid.find_nearest_beat(520, 0.1), 500.0, "the new grid's first beat")
+
     def test_parse_and_serialize(self):
         file_data = read_bytes("test/data/track_beatgrid.bin")
         tags = TrackBeatgrid(file_data)
