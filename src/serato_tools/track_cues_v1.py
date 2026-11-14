@@ -389,7 +389,7 @@ if __name__ == "__main__":
         else:
             tags.entries = new_entries
             tags._serialize()
-            if tags.tagfile:
+            if tags.tagfile is not None:
                 tags.save()
             else:
                 with open(args.file, mode="wb") as fp:

@@ -24,7 +24,7 @@ def get_serato_tagdata(tagfile: mutagen._file.FileType, decode: bool = False):
     Reads ID3 (MP3, AIFF), FLAC, MP4, and Ogg Vorbis files. FLAC and MP4 files store each tag base64-encoded, which
     `decode` decodes; otherwise, and for Ogg Vorbis, the data is given as stored.
     """
-    if not tagfile:
+    if tagfile is None:
         raise Exception("tagfile is None")
     if not tagfile.tags:
         raise Exception("no tags")
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     # pylint: disable-next=protected-access
     tagfile: mutagen._file.FileType | None = mutagen._file.File(args.input_file)
 
-    if not tagfile:
+    if tagfile is None:
         raise Exception("couldn't parse file")
 
     for field, value in get_serato_tagdata(tagfile, decode=args.decode):

@@ -565,7 +565,7 @@ class TrackCuesV2(SeratoGeobTag):
         super()._put_in_tagfile()
         # deleted only here, when this tag writes, and not by the edit: deleted from the shared tagfile for an edit
         # that changed nothing, or was changed back, it would be written by another tag's save
-        if delete_tags_v1 and not self._edits_keep_tags_v1 and self.tagfile:
+        if delete_tags_v1 and not self._edits_keep_tags_v1 and self.tagfile is not None:
             # TODO: keep Serato Markers_ in sync with Markers2 instead of deleting it
             del_geob(self.tagfile, TrackCuesV1.GEOB_KEY)
         self._edits_keep_tags_v1 = None
@@ -601,7 +601,7 @@ class TrackCuesV2(SeratoGeobTag):
         """
         if not (self.has_changed or force):
             return
-        if not self.tagfile:
+        if self.tagfile is None:
             raise Exception("no tagfile, no saving")
         self._put_in_tagfile(delete_tags_v1)
         self.tagfile.save()
@@ -704,7 +704,7 @@ class TrackCuesV2(SeratoGeobTag):
     def _get_beatgrid(self, file_or_data: SeratoGeobTag.FileOrData | None = None) -> TrackBeatgrid:
         """Reads the beatgrid from `file_or_data`, or from this tag's file, and keeps it as `self.beatgrid`."""
         if file_or_data is None:
-            if not self.tagfile:
+            if self.tagfile is None:
                 raise ValueError("No tagfile set, or must pass beatgrid")
             self.beatgrid = TrackBeatgrid(self.tagfile)
         else:
@@ -926,7 +926,7 @@ def main():
         else:
             tags.entries = new_entries
             tags._serialize()
-            if tags.tagfile:
+            if tags.tagfile is not None:
                 tags.save()
             else:
                 with open(args.file, mode="wb") as fp:

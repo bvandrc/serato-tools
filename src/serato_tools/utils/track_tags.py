@@ -187,11 +187,11 @@ class SeratoGeobTag(ID3FileTag):
     @property
     def filename(self) -> str | None:
         """The track file's path, or None for a tag read from bytes."""
-        return self.tagfile.filename if self.tagfile else None
+        return self.tagfile.filename if self.tagfile is not None else None
 
     def _require_tagfile(self) -> ID3File:
         """The tag's open file; raises if it was read from bytes."""
-        if not self.tagfile:
+        if self.tagfile is None:
             raise Exception("no tagfile, no saving")
         return self.tagfile
 
@@ -236,7 +236,7 @@ class SeratoGeobTag(ID3FileTag):
 
     def delete(self):
         """Deletes the tag in memory, returning whether the file had it; call `save()` to write the deletion."""
-        was_deleted = self._del_geob() if self.tagfile else False
+        was_deleted = self._del_geob() if self.tagfile is not None else False
         # clear _raw_data so a later save() persists the deletion instead of re-tagging the old bytes
         self._raw_data = None
         return was_deleted
@@ -267,7 +267,7 @@ class SeratoGeobTag(ID3FileTag):
 
     def save(self):
         """Writes the tag to the file, whether or not it changed; raises if it was read from bytes."""
-        if not self.tagfile:
+        if self.tagfile is None:
             raise Exception("no tagfile, no saving")
         self._put_in_tagfile()
         self.tagfile.save()

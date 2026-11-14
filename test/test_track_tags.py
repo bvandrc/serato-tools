@@ -61,6 +61,23 @@ class TestCase(unittest.TestCase):
         tags.set(bpm=128)
         self.assertTrue(tags.has_changed, "differs from the bytes given")
 
+    def test_a_file_whose_id3_tags_have_no_frames_reads_and_saves(self):
+        for tag_class in (TrackCuesV2, TrackAutotags):  # TrackCuesV2 has its own save()
+            with self.subTest(tag_class.__name__):
+                path = temp_mp3(self)
+                tagfile = MP3(path)
+                assert tagfile.tags is not None
+                tagfile.tags.clear()
+                tagfile.save()
+                tagfile = MP3(path)
+                # so a check for the file mustn't test its truth
+                self.assertFalse(tagfile, "falsy, as an MP3 with no ID3 frames is")
+                tags = tag_class(tagfile)
+                self.assertIsNone(tags._raw_data, "no tag yet")
+                tags._raw_data = tag_class(TEST_MP3)._raw_data
+                tags.save()
+                self.assertEqual(get_geob(MP3(path), tag_class.GEOB_KEY), tags._raw_data)
+
     def test_open_tag_file_or_data_reads_an_audio_file_or_the_tags_own_bytes(self):
         fixtures = {
             TrackCuesV2: "track_cues_v2",

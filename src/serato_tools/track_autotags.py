@@ -132,7 +132,7 @@ if __name__ == "__main__":
             raise
 
         tags.set(bpm=bpm, autogain=autogain, gaindb=gaindb)
-        if tags.tagfile:
+        if tags.tagfile is not None:
             tags.save()
         else:
             with open(args.file, mode="wb") as fp:
