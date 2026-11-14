@@ -540,17 +540,28 @@ class SeratoBinFile:
         except OSError:  # either doesn't exist, so they can't be the same file
             return False
 
+    def _entry_lists(self, field: str) -> Generator[tuple[int, EntryList], None, None]:
+        """The index in `entries` and the value of each top-level entry named `field`, which holds an entry list."""
+        for i, (entry_field, value) in enumerate(self.entries):
+            if entry_field == field:
+                if not isinstance(value, list):
+                    raise DataTypeError(value, list, entry_field)
+                yield i, value
+
+    def _filter_entry_lists(self, field: str, keep: Callable[[EntryList], bool]) -> bool:
+        """Removes each top-level entry named `field` whose entry list `keep` returns False for; returns if any were."""
+        removed_indices = {i for i, value in self._entry_lists(field) if not keep(value)}
+        if removed_indices:
+            self.entries = [entry for i, entry in enumerate(self.entries) if i not in removed_indices]
+        return bool(removed_indices)
+
     def get_tracks(self) -> Generator[Track, None, None]:
         """Each track entry, as a `Track`.
 
         A `Track` holds copies of the entry's values, so changing one doesn't change the file: use `modify_tracks`.
         """
-        for field, value in self.entries:
-            if field == SeratoBinFile.Fields.TRACK:
-                if not isinstance(value, list):
-                    raise DataTypeError(value, list, field)
-                track = self._get_track(value)
-                yield track
+        for _, value in self._entry_lists(SeratoBinFile.Fields.TRACK):
+            yield self._get_track(value)
 
     def get_track_paths(self, include_drive: bool = False) -> list[str]:
         """Each track's path: as stored, with no drive, or with `include_drive`, as an absolute path."""
@@ -565,37 +576,23 @@ class SeratoBinFile:
         """
         relpaths = None if files is None else {SeratoBinFile.get_relative_path(f).upper() for f in files}
         changed = False
-        for i, (field, value) in enumerate(self.entries):
-            if field == SeratoBinFile.Fields.TRACK:
-                if not isinstance(value, list):
-                    raise DataTypeError(value, list, field)
-                if relpaths is not None:
-                    # check the path first: building a Track, running func, and comparing the result costs far more
-                    relpath = self._get_entry_value(value, self.TRACK_PATH_KEY)
-                    if isinstance(relpath, str) and relpath.upper() not in relpaths:
-                        continue
-                track = self._get_track(value)
-                # Track copies the values out of `value`, so this compares against the untouched original
-                new_entries = func(track).to_entries()
-                if new_entries != value:
-                    self.entries[i] = (field, new_entries)
-                    changed = True
+        for i, value in self._entry_lists(SeratoBinFile.Fields.TRACK):
+            if relpaths is not None:
+                # check the path first: building a Track, running func, and comparing the result costs far more
+                relpath = self._get_entry_value(value, self.TRACK_PATH_KEY)
+                if isinstance(relpath, str) and relpath.upper() not in relpaths:
+                    continue
+            track = self._get_track(value)
+            # Track copies the values out of `value`, so this compares against the untouched original
+            new_entries = func(track).to_entries()
+            if new_entries != value:
+                self.entries[i] = (SeratoBinFile.Fields.TRACK.value, new_entries)
+                changed = True
         return changed
 
     def filter_tracks(self, func: Callable[[Track], bool]) -> bool:
         """Keeps only the tracks `func` returns True for, and returns whether any track was removed."""
-        new_entries: "SeratoBinFile.EntryList" = []
-        for field, value in self.entries:
-            if field == SeratoBinFile.Fields.TRACK:
-                if not isinstance(value, list):
-                    raise DataTypeError(value, list, field)
-                track = self._get_track(value)
-                if not func(track):
-                    continue
-            new_entries.append((field, value))
-        removed = len(new_entries) != len(self.entries)
-        self.entries = new_entries
-        return removed
+        return self._filter_entry_lists(SeratoBinFile.Fields.TRACK, lambda value: func(self._get_track(value)))
 
     def remove_tracks(self, filepaths: Iterable[str]) -> bool:
         """Removes every track whose path is in `filepaths`, in one pass, and returns whether any was removed."""
