@@ -33,6 +33,25 @@ class DeeplyNestedListError(Exception):
         super().__init__("unexpected type, deeply nested list. if this occurs, need to implement code for it.")
 
 
+def _field_values(field_enums: tuple[type[StrEnum], ...]) -> frozenset[str]:
+    """Every field name in `field_enums`."""
+    return frozenset(member.value for field_enum in field_enums for member in field_enum)
+
+
+def _field_names(field_enums: tuple[type[StrEnum], ...]) -> dict[str, str]:
+    """A readable name for each field in `field_enums`, from its member's name: "File Path" for `FILE_PATH`."""
+    return {
+        # DATE_ADDED_T and DATE_ADDED_U hold the same time, so both are "Date Added"
+        member.value: member.name.replace("_", " ")
+        .title()
+        .replace("Smartcrate", "SmartCrate")
+        .replace("Added U", "Added")
+        .replace("Added T", "Added")
+        for field_enum in field_enums
+        for member in field_enum
+    }
+
+
 class SeratoBinFile:
     """A Serato database or crate file, parsed into `entries`, a list of (field name, value) pairs.
 
@@ -105,8 +124,10 @@ class SeratoBinFile:
     # rule fields) extends this, which extends what _check_valid_field accepts and get_field_name resolves
     FIELD_ENUMS: tuple[type[StrEnum], ...] = (Fields,)
 
-    # derived from FIELD_ENUMS so the two can't drift; redefine it alongside FIELD_ENUMS in a subclass
-    FIELDS = frozenset(f.value for field_enum in FIELD_ENUMS for f in field_enum)
+    # derived from FIELD_ENUMS, here and for each subclass in __init_subclass__, so they can't drift from it
+    FIELDS: frozenset[str] = _field_values(FIELD_ENUMS)
+    # a readable name per field, built once per class, since printing or JSON-dumping a large database names every one
+    _FIELD_NAMES: dict[str, str] = _field_names(FIELD_ENUMS)
 
     type ParsedField = Fields | str
     type BasicValue = str | bytes | int | bool
@@ -130,6 +151,11 @@ class SeratoBinFile:
 
     # a hash of the file's bytes as loaded or last saved to its own path, for has_changed; None if it didn't exist
     _saved_hash: bytes | None = None
+
+    def __init_subclass__(cls, **kwargs: Any):
+        super().__init_subclass__(**kwargs)
+        cls.FIELDS = _field_values(cls.FIELD_ENUMS)
+        cls._FIELD_NAMES = _field_names(cls.FIELD_ENUMS)
 
     def __init__(self, file: str):
         """Parses `file`, either Serato's binary format or JSON as `write_json` writes it.
@@ -640,20 +666,7 @@ class SeratoBinFile:
     @classmethod
     def get_field_name(cls, field: str) -> str:
         """A readable name for `field`, such as "File Path" for `pfil`, or "Unknown Field" if it isn't known."""
-        # a map built once per class, since printing or JSON-dumping a large database names every field; checked in
-        # vars(cls), not by attribute, so a subclass with its own FIELD_ENUMS doesn't use the base's map
-        if "_field_names" not in vars(cls):
-            cls._field_names = {
-                # DATE_ADDED_T and DATE_ADDED_U hold the same time, so both are "Date Added"
-                member.value: member.name.replace("_", " ")
-                .title()
-                .replace("Smartcrate", "SmartCrate")
-                .replace("Added U", "Added")
-                .replace("Added T", "Added")
-                for field_enum in cls.FIELD_ENUMS
-                for member in field_enum
-            }
-        return cls._field_names.get(field, "Unknown Field")
+        return cls._FIELD_NAMES.get(field, "Unknown Field")
 
     @classmethod
     def _check_valid_field(cls, field: str):
