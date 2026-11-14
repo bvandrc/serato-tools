@@ -31,7 +31,10 @@ def untagged_mp3(tmp_dir: str) -> str:
 
 @pytest.fixture
 def bin_file_writes(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """The name of each Serato bin file (database or crate) the test writes, in order, filled in as they're written."""
+    """The name of each Serato bin file (database or crate) the test writes, in order, filled in as they're written.
+
+    Clear it once the test's setup is done to record only what the test itself writes.
+    """
     written: list[str] = []
 
     def record_write(file, *args, **kwargs):
