@@ -25,7 +25,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Breaking: `TrackBeatgrid.find_nearest_beat` raises `NoBeatgridError` without a beatgrid, rather than returning None, which read as "no beat nearby".
 - `serato_beatgrid` prints which tag is missing, rather than a traceback.
 - Add `GeobKeys`, in `serato_tools.utils.track_tags`: each Serato tag's GEOB key.
-- Add `SmartCrate.to_regular_crate(file)`, which gives a regular crate for `file` holding a smart crate's tracks and its sort and columns, but not its rules, such as for a drive, where Serato can't use a smart crate.
+- Add `SmartCrate.to_regular_crate(file)`, which gives a regular crate for `file` holding a smart crate's tracks and its sort and columns, but not its rules.
 
 ### Changed
 
