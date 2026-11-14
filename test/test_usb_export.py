@@ -127,8 +127,11 @@ class CopyCratesToUsbTestCase(unittest.TestCase):
         crates = os.path.join(self.drive, "_Serato_", Crate.DIR)
         self.assertEqual(sorted(os.listdir(crates)), ["Serato Stems", "USB%%Deep.crate", "USB%%House.crate"])
         self.assertEqual(Crate(os.path.join(crates, "USB%%House.crate")).get_track_paths(), ["Tracks/a.mp3"])
-        # renamed to .crate, but its contents are still a smart crate's
-        self.assertEqual(SmartCrate(os.path.join(crates, "USB%%Deep.crate")).get_track_paths(), ["Tracks/b.mp3"])
+        deep = Crate(os.path.join(crates, "USB%%Deep.crate"))
+        self.assertEqual(deep.get_track_paths(), ["Tracks/b.mp3"], "a smart crate as a regular crate")
+        self.assertNotIn(
+            SmartCrate.RuleFields.SMARTCRATE_RULE, [field for field, _ in deep.entries], "without its rules"
+        )
         self.assertEqual(
             Crate(os.path.join(crates, "Serato Stems", "Stems.crate")).get_track_paths(),
             ["Tracks/a.mp3"],
