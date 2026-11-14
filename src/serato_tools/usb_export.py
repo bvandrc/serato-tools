@@ -106,16 +106,17 @@ def copy_crates_to_usb(
     # create the db file
     db = DatabaseV2()
     tracks_to_copy = [os.path.normpath(f) for f in tracks_to_copy]
+    # of tracks that share a filename, the first in the crates is the one copied, so it's the one whose entries are kept
     tracks_to_copy = _uniq_by_basename(tracks_to_copy)
     # a set: both filters below test against it per track
-    tracks_to_copy_basenames = {os.path.basename(f) for f in tracks_to_copy}
+    tracks_to_copy_set = set(tracks_to_copy)
 
     def modify_db_track(track: DatabaseV2.Track) -> DatabaseV2.Track:
         track.set_path(os.path.join(dest_tracks_dir, os.path.basename(track.relpath)))
         track.set_value(DatabaseV2.Fields.PLAYED, False)
         return track
 
-    db.filter_tracks(lambda track: os.path.basename(track.relpath) in tracks_to_copy_basenames)
+    db.filter_tracks(lambda track: os.path.normpath(track.relpath) in tracks_to_copy_set)
     db.modify_tracks(modify_db_track)
     db.remove_duplicates()
 
@@ -159,7 +160,7 @@ def copy_crates_to_usb(
             track.set_path(change_track_path(track.relpath))
             return track
 
-        stems_crate.filter_tracks(lambda track: os.path.basename(track.relpath) in tracks_to_copy_basenames)
+        stems_crate.filter_tracks(lambda track: os.path.normpath(track.relpath) in tracks_to_copy_set)
         stems_crate.modify_tracks(modify_stems_crate_track)
         stems_crate.remove_duplicates()
         stems_crate.save(DEST_STEMS_CRATE)
