@@ -69,6 +69,7 @@ This stays, still deprecated until a future major release: passing `delete_tags_
 - `add_tracks_from_dir` adds only the folder's files. Before, it also added its subfolders and hidden files, such as `.DS_Store`, as tracks.
 - USB export writes each smart crate as a regular crate of the tracks it holds, keeping its sort and columns but not its rules. Before, it only renamed the file to `.crate`, so it was still a smart crate, which `Crate` refuses to open.
 - Saving a database or crate with a number too big or negative for its field raises `ValueError` naming the field. Before, it raised `struct.error`.
+- `Library.set_db_track_tags` / `set_db_tracks_tags` check that each number fits its database field before changing anything, as they promise: one too big or negative, such as a track number of `-1`, raises `ValueError`. Before, it was written to the track file before saving the database failed, which also left it in the library's database in memory, so every later save failed too.
 
 ## [5.6.1] - 2026-11-10
 
