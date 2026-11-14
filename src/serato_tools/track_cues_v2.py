@@ -774,7 +774,7 @@ def main():
         if tolerance_beats >= 1:
             raise NotImplementedError("Snap tolerance must be less than 1 beat. TODO: implement this to allow")
 
-        if not tags.tagfile:
+        if tags.tagfile is None:
             raise ValueError("--snap_cues needs an audio file, to read its beatgrid")
         # imported here, so that the tag's module needs the beatgrid's only for this option
         from serato_tools.track_beatgrid import TrackBeatgrid

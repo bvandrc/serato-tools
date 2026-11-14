@@ -358,7 +358,7 @@ class TrackBeatgrid(SeratoGeobTag):
         `beatgrid_analysis` extra (librosa and numpy), and takes seconds. An MP3's grid may be off by tens of ms, since
         the analysis decodes it differently than Serato does.
         """
-        if not self.tagfile:
+        if self.tagfile is None:
             raise Exception("No tagfile set")
 
         from serato_tools.utils.beatgrid_analyze import analyze_beatgrid
