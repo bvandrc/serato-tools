@@ -84,7 +84,7 @@ if __name__ == "__main__":
     import subprocess
     import tempfile
 
-    from serato_tools.utils.ui import get_text_editor
+    from serato_tools.utils.ui import get_text_editor, save_tag_file_or_data
 
     @dataclass
     class Args:
@@ -128,10 +128,6 @@ if __name__ == "__main__":
             raise
 
         tags.set(bpm=bpm, autogain=autogain, gaindb=gaindb)
-        if tags.tagfile:
-            tags.save()
-        else:
-            with open(args.file, mode="wb") as fp:
-                fp.write(tags._raw_data or b"")  # pylint: disable=protected-access
+        save_tag_file_or_data(tags, args.file)
     else:
         print(str(tags))
