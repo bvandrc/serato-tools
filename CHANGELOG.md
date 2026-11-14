@@ -59,6 +59,10 @@ Breaking: `TrackCuesV2` no longer reads the beatgrid from its own file for cue s
 
 This stays, still deprecated until a future major release: passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`), in favor of passing it to `save()`.
 
+### Fixes
+
+- `add_tracks_from_dir` adds only the folder's files, not its subfolders or hidden files such as `.DS_Store`, which it added as tracks.
+
 ## [5.6.1] - 2026-11-10
 
 ### Fixes
