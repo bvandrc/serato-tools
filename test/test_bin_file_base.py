@@ -6,7 +6,7 @@ from unittest import mock
 
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
-from serato_tools.utils.bin_file_base import SeratoBinFile
+from serato_tools.utils.bin_file_base import DeeplyNestedListError, SeratoBinFile
 
 from test.helpers import read_bytes, temp_dir
 
@@ -106,6 +106,17 @@ class TrackTestCase(unittest.TestCase):
                 ],
                 path_key=SeratoBinFile.Fields.FILE_PATH.value,
             )
+
+    def test_a_nested_entry_list_raises_naming_the_field(self):
+        path = SeratoBinFile.Fields.FILE_PATH.value
+        entries = [(path, "a.mp3"), ("onst", [(path, "b.mp3")])]
+        with self.assertRaisesRegex(DeeplyNestedListError, "in field onst"):
+            SeratoBinFile.Track(entries, path_key=path)
+
+        database = DatabaseV2("test/data/database_v2_test.bin")
+        database.entries.append((SeratoBinFile.Fields.TRACK.value, entries))
+        with self.assertRaisesRegex(DeeplyNestedListError, f"in field {SeratoBinFile.Fields.TRACK.value}.*a\\.mp3"):
+            list(database.get_entries())
 
     def test_remove_field(self):
         path, genre = SeratoBinFile.Fields.FILE_PATH.value, SeratoBinFile.Fields.GENRE.value
