@@ -39,6 +39,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `SmartCrate.delete_rule` returns whether the crate had a rule on that field to remove.
 - The tag CLIs (`serato_snap_cues_v2`, `serato_beatgrid`, and running `track_autotags` or `track_waveform` as a module) read a file of the tag's own bytes, such as one `serato_tagdump` writes. They used to raise for any file that isn't .mp3, .aiff, or .aif.
 - A database, crate, or Serato tag that's cut off or malformed raises `ValueError` saying what's wrong, rather than an `AssertionError`.
+- Breaking: `TrackCuesV1.Entry` and `TrackCuesV1.Color` are dataclasses, so entries with the same values are equal. `Color` is no longer a subclass of `Entry`: check for a cue or loop slot with `isinstance(entry, TrackCuesV1.Entry)` as before, which a `Color` no longer passes.
 - Breaking: `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`, next to the database and crate code that raises them.
 
 ### Removed
