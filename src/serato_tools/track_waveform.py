@@ -8,7 +8,6 @@ It can draw the overview as an image, which needs the `waveform_drawing` extra (
 import io
 from dataclasses import dataclass
 
-from serato_tools.utils import logger
 from serato_tools.utils.track_tags import GeobKeys, NoWaveformError, SeratoGeobTag, open_tag_file_or_data
 
 
@@ -54,9 +53,10 @@ class TrackWaveform(SeratoGeobTag):
         """The waveform overview as a 240 x 16 pixel PIL image. Needs the `waveform_drawing` extra (pillow)."""
         try:
             from PIL import Image, ImageColor
-        except:
-            logger.error('must install package "pillow"')
-            raise
+        except ImportError as error:
+            raise ImportError(
+                'drawing the waveform needs the waveform_drawing extra: pip install "serato-tools[waveform_drawing]"'
+            ) from error
 
         img = Image.new("RGB", (240, 16), "black")
         pixels = img.load()
