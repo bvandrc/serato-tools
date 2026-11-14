@@ -1,45 +1,56 @@
+import logging
 import os
-import shutil
 import subprocess
 import sys
-import unittest
-import warnings
+from dataclasses import dataclass
 from unittest import mock
 
-# library.py imports the installed package's classes, so build fixtures and patch with those
+import pytest
+
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.library import Library
 from serato_tools.smart_crate import SmartCrate
-from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_text_frames import TrackTextFrames
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
-from test.helpers import temp_dir, temp_mp3, untagged_mp3
+from test.helpers.bin_files import TEST_DATABASE
+from test.helpers.files import copy_into
+from test.helpers.track_tags import copy_mp3, copy_mp3_without_cues, has_tags_v1
+
+relpath = DatabaseV2.get_relative_path
+Colors = TrackCuesV2.TrackColors
+# the test mp3's track color
+FIXTURE_COLOR = b"\xbb\xbb\xbb"
 
 
-class TestCase(unittest.TestCase):
-    def setUp(self):
-        tmp = temp_dir(self)
-        self.serato_dir = os.path.join(tmp, "_Serato_")
-        self.music_dir = os.path.join(tmp, "Music")
-        for d in [self.serato_dir, self.music_dir]:
-            os.mkdir(d)
-        self.db_file = os.path.join(self.serato_dir, DatabaseV2.FILENAME)
-        shutil.copy("test/data/database_v2_test.bin", self.db_file)
+@dataclass
+class Folders:
+    """A Serato library folder, holding a copy of the test database, and a music folder for its tracks."""
+
+    serato_dir: str
+    music_dir: str
+    db_file: str
+
+    def music_path(self, name: str) -> str:
+        """The path of `name` in the music folder, whether or not it exists."""
+        return os.path.join(self.music_dir, name)
 
     def make_track(self, name: str) -> str:
-        path = os.path.join(self.music_dir, name)
+        """An empty file as `name` in the music folder."""
+        path = self.music_path(name)
         open(path, "wb").close()
         return path
+
+    def copy_analyzed_track(self, name: str) -> str:
+        """A copy of the test mp3, which has every Serato tag, as `name` in the music folder."""
+        return copy_mp3(self.music_dir, name)
 
     def add_to_database(self, *tracks: str):
         db = DatabaseV2(self.db_file)
         for track in tracks:
-            db.entries.append(
-                (DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, DatabaseV2.get_relative_path(track))])
-            )
+            db.entries.append((DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, relpath(track))]))
         db.save()
 
     def make_crate(self, crate_class: type[Crate] | type[SmartCrate], name: str, tracks: list[str]):
@@ -49,483 +60,470 @@ class TestCase(unittest.TestCase):
         crate.add_tracks(tracks)
         crate.save()
 
-    def track_paths(self, file: SeratoBinFile) -> list[str]:
-        """The track paths in `file` as saved, read again from disk rather than from its entries in memory."""
-        return type(file)(file.filepath).get_track_paths()
-
-    def files_named(self, library: Library, names: list[str]) -> list[SeratoBinFile]:
-        """The library's database and crates whose file names are in `names`."""
-        return [
-            f
-            for f in [library.database, *library.crates, *library.smart_crates]
-            if os.path.basename(f.filepath) in names
-        ]
-
-    def saved_file_names(self):
-        """Records the name of each library file written from now on, however it's saved, into the returned list."""
-        saved: list[str] = []
-
-        def record_write(file, *args, **kwargs):
-            if "w" in (args[0] if args else kwargs.get("mode", "r")):
-                saved.append(os.path.basename(file))
-            return open(file, *args, **kwargs)  # pylint: disable=unspecified-encoding
-
-        # every way of saving a bin file opens it for writing in its module
-        patcher = mock.patch("serato_tools.utils.bin_file_base.open", side_effect=record_write, create=True)
-        patcher.start()
-        self.addCleanup(patcher.stop)
-        return saved
-
-    def test_files_are_parsed_when_first_needed(self):
-        library = Library(os.path.join(self.serato_dir, "does not exist"))
-        with self.assertRaises(FileNotFoundError, msg="database parsed on first access, not on init"):
-            _ = library.database
-
-        library = Library(self.serato_dir)
-        self.assertEqual(library.crates, [], "no Subcrates folder means no crates")
-        self.assertEqual(library.smart_crates, [], "no SmartCrates folder means no smart crates")
-        self.assertIs(library.database, library.database, "database parsed once")
-
-    def test_rename_track_file(self):
-        src, dest = self.make_track("Old.mp3"), os.path.join(self.music_dir, "New.mp3")
-        self.add_to_database(src)
-        self.make_crate(Crate, "With", [src])
-        self.make_crate(Crate, "Without", [])
-        self.make_crate(SmartCrate, "Smart", [src])
-
-        saved = self.saved_file_names()
-        library = Library(self.serato_dir)
-        changed = library.rename_track_file(src, dest)
-
-        self.assertTrue(os.path.exists(dest) and not os.path.exists(src), "file renamed")
-        self.assertCountEqual(saved, [DatabaseV2.FILENAME, "With.crate", "Smart.scrate"], "only files with track saved")
-        self.assertCountEqual(changed, [f.filepath for f in self.files_named(library, saved)], "returns those files")
-        old_path, new_path = DatabaseV2.get_relative_path(src), DatabaseV2.get_relative_path(dest)
-        db_paths = self.track_paths(library.database)
-        self.assertIn(new_path, db_paths, "db path updated")
-        self.assertNotIn(old_path, db_paths, "db old path gone")
-        for crate in [*library.crates, *library.smart_crates]:
-            if os.path.basename(crate.filepath) != "Without.crate":
-                self.assertEqual(self.track_paths(crate), [new_path], f"{crate.filepath} path updated")
-
-    def test_rename_track_file_in_a_given_database(self):
-        src, dest = self.make_track("Old.mp3"), os.path.join(self.music_dir, "New.mp3")
-        self.add_to_database(src)
-        db = DatabaseV2(self.db_file)
-        db.entries.append((DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, "Unsaved.mp3")]))
-
-        saved = self.saved_file_names()
-        Library(self.serato_dir, database=db).rename_track_file(src, dest)
-
-        self.assertIn(DatabaseV2.get_relative_path(dest), db.get_track_paths(), "the given database updated")
-        self.assertEqual(saved, [DatabaseV2.FILENAME], "and saved once")
-        self.assertIn("Unsaved.mp3", self.track_paths(db), "with its unsaved changes, rather than reparsed")
-
-    def test_rename_track_file_refuses_to_overwrite(self):
-        src, dest = self.make_track("Old.mp3"), self.make_track("Taken.mp3")
-        self.add_to_database(src)
-
-        saved = self.saved_file_names()
-        # os.rename silently overwrites on POSIX, unlike on Windows, so test with that
-        with mock.patch("os.rename", side_effect=os.replace), self.assertRaises(FileExistsError):
-            Library(self.serato_dir).rename_track_file(src, dest)
-
-        self.assertTrue(os.path.exists(src), "src left in place")
-        self.assertEqual(saved, [], "nothing saved")
-
-    def test_rename_track_file_raises_a_clash_os_rename_finds(self):
-        src, dest = self.make_track("Old.mp3"), os.path.join(self.music_dir, "New.mp3")
-        self.add_to_database(src)
-
-        saved = self.saved_file_names()
-        # as on Windows, for a clash os.path.exists misses, such as a case change on some filesystems
-        with mock.patch("os.rename", side_effect=FileExistsError), self.assertRaises(FileExistsError):
-            Library(self.serato_dir).rename_track_file(src, dest)
-
-        self.assertEqual(saved, [], "nothing saved")
-        self.assertIn(DatabaseV2.get_relative_path(src), self.track_paths(DatabaseV2(self.db_file)), "db unchanged")
-
-    def test_rename_track_file_not_in_the_library(self):
-        src, dest = self.make_track("Unimported.mp3"), os.path.join(self.music_dir, "New.mp3")
-
-        saved = self.saved_file_names()
-        changed = Library(self.serato_dir).rename_track_file(src, dest)
-
-        self.assertTrue(os.path.exists(dest) and not os.path.exists(src), "file still renamed")
-        self.assertEqual(changed, [], "no library file changed")
-        self.assertEqual(saved, [], "nothing saved")
-
-    def test_remove_track_files(self):
-        removed, missing, kept = (
-            self.make_track("Removed.mp3"),
-            self.make_track("Missing.mp3"),
-            self.make_track("Kept.mp3"),
-        )
-        self.add_to_database(removed, missing, kept)
-        self.make_crate(Crate, "With", [removed, kept])
-        self.make_crate(Crate, "Without", [kept])
-        self.make_crate(SmartCrate, "Smart", [missing])
-        os.remove(missing)
-
-        saved = self.saved_file_names()
-        library = Library(self.serato_dir)
-        result = library.remove_track_files([removed, missing])
-
-        self.assertFalse(os.path.exists(removed), "file deleted")
-        self.assertTrue(os.path.exists(kept), "other file kept")
-        self.assertEqual(result.files_deleted, [removed], "lists only the file that was there to delete")
-        self.assertCountEqual(saved, [DatabaseV2.FILENAME, "With.crate", "Smart.scrate"], "only files with track saved")
-        self.assertCountEqual(result.library_files_changed, [f.filepath for f in self.files_named(library, saved)])
-        kept_path = DatabaseV2.get_relative_path(kept)
-        db_paths = self.track_paths(library.database)
-        self.assertIn(kept_path, db_paths, "other track kept in db")
-        for track in [removed, missing]:
-            self.assertNotIn(DatabaseV2.get_relative_path(track), db_paths, f"{track} removed from db, even if missing")
-        for crate in library.crates:
-            self.assertEqual(self.track_paths(crate), [kept_path], f"{crate.filepath} has only the kept track")
-        self.assertEqual(self.track_paths(library.smart_crates[0]), [], "missing track removed from smart crate")
-
-    def test_batch_writes_each_changed_file_once(self):
-        first, second = self.make_track("First.mp3"), self.make_track("Second.mp3")
-        removed = self.make_track("Removed.mp3")
-        self.add_to_database(first, second, removed)
-        self.make_crate(Crate, "With", [first, second])
-        self.make_crate(Crate, "Without", [removed])
-
-        saved = self.saved_file_names()
-        library = Library(self.serato_dir)
-        new_first, new_second = (os.path.join(self.music_dir, name) for name in ["New First.mp3", "New Second.mp3"])
-        with library.batch():
-            library.rename_track_file(first, new_first)
-            library.rename_track_file(second, new_second)
-            removed_result = library.remove_track_files([removed])
-
-            self.assertEqual(saved, [], "nothing written yet")
-            self.assertCountEqual(
-                removed_result.library_files_changed,
-                [f.filepath for f in self.files_named(library, [DatabaseV2.FILENAME, "Without.crate"])],
-                "lists the files it changed, though they aren't written until the block ends",
-            )
-            self.assertTrue(os.path.exists(new_first), "track file renamed right away")
-            self.assertFalse(os.path.exists(removed), "track file deleted right away")
-
-        self.assertCountEqual(saved, [DatabaseV2.FILENAME, "With.crate", "Without.crate"], "each file written once")
-        new_paths = [DatabaseV2.get_relative_path(p) for p in [new_first, new_second]]
-        db_paths = self.track_paths(library.database)
-        for path in new_paths:
-            self.assertIn(path, db_paths, "db path updated")
-        self.assertNotIn(DatabaseV2.get_relative_path(removed), db_paths, "track removed from db")
-        # by name: crates are listed in directory order, which isn't sorted on every filesystem
-        crate = next(c for c in library.crates if os.path.basename(c.filepath) == "With.crate")
-        self.assertEqual(self.track_paths(crate), new_paths, "crate paths updated")
-
-    def test_batch_saves_when_the_block_raises(self):
-        src, dest = self.make_track("Old.mp3"), os.path.join(self.music_dir, "New.mp3")
-        self.add_to_database(src)
-
-        saved = self.saved_file_names()
-        library = Library(self.serato_dir)
-        with self.assertRaises(RuntimeError, msg="the exception still propagates"):
-            with library.batch():
-                library.rename_track_file(src, dest)
-                raise RuntimeError("stopped partway")
-
-        self.assertEqual(saved, [DatabaseV2.FILENAME])
-        self.assertIn(DatabaseV2.get_relative_path(dest), self.track_paths(library.database), "points at renamed file")
-
-    def test_nested_batch_saves_when_the_outermost_ends(self):
-        first, second = self.make_track("First.mp3"), self.make_track("Second.mp3")
-        self.add_to_database(first, second)
-
-        saved = self.saved_file_names()
-        library = Library(self.serato_dir)
-        with library.batch():
-            with library.batch():
-                library.rename_track_file(first, os.path.join(self.music_dir, "New First.mp3"))
-            self.assertEqual(saved, [], "inner batch doesn't save")
-            library.rename_track_file(second, os.path.join(self.music_dir, "New Second.mp3"))
-
-        self.assertEqual(saved, [DatabaseV2.FILENAME], "outer batch saves once")
-
-    def test_save_serializes_each_parsed_file_once(self):
-        track = self.make_track("Track.mp3")
-        self.add_to_database(track)
-        self.make_crate(Crate, "Crate", [track])
-
-        library = Library(self.serato_dir)
-        library.database.modify([{"field": DatabaseV2.Fields.GENRE, "files": [track], "func": lambda *args: "House"}])
-        _ = library.crates
-        with mock.patch.object(
-            SeratoBinFile, "to_bytes", autospec=True, side_effect=SeratoBinFile.to_bytes
-        ) as to_bytes:
-            library.save()
-        self.assertCountEqual(
-            [os.path.basename(f.filepath) for f, in (c.args for c in to_bytes.call_args_list)],
-            [DatabaseV2.FILENAME, "Crate.crate"],
-            "the changed database and the unchanged crate, once each",
-        )
-
-    def test_save_writes_direct_changes(self):
-        track = self.make_track("Track.mp3")
-        self.add_to_database(track)
-
-        saved = self.saved_file_names()
-        library = Library(self.serato_dir)
-        library.database.modify([{"field": DatabaseV2.Fields.GENRE, "files": [track], "func": lambda *args: "House"}])
-        self.assertEqual(library.save(), [library.database.filepath])
-
-        self.assertEqual(saved, [DatabaseV2.FILENAME])
-        self.assertEqual(self.db_values(DatabaseV2.Fields.GENRE)[DatabaseV2.get_relative_path(track)], "House")
-
-    def test_save_writes_a_passed_database_before_it_is_read(self):
-        track = self.make_track("Track.mp3")
-        self.add_to_database(track)
-        database = DatabaseV2(self.db_file)
-        database.modify([{"field": DatabaseV2.Fields.GENRE, "files": [track], "func": lambda *args: "House"}])
-
-        saved = self.saved_file_names()
-        library = Library(self.serato_dir, database=database)
-        self.assertEqual(library.save(), [database.filepath])
-
-        self.assertNotIn("database", vars(library), "save doesn't read library.database")
-        self.assertEqual(saved, [DatabaseV2.FILENAME])
-        self.assertEqual(self.db_values(DatabaseV2.Fields.GENRE)[DatabaseV2.get_relative_path(track)], "House")
-
-    def test_save_skips_unchanged_and_unparsed_files(self):
-        self.make_crate(Crate, "Crate", [self.make_track("Track.mp3")])
-
-        saved = self.saved_file_names()
-        library = Library(self.serato_dir)
-        self.assertEqual(library.save(), [], "nothing parsed")
-        self.assertNotIn("database", vars(library), "save doesn't parse anything")
-
-        _ = library.database, library.crates
-        self.assertEqual(library.save(), [], "nothing changed")
-        self.assertEqual(saved, [])
-
-    def copy_analyzed_track(self, name: str) -> str:
-        """A copy of the test mp3, which has every Serato tag, as `name` in the music folder."""
-        return temp_mp3(self, name, self.music_dir)
-
     def db_values(self, field: DatabaseV2.Fields) -> dict[str, SeratoBinFile.Value]:
         """Each saved database track's value of `field`, by path, for the tracks that have it."""
         return {t.relpath: t.get_value(field) for t in DatabaseV2(self.db_file).get_tracks() if field in t.fields}
 
-    def test_set_db_track_tags(self):
-        track = self.copy_analyzed_track("Colored.mp3")
-        other = self.copy_analyzed_track("Other.mp3")
-        self.add_to_database(track, other)
 
-        saved = self.saved_file_names()
-        result = Library(self.serato_dir).set_db_track_tags(
-            track, color=TrackCuesV2.TrackColors.PURPLE, beatgrid_locked=True
-        )
+@pytest.fixture
+def folders(tmp_dir: str) -> Folders:
+    serato_dir, music_dir = os.path.join(tmp_dir, "_Serato_"), os.path.join(tmp_dir, "Music")
+    for d in [serato_dir, music_dir]:
+        os.mkdir(d)
+    return Folders(serato_dir, music_dir, copy_into(serato_dir, TEST_DATABASE, DatabaseV2.FILENAME))
 
-        self.assertTrue(result.database_changed)
-        self.assertEqual(result.files_written, [track])
-        self.assertEqual(saved, [DatabaseV2.FILENAME], "database saved once")
-        tags = TrackCuesV2(track)
-        self.assertEqual(tags.get_track_color(), TrackCuesV2.TrackColors.PURPLE.value, "color set in tags")
-        self.assertTrue(tags.is_beatgrid_locked(), "lock set in tags")
-        relpath, other_relpath = DatabaseV2.get_relative_path(track), DatabaseV2.get_relative_path(other)
-        colors, locks = self.db_values(DatabaseV2.Fields.COLOR), self.db_values(DatabaseV2.Fields.BEATGRID_LOCKED)
-        self.assertEqual(colors[relpath], 0xBB99FF, "color set in db, as 0xRRGGBB")
-        self.assertIs(locks[relpath], True, "lock set in db")
-        self.assertNotIn(other_relpath, colors, "other track's color left alone")
-        self.assertNotIn(other_relpath, locks, "other track's lock left alone")
-        self.assertEqual(TrackCuesV2(other).get_track_color(), b"\xbb\xbb\xbb", "other track's file left alone")
 
-    def test_set_db_track_tags_text_frames(self):
-        track = self.copy_analyzed_track("Text.mp3")
-        self.add_to_database(track)
-        # key: (value, ID3 frame, the frame's text, database field, its value)
-        cases = {
-            "title": ("A Title", "TIT2", "A Title", DatabaseV2.Fields.TITLE, "A Title"),
-            "artist": ("An Artist", "TPE1", "An Artist", DatabaseV2.Fields.ARTIST, "An Artist"),
-            "album": ("An Album", "TALB", "An Album", DatabaseV2.Fields.ALBUM, "An Album"),
-            "genre": ("A Genre", "TCON", "A Genre", DatabaseV2.Fields.GENRE, "A Genre"),
-            "key": ("8A", "TKEY", "8A", DatabaseV2.Fields.KEY, "8A"),
-            "grouping": ("TAGGED", "TIT1", "TAGGED", DatabaseV2.Fields.GROUPING, "TAGGED"),
-            "publisher": ("A Publisher", "TPUB", "A Publisher", DatabaseV2.Fields.PUBLISHER, "A Publisher"),
-            "composer": ("A Composer", "TCOM", "A Composer", DatabaseV2.Fields.COMPOSER, "A Composer"),
-            "year": ("2020", "TDRC", "2020", DatabaseV2.Fields.YEAR, "2020"),
-            "remixer": ("A Remixer", "TPE4", "A Remixer", DatabaseV2.Fields.REMIXER, "A Remixer"),
-            "track_number": (3, "TRCK", "3", DatabaseV2.Fields.TRACK_NUMBER, 3),
-            "disc_number": (2, "TPOS", "2", DatabaseV2.Fields.DISC_NUMBER, 2),
-        }
+def track_paths(file: SeratoBinFile) -> list[str]:
+    """The track paths in `file` as saved, read again from disk rather than from its entries in memory."""
+    return type(file)(file.filepath).get_track_paths()
 
-        Library(self.serato_dir).set_db_tracks_tags({track: {key: case[0] for key, case in cases.items()}})  # type: ignore
 
-        frames = TrackTextFrames(track)
-        relpath = DatabaseV2.get_relative_path(track)
-        for key, (_, frame_id, frame_text, field, db_value) in cases.items():
-            with self.subTest(key):
-                self.assertEqual(frames.get(frame_id), frame_text, "file")
-                self.assertEqual(self.db_values(field)[relpath], db_value, "database")
+def set_genre(database: DatabaseV2, track: str):
+    """Sets `track`'s genre to House in `database`, without saving it."""
+    database.modify([{"field": DatabaseV2.Fields.GENRE, "files": [track], "func": lambda *args: "House"}])
 
-    def test_set_db_track_tags_comment(self):
-        track = self.copy_analyzed_track("Comment.mp3")
-        self.add_to_database(track)
-        relpath = DatabaseV2.get_relative_path(track)
-        library = Library(self.serato_dir)
 
-        library.set_db_track_tags(track, comment="A Comment")
-        self.assertEqual(TrackTextFrames(track).get(TrackTextFrames.Fields.COMMENT), "A Comment", "file")
-        self.assertEqual(self.db_values(DatabaseV2.Fields.COMMENT)[relpath], "A Comment", "database")
+def file_paths_named(library: Library, names: list[str]) -> list[str]:
+    """The paths of the library's database and crates whose file names are in `names`, sorted."""
+    files = [library.database, *library.crates, *library.smart_crates]
+    return sorted(f.filepath for f in files if os.path.basename(f.filepath) in names)
 
-        library.set_db_track_tags(track, comment="")
-        self.assertIsNone(TrackTextFrames(track).get(TrackTextFrames.Fields.COMMENT), "removed from the file")
-        self.assertNotIn(relpath, self.db_values(DatabaseV2.Fields.COMMENT), "removed from the database")
 
-    def test_set_db_track_tags_in_a_batch_saves_the_database_when_it_ends(self):
-        track = self.copy_analyzed_track("Colored.mp3")
-        self.add_to_database(track)
+def test_files_are_parsed_when_first_needed(folders: Folders):
+    library = Library(os.path.join(folders.serato_dir, "does not exist"))
+    with pytest.raises(FileNotFoundError):  # the database parsed on first access, not on init
+        _ = library.database
 
-        saved = self.saved_file_names()
-        library = Library(self.serato_dir)
+    library = Library(folders.serato_dir)
+    assert library.crates == [], "no Subcrates folder means no crates"
+    assert library.smart_crates == [], "no SmartCrates folder means no smart crates"
+    assert library.database is library.database, "database parsed once"
+
+
+def test_rename_track_file(folders: Folders, bin_file_writes: list[str]):
+    src, dest = folders.make_track("Old.mp3"), folders.music_path("New.mp3")
+    folders.add_to_database(src)
+    folders.make_crate(Crate, "With", [src])
+    folders.make_crate(Crate, "Without", [])
+    folders.make_crate(SmartCrate, "Smart", [src])
+    bin_file_writes.clear()
+
+    library = Library(folders.serato_dir)
+    changed = library.rename_track_file(src, dest)
+
+    assert os.path.exists(dest) and not os.path.exists(src), "file renamed"
+    assert sorted(bin_file_writes) == sorted([DatabaseV2.FILENAME, "With.crate", "Smart.scrate"]), "only those with it"
+    assert sorted(changed) == file_paths_named(library, bin_file_writes), "returns those files"
+    old_path, new_path = relpath(src), relpath(dest)
+    db_paths = track_paths(library.database)
+    assert new_path in db_paths, "db path updated"
+    assert old_path not in db_paths, "db old path gone"
+    for crate in [*library.crates, *library.smart_crates]:
+        if os.path.basename(crate.filepath) != "Without.crate":
+            assert track_paths(crate) == [new_path], f"{crate.filepath} path updated"
+
+
+def test_rename_track_file_in_a_given_database(folders: Folders, bin_file_writes: list[str]):
+    src, dest = folders.make_track("Old.mp3"), folders.music_path("New.mp3")
+    folders.add_to_database(src)
+    db = DatabaseV2(folders.db_file)
+    db.entries.append((DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, "Unsaved.mp3")]))
+    bin_file_writes.clear()
+
+    Library(folders.serato_dir, database=db).rename_track_file(src, dest)
+
+    assert relpath(dest) in db.get_track_paths(), "the given database updated"
+    assert bin_file_writes == [DatabaseV2.FILENAME], "and saved once"
+    assert "Unsaved.mp3" in track_paths(db), "with its unsaved changes, rather than reparsed"
+
+
+@pytest.mark.parametrize(
+    "dest, rename_side_effect",
+    [
+        # os.rename made to overwrite on every OS, as on POSIX, so only Library's own check can refuse
+        pytest.param(lambda folders: folders.make_track("Taken.mp3"), os.replace, id="dest exists"),
+        # os.rename refusing, as on Windows, a clash os.path.exists misses, such as a case change on some filesystems
+        pytest.param(lambda folders: folders.music_path("New.mp3"), FileExistsError, id="os.rename finds a clash"),
+    ],
+)
+def test_rename_track_file_refuses_to_overwrite(folders: Folders, bin_file_writes: list[str], dest, rename_side_effect):
+    src = folders.make_track("Old.mp3")
+    folders.add_to_database(src)
+    dest_path = dest(folders)
+    bin_file_writes.clear()
+
+    with mock.patch("os.rename", side_effect=rename_side_effect), pytest.raises(FileExistsError):
+        Library(folders.serato_dir).rename_track_file(src, dest_path)
+
+    assert os.path.exists(src), "src left in place"
+    assert bin_file_writes == [], "nothing saved"
+    assert relpath(src) in track_paths(DatabaseV2(folders.db_file)), "db unchanged"
+
+
+def test_rename_track_file_not_in_the_library(folders: Folders, bin_file_writes: list[str]):
+    src, dest = folders.make_track("Unimported.mp3"), folders.music_path("New.mp3")
+
+    changed = Library(folders.serato_dir).rename_track_file(src, dest)
+
+    assert os.path.exists(dest) and not os.path.exists(src), "file still renamed"
+    assert changed == [], "no library file changed"
+    assert bin_file_writes == [], "nothing saved"
+
+
+def test_remove_track_files(folders: Folders, bin_file_writes: list[str]):
+    removed, missing, kept = (folders.make_track(name) for name in ["Removed.mp3", "Missing.mp3", "Kept.mp3"])
+    folders.add_to_database(removed, missing, kept)
+    folders.make_crate(Crate, "With", [removed, kept])
+    folders.make_crate(Crate, "Without", [kept])
+    folders.make_crate(SmartCrate, "Smart", [missing])
+    os.remove(missing)
+    bin_file_writes.clear()
+
+    library = Library(folders.serato_dir)
+    result = library.remove_track_files([removed, missing])
+
+    assert not os.path.exists(removed), "file deleted"
+    assert os.path.exists(kept), "other file kept"
+    assert result.files_deleted == [removed], "lists only the file that was there to delete"
+    assert sorted(bin_file_writes) == sorted([DatabaseV2.FILENAME, "With.crate", "Smart.scrate"]), "only those with it"
+    assert sorted(result.library_files_changed) == file_paths_named(library, bin_file_writes)
+    kept_path = relpath(kept)
+    db_paths = track_paths(library.database)
+    assert kept_path in db_paths, "other track kept in db"
+    for track in [removed, missing]:
+        assert relpath(track) not in db_paths, f"{track} removed from db, even if missing"
+    for crate in library.crates:
+        assert track_paths(crate) == [kept_path], f"{crate.filepath} has only the kept track"
+    assert track_paths(library.smart_crates[0]) == [], "missing track removed from smart crate"
+
+
+def test_batch_writes_each_changed_file_once(folders: Folders, bin_file_writes: list[str]):
+    first, second, removed = (folders.make_track(name) for name in ["First.mp3", "Second.mp3", "Removed.mp3"])
+    folders.add_to_database(first, second, removed)
+    folders.make_crate(Crate, "With", [first, second])
+    folders.make_crate(Crate, "Without", [removed])
+    bin_file_writes.clear()
+
+    library = Library(folders.serato_dir)
+    new_first, new_second = (folders.music_path(name) for name in ["New First.mp3", "New Second.mp3"])
+    with library.batch():
+        library.rename_track_file(first, new_first)
+        library.rename_track_file(second, new_second)
+        removed_result = library.remove_track_files([removed])
+
+        assert bin_file_writes == [], "nothing written yet"
+        # though they aren't written until the block ends
+        assert sorted(removed_result.library_files_changed) == file_paths_named(
+            library, [DatabaseV2.FILENAME, "Without.crate"]
+        ), "lists the files it changed"
+        assert os.path.exists(new_first), "track file renamed right away"
+        assert not os.path.exists(removed), "track file deleted right away"
+
+    assert sorted(bin_file_writes) == sorted([DatabaseV2.FILENAME, "With.crate", "Without.crate"]), "each once"
+    new_paths = [relpath(p) for p in [new_first, new_second]]
+    db_paths = track_paths(library.database)
+    for path in new_paths:
+        assert path in db_paths, "db path updated"
+    assert relpath(removed) not in db_paths, "track removed from db"
+    # by name: crates are listed in directory order, which isn't sorted on every filesystem
+    crate = next(c for c in library.crates if os.path.basename(c.filepath) == "With.crate")
+    assert track_paths(crate) == new_paths, "crate paths updated"
+
+
+def test_batch_saves_when_the_block_raises(folders: Folders, bin_file_writes: list[str]):
+    src, dest = folders.make_track("Old.mp3"), folders.music_path("New.mp3")
+    folders.add_to_database(src)
+    bin_file_writes.clear()
+
+    library = Library(folders.serato_dir)
+    with pytest.raises(RuntimeError):  # the exception still propagates
         with library.batch():
-            self.assertTrue(library.set_db_track_tags(track, color=TrackCuesV2.TrackColors.PURPLE).database_changed)
-            self.assertEqual(saved, [], "database not written yet")
-            self.assertEqual(
-                TrackCuesV2(track).get_track_color(), TrackCuesV2.TrackColors.PURPLE.value, "file tagged right away"
-            )
+            library.rename_track_file(src, dest)
+            raise RuntimeError("stopped partway")
 
-        self.assertEqual(saved, [DatabaseV2.FILENAME])
-        self.assertEqual(self.db_values(DatabaseV2.Fields.COLOR)[DatabaseV2.get_relative_path(track)], 0xBB99FF)
+    assert bin_file_writes == [DatabaseV2.FILENAME]
+    assert relpath(dest) in track_paths(library.database), "points at renamed file"
 
-    def test_set_db_tracks_tags_sets_each_its_own_values(self):
-        red, blue = self.copy_analyzed_track("Red.mp3"), self.copy_analyzed_track("Blue.mp3")
-        self.add_to_database(red, blue)
 
-        saved = self.saved_file_names()
-        Library(self.serato_dir).set_db_tracks_tags(
-            {red: {"color": TrackCuesV2.TrackColors.RED}, blue: {"color": TrackCuesV2.TrackColors.BLUE1}}
-        )
+def test_nested_batch_saves_when_the_outermost_ends(folders: Folders, bin_file_writes: list[str]):
+    first, second = folders.make_track("First.mp3"), folders.make_track("Second.mp3")
+    folders.add_to_database(first, second)
+    bin_file_writes.clear()
 
-        self.assertEqual(saved, [DatabaseV2.FILENAME], "database saved once for every track")
-        colors = self.db_values(DatabaseV2.Fields.COLOR)
-        self.assertEqual(colors[DatabaseV2.get_relative_path(red)], 0xFF9999)
-        self.assertEqual(colors[DatabaseV2.get_relative_path(blue)], 0x99BBFF)
-        self.assertEqual(TrackCuesV2(red).get_track_color(), TrackCuesV2.TrackColors.RED.value)
-        self.assertEqual(TrackCuesV2(blue).get_track_color(), TrackCuesV2.TrackColors.BLUE1.value)
+    library = Library(folders.serato_dir)
+    with library.batch():
+        with library.batch():
+            library.rename_track_file(first, folders.music_path("New First.mp3"))
+        assert bin_file_writes == [], "inner batch doesn't save"
+        library.rename_track_file(second, folders.music_path("New Second.mp3"))
 
-    def test_set_db_track_tags_deletes_tags_v1_unless_told_not_to(self):
-        for delete_tags_v1 in (True, False):
-            with self.subTest(delete_tags_v1=delete_tags_v1), warnings.catch_warnings():
-                # passed to each file's save, not to the deprecated parameter on its edits
-                warnings.simplefilter("error", DeprecationWarning)
-                track = self.copy_analyzed_track(f"Delete{delete_tags_v1}.mp3")
-                self.add_to_database(track)
+    assert bin_file_writes == [DatabaseV2.FILENAME], "outer batch saves once"
 
-                Library(self.serato_dir).set_db_track_tags(
-                    track, color=TrackCuesV2.TrackColors.RED, delete_tags_v1=delete_tags_v1
-                )
 
-                tagfile = TrackCuesV2(track).tagfile
-                assert tagfile is not None
-                self.assertEqual(f"GEOB:{TrackCuesV1.GEOB_KEY}" in tagfile, not delete_tags_v1)
+def test_save_writes_direct_changes_serializing_each_parsed_file_once(folders: Folders, bin_file_writes: list[str]):
+    track = folders.make_track("Track.mp3")
+    folders.add_to_database(track)
+    folders.make_crate(Crate, "Crate", [track])
+    bin_file_writes.clear()
 
-    def test_set_db_track_tags_unchanged_skips_saving(self):
-        track = self.copy_analyzed_track("Grey.mp3")
-        self.add_to_database(track)
-        library = Library(self.serato_dir)
-        library.set_db_track_tags(track, color=TrackCuesV2.TrackColors.GREY)
+    library = Library(folders.serato_dir)
+    set_genre(library.database, track)
+    _ = library.crates
+    with mock.patch.object(SeratoBinFile, "to_bytes", autospec=True, side_effect=SeratoBinFile.to_bytes) as to_bytes:
+        assert library.save() == [library.database.filepath], "returns the files written"
 
-        saved = self.saved_file_names()
-        result = library.set_db_track_tags(track, color=TrackCuesV2.TrackColors.GREY)
-        self.assertFalse(result.database_changed)
-        self.assertEqual(result.files_written, [], "file not written")
-        self.assertEqual(saved, [], "database not saved")
+    # the changed database and the unchanged crate, serialized once each
+    assert sorted(os.path.basename(c.args[0].filepath) for c in to_bytes.call_args_list) == sorted(
+        [DatabaseV2.FILENAME, "Crate.crate"]
+    )
+    assert bin_file_writes == [DatabaseV2.FILENAME], "only the changed database written"
+    assert folders.db_values(DatabaseV2.Fields.GENRE)[relpath(track)] == "House"
 
-    def test_set_db_tracks_tags_lists_only_the_files_it_wrote(self):
-        changed, unchanged = self.copy_analyzed_track("Changed.mp3"), self.copy_analyzed_track("Unchanged.mp3")
-        self.add_to_database(changed, unchanged)
-        library = Library(self.serato_dir)
-        library.set_db_track_tags(unchanged, color=TrackCuesV2.TrackColors.GREY)
 
-        result = library.set_db_tracks_tags(
-            {changed: {"color": TrackCuesV2.TrackColors.PURPLE}, unchanged: {"color": TrackCuesV2.TrackColors.GREY}}
-        )
+def test_save_writes_a_passed_database_before_it_is_read(folders: Folders, bin_file_writes: list[str]):
+    track = folders.make_track("Track.mp3")
+    folders.add_to_database(track)
+    database = DatabaseV2(folders.db_file)
+    set_genre(database, track)
+    bin_file_writes.clear()
 
-        self.assertTrue(result.database_changed)
-        self.assertEqual(result.files_written, [changed])
+    library = Library(folders.serato_dir, database=database)
+    assert library.save() == [database.filepath]
 
-    def test_set_db_track_tags_creates_a_missing_tag(self):
-        track = untagged_mp3(self, "New.mp3", self.music_dir)
-        self.add_to_database(track)
+    assert "database" not in vars(library), "save doesn't read library.database"
+    assert bin_file_writes == [DatabaseV2.FILENAME]
+    assert folders.db_values(DatabaseV2.Fields.GENRE)[relpath(track)] == "House"
 
-        Library(self.serato_dir).set_db_track_tags(track, color=TrackCuesV2.TrackColors.RED, beatgrid_locked=True)
 
-        tags = TrackCuesV2(track)
-        self.assertEqual(tags.get_track_color(), TrackCuesV2.TrackColors.RED.value, "color added to the file")
-        self.assertTrue(tags.is_beatgrid_locked(), "lock added to the file")
-        self.assertEqual(self.db_values(DatabaseV2.Fields.COLOR)[DatabaseV2.get_relative_path(track)], 0xFF9999)
+def test_save_skips_unchanged_and_unparsed_files(folders: Folders, bin_file_writes: list[str]):
+    folders.make_crate(Crate, "Crate", [folders.make_track("Track.mp3")])
+    bin_file_writes.clear()
 
-    def test_set_db_track_tags_unknown_key_changes_nothing(self):
-        track = self.copy_analyzed_track("Track.mp3")
-        self.add_to_database(track)
+    library = Library(folders.serato_dir)
+    assert library.save() == [], "nothing parsed"
+    assert "database" not in vars(library), "save doesn't parse anything"
 
-        saved = self.saved_file_names()
-        with self.assertRaises(ValueError):
-            Library(self.serato_dir).set_db_tracks_tags(
-                {track: {"color": TrackCuesV2.TrackColors.RED, "rating": 5}}  # type: ignore[typeddict-unknown-key]
-            )
-        self.assertEqual(saved, [], "database not saved")
-        self.assertEqual(TrackCuesV2(track).get_track_color(), b"\xbb\xbb\xbb", "file not changed")
+    _ = library.database, library.crates
+    assert library.save() == [], "nothing changed"
+    assert bin_file_writes == []
 
-    def test_set_db_tracks_tags_failing_later_track_changes_nothing(self):
-        first = self.copy_analyzed_track("First.mp3")
-        self.add_to_database(first)
-        batches = {
-            "unreadable file": {
-                first: {"color": TrackCuesV2.TrackColors.RED},
-                "Second.flac": {"beatgrid_locked": True},
+
+def test_set_db_track_tags(folders: Folders, bin_file_writes: list[str]):
+    track, other = folders.copy_analyzed_track("Colored.mp3"), folders.copy_analyzed_track("Other.mp3")
+    folders.add_to_database(track, other)
+    bin_file_writes.clear()
+
+    result = Library(folders.serato_dir).set_db_track_tags(track, color=Colors.PURPLE, beatgrid_locked=True)
+
+    assert result.database_changed
+    assert result.files_written == [track]
+    assert bin_file_writes == [DatabaseV2.FILENAME], "database saved once"
+    tags = TrackCuesV2(track)
+    assert tags.get_track_color() == Colors.PURPLE.value, "color set in tags"
+    assert tags.is_beatgrid_locked(), "lock set in tags"
+    colors, locks = folders.db_values(DatabaseV2.Fields.COLOR), folders.db_values(DatabaseV2.Fields.BEATGRID_LOCKED)
+    assert colors[relpath(track)] == 0xBB99FF, "color set in db, as 0xRRGGBB"
+    assert locks[relpath(track)] is True, "lock set in db"
+    assert relpath(other) not in colors, "other track's color left alone"
+    assert relpath(other) not in locks, "other track's lock left alone"
+    assert TrackCuesV2(other).get_track_color() == FIXTURE_COLOR, "other track's file left alone"
+
+
+# key: (value, ID3 frame, database field); the frame holds the value as text, and the database as it is
+TEXT_FRAMES = {
+    "title": ("A Title", "TIT2", DatabaseV2.Fields.TITLE),
+    "artist": ("An Artist", "TPE1", DatabaseV2.Fields.ARTIST),
+    "album": ("An Album", "TALB", DatabaseV2.Fields.ALBUM),
+    "genre": ("A Genre", "TCON", DatabaseV2.Fields.GENRE),
+    "key": ("8A", "TKEY", DatabaseV2.Fields.KEY),
+    "grouping": ("TAGGED", "TIT1", DatabaseV2.Fields.GROUPING),
+    "publisher": ("A Publisher", "TPUB", DatabaseV2.Fields.PUBLISHER),
+    "composer": ("A Composer", "TCOM", DatabaseV2.Fields.COMPOSER),
+    "year": ("2020", "TDRC", DatabaseV2.Fields.YEAR),
+    "remixer": ("A Remixer", "TPE4", DatabaseV2.Fields.REMIXER),
+    "track_number": (3, "TRCK", DatabaseV2.Fields.TRACK_NUMBER),
+    "disc_number": (2, "TPOS", DatabaseV2.Fields.DISC_NUMBER),
+}
+
+
+def test_set_db_track_tags_text_frames(folders: Folders):
+    track = folders.copy_analyzed_track("Text.mp3")
+    folders.add_to_database(track)
+
+    Library(folders.serato_dir).set_db_tracks_tags(
+        {track: {key: value for key, (value, _, _) in TEXT_FRAMES.items()}}  # type: ignore
+    )
+
+    frames = TrackTextFrames(track)
+    assert {key: frames.get(frame_id) for key, (_, frame_id, _) in TEXT_FRAMES.items()} == {
+        key: str(value) for key, (value, _, _) in TEXT_FRAMES.items()
+    }, "file"
+    assert {key: folders.db_values(field)[relpath(track)] for key, (_, _, field) in TEXT_FRAMES.items()} == {
+        key: value for key, (value, _, _) in TEXT_FRAMES.items()
+    }, "database"
+
+
+def test_set_db_track_tags_comment(folders: Folders):
+    track = folders.copy_analyzed_track("Comment.mp3")
+    folders.add_to_database(track)
+    library = Library(folders.serato_dir)
+
+    library.set_db_track_tags(track, comment="A Comment")
+    assert TrackTextFrames(track).get(TrackTextFrames.Fields.COMMENT) == "A Comment", "file"
+    assert folders.db_values(DatabaseV2.Fields.COMMENT)[relpath(track)] == "A Comment", "database"
+
+    library.set_db_track_tags(track, comment="")
+    assert TrackTextFrames(track).get(TrackTextFrames.Fields.COMMENT) is None, "removed from the file"
+    assert relpath(track) not in folders.db_values(DatabaseV2.Fields.COMMENT), "removed from the database"
+
+
+def test_set_db_track_tags_in_a_batch_saves_the_database_when_it_ends(folders: Folders, bin_file_writes: list[str]):
+    track = folders.copy_analyzed_track("Colored.mp3")
+    folders.add_to_database(track)
+    bin_file_writes.clear()
+
+    library = Library(folders.serato_dir)
+    with library.batch():
+        assert library.set_db_track_tags(track, color=Colors.PURPLE).database_changed
+        assert bin_file_writes == [], "database not written yet"
+        assert TrackCuesV2(track).get_track_color() == Colors.PURPLE.value, "file tagged right away"
+
+    assert bin_file_writes == [DatabaseV2.FILENAME]
+    assert folders.db_values(DatabaseV2.Fields.COLOR)[relpath(track)] == 0xBB99FF
+
+
+def test_set_db_tracks_tags_sets_each_its_own_values(folders: Folders, bin_file_writes: list[str]):
+    red, blue = folders.copy_analyzed_track("Red.mp3"), folders.copy_analyzed_track("Blue.mp3")
+    folders.add_to_database(red, blue)
+    bin_file_writes.clear()
+
+    Library(folders.serato_dir).set_db_tracks_tags({red: {"color": Colors.RED}, blue: {"color": Colors.BLUE1}})
+
+    assert bin_file_writes == [DatabaseV2.FILENAME], "database saved once for every track"
+    colors = folders.db_values(DatabaseV2.Fields.COLOR)
+    assert colors[relpath(red)] == 0xFF9999
+    assert colors[relpath(blue)] == 0x99BBFF
+    assert TrackCuesV2(red).get_track_color() == Colors.RED.value
+    assert TrackCuesV2(blue).get_track_color() == Colors.BLUE1.value
+
+
+# passed to each file's save, not to the deprecated parameter on its edits
+@pytest.mark.filterwarnings("error::DeprecationWarning")
+@pytest.mark.parametrize(
+    "delete_tags_v1", [pytest.param(True, id="delete_tags_v1=True"), pytest.param(False, id="delete_tags_v1=False")]
+)
+def test_set_db_track_tags_deletes_tags_v1_unless_told_not_to(folders: Folders, delete_tags_v1: bool):
+    track = folders.copy_analyzed_track("Track.mp3")
+    folders.add_to_database(track)
+
+    Library(folders.serato_dir).set_db_track_tags(track, color=Colors.RED, delete_tags_v1=delete_tags_v1)
+
+    assert has_tags_v1(track) == (not delete_tags_v1)
+
+
+def test_set_db_tracks_tags_writes_only_what_changed(folders: Folders, bin_file_writes: list[str]):
+    changed, unchanged = folders.copy_analyzed_track("Changed.mp3"), folders.copy_analyzed_track("Unchanged.mp3")
+    folders.add_to_database(changed, unchanged)
+    library = Library(folders.serato_dir)
+    library.set_db_track_tags(unchanged, color=Colors.GREY)
+    bin_file_writes.clear()
+
+    result = library.set_db_track_tags(unchanged, color=Colors.GREY)
+    assert not result.database_changed
+    assert result.files_written == [], "file not written"
+    assert bin_file_writes == [], "database not saved"
+
+    result = library.set_db_tracks_tags({changed: {"color": Colors.PURPLE}, unchanged: {"color": Colors.GREY}})
+    assert result.database_changed
+    assert result.files_written == [changed], "lists only the file it wrote"
+
+
+def test_set_db_track_tags_creates_a_missing_tag(folders: Folders):
+    track = copy_mp3_without_cues(folders.music_dir, "New.mp3")
+    folders.add_to_database(track)
+
+    Library(folders.serato_dir).set_db_track_tags(track, color=Colors.RED, beatgrid_locked=True)
+
+    tags = TrackCuesV2(track)
+    assert tags.get_track_color() == Colors.RED.value, "color added to the file"
+    assert tags.is_beatgrid_locked(), "lock added to the file"
+    assert folders.db_values(DatabaseV2.Fields.COLOR)[relpath(track)] == 0xFF9999
+
+
+@pytest.mark.parametrize(
+    "tracks, error, message",
+    [
+        pytest.param(
+            lambda folders, first: {first: {"color": Colors.RED, "rating": 5}},
+            ValueError,
+            "unknown track tags",
+            id="an unknown key",
+        ),
+        pytest.param(
+            lambda folders, first: {first: {"color": Colors.RED}, "Second.flac": {"beatgrid_locked": True}},
+            ValueError,
+            "unsupported file type",
+            id="a later track's file unreadable",
+        ),
+        # a crash in converting the color, not a deliberate error: this pins only that it changes nothing
+        pytest.param(
+            lambda folders, first: {
+                first: {"color": Colors.RED},
+                folders.copy_analyzed_track("Second.mp3"): {"color": "red"},
             },
-            "bad value": {first: {"color": TrackCuesV2.TrackColors.RED}, first + "2": {"color": "red"}},
-        }
-        saved = self.saved_file_names()
-        for name, tracks in batches.items():
-            with self.subTest(name):
-                with self.assertRaises((ValueError, AttributeError)):
-                    Library(self.serato_dir).set_db_tracks_tags(tracks)
-                self.assertEqual(saved, [], "database not saved")
-                self.assertEqual(TrackCuesV2(first).get_track_color(), b"\xbb\xbb\xbb", "first file not changed")
+            AttributeError,
+            "has no attribute 'value'",
+            id="a later track's bad value",
+        ),
+    ],
+)
+def test_set_db_tracks_tags_failing_changes_nothing(
+    folders: Folders, bin_file_writes: list[str], tracks, error: type[Exception], message: str
+):
+    first = folders.copy_analyzed_track("First.mp3")
+    folders.add_to_database(first)
+    batch = tracks(folders, first)
+    bin_file_writes.clear()
 
-    def test_set_db_tracks_tags_with_no_values_doesnt_open_the_file(self):
-        # an unsupported file type would raise when opened
-        result = Library(self.serato_dir).set_db_tracks_tags({"Unopened.flac": {}})
-        self.assertFalse(result.database_changed)
-        self.assertEqual(result.files_written, [])
-
-    def test_set_db_track_tags_track_not_in_database_warns(self):
-        track = self.copy_analyzed_track("Unknown.mp3")
-
-        with self.assertLogs(level="WARNING") as logs:
-            result = Library(self.serato_dir).set_db_track_tags(track, color=TrackCuesV2.TrackColors.RED)
-
-        self.assertFalse(result.database_changed, "database unchanged")
-        self.assertEqual(result.files_written, [track], "file still written")
-        self.assertIn("isn't in the database", "\n".join(logs.output))
-        self.assertEqual(TrackCuesV2(track).get_track_color(), TrackCuesV2.TrackColors.RED.value, "file still set")
-
-    def test_set_db_track_tags_without_track_tags_extra(self):
-        # a fresh interpreter, with mutagen blocked as if the track_tags extra weren't installed
-        code = """if True:
-            import sys
-            sys.modules["mutagen"] = None
-            from serato_tools.library import Library
-            library = Library(sys.argv[1])
-            library.database  # the rest of Library still works
-            try:
-                library.set_db_track_tags("track.mp3", beatgrid_locked=True)
-            except ImportError as error:
-                print(error)
-        """
-        result = subprocess.run(
-            [sys.executable, "-c", code, self.serato_dir], capture_output=True, text=True, check=True
-        )
-        self.assertIn('pip install "serato-tools[track_tags]"', result.stdout)
+    with pytest.raises(error, match=message):
+        Library(folders.serato_dir).set_db_tracks_tags(batch)
+    assert bin_file_writes == [], "database not saved"
+    assert TrackCuesV2(first).get_track_color() == FIXTURE_COLOR, "first file not changed"
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_set_db_tracks_tags_with_no_values_doesnt_open_the_file(folders: Folders):
+    # an unsupported file type would raise when opened
+    result = Library(folders.serato_dir).set_db_tracks_tags({"Unopened.flac": {}})
+    assert not result.database_changed
+    assert result.files_written == []
+
+
+def test_set_db_track_tags_track_not_in_database_warns(folders: Folders, caplog: pytest.LogCaptureFixture):
+    track = folders.copy_analyzed_track("Unknown.mp3")
+
+    with caplog.at_level(logging.WARNING):
+        result = Library(folders.serato_dir).set_db_track_tags(track, color=Colors.RED)
+
+    assert not result.database_changed, "database unchanged"
+    assert result.files_written == [track], "file still written"
+    assert "isn't in the database" in caplog.text
+    assert TrackCuesV2(track).get_track_color() == Colors.RED.value, "file still set"
+
+
+def test_set_db_track_tags_without_track_tags_extra(folders: Folders):
+    # a fresh interpreter, with mutagen blocked as if the track_tags extra weren't installed
+    code = """if True:
+        import sys
+        sys.modules["mutagen"] = None
+        from serato_tools.library import Library
+        library = Library(sys.argv[1])
+        library.database  # the rest of Library still works
+        try:
+            library.set_db_track_tags("track.mp3", beatgrid_locked=True)
+        except ImportError as error:
+            print(error)
+    """
+    result = subprocess.run(
+        [sys.executable, "-c", code, folders.serato_dir], capture_output=True, text=True, check=True
+    )
+    assert 'pip install "serato-tools[track_tags]"' in result.stdout

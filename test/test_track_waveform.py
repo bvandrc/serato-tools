@@ -1,33 +1,24 @@
-import unittest
+import pytest
 
 from serato_tools.track_waveform import TrackWaveform
-from serato_tools.utils.track_tags import NoWaveformError, del_geob, open_tagfile
+from serato_tools.utils.track_tags import NoWaveformError
 
-from test.helpers import read_bytes, temp_mp3
-
-
-class TestCase(unittest.TestCase):
-    def test_parse(self):
-        tags = TrackWaveform(read_bytes("test/data/track_waveform.bin"))
-        self.assertEqual(
-            b"".join(bytes(x) for x in list(tags.data)),
-            read_bytes("test/data/track_waveform_parsed.bin"),
-            "parsed data",
-        )
-
-    def test_without_a_waveform_raises(self):
-        path = temp_mp3(self)
-        tagfile = open_tagfile(path)
-        del_geob(tagfile, TrackWaveform.GEOB_KEY)
-        tagfile.save()
-        with self.assertRaises(NoWaveformError) as caught:
-            TrackWaveform(path)
-        self.assertEqual(caught.exception.filename, path)
-
-    def test_a_partial_row_raises(self):
-        with self.assertRaisesRegex(ValueError, "row of 5 bytes"):
-            TrackWaveform(read_bytes("test/data/track_waveform.bin") + b"\x00" * 5)
+from test.helpers.files import read_bytes
+from test.helpers.track_tags import WAVEFORM_DATA, copy_mp3_without
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_parse():
+    tags = TrackWaveform(read_bytes(WAVEFORM_DATA))
+    assert b"".join(bytes(x) for x in tags.data) == read_bytes("test/data/track_waveform_parsed.bin")
+
+
+def test_without_a_waveform_raises(tmp_dir: str):
+    path = copy_mp3_without(tmp_dir, TrackWaveform.GEOB_KEY)
+    with pytest.raises(NoWaveformError) as caught:
+        TrackWaveform(path)
+    assert caught.value.filename == path
+
+
+def test_a_partial_row_raises():
+    with pytest.raises(ValueError, match="row of 5 bytes"):
+        TrackWaveform(read_bytes(WAVEFORM_DATA) + b"\x00" * 5)

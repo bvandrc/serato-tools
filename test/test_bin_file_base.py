@@ -1,198 +1,540 @@
+import copy
+import json
 import os
-import shutil
-import unittest
+import struct
 from unittest import mock
+
+import pytest
 
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
-from serato_tools.utils.bin_file_base import SeratoBinFile
+from serato_tools.smart_crate import SmartCrate
+from serato_tools.utils.bin_file_base import DataTypeError, SeratoBinFile
 
-from test.helpers import read_bytes, temp_dir
+from test.helpers.bin_files import TEST_CRATE, TEST_DATABASE
+from test.helpers.files import copy_into, read_bytes, read_text
+
+WINDOWS_ONLY = pytest.mark.skipif(os.name != "nt", reason="Windows drive letters and backslash separators")
+POSIX_ONLY = pytest.mark.skipif(os.name == "nt", reason="POSIX paths")
 
 
-class PathTestCase(unittest.TestCase):
-    def assertRelativePaths(self, cases: dict[str, str]):
-        for path, expected in cases.items():
-            with self.subTest(path):
-                self.assertEqual(SeratoBinFile.get_relative_path(path), expected)
+@pytest.fixture
+def db_file(tmp_dir: str) -> str:
+    """A copy of the test database, as its own file name."""
+    return copy_into(tmp_dir, TEST_DATABASE, DatabaseV2.FILENAME)
 
-    def test_relative_path(self):
-        self.assertRelativePaths(
-            {"Music/DJ Tracks/Tripp St. - Enlighten.mp3": "Music/DJ Tracks/Tripp St. - Enlighten.mp3"}
+
+# paths
+
+
+@pytest.mark.parametrize(
+    "path, expected",
+    [
+        ("Music/DJ Tracks/Tripp St. - Enlighten.mp3", "Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
+        pytest.param(
+            "C:\\Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3",
+            "Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
+            marks=WINDOWS_ONLY,
+        ),
+        pytest.param(
+            "Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3",
+            "Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
+            marks=WINDOWS_ONLY,
+        ),
+        pytest.param(
+            "C:/Music/DJ Tracks/Tripp St. - Enlighten.mp3",
+            "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
+            marks=WINDOWS_ONLY,
+        ),
+        pytest.param(
+            "/Users/Username/Music/DJ Tracks/Tripp St. - Enlighten.mp3",
+            "Users/Username/Music/DJ Tracks/Tripp St. - Enlighten.mp3",
+            marks=POSIX_ONLY,
+        ),
+    ],
+)
+def test_relative_path(path: str, expected: str):
+    assert SeratoBinFile.get_relative_path(path) == expected
+
+
+@WINDOWS_ONLY
+def test_full_path_keeps_given_drive():
+    path = "D:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
+    assert SeratoBinFile.get_full_path(path) == os.path.normpath(path)
+
+
+@POSIX_ONLY
+def test_full_path_keeps_absolute_posix_path():
+    path = "/Volumes/USB/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
+    assert SeratoBinFile.get_full_path(path) == path
+
+
+def test_full_path_without_drive_is_absolute():
+    # Serato stores track paths with no drive or leading separator
+    full_path = SeratoBinFile.get_full_path("Music/DJ Tracks/Tripp St. - Enlighten.mp3")
+    assert os.path.isabs(full_path)
+    assert full_path.endswith(os.path.normpath("/Music/DJ Tracks/Tripp St. - Enlighten.mp3"))
+
+
+# loading a file: from its bytes, from JSON, or, for a file that doesn't exist yet, from its class's defaults
+
+
+@pytest.mark.parametrize(
+    "cut_at",
+    [pytest.param(3, id="partway through a header"), pytest.param(-1, id="partway through an entry")],
+)
+def test_a_file_cut_off_raises(tmp_dir: str, cut_at: int):
+    path = os.path.join(tmp_dir, "Cut.crate")
+    with open(path, "wb") as f:
+        f.write(read_bytes(TEST_DATABASE)[:cut_at])
+    with pytest.raises(ValueError, match="file ends partway through"):
+        DatabaseV2(path)
+
+
+def test_an_untested_version_raises(tmp_dir: str):
+    # rather than risk misparsing a format it hasn't seen, and corrupting it when saved
+    version = Crate.DEFAULT_ENTRIES[0][1]
+    assert isinstance(version, str)
+    untested = "9.9" + version[3:]  # the same length, so the entry's header still fits
+    data = read_bytes(TEST_CRATE)
+    assert data.count(version.encode("utf-16-be")) == 1
+    path = os.path.join(tmp_dir, "Untested.crate")
+    with open(path, "wb") as f:
+        f.write(data.replace(version.encode("utf-16-be"), untested.encode("utf-16-be")))
+    with pytest.raises(ValueError, match="Untested version"):
+        Crate(path)
+
+
+def entry_bytes(field: str, data: bytes) -> bytes:
+    """An entry as it's stored: its 4-character field name, its length, then `data`."""
+    return struct.pack(">4sI", field.encode("ascii"), len(data)) + data
+
+
+# rather than read a value it would write back differently, or not at all
+@pytest.mark.parametrize(
+    "entry, message",
+    [
+        pytest.param(
+            entry_bytes(SeratoBinFile.Fields.REVERSE_ORDER.value, b"\x02"),
+            "unexpected boolean value for field brev",
+            id="a boolean neither 00 nor 01",
+        ),
+        pytest.param(entry_bytes("xabc", b"\x00"), "unexpected type for field: xabc", id="a field of no known type"),
+    ],
+)
+def test_parsing_a_value_it_would_rewrite_raises(tmp_dir: str, entry: bytes, message: str):
+    path = os.path.join(tmp_dir, "Test.crate")
+    with open(path, "wb") as f:
+        f.write(read_bytes(TEST_CRATE) + entry)
+    with pytest.raises(ValueError, match=message):
+        Crate(path)
+
+
+# DatabaseV2 can't be created new. Crate and SmartCrate share CrateBase.DEFAULT_VIEW_ENTRIES' sublists
+@pytest.mark.parametrize("cls", (Crate, SmartCrate), ids=lambda cls: cls.__name__)
+def test_new_file_shares_no_entries_with_its_class_default(tmp_dir: str, cls: type[Crate] | type[SmartCrate]):
+    defaults = {c: copy.deepcopy(c.DEFAULT_ENTRIES) for c in (Crate, SmartCrate)}
+    a = cls(os.path.join(tmp_dir, "A" + cls.EXTENSION))
+    a.add_tracks(["/music/track1.mp3"])
+    b = cls(os.path.join(tmp_dir, "B" + cls.EXTENSION))
+
+    for i, (field, value) in enumerate(a.entries[: len(defaults[cls])]):
+        if isinstance(value, list):
+            assert value is not cls.DEFAULT_ENTRIES[i][1], f"{field} sublist shared with class default"
+            assert value is not b.entries[i][1], f"{field} sublist shared between instances"
+            value.append((SeratoBinFile.Fields.COLUMN_NAME, "mutated"))
+
+    for c, default in defaults.items():
+        assert c.DEFAULT_ENTRIES == default, f"{c.__name__}'s default mutated"
+    assert b.entries == defaults[cls], "other instance must not inherit tracks or nested edits"
+
+
+def test_json_round_trip():
+    db_from_bin = DatabaseV2(TEST_DATABASE)
+    assert db_from_bin.to_json_object() == json.loads(read_text("test/data/database_v2_json.json"))
+
+    db_from_json = DatabaseV2(os.path.abspath("test/data/database_v2_json.json"))
+    assert db_from_json.__str__() == db_from_bin.__str__(), "loaded from a JSON file"
+
+    db_from_json.entries = []
+    db_from_json.from_json_object(db_from_bin.to_json_object())
+    assert db_from_json.__str__() == db_from_bin.__str__(), "from_json_object"
+
+
+def test_mistyped_json_value_is_refused(tmp_dir: str):
+    db = DatabaseV2(TEST_DATABASE)
+    original_entries = copy.deepcopy(db.entries)
+    json_obj = db.to_json_object()
+    track = json_obj[1]["value"]
+    assert isinstance(track, list)
+    uadd = next(e for e in track if e["field"] == DatabaseV2.Fields.DATE_ADDED_U)
+    uadd["value"], uadd["type"] = "not an int", "str"
+
+    json_file = os.path.join(tmp_dir, "db.json")
+    with open(json_file, "w", encoding="utf-8") as f:
+        json.dump(json_obj, f)
+    with pytest.raises(DataTypeError):  # on load
+        DatabaseV2(json_file)
+
+    with pytest.raises(DataTypeError):  # into an existing db
+        db.from_json_object(json_obj)
+    assert db.entries == original_entries, "existing entries left as they were"
+
+
+# changing a file's tracks, through DatabaseV2, whose tracks have the most fields
+
+
+# the changes that turn the test database into database_v2_test_modified_output.txt
+EVERY_TRACK_RULES: list[DatabaseV2.ModifyRule] = [
+    {"field": DatabaseV2.Fields.DATE_ADDED_U, "func": lambda *args: 1735748100},
+    {"field": DatabaseV2.Fields.DATE_ADDED_T, "func": lambda *args: "1735748100"},
+    {"field": DatabaseV2.Fields.GROUPING, "func": lambda *args: "NEW_GROUPING"},
+]
+
+
+def test_modify_without_rules_changes_nothing():
+    db = DatabaseV2(TEST_DATABASE)
+    original_entries = copy.deepcopy(db.entries)
+    assert not db.modify([]), "reports no change"
+    assert db.entries == original_entries
+
+
+def test_modify_every_track():
+    db = DatabaseV2(TEST_DATABASE)
+    assert db.modify(EVERY_TRACK_RULES), "reports change"
+    assert db.__str__() == read_text("test/data/database_v2_test_modified_output.txt")
+    assert db.to_bytes() == read_bytes("test/data/database_v2_test_modified_output.bin")
+
+
+def test_modify_given_files():
+    db = DatabaseV2(TEST_DATABASE)
+    db.modify(EVERY_TRACK_RULES)  # database_v2_test_modified_output_2.txt has these changes too
+
+    rule: DatabaseV2.ModifyRule = {
+        "field": DatabaseV2.Fields.GENRE,
+        "func": lambda *args: "NEW_GENRE",
+        # each track given by a path in a different form
+        "files": [
+            "Users/bvand/Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
+            os.path.join(os.sep, "Users", "bvand", "Music", "DJ Tracks", "Tripp St. - Enlighten.mp3"),
+        ]
+        # backslashes and drive letters only mean something on Windows
+        + (
+            [
+                "Users\\bvand\\Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3",
+                "C:/Users/bvand/Music/DJ Tracks/Tripp St. - Enlighten.mp3",
+            ]
+            if os.name == "nt"
+            else []
+        ),
+    }
+    assert db.modify([rule]), "reports change"
+    assert db.__str__() == read_text("test/data/database_v2_test_modified_output_2.txt")
+    assert db.to_bytes() == read_bytes("test/data/database_v2_test_modified_output_2.bin")
+
+
+def test_modify_with_two_rules_for_a_field_raises():
+    db = DatabaseV2(TEST_DATABASE)
+    rule: SeratoBinFile.ModifyRule = {"field": DatabaseV2.Fields.GENRE, "func": lambda *args: None}
+    with pytest.raises(ValueError, match="1 rule per field"):
+        db.modify([rule, rule])
+
+
+def test_modify_empty_value_removes_field(db_file: str):
+    # as Serato does when a tag is cleared
+    db = DatabaseV2(db_file)
+    target = "Users/bvand/Music/DJ Tracks/SiR - D'Evils.mp3"
+    other = "Users/bvand/Music/DJ Tracks/Slaycub - Visceral Planet.mp3"
+    clear_grouping: list[DatabaseV2.ModifyRule] = [
+        {"field": DatabaseV2.Fields.GROUPING, "files": [target], "func": lambda *args: ""}
+    ]
+
+    def grouping(database: DatabaseV2, relpath: str):
+        track = next(t for t in database.get_tracks() if t.relpath == relpath)
+        return track.get_value(DatabaseV2.Fields.GROUPING) if DatabaseV2.Fields.GROUPING in track.fields else None
+
+    assert db.modify(clear_grouping), "reports removal"
+    assert grouping(db, target) is None, "removed rather than set empty"
+    assert grouping(db, other) == "UNTAGGED", "other tracks left as they were"
+    assert not db.modify(clear_grouping), "reports no change when already gone"
+    db.save()
+    assert grouping(DatabaseV2(db_file), target) is None, "removed in the saved file"
+
+    with pytest.raises(ValueError):  # a track can't be without its path
+        db.modify([{"field": DatabaseV2.Fields.FILE_PATH, "files": [target], "func": lambda *args: ""}])
+
+
+def test_modify_tracks_given_files():
+    db = DatabaseV2(TEST_DATABASE)
+    target = "Users/bvand/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
+
+    seen: list[str] = []
+
+    def func(track: DatabaseV2.Track):
+        seen.append(track.relpath)
+        return track
+
+    db.modify_tracks(func, files=[target])
+    assert seen == [DatabaseV2.get_relative_path(target)], "only the given track is passed to func"
+
+
+def test_remove_tracks():
+    db = DatabaseV2(TEST_DATABASE)
+    paths = db.get_track_paths()
+    assert len(paths) > 2
+
+    assert db.remove_tracks(paths[:2]), "reports removal"
+    assert db.get_track_paths() == paths[2:], "removes exactly the given tracks, keeping order"
+    assert not db.remove_tracks(paths[:2]), "reports no change when already gone"
+
+
+def test_remove_duplicates():
+    db = DatabaseV2("test/data/database_v2_duplicates.bin")
+    assert db.__str__() == read_text("test/data/database_v2_duplicates_output.txt"), "original"
+    assert db.remove_duplicates(), "reports removal"
+    assert db.__str__() == read_text("test/data/database_v2_duplicates_output_deduped.txt"), "deduped"
+    assert not db.remove_duplicates(), "nothing left to remove"
+
+
+def test_change_track_path(tmp_dir: str):
+    src, dest, other = (os.path.join(tmp_dir, name) for name in ["Old.mp3", "New.mp3", "Other.mp3"])
+    open(dest, "wb").close()
+    crate = Crate(os.path.join(tmp_dir, "Test.crate"))
+    crate.add_tracks([src, other])
+
+    assert crate.change_track_path(src, dest), "reports that the file had the track"
+    assert crate.get_track_paths() == [SeratoBinFile.get_relative_path(p) for p in [dest, other]], "in its place"
+
+
+def test_change_track_path_of_a_track_the_file_doesnt_have(crate_file: str, tmp_dir: str):
+    crate = Crate(crate_file)
+    dest = os.path.join(tmp_dir, "New.mp3")
+    open(dest, "wb").close()
+    assert not crate.change_track_path(os.path.join(tmp_dir, "Not In Crate.mp3"), dest)
+    assert not crate.has_changed
+
+
+def test_change_track_path_to_a_file_that_doesnt_exist_raises(tmp_dir: str):
+    src = os.path.join(tmp_dir, "Old.mp3")
+    crate = Crate(os.path.join(tmp_dir, "Test.crate"))
+    crate.add_tracks([src])
+    crate.save()
+
+    with pytest.raises(FileNotFoundError):
+        crate.change_track_path(src, os.path.join(tmp_dir, "Missing.mp3"))
+    assert not crate.has_changed
+    assert crate.get_track_paths() == [SeratoBinFile.get_relative_path(src)]
+
+
+# a track's fields
+
+
+def test_duplicate_field_raises():
+    # a repeated field would be silently collapsed/duplicated on round-trip, corrupting the file
+    with pytest.raises(ValueError):
+        SeratoBinFile.Track(
+            [
+                (SeratoBinFile.Fields.FILE_PATH.value, "a.mp3"),
+                (SeratoBinFile.Fields.GENRE.value, "House"),
+                (SeratoBinFile.Fields.GENRE.value, "Techno"),
+            ],
+            path_key=SeratoBinFile.Fields.FILE_PATH.value,
         )
 
-    @unittest.skipUnless(os.name == "nt", "Windows drive letters and backslash separators")
-    def test_windows_relative_path(self):
-        self.assertRelativePaths(
-            {
-                "C:\\Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3": "Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
-                "Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3": "Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
-                "C:/Music/DJ Tracks/Tripp St. - Enlighten.mp3": "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
-            }
-        )
 
-    @unittest.skipIf(os.name == "nt", "POSIX paths")
-    def test_posix_relative_path(self):
-        self.assertRelativePaths(
-            {
-                "/Users/Username/Music/DJ Tracks/Tripp St. - Enlighten.mp3": "Users/Username/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
-            }
-        )
+def test_remove_field():
+    path, genre = SeratoBinFile.Fields.FILE_PATH.value, SeratoBinFile.Fields.GENRE.value
+    track = SeratoBinFile.Track([(path, "a.mp3"), (genre, "House")], path_key=path)
+    only_path = [(path, "a.mp3")]
 
-    @unittest.skipUnless(os.name == "nt", "Windows drive letters")
-    def test_full_path_keeps_given_drive(self):
-        path = "D:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
-        self.assertEqual(SeratoBinFile.get_full_path(path), os.path.normpath(path))
+    assert track.remove_field(genre), "reports removal"
+    assert track.to_entries() == only_path, "removed from the entries written back"
+    assert not track.remove_field(genre), "reports no change when already gone"
 
-    @unittest.skipIf(os.name == "nt", "POSIX paths")
-    def test_full_path_keeps_absolute_posix_path(self):
-        path = "/Volumes/USB/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
-        self.assertEqual(SeratoBinFile.get_full_path(path), path)
+    # as Serato does when a tag is cleared
+    track.set_value(genre, "House")
+    track.set_value(genre, "")
+    assert track.to_entries() == only_path, "set_value empty removes it, rather than setting it empty"
+    track.set_value(genre, "")
+    assert track.to_entries() == only_path, "set_value empty doesn't add it when already gone"
 
-    def test_full_path_without_drive_is_absolute(self):
-        # Serato stores track paths with no drive or leading separator
-        full_path = SeratoBinFile.get_full_path("Music/DJ Tracks/Tripp St. - Enlighten.mp3")
-        self.assertTrue(os.path.isabs(full_path), full_path)
-        self.assertTrue(full_path.endswith(os.path.normpath("/Music/DJ Tracks/Tripp St. - Enlighten.mp3")), full_path)
+    # a track can't be without its path
+    with pytest.raises(ValueError):
+        track.remove_field(path)
+    with pytest.raises(ValueError):
+        track.set_value(path, "")
+    assert track.to_entries() == only_path, "path kept"
 
 
-class ParseTestCase(unittest.TestCase):
-    def test_a_file_cut_off_raises(self):
-        data = read_bytes("test/data/database_v2_test.bin")
-        tmp = temp_dir(self)
-        for name, cut_at in (("partway through a header", 3), ("partway through an entry", len(data) - 1)):
-            with self.subTest(name):
-                path = os.path.join(tmp, f"{cut_at}.crate")
-                with open(path, "wb") as f:
-                    f.write(data[:cut_at])
-                with self.assertRaisesRegex(ValueError, "file ends partway through"):
-                    DatabaseV2(path)
-
-    def test_modify_with_two_rules_for_a_field_raises(self):
-        db = DatabaseV2("test/data/database_v2_test.bin")
-        rule: SeratoBinFile.ModifyRule = {"field": DatabaseV2.Fields.GENRE, "func": lambda *args: None}
-        with self.assertRaisesRegex(ValueError, "1 rule per field"):
-            db.modify([rule, rule])
+# has_changed and save, mostly through Crate, the smallest of the bin file classes
 
 
-class TrackTestCase(unittest.TestCase):
-    def test_duplicate_field_raises(self):
-        # a repeated field would be silently collapsed/duplicated on round-trip, corrupting the file
-        with self.assertRaises(ValueError):
-            SeratoBinFile.Track(
-                [
-                    (SeratoBinFile.Fields.FILE_PATH.value, "a.mp3"),
-                    (SeratoBinFile.Fields.GENRE.value, "House"),
-                    (SeratoBinFile.Fields.GENRE.value, "Techno"),
-                ],
-                path_key=SeratoBinFile.Fields.FILE_PATH.value,
-            )
-
-    def test_remove_field(self):
-        path, genre = SeratoBinFile.Fields.FILE_PATH.value, SeratoBinFile.Fields.GENRE.value
-        track = SeratoBinFile.Track([(path, "a.mp3"), (genre, "House")], path_key=path)
-
-        self.assertTrue(track.remove_field(genre), "reports removal")
-        self.assertEqual(track.to_entries(), [(path, "a.mp3")], "removed from the entries written back")
-        self.assertFalse(track.remove_field(genre), "reports no change when already gone")
-        with self.assertRaises(ValueError, msg="a track can't be without its path"):
-            track.remove_field(path)
-        self.assertEqual(track.to_entries(), [(path, "a.mp3")], "path kept")
-
-    def test_set_empty_value_removes_field(self):
-        # as Serato does when a tag is cleared
-        path, genre = SeratoBinFile.Fields.FILE_PATH.value, SeratoBinFile.Fields.GENRE.value
-        track = SeratoBinFile.Track([(path, "a.mp3"), (genre, "House")], path_key=path)
-
-        track.set_value(genre, "")
-        self.assertEqual(track.to_entries(), [(path, "a.mp3")], "removed rather than set empty")
-        track.set_value(genre, "")
-        self.assertEqual(track.to_entries(), [(path, "a.mp3")], "not added when already gone")
-        with self.assertRaises(ValueError, msg="a track can't be without its path"):
-            track.set_value(path, "")
+@pytest.fixture
+def crate_file(tmp_dir: str) -> str:
+    """A copy of the test crate, as Test.crate."""
+    return copy_into(tmp_dir, TEST_CRATE, "Test.crate")
 
 
-class HasChangedTestCase(unittest.TestCase):
-    """has_changed, through Crate, the smallest of the bin file classes."""
+def test_save_writes_its_own_file_only_when_changed(tmp_dir: str, crate_file: str, bin_file_writes: list[str]):
+    crate = Crate(crate_file)
+    assert not crate.has_changed, "as loaded"
+    assert not crate.save(), "unchanged"
+    assert bin_file_writes == [], "unchanged, so not written"
+    assert crate.save(force=True), "forced"
+    assert bin_file_writes == ["Test.crate"], "forced, so written"
+    copy_file = os.path.join(tmp_dir, "Copy.crate")
+    assert crate.save(copy_file), "saving elsewhere always writes"
+    assert read_bytes(copy_file) == read_bytes(crate_file), "as it was"
 
-    def setUp(self):
-        self.tmp = temp_dir(self)
-        self.file = os.path.join(self.tmp, "Test.crate")
-        shutil.copy("test/data/TestCrate.crate", self.file)
+    crate.add_tracks(["/music/track1.mp3"])
+    assert crate.has_changed, "track added"
+    crate.save(copy_file)
+    assert crate.has_changed, "saving a copy elsewhere leaves its own file unsaved"
+    with mock.patch.object(Crate, "to_bytes", autospec=True, side_effect=Crate.to_bytes) as to_bytes:
+        assert crate.save()
+    assert to_bytes.call_count == 1, "serialized once, to check and to write"
+    assert Crate(crate_file).get_track_paths() == crate.get_track_paths(), "written"
+    assert not crate.has_changed, "saved"
+    assert not crate.save(), "not written again"
 
-    def test_has_changed(self):
-        crate = Crate(self.file)
-        self.assertFalse(crate.has_changed, "as loaded")
 
-        crate.add_tracks(["/music/track1.mp3"])
-        self.assertTrue(crate.has_changed, "track added")
-        crate.save(os.path.join(self.tmp, "Copy.crate"))
-        self.assertTrue(crate.has_changed, "saving a copy elsewhere leaves its own file unsaved")
+def test_has_changed_sees_in_place_edits(crate_file: str):
+    crate = Crate(crate_file)
+    sorting = crate.entries[1][1]
+    assert isinstance(sorting, list)
+    sorting.append((Crate.Fields.COLUMN_NAME, "edited in place"))
+    assert crate.has_changed, "nested entry edited in place"
+    sorting.pop()
+    assert not crate.has_changed, "edited back"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="creating a symlink needs extra privileges on Windows")
+def test_saving_through_a_symlink_is_saving_its_own_file(tmp_dir: str, crate_file: str):
+    link = os.path.join(tmp_dir, "Link.crate")
+    os.symlink(crate_file, link)
+    crate = Crate(crate_file)
+    crate.add_tracks(["/music/track1.mp3"])
+    crate.save(link)
+    assert not crate.has_changed
+
+
+def test_new_file_has_changed_until_saved(tmp_dir: str):
+    file = os.path.join(tmp_dir, "New.crate")
+    crate = Crate(file)
+    assert crate.has_changed, "saving creates the file"
+    crate.add_tracks(["/music/track1.mp3"])
+    crate.save()
+    assert not crate.has_changed
+    assert Crate(file).get_track_paths() == crate.get_track_paths(), "created with its tracks"
+
+
+def test_file_loaded_from_json_hasnt_changed(tmp_dir: str, crate_file: str):
+    json_file = os.path.join(tmp_dir, "Test.json")
+    Crate(crate_file).write_json(json_file)
+    crate = Crate(json_file)
+    assert not crate.has_changed
+    crate.add_tracks(["/music/track1.mp3"])
+    assert crate.has_changed
+
+
+@pytest.mark.parametrize(
+    "entry, error, message",
+    [
+        pytest.param(
+            (SeratoBinFile.Fields.TRACK, "not a list"), DataTypeError, "must be list", id="a track that isn't a list"
+        ),
+        pytest.param(
+            (SeratoBinFile.Fields.VERSION, "9.9/Serato ScratchLive Crate"),
+            ValueError,
+            "Untested version",
+            id="a version",
+        ),
+        pytest.param(
+            (SeratoBinFile.Fields.REVERSE_ORDER.value, "x"), DataTypeError, "must be bool", id="text in a boolean field"
+        ),
+        pytest.param(("tvcn", 5), DataTypeError, "must be str", id="a number in a text field"),
+        pytest.param(("uadd", "1"), DataTypeError, "must be int", id="text in a number field"),
+        pytest.param(
+            (SeratoBinFile.Fields.TRACK_PATH.value, b"x"), DataTypeError, "must be str", id="bytes in a text field"
+        ),
+        pytest.param(("abcde", "x"), ValueError, "field names are 4 characters", id="a 5-character field name"),
+    ],
+)
+def test_saving_a_value_it_cant_write_raises_and_leaves_the_file(
+    crate_file: str, entry: SeratoBinFile.Entry, error: type[Exception], message: str
+):
+    orig = read_bytes(crate_file)
+    crate = Crate(crate_file)
+    if entry[0] == SeratoBinFile.Fields.VERSION:
+        crate.entries[0] = entry
+    else:
+        crate.entries.append(entry)
+    with pytest.raises(error, match=message):
         crate.save()
-        self.assertFalse(crate.has_changed, "saved")
-
-        sorting = crate.entries[1][1]
-        assert isinstance(sorting, list)
-        sorting.append((Crate.Fields.COLUMN_NAME, "edited in place"))
-        self.assertTrue(crate.has_changed, "nested entry edited in place")
-        sorting.pop()
-        self.assertFalse(crate.has_changed, "edited back")
-
-    @unittest.skipIf(os.name == "nt", "creating a symlink needs extra privileges on Windows")
-    def test_saving_through_a_symlink_is_saving_its_own_file(self):
-        link = os.path.join(self.tmp, "Link.crate")
-        os.symlink(self.file, link)
-        crate = Crate(self.file)
-        crate.add_tracks(["/music/track1.mp3"])
-        crate.save(link)
-        self.assertFalse(crate.has_changed)
-
-    def test_new_file_has_changed_until_saved(self):
-        crate = Crate(os.path.join(self.tmp, "New.crate"))
-        self.assertTrue(crate.has_changed, "saving creates the file")
-        crate.save()
-        self.assertFalse(crate.has_changed)
-
-    def test_file_loaded_from_json_hasnt_changed(self):
-        json_file = os.path.join(self.tmp, "Test.json")
-        Crate(self.file).write_json(json_file)
-        crate = Crate(json_file)
-        self.assertFalse(crate.has_changed)
-        crate.add_tracks(["/music/track1.mp3"])
-        self.assertTrue(crate.has_changed)
+    assert read_bytes(crate_file) == orig, "serialized before the file is opened, so it isn't emptied"
 
 
-class SaveTestCase(unittest.TestCase):
-    """save, through Crate, as HasChangedTestCase."""
+def test_saving_before_parsing_finished_raises_and_leaves_the_file(db_file: str):
+    class SavesTooEarly(DatabaseV2):
+        def __init__(self, file: str):
+            self.filepath = file
+            self.save()
+            super().__init__(file)
 
-    def setUp(self):
-        self.tmp = temp_dir(self)
-        self.file = os.path.join(self.tmp, "Test.crate")
-        shutil.copy("test/data/TestCrate.crate", self.file)
-
-    def test_unchanged_file_isnt_written_unless_forced(self):
-        crate = Crate(self.file)
-        with mock.patch("builtins.open", wraps=open) as opened:
-            self.assertFalse(crate.save())
-        opened.assert_not_called()
-        with mock.patch("builtins.open", wraps=open) as opened:
-            self.assertTrue(crate.save(force=True))
-        opened.assert_called_once_with(self.file, "wb")
-
-    def test_changed_file_is_written_once_serialized(self):
-        crate = Crate(self.file)
-        crate.add_tracks(["/music/track1.mp3"])
-        with mock.patch.object(Crate, "to_bytes", autospec=True, side_effect=Crate.to_bytes) as to_bytes:
-            self.assertTrue(crate.save())
-        self.assertEqual(to_bytes.call_count, 1, "serialized once, to check and to write")
-        self.assertEqual(Crate(self.file).get_track_paths(), crate.get_track_paths(), "written")
-        self.assertFalse(crate.save(), "not written again")
-
-    def test_saving_elsewhere_always_writes(self):
-        copy = os.path.join(self.tmp, "Copy.crate")
-        self.assertTrue(Crate(self.file).save(copy))
-        self.assertEqual(read_bytes(copy), read_bytes(self.file))
+    with pytest.raises(RuntimeError):
+        SavesTooEarly(db_file)
+    assert read_bytes(db_file) == read_bytes(TEST_DATABASE)
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_find_missing_relocates_tracks(tmp_dir: str, bin_file_writes: list[str]):
+    old_dir, new_dir = os.path.join(tmp_dir, "old"), os.path.join(tmp_dir, "new")
+    os.mkdir(new_dir)
+    for name in ["A.mp3", "B.mp3", "C.mp3"]:
+        open(os.path.join(new_dir, name), "wb").close()
+    crate = Crate(os.path.join(tmp_dir, "Test.crate"))
+    crate.add_tracks([os.path.join(old_dir, name) for name in ["A.mp3", "B.mp3", "C.mp3", "Z.mp3"]])
+    crate.save()
+    bin_file_writes.clear()
+
+    # a folder for the first: the rest that are in it are found there without asking; then "s" skips Z
+    with mock.patch("builtins.input", side_effect=[new_dir, "s"]) as answers, mock.patch("builtins.print"):
+        crate.find_missing()
+
+    assert answers.call_count == 2, "asked for A and Z only"
+    assert crate.get_track_paths() == [
+        *(SeratoBinFile.get_relative_path(os.path.join(new_dir, name)) for name in ["A.mp3", "B.mp3", "C.mp3"]),
+        SeratoBinFile.get_relative_path(os.path.join(old_dir, "Z.mp3")),
+    ]
+    assert bin_file_writes == ["Test.crate"], "saved once"
+    assert not crate.has_changed
+
+
+# a rule for a track the test database doesn't have, so it changes nothing
+NO_MATCH: list[DatabaseV2.ModifyRule] = [
+    {"field": DatabaseV2.Fields.GROUPING, "files": ["Not In Library.mp3"], "func": lambda *args: "X"}
+]
+
+
+def test_methods_that_save_skip_it_when_unchanged(db_file: str, bin_file_writes: list[str]):
+    db = DatabaseV2(db_file)
+    db.modify_and_save(NO_MATCH)
+    assert bin_file_writes == [], "modify_and_save unchanged, so not saved"
+
+    # the fixture's tracks don't exist here, so each one prompts; "s" skips it
+    with mock.patch("builtins.input", return_value="s"), mock.patch("builtins.print"):
+        db.find_missing()
+    assert bin_file_writes == [], "find_missing relocated nothing, so not saved"
+
+    db.modify_and_save(NO_MATCH, os.path.join(os.path.dirname(db_file), "copy"))
+    assert bin_file_writes == ["copy"], "saved anyway when given another file"
+
+    db.modify_and_save([{"field": DatabaseV2.Fields.GROUPING, "func": lambda *args: "X"}])
+    assert bin_file_writes == ["copy", DatabaseV2.FILENAME], "changed, so saved"
+
+
+@WINDOWS_ONLY  # paths are only case-insensitive on Windows
+def test_modify_and_save_to_its_own_path_in_another_case_skips_it_when_unchanged(
+    db_file: str, bin_file_writes: list[str]
+):
+    DatabaseV2(db_file).modify_and_save(NO_MATCH, db_file.upper())
+    assert bin_file_writes == []

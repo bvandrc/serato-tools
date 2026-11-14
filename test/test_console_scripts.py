@@ -1,20 +1,18 @@
 import importlib
 import tomllib
-import unittest
+
+import pytest
+
+with open("pyproject.toml", "rb") as f:
+    SCRIPTS: dict[str, str] = tomllib.load(f)["project"]["scripts"]
 
 
-class TestCase(unittest.TestCase):
-    def test_entry_points_resolve(self):
-        with open("pyproject.toml", "rb") as f:
-            scripts: dict[str, str] = tomllib.load(f)["project"]["scripts"]
-        self.assertTrue(scripts)
-
-        for name, target in scripts.items():
-            with self.subTest(script=name):
-                module_name, _, attr = target.partition(":")
-                module = importlib.import_module(module_name)
-                self.assertTrue(callable(getattr(module, attr, None)), f"{target} is not a callable")
+def test_there_are_entry_points():
+    assert SCRIPTS
 
 
-if __name__ == "__main__":
-    unittest.main()
+@pytest.mark.parametrize("target", SCRIPTS.values(), ids=SCRIPTS.keys())
+def test_entry_point_resolves(target: str):
+    module_name, _, attr = target.partition(":")
+    module = importlib.import_module(module_name)
+    assert callable(getattr(module, attr, None)), f"{target} is not a callable"
