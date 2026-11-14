@@ -1,5 +1,6 @@
 # pylint: disable=protected-access
 import contextlib
+import copy
 import io
 import os
 import shutil
@@ -8,6 +9,7 @@ from typing import cast
 from unittest import mock
 
 from serato_tools.smart_crate import SmartCrate, main
+from serato_tools.utils.bin_file_base import DataTypeError
 
 from test.helpers import read_bytes, temp_dir
 
@@ -55,6 +57,24 @@ class TestCase(unittest.TestCase):
             expected
             + "\nrurt (SmartCrate Rule): [ trft (Rule Comparison): cond_isn_str (STR_IS_NOT) ], [ urkt (Rule Field): 8 (album) ], [ trpt (Rule Value Text): albo ]",
         )
+
+    def test_set_rule_on_malformed_crate_changes_nothing(self):
+        crate = SmartCrate(os.path.abspath("test/data/TestSmartCrate.scrate"))
+        # a rule entry after the GROUPING rule that holds text rather than an entry list
+        crate.entries.append((SmartCrate.RuleFields.SMARTCRATE_RULE.value, "not a rule"))
+        entries_before = copy.deepcopy(crate.entries)
+
+        with self.assertRaises(DataTypeError):
+            crate.set_rule(SmartCrate.RuleField.GROUPING, SmartCrate.RuleComparison.STR_IS, "changed")
+        self.assertEqual(crate.entries, entries_before, "a rule before the malformed one must not be replaced")
+
+    def test_delete_rule_returns_whether_removed(self):
+        crate = SmartCrate(os.path.abspath("test/data/TestSmartCrate.scrate"))
+
+        self.assertFalse(crate.delete_rule(SmartCrate.RuleField.ALBUM), "the crate has no album rule")
+        self.assertFalse(crate.has_changed)
+        self.assertTrue(crate.delete_rule(SmartCrate.RuleField.GROUPING))
+        self.assertFalse(crate.delete_rule(SmartCrate.RuleField.GROUPING), "the grouping rule was already removed")
 
     def test_rule_falsy_value_reads_back(self):
         # one falsy value per value field; the dict also pins that every field in the constant is covered

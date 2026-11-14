@@ -185,48 +185,34 @@ class SmartCrate(CrateBase):
         `value` is converted to the type `comparison` compares, e.g. `100` to `"100"` for a text comparison; raises
         ValueError if a comparison of numbers is given text that isn't one.
         """
-        rule_field_id = field.value
-        rule_exists: bool = False
-        new_entries: SmartCrate.EntryList = []
-        for f, v in self.entries:
-            if f == SmartCrate.RuleFields.SMARTCRATE_RULE:
-                if not isinstance(v, list):
-                    raise DataTypeError(v, list, f)
-                rule = SmartCrate.Rule(v)
-                if rule.field == rule_field_id:
-                    # the comparison first: it decides which value field set_value stores into
-                    rule.set_comparison(comparison)
-                    rule.set_value(value)
-                    rule_exists = True
-                v = rule.to_entries()
-            new_entries.append((f, v))
+        updated_rules: list[tuple[int, SmartCrate.EntryList]] = []
+        for i, rule_entries in self._entry_lists(SmartCrate.RuleFields.SMARTCRATE_RULE):
+            rule = SmartCrate.Rule(rule_entries)
+            if rule.field == field.value:
+                # the comparison first: it decides which value field set_value stores into
+                rule.set_comparison(comparison)
+                rule.set_value(value)
+                updated_rules.append((i, rule.to_entries()))
+        # replaced only once every rule has been read, so one that raises leaves the crate unchanged
+        for i, rule_entries in updated_rules:
+            self.entries[i] = (SmartCrate.RuleFields.SMARTCRATE_RULE.value, rule_entries)
 
-        if not rule_exists:
+        if not updated_rules:
             new_rule = SmartCrate.Rule(
                 [
                     (SmartCrate.RuleFields.RULE_COMPARISON.value, comparison.value),
-                    (SmartCrate.RuleFields.RULE_FIELD.value, rule_field_id),
+                    (SmartCrate.RuleFields.RULE_FIELD.value, field.value),
                 ]
             )
             new_rule.set_value(value)
-            new_entries.append((SmartCrate.RuleFields.SMARTCRATE_RULE.value, new_rule.to_entries()))
+            self.entries.append((SmartCrate.RuleFields.SMARTCRATE_RULE.value, new_rule.to_entries()))
 
-        self.entries = new_entries
-
-    def delete_rule(self, field: "SmartCrate.RuleField"):
-        """Removes every rule on `field`."""
-        rule_field_id = field.value
-        new_entries: SmartCrate.EntryList = []
-        for f, v in self.entries:
-            if f == SmartCrate.RuleFields.SMARTCRATE_RULE:
-                if not isinstance(v, list):
-                    raise DataTypeError(v, list, f)
-                rule = SmartCrate.Rule(v)
-                if rule.field == rule_field_id:
-                    continue
-            new_entries.append((f, v))
-
-        self.entries = new_entries
+    def delete_rule(self, field: "SmartCrate.RuleField") -> bool:
+        """Removes every rule on `field`, and returns whether there was one to remove."""
+        return self._filter_entry_lists(
+            SmartCrate.RuleFields.SMARTCRATE_RULE,
+            lambda rule_entries: SmartCrate.Rule(rule_entries).field != field.value,
+        )
 
     def find_missing(self):
         """Always raises, since a smart crate's tracks come from its rules."""
