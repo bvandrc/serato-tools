@@ -1,25 +1,29 @@
 # pylint: disable=protected-access
 import base64
 import dataclasses
+import re
 import struct
 from typing import Callable
 
 import pytest
 
 from serato_tools.track_beatgrid import TrackBeatgrid
+from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2, main
 from serato_tools.utils.track_tags import NoBeatgridError, NoCuesError
 
 from test.helpers.cli import cli_args
 from test.helpers.files import read_bytes
-from test.helpers.track_tags import SNAPPED_CUE_POSITIONS, TEST_MP3, copy_mp3_without, cue_positions, has_tags_v1
+from test.helpers.track_tags import (
+    FIRST_CUE_POSITION,
+    SNAPPED_CUE_POSITIONS,
+    TEST_MP3,
+    cue_positions,
+    cues_v2_data,
+    has_tags_v1,
+)
 
 Colors = TrackCuesV2.TrackColors
-
-
-def fixture(name: str = "") -> bytes:
-    """The bytes of the Serato Markers2 tag fixture test/data/track_cues_v2{name}.bin."""
-    return read_bytes(f"test/data/track_cues_v2{name}.bin")
 
 
 def snap_cues_cli(path: str):
@@ -27,14 +31,8 @@ def snap_cues_cli(path: str):
     return cli_args("serato_snap_cues_v2", path, "--snap_cues", "--snap_tolerance", "1/16")
 
 
-@pytest.fixture
-def no_beatgrid_mp3(tmp_dir: str) -> str:
-    # as for a track Serato hasn't analyzed, with cues from Mixed In Key
-    return copy_mp3_without(tmp_dir, TrackBeatgrid.GEOB_KEY)
-
-
 def test_parse_and_modify():
-    tags = TrackCuesV2(fixture())
+    tags = TrackCuesV2(cues_v2_data())
     assert [str(e) for e in tags.entries] == [
         "TrackCuesV2.ColorEntry(field1=b'\\x00', color=b'\\x99\\xff\\x99')",
         "TrackCuesV2.CueEntry(field1=b'\\x00', index=0, position=29, field4=b'\\x00', color=b'\\x88\\x00\\xcc', field6=b'\\x00\\x00', name='')",
@@ -73,7 +71,7 @@ def test_parse_and_modify():
         "TrackCuesV2.CueEntry(field1=b'\\x00', index=7, position=204829, field4=b'\\x00', color=b'\\xcc\\x00\\x00', field6=b'\\x00\\x00', name='NEW')",
         "TrackCuesV2.BpmLockEntry(enabled=False)",
     ]
-    assert tags._raw_data == fixture("_modified")
+    assert tags._raw_data == cues_v2_data("_modified")
 
 
 def edit_and_save(tags: TrackCuesV2, **save_kwargs: bool):
@@ -106,7 +104,7 @@ def deprecated_keep_after_another_edit(tags: TrackCuesV2):
         pytest.param(deprecated_keep_after_another_edit, False, id="the deprecated False loses to another edit"),
     ],
 )
-def test_tags_v1_after(mp3: str, edit: Callable[[TrackCuesV2], object], kept: bool):
+def test_saving_deletes_tags_v1_unless_kept(mp3: str, edit: Callable[[TrackCuesV2], object], kept: bool):
     assert has_tags_v1(mp3), "fixture has the v1 tag"
     edit(TrackCuesV2(mp3))
     assert has_tags_v1(mp3) == kept
@@ -152,41 +150,47 @@ def test_set_beatgrid_locked():
     tags.set_beatgrid_locked(False)
     assert tags._raw_data == original_data, "already unlocked, so no change"
     assert tags.tagfile is not None
-    assert "GEOB:Serato Markers_" in tags.tagfile, "v1 tag kept, since nothing changed"
+    assert f"GEOB:{TrackCuesV1.GEOB_KEY}" in tags.tagfile, "an edit leaves the v1 tag in the tagfile; saving deletes it"
     tags.set_beatgrid_locked(True)
     data = tags._raw_data
     assert data is not None
     assert TrackCuesV2(data).is_beatgrid_locked(), "serialized"
 
 
-def test_setting_a_missing_color_or_lock_adds_it(untagged_mp3: str):
-    tags = TrackCuesV2(untagged_mp3)
+def test_setting_a_missing_color_or_lock_adds_it(no_cues_mp3: str):
+    tags = TrackCuesV2(no_cues_mp3)
     assert tags.get_track_color_name() is None, "no color entry yet"
     tags.set_track_color(Colors.WHITE)
     tags.set_beatgrid_locked(False)
     assert tags.get_track_color() == Colors.WHITE.value
     assert not tags.is_beatgrid_locked()
     # track_cues_v2_analyzed.bin is the tag Serato wrote for a newly analyzed track: white, unlocked
-    assert tags._raw_data == fixture("_analyzed"), "the tag Serato writes"
+    assert tags._raw_data == cues_v2_data("_analyzed"), "the tag Serato writes"
     tags.set_beatgrid_locked(True)
     assert tags.is_beatgrid_locked()
 
 
-# tags Serato wrote: saved_loops's base64 ends in a character Serato drops, 514_bytes is longer than 470 bytes, flips
-# has cues, a BPM lock, and then flips, in that order, full_last_line's base64 ends in a full line, and 982_bytes and
-# 1494_bytes are 512-byte steps past 470
+# each a tag Serato wrote
 @pytest.mark.parametrize(
-    "name", ["_saved_loops", "_514_bytes", "_flips", "_full_last_line", "_982_bytes", "_1494_bytes"]
+    "name",
+    [
+        "_saved_loops",  # its base64 ends in a character Serato drops
+        "_514_bytes",  # longer than 470 bytes
+        "_flips",  # cues, a BPM lock, and then flips, in that order
+        "_full_last_line",  # its base64 ends in a full line
+        "_982_bytes",  # a 512-byte step past 470
+        "_1494_bytes",  # two 512-byte steps past 470
+    ],
 )
 def test_rewriting_keeps_seratos_bytes(name: str):
-    data = fixture(name)
+    data = cues_v2_data(name)
     tags = TrackCuesV2(data)
     tags.modify_entries(dataclasses.replace)
     assert tags._raw_data == data
 
 
 def test_shrinking_keeps_the_tags_size():
-    tags = TrackCuesV2(fixture("_514_bytes"))
+    tags = TrackCuesV2(cues_v2_data("_514_bytes"))
     # track_cues_v2_514_bytes.bin has cues and loops: without them, it needs well under 470 bytes
     tags.modify_entries(lambda info: dataclasses.replace(info, cues=[], loops=[]))
     rewritten = tags._raw_data
@@ -199,8 +203,8 @@ def test_shrinking_keeps_the_tags_size():
 # entries need both. Giving a 470-byte tag either's entries should give the same bytes
 @pytest.mark.parametrize("name", ["_982_bytes", "_1494_bytes"])
 def test_outgrowing_the_tags_size_grows_it_as_serato_does(name: str):
-    grown = fixture(name)
-    tags = TrackCuesV2(fixture("_analyzed"))
+    grown = cues_v2_data(name)
+    tags = TrackCuesV2(cues_v2_data("_analyzed"))
     tags.modify_entries(lambda _: TrackCuesV2.TrackCuesInfo.from_entries(TrackCuesV2(grown).entries))
     assert tags._raw_data == grown
 
@@ -212,7 +216,7 @@ def test_a_cue_past_8_raises():
     with pytest.raises(ValueError, match="cue 11 is past Serato's 8 cue pads"):
         TrackCuesV2(b"\x01\x01" + base64.b64encode(payload))
 
-    tags = TrackCuesV2(fixture("_analyzed"))
+    tags = TrackCuesV2(cues_v2_data("_analyzed"))
     cue_9 = TrackCuesV2.CueEntry(b"\x00", 8, 1000, b"\x00", TrackCuesV2.CueColors.RED.value, b"\x00\x00", "")
     with pytest.raises(ValueError, match="cue 9 is past Serato's 8 cue pads"):
         tags.modify_entries(lambda info: dataclasses.replace(info, cues=[cue_9]))
@@ -234,7 +238,7 @@ def test_snap_cues_to_beats():
 
 def test_snap_cues_to_beats_doesnt_count_a_cue_already_on_its_beat():
     tags, beatgrid = TrackCuesV2(TEST_MP3), TrackBeatgrid(TEST_MP3)
-    beat = beatgrid.find_nearest_beat(45104, 1)  # the first cue's beat, 42 ms after it
+    beat = beatgrid.find_nearest_beat(FIRST_CUE_POSITION, 1)
     assert beat is not None
 
     def first_cue_on_beat(info: TrackCuesV2.TrackCuesInfo) -> TrackCuesV2.TrackCuesInfo:
@@ -243,7 +247,7 @@ def test_snap_cues_to_beats_doesnt_count_a_cue_already_on_its_beat():
     tags.modify_entries(first_cue_on_beat)
     with pytest.warns(UserWarning):
         snapped = tags.snap_cues_to_beats(beatgrid, 1 / 16, min_ms_change=0)  # 0 lets it snap to where it is
-    assert 0 not in [s.index for s in snapped]
+    assert [s.index for s in snapped] == [1, 2, 3, 4, 5], "every cue but the first, which was already on its beat"
     assert all(s.new_position != s.old_position for s in snapped), "only real moves"
 
 
@@ -255,12 +259,12 @@ def test_snap_cues_to_beats_outside_tolerance_leaves_cues():
     assert not tags.has_changed
 
 
-def test_snap_cues_to_beats_without_a_cues_tag_raises(untagged_mp3: str):
-    tags = TrackCuesV2(untagged_mp3)
+def test_snap_cues_to_beats_without_a_cues_tag_raises(no_cues_mp3: str):
+    tags = TrackCuesV2(no_cues_mp3)
     with pytest.raises(NoCuesError) as caught:
         tags.snap_cues_to_beats(TrackBeatgrid(TEST_MP3), 1 / 8)
-    assert caught.value.filename == untagged_mp3
-    assert str(caught.value) == f"no Serato Markers2 tag: {untagged_mp3}"
+    assert caught.value.filename == no_cues_mp3
+    assert str(caught.value) == f"no Serato Markers2 tag: {no_cues_mp3}"
     assert not tags.has_changed
 
 
@@ -293,7 +297,7 @@ def test_cli_snap_cues(mp3: str):
 
     assert out.getvalue().splitlines() == ["Snapped cue 1 by 42 ms", "Snapped cue 2 by -2 ms", "Snapped cue 4 by -2 ms"]
     assert cue_positions(TrackCuesV2(mp3)) == SNAPPED_CUE_POSITIONS
-    assert not has_tags_v1(mp3), "the CLI's save deletes the v1 tag, as before"
+    assert not has_tags_v1(mp3), "the CLI's save deletes the v1 tag"
 
 
 def test_cli_snap_cues_without_a_beatgrid_exits_with_the_error(no_beatgrid_mp3: str):
@@ -306,7 +310,7 @@ def test_cli_snap_cues_without_a_beatgrid_exits_with_the_error(no_beatgrid_mp3: 
 
 def test_loop_fields():
     # track_cues_v2_saved_loops.bin is a tag Serato wrote with 4 loops, the second one locked
-    loops = TrackCuesV2(fixture("_saved_loops"))._from_entries().loops
+    loops = TrackCuesV2(cues_v2_data("_saved_loops"))._from_entries().loops
     assert [loop.color for loop in loops] == [b"\x27\xaa\xe1"] * 4
     assert [loop.locked for loop in loops] == [False, True, False, False]
 
@@ -321,10 +325,11 @@ def test_cue_colors_are_seratos_18():
     assert [color.value.hex().upper() for color in TrackCuesV2.CueColors] == palette.split()
 
 
-def _entries_unlike_seratos() -> dict[str, tuple[type, bytes]]:
-    """Serialized entries each changed in one way Serato never writes, by name, with the class to parse them with."""
-    loop = TrackCuesV2(fixture("_saved_loops"))._from_entries().loops[0]._serialize()
-    info = TrackCuesV2(fixture())._from_entries()
+def _entries_unlike_seratos() -> dict[str, tuple[type, bytes, str]]:
+    """Serialized entries each changed in one way Serato never writes, by name, with the class to parse them with and
+    the start of the error it raises."""
+    loop = TrackCuesV2(cues_v2_data("_saved_loops"))._from_entries().loops[0]._serialize()
+    info = TrackCuesV2(cues_v2_data())._from_entries()
     assert info.color is not None and info.bpm_lock is not None
     color, cue, bpm_lock = info.color._serialize(), info.cues[0]._serialize(), info.bpm_lock._serialize()
 
@@ -332,26 +337,40 @@ def _entries_unlike_seratos() -> dict[str, tuple[type, bytes]]:
         return data[:index] + value + data[index + len(value) :]
 
     return {
-        "COLOR field1": (TrackCuesV2.ColorEntry, changed(color, 0, b"\x01")),
-        "COLOR length": (TrackCuesV2.ColorEntry, color + b"\x00"),
-        "BPMLOCK length": (TrackCuesV2.BpmLockEntry, bpm_lock + b"\x00"),
-        "CUE field1": (TrackCuesV2.CueEntry, changed(cue, 0, b"\x01")),
-        "CUE field4": (TrackCuesV2.CueEntry, changed(cue, 6, b"\x01")),
-        "CUE field6": (TrackCuesV2.CueEntry, changed(cue, 10, b"\x01")),
-        "CUE name without a null byte": (TrackCuesV2.CueEntry, cue[:-1]),
-        "CUE bytes after the name": (TrackCuesV2.CueEntry, cue + b"\x00"),
-        "LOOP field1": (TrackCuesV2.LoopEntry, changed(loop, 0, b"\x01")),
-        "LOOP field5": (TrackCuesV2.LoopEntry, changed(loop, 10, b"\x00")),
-        "LOOP field6": (TrackCuesV2.LoopEntry, changed(loop, 14, b"\x01")),
-        "LOOP byte 18": (TrackCuesV2.LoopEntry, changed(loop, 18, b"\x01")),
-        "LOOP bytes after the name": (TrackCuesV2.LoopEntry, loop + b"\x00"),
+        "COLOR field1": (TrackCuesV2.ColorEntry, changed(color, 0, b"\x01"), "COLOR entry's field1 isn't"),
+        "COLOR length": (TrackCuesV2.ColorEntry, color + b"\x00", "COLOR entry is 5 bytes, not 4"),
+        "BPMLOCK length": (TrackCuesV2.BpmLockEntry, bpm_lock + b"\x00", "BPMLOCK entry is 2 bytes, not 1"),
+        "CUE field1": (TrackCuesV2.CueEntry, changed(cue, 0, b"\x01"), "CUE entry's field1 isn't"),
+        "CUE field4": (TrackCuesV2.CueEntry, changed(cue, 6, b"\x01"), "CUE entry's field4 isn't"),
+        "CUE field6": (TrackCuesV2.CueEntry, changed(cue, 10, b"\x01"), "CUE entry's field6 isn't"),
+        "CUE name without a null byte": (
+            TrackCuesV2.CueEntry,
+            cue[:-1],
+            "CUE entry's name isn't followed by a null byte",
+        ),
+        "CUE bytes after the name": (
+            TrackCuesV2.CueEntry,
+            cue + b"\x00",
+            "CUE entry's name isn't followed by a null byte",
+        ),
+        "LOOP field1": (TrackCuesV2.LoopEntry, changed(loop, 0, b"\x01"), "LOOP entry's field1 isn't"),
+        "LOOP field5": (TrackCuesV2.LoopEntry, changed(loop, 10, b"\x00"), "LOOP entry's field5 isn't"),
+        "LOOP field6": (TrackCuesV2.LoopEntry, changed(loop, 14, b"\x01"), "LOOP entry's field6 isn't"),
+        "LOOP byte 18": (TrackCuesV2.LoopEntry, changed(loop, 18, b"\x01"), "LOOP entry's byte 18 isn't"),
+        "LOOP bytes after the name": (
+            TrackCuesV2.LoopEntry,
+            loop + b"\x00",
+            "LOOP entry's name isn't followed by a null byte",
+        ),
     }
 
 
 ENTRIES_UNLIKE_SERATOS = _entries_unlike_seratos()
 
 
-@pytest.mark.parametrize("entry_class, data", ENTRIES_UNLIKE_SERATOS.values(), ids=ENTRIES_UNLIKE_SERATOS.keys())
-def test_an_entry_unlike_seratos_raises(entry_class, data: bytes):
-    with pytest.raises(ValueError):
+@pytest.mark.parametrize(
+    "entry_class, data, message", ENTRIES_UNLIKE_SERATOS.values(), ids=ENTRIES_UNLIKE_SERATOS.keys()
+)
+def test_an_entry_unlike_seratos_raises(entry_class, data: bytes, message: str):
+    with pytest.raises(ValueError, match=re.escape(message)):
         entry_class._parse(data)

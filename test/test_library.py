@@ -7,7 +7,6 @@ from unittest import mock
 
 import pytest
 
-# library.py imports the installed package's classes, so build fixtures and patch with those
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.library import Library
@@ -18,7 +17,7 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 
 from test.helpers.bin_files import TEST_DATABASE
 from test.helpers.files import copy_into
-from test.helpers.track_tags import copy_mp3, copy_untagged_mp3, has_tags_v1
+from test.helpers.track_tags import copy_mp3, copy_mp3_without_cues, has_tags_v1
 
 relpath = DatabaseV2.get_relative_path
 Colors = TrackCuesV2.TrackColors
@@ -139,21 +138,21 @@ def test_rename_track_file_in_a_given_database(folders: Folders, bin_file_writes
 
 
 @pytest.mark.parametrize(
-    "dest, rename",
+    "dest, rename_side_effect",
     [
-        # os.rename silently overwrites on POSIX, unlike on Windows, so test with Windows' behaviour
+        # os.rename made to overwrite on every OS, as on POSIX, so only Library's own check can refuse
         pytest.param(lambda folders: folders.make_track("Taken.mp3"), os.replace, id="dest exists"),
-        # as on Windows, for a clash os.path.exists misses, such as a case change on some filesystems
+        # os.rename refusing, as on Windows, a clash os.path.exists misses, such as a case change on some filesystems
         pytest.param(lambda folders: folders.music_path("New.mp3"), FileExistsError, id="os.rename finds a clash"),
     ],
 )
-def test_rename_track_file_refuses_to_overwrite(folders: Folders, bin_file_writes: list[str], dest, rename):
+def test_rename_track_file_refuses_to_overwrite(folders: Folders, bin_file_writes: list[str], dest, rename_side_effect):
     src = folders.make_track("Old.mp3")
     folders.add_to_database(src)
     dest_path = dest(folders)
     bin_file_writes.clear()
 
-    with mock.patch("os.rename", side_effect=rename), pytest.raises(FileExistsError):
+    with mock.patch("os.rename", side_effect=rename_side_effect), pytest.raises(FileExistsError):
         Library(folders.serato_dir).rename_track_file(src, dest_path)
 
     assert os.path.exists(src), "src left in place"
@@ -410,7 +409,9 @@ def test_set_db_tracks_tags_sets_each_its_own_values(folders: Folders, bin_file_
 
 # passed to each file's save, not to the deprecated parameter on its edits
 @pytest.mark.filterwarnings("error::DeprecationWarning")
-@pytest.mark.parametrize("delete_tags_v1", [True, False])
+@pytest.mark.parametrize(
+    "delete_tags_v1", [pytest.param(True, id="delete_tags_v1=True"), pytest.param(False, id="delete_tags_v1=False")]
+)
 def test_set_db_track_tags_deletes_tags_v1_unless_told_not_to(folders: Folders, delete_tags_v1: bool):
     track = folders.copy_analyzed_track("Track.mp3")
     folders.add_to_database(track)
@@ -438,7 +439,7 @@ def test_set_db_tracks_tags_writes_only_what_changed(folders: Folders, bin_file_
 
 
 def test_set_db_track_tags_creates_a_missing_tag(folders: Folders):
-    track = copy_untagged_mp3(folders.music_dir, "New.mp3")
+    track = copy_mp3_without_cues(folders.music_dir, "New.mp3")
     folders.add_to_database(track)
 
     Library(folders.serato_dir).set_db_track_tags(track, color=Colors.RED, beatgrid_locked=True)
@@ -450,25 +451,42 @@ def test_set_db_track_tags_creates_a_missing_tag(folders: Folders):
 
 
 @pytest.mark.parametrize(
-    "tracks",
+    "tracks, error, message",
     [
-        pytest.param(lambda first: {first: {"color": Colors.RED, "rating": 5}}, id="an unknown key"),
         pytest.param(
-            lambda first: {first: {"color": Colors.RED}, "Second.flac": {"beatgrid_locked": True}},
-            id="a later track's file unreadable",
+            lambda folders, first: {first: {"color": Colors.RED, "rating": 5}},
+            ValueError,
+            "unknown track tags",
+            id="an unknown key",
         ),
         pytest.param(
-            lambda first: {first: {"color": Colors.RED}, first + "2": {"color": "red"}}, id="a later track's bad value"
+            lambda folders, first: {first: {"color": Colors.RED}, "Second.flac": {"beatgrid_locked": True}},
+            ValueError,
+            "unsupported file type",
+            id="a later track's file unreadable",
+        ),
+        # a crash in converting the color, not a deliberate error: this pins only that it changes nothing
+        pytest.param(
+            lambda folders, first: {
+                first: {"color": Colors.RED},
+                folders.copy_analyzed_track("Second.mp3"): {"color": "red"},
+            },
+            AttributeError,
+            "has no attribute 'value'",
+            id="a later track's bad value",
         ),
     ],
 )
-def test_set_db_tracks_tags_failing_changes_nothing(folders: Folders, bin_file_writes: list[str], tracks):
+def test_set_db_tracks_tags_failing_changes_nothing(
+    folders: Folders, bin_file_writes: list[str], tracks, error: type[Exception], message: str
+):
     first = folders.copy_analyzed_track("First.mp3")
     folders.add_to_database(first)
+    batch = tracks(folders, first)
     bin_file_writes.clear()
 
-    with pytest.raises((ValueError, AttributeError)):
-        Library(folders.serato_dir).set_db_tracks_tags(tracks(first))
+    with pytest.raises(error, match=message):
+        Library(folders.serato_dir).set_db_tracks_tags(batch)
     assert bin_file_writes == [], "database not saved"
     assert TrackCuesV2(first).get_track_color() == FIXTURE_COLOR, "first file not changed"
 

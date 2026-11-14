@@ -22,11 +22,22 @@ def mp3(tmp_dir: str) -> str:
 
 
 @pytest.fixture
-def untagged_mp3(tmp_dir: str) -> str:
-    """A copy of the test mp3 with no Serato Markers2 tag, as for a track Serato hasn't analyzed."""
-    from test.helpers.track_tags import copy_untagged_mp3
+def no_cues_mp3(tmp_dir: str) -> str:
+    """A copy of the test mp3 without its Serato Markers2 and Serato Markers_ tags, in a new temporary folder."""
+    from test.helpers.track_tags import copy_mp3_without_cues
 
-    return copy_untagged_mp3(tmp_dir)
+    return copy_mp3_without_cues(tmp_dir)
+
+
+@pytest.fixture
+def no_beatgrid_mp3(tmp_dir: str) -> str:
+    """A copy of the test mp3 without its Serato BeatGrid tag, as for a track with cues from Mixed In Key that Serato
+    hasn't analyzed, in a new temporary folder."""
+    from serato_tools.track_beatgrid import TrackBeatgrid
+
+    from test.helpers.track_tags import copy_mp3_without
+
+    return copy_mp3_without(tmp_dir, TrackBeatgrid.GEOB_KEY)
 
 
 @pytest.fixture

@@ -8,12 +8,7 @@ from serato_tools.track_autotags import TrackAutotags
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_gain import TrackGain
 
-from test.helpers.track_tags import SNAPPED_CUE_POSITIONS, cue_positions, has_tags_v1
-
-
-def counting_writes(track: Track):
-    """Patches `track`'s file save, within the block, to also count its calls in the mock it gives."""
-    return mock.patch.object(track.tagfile, "save", wraps=track.tagfile.save)
+from test.helpers.track_tags import SNAPPED_CUE_POSITIONS, cue_positions, has_tags_v1, tagfile_saves
 
 
 def test_reads_each_tag_from_one_open_file_and_saves_none_unchanged(mp3: str):
@@ -35,7 +30,7 @@ def test_reads_each_tag_from_one_open_file_and_saves_none_unchanged(mp3: str):
     assert track.autotags.bpm == TrackAutotags(mp3).bpm
     assert track.gain.gain == TrackGain(mp3).gain
 
-    with counting_writes(track) as writes:
+    with tagfile_saves(track.tagfile) as writes:
         assert not track.has_changed, "as read"
         assert not track.save()
     writes.assert_not_called()
@@ -58,7 +53,7 @@ def test_tag_passed_false_isnt_parsed_or_saved(mp3: str):
         _ = track.cues_v1
 
     track = Track(mp3, cues_v2=False, cues_v1=False, beatgrid=False, autotags=False, gain=False, text_frames=False)
-    with counting_writes(track) as writes:
+    with tagfile_saves(track.tagfile) as writes:
         assert not track.save(), "no tags, nothing to save"
     writes.assert_not_called()
 
@@ -74,7 +69,7 @@ def test_save_writes_every_change_at_once(mp3: str):
     track.text_frames.set("TIT2", "New Title")
     assert track.has_changed
 
-    with counting_writes(track) as writes:
+    with tagfile_saves(track.tagfile) as writes:
         assert track.save()
     writes.assert_called_once()
     assert not track.has_changed, "saved"
@@ -135,7 +130,11 @@ def test_an_unwritten_cue_edit_keeps_tags_v1_when_another_tag_saves(mp3: str, ed
 
 
 @pytest.mark.parametrize(
-    "tag, key", [("autotags", f"GEOB:{TrackAutotags.GEOB_KEY}"), ("gain", TrackGain.RVA2_KEY)], ids=["autotags", "gain"]
+    "tag, key",
+    [
+        pytest.param("autotags", f"GEOB:{TrackAutotags.GEOB_KEY}", id="autotags"),
+        pytest.param("gain", TrackGain.RVA2_KEY, id="gain"),
+    ],
 )
 def test_save_writes_deletions(mp3: str, tag: str, key: str):
     track = Track(mp3)
@@ -157,14 +156,14 @@ def test_snap_cues_to_beats_with_its_own_beatgrid(mp3: str):
     assert cue_positions(Track(mp3).cues_v2) == SNAPPED_CUE_POSITIONS, "saved"
 
 
-def test_snap_cues_to_beats_needs_only_cues_v2_and_beatgrid(mp3: str, untagged_mp3: str):
-    track = Track(mp3, cues_v1=False, autotags=False, gain=False)
+def test_snap_cues_to_beats_needs_only_cues_v2_and_beatgrid(mp3: str, no_cues_mp3: str):
+    track = Track(mp3, cues_v1=False, autotags=False, gain=False, text_frames=False)
     assert track.snap_cues_to_beats(1 / 16)
     for name in ("cues_v2", "beatgrid"):
         with pytest.raises(ValueError, match=f"{name}=True"):
             Track(mp3, **{name: False}).snap_cues_to_beats(1 / 16)
     with pytest.raises(ValueError, match="beatgrid=True"):
-        Track(untagged_mp3, beatgrid=False).snap_cues_to_beats(1 / 16)  # even with no cues to move
+        Track(no_cues_mp3, beatgrid=False).snap_cues_to_beats(1 / 16)  # even with no cues to move
 
 
 def test_snap_cues_to_beats_warns_at_the_caller(mp3: str):

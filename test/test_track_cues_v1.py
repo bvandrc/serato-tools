@@ -4,8 +4,9 @@ import pytest
 from serato_tools.track_cues_v1 import TrackCuesV1
 
 from test.helpers.files import read_bytes
+from test.helpers.track_tags import CUES_V1_DATA
 
-DATA = read_bytes("test/data/track_cues_v1.bin")
+DATA = read_bytes(CUES_V1_DATA)
 
 
 def test_parse():

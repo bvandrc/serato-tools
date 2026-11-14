@@ -8,8 +8,6 @@ import pytest
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.smart_crate import SmartCrate
-
-# bin_file_base raises the installed package's DataTypeError, so catch that one
 from serato_tools.utils.bin_file_base import DataTypeError, SeratoBinFile
 
 from test.helpers.bin_files import TEST_CRATE, TEST_DATABASE
@@ -92,6 +90,20 @@ def test_a_file_cut_off_raises(tmp_dir: str, cut_at: int):
         DatabaseV2(path)
 
 
+def test_an_untested_version_raises(tmp_dir: str):
+    # rather than risk misparsing a format it hasn't seen, and corrupting it when saved
+    version = Crate.DEFAULT_ENTRIES[0][1]
+    assert isinstance(version, str)
+    untested = "9.9" + version[3:]  # the same length, so the entry's header still fits
+    data = read_bytes(TEST_CRATE)
+    assert data.count(version.encode("utf-16-be")) == 1
+    path = os.path.join(tmp_dir, "Untested.crate")
+    with open(path, "wb") as f:
+        f.write(data.replace(version.encode("utf-16-be"), untested.encode("utf-16-be")))
+    with pytest.raises(ValueError, match="Untested version"):
+        Crate(path)
+
+
 # DatabaseV2 can't be created new. Crate and SmartCrate share CrateBase.DEFAULT_VIEW_ENTRIES' sublists
 @pytest.mark.parametrize("cls", (Crate, SmartCrate), ids=lambda cls: cls.__name__)
 def test_new_file_shares_no_entries_with_its_class_default(tmp_dir: str, cls: type[Crate] | type[SmartCrate]):
@@ -146,50 +158,53 @@ def test_mistyped_json_value_is_refused(tmp_dir: str):
 # changing a file's tracks, through DatabaseV2, whose tracks have the most fields
 
 
-def test_modify():
+# the changes that turn the test database into database_v2_test_modified_output.txt
+EVERY_TRACK_RULES: list[DatabaseV2.ModifyRule] = [
+    {"field": DatabaseV2.Fields.DATE_ADDED_U, "func": lambda *args: 1735748100},
+    {"field": DatabaseV2.Fields.DATE_ADDED_T, "func": lambda *args: "1735748100"},
+    {"field": DatabaseV2.Fields.GROUPING, "func": lambda *args: "NEW_GROUPING"},
+]
+
+
+def test_modify_without_rules_changes_nothing():
     db = DatabaseV2(TEST_DATABASE)
-
     original_entries = copy.deepcopy(db.entries)
-    original_str = db.__str__()
     assert not db.modify([]), "reports no change"
-    assert db.entries == original_entries, "was not modified"
-    assert db.__str__() == original_str, "was not modified"
+    assert db.entries == original_entries
 
-    new_time = int(1735748100)
-    changed = db.modify(
-        [
-            {"field": DatabaseV2.Fields.DATE_ADDED_U, "func": lambda *args: new_time},
-            {"field": DatabaseV2.Fields.DATE_ADDED_T, "func": lambda *args: str(new_time)},
-            {"field": DatabaseV2.Fields.GROUPING, "func": lambda *args: "NEW_GROUPING"},
-        ]
-    )
-    assert changed, "reports change"
+
+def test_modify_every_track():
+    db = DatabaseV2(TEST_DATABASE)
+    assert db.modify(EVERY_TRACK_RULES), "reports change"
     assert db.__str__() == read_text("test/data/database_v2_test_modified_output.txt")
     assert db.to_bytes() == read_bytes("test/data/database_v2_test_modified_output.bin")
 
-    db.modify(
-        [
-            {
-                "field": DatabaseV2.Fields.GENRE,
-                "func": lambda *args: "NEW_GENRE",
-                "files": [
-                    "Users/bvand/Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
-                    os.path.join(os.sep, "Users", "bvand", "Music", "DJ Tracks", "Tripp St. - Enlighten.mp3"),
-                ]
-                # backslashes and drive letters only mean something on Windows
-                + (
-                    [
-                        "Users\\bvand\\Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3",
-                        "C:/Users/bvand/Music/DJ Tracks/Tripp St. - Enlighten.mp3",
-                    ]
-                    if os.name == "nt"
-                    else []
-                ),
-            },
+
+def test_modify_given_files():
+    db = DatabaseV2(TEST_DATABASE)
+    db.modify(EVERY_TRACK_RULES)  # database_v2_test_modified_output_2.txt has these changes too
+
+    rule: DatabaseV2.ModifyRule = {
+        "field": DatabaseV2.Fields.GENRE,
+        "func": lambda *args: "NEW_GENRE",
+        # each track given by a path in a different form
+        "files": [
+            "Users/bvand/Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
+            os.path.join(os.sep, "Users", "bvand", "Music", "DJ Tracks", "Tripp St. - Enlighten.mp3"),
         ]
-    )
-    assert db.__str__() == read_text("test/data/database_v2_test_modified_output_2.txt"), "given files"
-    assert db.to_bytes() == read_bytes("test/data/database_v2_test_modified_output_2.bin"), "given files"
+        # backslashes and drive letters only mean something on Windows
+        + (
+            [
+                "Users\\bvand\\Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3",
+                "C:/Users/bvand/Music/DJ Tracks/Tripp St. - Enlighten.mp3",
+            ]
+            if os.name == "nt"
+            else []
+        ),
+    }
+    assert db.modify([rule]), "reports change"
+    assert db.__str__() == read_text("test/data/database_v2_test_modified_output_2.txt")
+    assert db.to_bytes() == read_bytes("test/data/database_v2_test_modified_output_2.bin")
 
 
 def test_modify_with_two_rules_for_a_field_raises():
@@ -326,6 +341,9 @@ def test_save_writes_its_own_file_only_when_changed(tmp_dir: str, crate_file: st
     assert not crate.has_changed, "saved"
     assert not crate.save(), "not written again"
 
+
+def test_has_changed_sees_in_place_edits(crate_file: str):
+    crate = Crate(crate_file)
     sorting = crate.entries[1][1]
     assert isinstance(sorting, list)
     sorting.append((Crate.Fields.COLUMN_NAME, "edited in place"))
@@ -383,25 +401,32 @@ def test_save_leaves_file_as_it_was_on_error(db_file: str):
     assert read_bytes(db_file) == orig, "save before parse finished"
 
 
+# a rule for a track the test database doesn't have, so it changes nothing
+NO_MATCH: list[DatabaseV2.ModifyRule] = [
+    {"field": DatabaseV2.Fields.GROUPING, "files": ["Not In Library.mp3"], "func": lambda *args: "X"}
+]
+
+
 def test_methods_that_save_skip_it_when_unchanged(db_file: str, bin_file_writes: list[str]):
     db = DatabaseV2(db_file)
-
-    no_match: list[DatabaseV2.ModifyRule] = [
-        {"field": DatabaseV2.Fields.GROUPING, "files": ["Not In Library.mp3"], "func": lambda *args: "X"}
-    ]
-    db.modify_and_save(no_match)
+    db.modify_and_save(NO_MATCH)
     assert bin_file_writes == [], "modify_and_save unchanged, so not saved"
-    if os.name == "nt":  # paths are only case-insensitive on Windows
-        db.modify_and_save(no_match, db_file.upper())
-        assert bin_file_writes == [], "same file in other case, unchanged, so not saved"
 
     # the fixture's tracks don't exist here, so each one prompts; "s" skips it
     with mock.patch("builtins.input", return_value="s"), mock.patch("builtins.print"):
         db.find_missing()
     assert bin_file_writes == [], "find_missing relocated nothing, so not saved"
 
-    db.modify_and_save(no_match, os.path.join(os.path.dirname(db_file), "copy"))
+    db.modify_and_save(NO_MATCH, os.path.join(os.path.dirname(db_file), "copy"))
     assert bin_file_writes == ["copy"], "saved anyway when given another file"
 
     db.modify_and_save([{"field": DatabaseV2.Fields.GROUPING, "func": lambda *args: "X"}])
     assert bin_file_writes == ["copy", DatabaseV2.FILENAME], "changed, so saved"
+
+
+@WINDOWS_ONLY  # paths are only case-insensitive on Windows
+def test_modify_and_save_to_its_own_path_in_another_case_skips_it_when_unchanged(
+    db_file: str, bin_file_writes: list[str]
+):
+    DatabaseV2(db_file).modify_and_save(NO_MATCH, db_file.upper())
+    assert bin_file_writes == []

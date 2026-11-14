@@ -174,12 +174,12 @@ Console scripts are declared in `[project.scripts]` in `pyproject.toml` and poin
 - **Test style:** the tests are pytest: plain test functions with bare `assert`s (with a message where it says what a check means), fixtures instead of setup methods, and `pytest.mark.parametrize` instead of loops over cases. A class groups tests only where they share a fixture of their own (`test_smart_crate.py`'s `TestCli`).
 - `test/conftest.py` — the shared fixtures:
   - `tmp_dir`: pytest's `tmp_path` as the `str` path `serato_tools` takes.
-  - `mp3` / `untagged_mp3`: a copy of the test mp3, with every Serato tag or without its Serato Markers2 tag. They import the track_tags helpers inside the fixture, so `conftest.py` doesn't need the track_tags extra.
+  - `mp3` / `no_cues_mp3` / `no_beatgrid_mp3`: a copy of the test mp3, with every Serato tag, without its Serato Markers2 and Serato Markers_ tags, or without its Serato BeatGrid tag. They import the track_tags helpers inside the fixture, so `conftest.py` doesn't need the track_tags extra.
   - `bin_file_writes`: the names of the database and crate files the test writes, which is how tests check what was saved or that nothing was. A test whose setup writes files clears it first.
 - `test/helpers/` — shared helpers that aren't fixtures, a module for each kind (imported from the module, e.g. `from test.helpers.files import read_bytes`):
   - `files`: `copy_into` a folder, and `read_bytes` / `read_text`.
   - `bin_files`: the database and crate fixture paths.
-  - `track_tags`: the test mp3 and copies of it (`copy_mp3`, `copy_untagged_mp3`, `copy_mp3_without`), and reading its tags (`has_tags_v1`, `cue_positions`). It's the only helper module that needs the track_tags extra, so tests that don't touch audio files must not import it.
+  - `track_tags`: the test mp3 and copies of it (`copy_mp3`, `copy_mp3_without_cues`, `copy_mp3_without`), the GEOB tag fixture paths, reading its tags (`has_tags_v1`, `cue_positions`), and `tagfile_saves`, which counts an audio file's saves: how tests check what was written to one, or that nothing was. It's the only helper module that needs the track_tags extra, so tests that don't touch audio files must not import it.
   - `cli`: `cli_args`, for running a console script's `main()` with a command line.
 
   Tests of a base class's behaviour go in the base's own module (`test_bin_file_base.py`, `test_track_tags.py`), driven through one subclass or looped over all of them, not repeated per subclass.

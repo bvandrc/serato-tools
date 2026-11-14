@@ -4,7 +4,7 @@ from mutagen.id3 import COMM, ID3, TPE1, Encoding, Frame
 from serato_tools.track_text_frames import TrackTextFrames
 
 
-def comments(path: str) -> dict[str, tuple[int, list[str]]]:
+def comm_frames(path: str) -> dict[str, tuple[int, list[str]]]:
     """The COMM frames of the file at `path`, by key, with their encoding and text."""
     tags = ID3(path)
     return {key: (tags[key].encoding, list(tags[key].text)) for key in tags.keys() if key.startswith("COMM")}
@@ -18,7 +18,8 @@ def add_frames(path: str, *frames: Frame):
     tags.save(path)
 
 
-def comment(desc: str, lang: str, *text: str) -> COMM:
+def comm_frame(desc: str, lang: str, *text: str) -> COMM:
+    """A Latin-1 COMM frame."""
     return COMM(encoding=Encoding.LATIN1, lang=lang, desc=desc, text=list(text))
 
 
@@ -66,7 +67,7 @@ def test_fields_name_the_frames_get_and_set_take(mp3: str):
 # not text; APIC, WOAR, and GEOB are neither
 @pytest.mark.parametrize("frame_id", ["XXXX", "TXXX", "TIPL", "APIC", "WOAR", "GEOB"])
 def test_set_raises_for_a_frame_id_that_isnt_a_text_frame_stored_by_its_id(mp3: str, frame_id: str):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="not an ID3 text frame stored by its ID"):
         TrackTextFrames(mp3).set(frame_id, "x")
 
 
@@ -91,12 +92,15 @@ def test_set_raises_for_a_genre_loading_rewrites(mp3: str, text: str):
 
 @pytest.mark.parametrize("text", ["Dubstep", ""])  # "" removes it, so nothing is read back
 def test_set_takes_a_genre_loading_keeps(mp3: str, text: str):
-    TrackTextFrames(mp3).set("TCON", text)
+    frames = TrackTextFrames(mp3)
+    frames.set("TCON", text)
+    frames.save()
+    assert TrackTextFrames(mp3).get("TCON") == (text or None)
 
 
 def test_set_raises_for_text_the_frame_cant_hold(mp3: str):
     frames = TrackTextFrames(mp3)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="can't hold"):
         frames.set("TDRC", "not a date")
     assert not frames.has_changed, "nothing set"
     frames.set("TDRC", "2020-05-01")
@@ -107,10 +111,9 @@ def test_set_raises_for_text_the_frame_cant_hold(mp3: str):
 @pytest.mark.parametrize(
     "frame_id, key, frame",
     [
-        ("TPE1", "TPE1", TPE1(encoding=Encoding.UTF8, text=["A", "B"])),
-        ("COMM", "COMM::eng", comment("", "eng", "A", "B")),
+        pytest.param("TPE1", "TPE1", TPE1(encoding=Encoding.UTF8, text=["A", "B"]), id="TPE1"),
+        pytest.param("COMM", "COMM::eng", comm_frame("", "eng", "A", "B"), id="COMM"),
     ],
-    ids=["TPE1", "COMM"],
 )
 def test_set_replaces_every_value_of_a_multi_valued_frame(mp3: str, frame_id: str, key: str, frame: Frame):
     add_frames(mp3, frame)
@@ -141,12 +144,12 @@ def test_set_comm_writes_the_frames_serato_does(mp3: str):
     frames.set("COMM", "")
     assert not frames.has_changed, "no comment to remove"
 
-    # Serato writes a Latin-1 comment to both of these, each Latin-1
+    # Serato writes a comment that fits in Latin-1 to two frames, COMM::eng and COMM:ID3v1 Comment:eng, both Latin-1
     frames.set("COMM", "A Comment")
     assert frames.has_changed
     assert frames.get("COMM") == "A Comment", "unsaved value read back"
     frames.save()
-    assert comments(mp3) == {
+    assert comm_frames(mp3) == {
         "COMM::eng": (Encoding.LATIN1, ["A Comment"]),
         "COMM:ID3v1 Comment:eng": (Encoding.LATIN1, ["A Comment"]),
     }
@@ -157,40 +160,42 @@ def test_set_comm_writes_the_frames_serato_does(mp3: str):
     frames.set("COMM", "TEST ★")
     frames.save()
     # all of it, unlike Serato, which cuts it off by sizing the frame for UTF-16 by its character count
-    assert comments(mp3) == {"COMM::eng": (Encoding.UTF16, ["TEST ★"])}, "ID3v1 copy removed"
+    assert comm_frames(mp3) == {"COMM::eng": (Encoding.UTF16, ["TEST ★"])}, "ID3v1 copy removed"
 
     frames.set("COMM", "")
     assert frames.has_changed
     frames.save()
-    assert comments(mp3) == {}, "both frames removed"
+    assert comm_frames(mp3) == {}, "both frames removed"
     assert TrackTextFrames(mp3).get("COMM") is None
 
 
 def test_get_comm_is_the_first_comment_frame(mp3: str):
     # Serato shows the file's first COMM frame, whatever its description or language; mutagen saves the smaller first
     add_frames(
-        mp3, comment("", "eng", "A comment longer than the other frame"), comment("Songs-DB_Custom1", "eng", "Short")
+        mp3,
+        comm_frame("", "eng", "A comment longer than the other frame"),
+        comm_frame("Songs-DB_Custom1", "eng", "Short"),
     )
     assert TrackTextFrames(mp3).get("COMM") == "Short"
 
 
 def test_get_comm_skips_itunes_frames(mp3: str):
-    add_frames(mp3, comment("iTunNORM", "eng", " 00000A2B 00000B1C"))
+    add_frames(mp3, comm_frame("iTunNORM", "eng", " 00000A2B 00000B1C"))
     assert TrackTextFrames(mp3).get("COMM") is None, "iTunes data, not a comment"
 
 
 def test_set_comm_removes_every_other_comment_frame_but_itunes(mp3: str):
     add_frames(
         mp3,
-        comment("", "\0\0\0", "No language"),
-        comment("", "deu", "German"),
-        comment("Songs-DB_Custom1", "eng", "Custom"),
-        comment("iTunNORM", "eng", " 00000A2B"),
+        comm_frame("", "\0\0\0", "No language"),
+        comm_frame("", "deu", "German"),
+        comm_frame("Songs-DB_Custom1", "eng", "Custom"),
+        comm_frame("iTunNORM", "eng", " 00000A2B"),
     )
     frames = TrackTextFrames(mp3)
     frames.set("COMM", "A Comment")
     frames.save()
-    assert {key: text for key, (_, text) in comments(mp3).items()} == {
+    assert {key: text for key, (_, text) in comm_frames(mp3).items()} == {
         "COMM::eng": ["A Comment"],
         "COMM:ID3v1 Comment:eng": ["A Comment"],
         "COMM:iTunNORM:eng": [" 00000A2B"],
@@ -202,7 +207,7 @@ def test_set_comm_has_changed_with_another_comment_frame(mp3: str):
     frames = TrackTextFrames(mp3)
     frames.set("COMM", "A Comment")
     frames.save()
-    add_frames(mp3, comment("Songs-DB_Custom1", "eng", "A Label"))
+    add_frames(mp3, comm_frame("Songs-DB_Custom1", "eng", "A Label"))
     frames = TrackTextFrames(mp3)
     frames.set("COMM", "A Comment")
     assert frames.has_changed, "the other frame would be removed"
@@ -221,7 +226,7 @@ def test_read_and_write_comment_on_open_tags(mp3: str):
     tags = ID3(mp3)
     TrackTextFrames(tags).write_comment("")
     tags.save(mp3)
-    assert comments(mp3) == {}, "both frames removed"
+    assert comm_frames(mp3) == {}, "both frames removed"
 
 
 def test_write_comment_replaces_one_set_and_not_yet_saved(mp3: str):
