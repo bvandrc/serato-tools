@@ -16,7 +16,9 @@ from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_text_frames import TrackTextFrames
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
-from test.helpers import TEST_DATABASE, temp_dir, temp_mp3, untagged_mp3
+from test.helpers.bin_files import TEST_DATABASE
+from test.helpers.files import temp_dir
+from test.helpers.track_tags import temp_mp3, untagged_mp3
 
 
 class TestCase(unittest.TestCase):

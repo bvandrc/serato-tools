@@ -11,7 +11,8 @@ from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_waveform import TrackWaveform
 from serato_tools.utils.cli import get_hex_editor, get_text_editor, open_tag_file_or_data, save_tag_file_or_data
 
-from test.helpers import TEST_MP3, read_bytes, temp_dir, temp_mp3
+from test.helpers.files import read_bytes, temp_dir
+from test.helpers.track_tags import TEST_MP3, temp_mp3
 
 
 class TestCase(unittest.TestCase):

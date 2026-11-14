@@ -12,7 +12,8 @@ from serato_tools.database_v2 import DatabaseV2
 # bin_file_base raises the installed package's DataTypeError, so catch that one
 from serato_tools.utils.bin_file_base import DataTypeError
 
-from test.helpers import TEST_DATABASE, read_bytes, read_text, temp_dir
+from test.helpers.bin_files import TEST_DATABASE
+from test.helpers.files import read_bytes, read_text, temp_dir
 
 
 class TestCase(unittest.TestCase):

@@ -8,7 +8,8 @@ from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.smart_crate import SmartCrate
 
-from test.helpers import TEST_DATABASE, temp_dir
+from test.helpers.bin_files import TEST_DATABASE
+from test.helpers.files import temp_dir
 
 
 class GetCrateFilesTestCase(unittest.TestCase):

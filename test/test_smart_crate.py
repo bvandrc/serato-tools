@@ -11,7 +11,8 @@ from unittest import mock
 from serato_tools.smart_crate import SmartCrate, main
 from serato_tools.utils.bin_file_base import DataTypeError
 
-from test.helpers import TEST_SMART_CRATE, read_bytes, read_text, temp_dir
+from test.helpers.bin_files import TEST_SMART_CRATE
+from test.helpers.files import read_bytes, read_text, temp_dir
 
 expected = read_text("test/data/smart_crate.txt")
 

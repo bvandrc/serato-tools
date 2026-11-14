@@ -3,7 +3,7 @@ import unittest
 
 from serato_tools.track_cues_v1 import TrackCuesV1
 
-from test.helpers import read_bytes
+from test.helpers.files import read_bytes
 
 
 class TestCase(unittest.TestCase):

@@ -8,7 +8,8 @@ from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.utils.bin_file_base import DeeplyNestedListError, SeratoBinFile
 
-from test.helpers import TEST_CRATE, TEST_DATABASE, read_bytes, temp_dir
+from test.helpers.bin_files import TEST_CRATE, TEST_DATABASE
+from test.helpers.files import read_bytes, temp_dir
 
 
 class PathTestCase(unittest.TestCase):
