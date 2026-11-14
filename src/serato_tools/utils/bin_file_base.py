@@ -486,6 +486,41 @@ class SeratoBinFile:
 
             yield field, value
 
+    @staticmethod
+    def check_value(field: str, value: Value):
+        """Raises unless `field` can hold `value`, as saving it would.
+
+        Raises DataTypeError for the wrong type, and ValueError for a number too big or negative, or a field of no known
+        type. Check a value with it before changing anything that a failed save would leave half done.
+        """
+        if SeratoBinFile._get_type(field) in ("o", "r"):
+            if not isinstance(value, list):
+                raise DataTypeError(value, list, field)
+        else:
+            SeratoBinFile._pack_value(field, value)
+
+    @staticmethod
+    def _pack_value(field: str, value: Value) -> bytes:
+        """The bytes `field` holds `value` as, for any field but a nested entry list; raises as `check_value`."""
+        type_id = SeratoBinFile._get_type(field)
+        if type_id in ("p", "t"):  # text
+            if not isinstance(value, str):
+                raise DataTypeError(value, str, field)
+            return value.encode("utf-16-be")
+        if type_id == "b":  # single byte, is a boolean
+            if not isinstance(value, bool):
+                raise DataTypeError(value, bool, field)
+            return struct.pack("?", value)
+        if type_id in ("s", "u"):  # unsigned 16-bit or 32-bit int
+            if not isinstance(value, int):
+                raise DataTypeError(value, int, field)
+            bits = 16 if type_id == "s" else 32
+            # checked here, rather than left to struct.error, so the message names the field
+            if not 0 <= value < 2**bits:
+                raise ValueError(f"{field} holds a number from 0 to {2**bits - 1}, not {value}")
+            return struct.pack(">H" if type_id == "s" else ">I", value)
+        raise ValueError(f"unexpected type for field: {field}")
+
     def _serialize_item(self, entry: Entry) -> bytes:
         """An entry's bytes: its header, then its value encoded as its field's type requires."""
         field, value = entry
@@ -498,30 +533,12 @@ class SeratoBinFile:
             if value != self.version:
                 raise ValueError(f"version field value {value} does not match parsed value {self.version}")
 
-        type_id: str = SeratoBinFile._get_type(field)
-
-        if type_id in ("o", "r"):  #  struct (list)
+        if SeratoBinFile._get_type(field) in ("o", "r"):  #  struct (list)
             if not isinstance(value, list):
                 raise DataTypeError(value, list, field)
             data = self._serialize_entries(value)
-        elif type_id in ("p", "t"):  # text
-            if not isinstance(value, str):
-                raise DataTypeError(value, str, field)
-            data = value.encode("utf-16-be")
-        elif type_id == "b":  # single byte, is a boolean
-            if not isinstance(value, bool):
-                raise DataTypeError(value, bool, field)
-            data = struct.pack("?", value)
-        elif type_id == "s":  # unsigned 16-bit int
-            if not isinstance(value, int):
-                raise DataTypeError(value, int, field)
-            data = struct.pack(">H", value)
-        elif type_id == "u":  # unsigned int
-            if not isinstance(value, int):
-                raise DataTypeError(value, int, field)
-            data = struct.pack(">I", value)
         else:
-            raise ValueError(f"unexpected type for field: {field}")
+            data = SeratoBinFile._pack_value(field, value)
 
         length = len(data)
         header = struct.pack(">4sI", field_bytes, length)

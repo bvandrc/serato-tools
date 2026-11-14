@@ -26,6 +26,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `serato_beatgrid` prints which tag is missing, rather than a traceback.
 - Add `GeobKeys`, in `serato_tools.utils.track_tags`: each Serato tag's GEOB key.
 - Add `SmartCrate.to_regular_crate(file)`, which gives a regular crate for `file` holding a smart crate's tracks and its sort and columns, but not its rules.
+- Add `SeratoBinFile.check_value(field, value)`, which raises for a value a database or crate field can't hold, as saving it would, for code that has to check before changing anything.
 
 ### Changed
 
@@ -67,6 +68,7 @@ This stays, still deprecated until a future major release: passing `delete_tags_
 - USB export copies a track's own stems file, named after it with or without its extension. Before, it matched every stems file whose name started with the track's, so `B.mp3` beside `B Extended.serato-stems` found two and stopped the export partway, after the crates and database were written. NOTE: Exporting stems hasn't been tested yet, so it isn't known whether Serato even uses them on the drive.
 - `add_tracks_from_dir` adds only the folder's files. Before, it also added its subfolders and hidden files, such as `.DS_Store`, as tracks.
 - USB export writes each smart crate as a regular crate of the tracks it holds, keeping its sort and columns but not its rules. Before, it only renamed the file to `.crate`, so it was still a smart crate, which `Crate` refuses to open.
+- Saving a database or crate with a number too big or negative for its field raises `ValueError` naming the field. Before, it raised `struct.error`.
 
 ## [5.6.1] - 2026-11-10
 
