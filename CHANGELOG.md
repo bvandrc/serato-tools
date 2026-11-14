@@ -61,6 +61,7 @@ This stays, still deprecated until a future major release: passing `delete_tags_
 
 ### Fixes
 
+- Of tracks that share a filename, USB export keeps the database and stems crate entries of the one whose file it copies, the first in the crates. Before, it kept whichever came first in the database, so the copied file could show another track's metadata.
 - Reading and saving a track's Serato tags works on a file whose ID3 tags have no frames yet, such as an untagged AIFF or an MP3 whose tags were cleared, rather than raising `ValueError` that the tag was read from bytes. `serato_tagdump` says such a file has no tags, rather than that it couldn't parse it.
 
 ## [5.6.1] - 2026-11-10
