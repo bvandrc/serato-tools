@@ -8,7 +8,7 @@ from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.utils.bin_file_base import DeeplyNestedListError, SeratoBinFile
 
-from test.helpers import read_bytes, temp_dir
+from test.helpers import TEST_CRATE, TEST_DATABASE, read_bytes, temp_dir
 
 
 class PathTestCase(unittest.TestCase):
@@ -77,7 +77,7 @@ class FieldsTestCase(unittest.TestCase):
 
 class ParseTestCase(unittest.TestCase):
     def test_a_file_cut_off_raises(self):
-        data = read_bytes("test/data/database_v2_test.bin")
+        data = read_bytes(TEST_DATABASE)
         tmp = temp_dir(self)
         for name, cut_at in (("partway through a header", 3), ("partway through an entry", len(data) - 1)):
             with self.subTest(name):
@@ -88,7 +88,7 @@ class ParseTestCase(unittest.TestCase):
                     DatabaseV2(path)
 
     def test_modify_with_two_rules_for_a_field_raises(self):
-        db = DatabaseV2("test/data/database_v2_test.bin")
+        db = DatabaseV2(TEST_DATABASE)
         rule: SeratoBinFile.ModifyRule = {"field": DatabaseV2.Fields.GENRE, "func": lambda *args: None}
         with self.assertRaisesRegex(ValueError, "1 rule per field"):
             db.modify([rule, rule])
@@ -113,7 +113,7 @@ class TrackTestCase(unittest.TestCase):
         with self.assertRaisesRegex(DeeplyNestedListError, "in field onst"):
             SeratoBinFile.Track(entries, path_key=path)
 
-        database = DatabaseV2("test/data/database_v2_test.bin")
+        database = DatabaseV2(TEST_DATABASE)
         database.entries.append((SeratoBinFile.Fields.TRACK.value, entries))
         with self.assertRaisesRegex(DeeplyNestedListError, f"in field {SeratoBinFile.Fields.TRACK.value}.*a\\.mp3"):
             list(database.get_entries())
@@ -148,7 +148,7 @@ class HasChangedTestCase(unittest.TestCase):
     def setUp(self):
         self.tmp = temp_dir(self)
         self.file = os.path.join(self.tmp, "Test.crate")
-        shutil.copy("test/data/TestCrate.crate", self.file)
+        shutil.copy(TEST_CRATE, self.file)
 
     def test_has_changed(self):
         crate = Crate(self.file)
@@ -198,7 +198,7 @@ class SaveTestCase(unittest.TestCase):
     def setUp(self):
         self.tmp = temp_dir(self)
         self.file = os.path.join(self.tmp, "Test.crate")
-        shutil.copy("test/data/TestCrate.crate", self.file)
+        shutil.copy(TEST_CRATE, self.file)
 
     def test_unchanged_file_isnt_written_unless_forced(self):
         crate = Crate(self.file)

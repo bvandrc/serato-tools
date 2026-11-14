@@ -6,6 +6,10 @@ import tempfile
 import unittest
 
 TEST_MP3 = "test/data/test_mp3.mp3"
+# the database and crate fixtures
+TEST_DATABASE = "test/data/database_v2_test.bin"
+TEST_CRATE = "test/data/TestCrate.crate"
+TEST_SMART_CRATE = "test/data/TestSmartCrate.scrate"
 
 
 def temp_dir(testcase: unittest.TestCase) -> str:
@@ -36,4 +40,9 @@ def untagged_mp3(testcase: unittest.TestCase, name: str = "untagged.mp3", folder
 
 def read_bytes(path: str) -> bytes:
     with open(path, "rb") as f:
+        return f.read()
+
+
+def read_text(path: str) -> str:
+    with open(path, "r", encoding="utf-8") as f:
         return f.read()
