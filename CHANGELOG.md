@@ -59,6 +59,10 @@ Breaking: `TrackCuesV2` no longer reads the beatgrid from its own file for cue s
 
 This stays, still deprecated until a future major release: passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`), in favor of passing it to `save()`.
 
+### Fixes
+
+- Reading and saving a track's Serato tags works on a file whose ID3 tags have no frames yet, such as an untagged AIFF or an MP3 whose tags were cleared, rather than raising `ValueError` that the tag was read from bytes. `serato_tagdump` says such a file has no tags, rather than that it couldn't parse it.
+
 ## [5.6.1] - 2026-11-10
 
 ### Fixes
