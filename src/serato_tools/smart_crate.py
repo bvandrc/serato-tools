@@ -4,12 +4,14 @@ import os
 import sys
 from dataclasses import dataclass
 from enum import IntEnum, StrEnum, unique
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
-from serato_tools.crate import Crate
 from serato_tools.utils import SERATO_DIR
 from serato_tools.utils.bin_file_base import DataTypeError
 from serato_tools.utils.crate_base import CrateBase
+
+if TYPE_CHECKING:
+    from serato_tools.crate import Crate
 
 
 class SmartCrate(CrateBase):
@@ -215,13 +217,16 @@ class SmartCrate(CrateBase):
             lambda rule_entries: SmartCrate.Rule(rule_entries).field != field.value,
         )
 
-    def to_regular_crate(self, file: str) -> Crate:
+    def to_regular_crate(self, file: str) -> "Crate":
         """A regular crate for `file`, holding this smart crate's tracks and view settings (its sort and columns), but
         not its rules.
 
         Serato can't use a smart crate on a drive, so USB export writes each one as this. Call its `save()` to write
         the file.
         """
+        # imported here, since only this method needs regular crates
+        from serato_tools.crate import Crate
+
         crate = Crate(file)
         rule_fields = {field.value for field in SmartCrate.RuleFields}
         crate.entries = [
