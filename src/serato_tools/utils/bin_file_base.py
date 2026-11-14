@@ -595,9 +595,12 @@ class SeratoBinFile:
         return self._filter_entry_lists(SeratoBinFile.Fields.TRACK, lambda value: func(self._get_track(value)))
 
     def remove_tracks(self, filepaths: Iterable[str]) -> bool:
-        """Removes every track whose path is in `filepaths`, in one pass, and returns whether any was removed."""
-        relpaths = {SeratoBinFile.get_relative_path(f) for f in filepaths}
-        return self.filter_tracks(lambda track: track.relpath not in relpaths)
+        """Removes every track whose path is in `filepaths`, in one pass, and returns whether any was removed.
+
+        Paths match whatever their case, as `modify_tracks` matches its `files`.
+        """
+        relpaths = {SeratoBinFile.get_relative_path(f).upper() for f in filepaths}
+        return self.filter_tracks(lambda track: track.relpath.upper() not in relpaths)
 
     def remove_duplicates(self) -> bool:
         """Removes every repeat of an earlier track's path, and returns whether any were removed."""

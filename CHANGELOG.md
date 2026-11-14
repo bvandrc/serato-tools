@@ -59,6 +59,10 @@ Breaking: `TrackCuesV2` no longer reads the beatgrid from its own file for cue s
 
 This stays, still deprecated until a future major release: passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`), in favor of passing it to `save()`.
 
+### Fixes
+
+- `remove_tracks`, and so `Library.remove_track_files`, match a track's path whatever its case, as `modify` and the methods built on it do. Given a path in another case than the library's, such as on a case-insensitive drive, `remove_track_files` deleted the file but left the track in the library.
+
 ## [5.6.1] - 2026-11-10
 
 ### Fixes
