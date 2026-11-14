@@ -712,7 +712,7 @@ def main():
     import subprocess
     import tempfile
 
-    from serato_tools.utils.ui import get_hex_editor, get_text_editor, ui_ask
+    from serato_tools.utils.ui import get_hex_editor, get_text_editor, save_tag_file_or_data, ui_ask
 
     @dataclass
     class Args:
@@ -754,7 +754,7 @@ def main():
             raise ValueError(f"Invalid track color {args.set_color!r}, must be one of: {valid}") from exc
 
         tags.set_track_color(color)
-        tags.save()
+        save_tag_file_or_data(tags, args.file)
         sys.exit()
 
     if args.snap_cues:
@@ -910,11 +910,7 @@ def main():
         else:
             tags.entries = new_entries
             tags._serialize()
-            if tags.tagfile:
-                tags.save()
-            else:
-                with open(args.file, mode="wb") as fp:
-                    fp.write(tags._raw_data or b"")  # pylint: disable=protected-access
+            save_tag_file_or_data(tags, args.file)
 
 
 if __name__ == "__main__":
