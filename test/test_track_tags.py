@@ -94,6 +94,12 @@ class TestCase(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "read from bytes"):
                     tags.save()
 
+    def test_tagdump_of_a_file_without_tags_raises(self):
+        path = temp_mp3(self)
+        MP3(path).delete()
+        with self.assertRaisesRegex(ValueError, "no tags"):
+            list(get_serato_tagdata(MP3(path)))
+
 
 if __name__ == "__main__":
     unittest.main()
