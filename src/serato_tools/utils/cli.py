@@ -1,8 +1,12 @@
-"""Terminal prompts, and the editors they open, for the CLIs' interactive edit modes."""
+"""What the CLIs share: terminal prompts, the editors their edit modes open, and saving a tag back to its file."""
 
 import os
 import shutil
-from typing import Mapping, Optional
+from typing import TYPE_CHECKING, Mapping, Optional
+
+if TYPE_CHECKING:
+    # only for annotations, so this module doesn't need the track_tags extra (mutagen) to import
+    from serato_tools.utils.track_tags import SeratoGeobTag
 
 
 def ui_ask(question: str, choices: Mapping[str, str], default: Optional[str] = None):
@@ -35,3 +39,17 @@ def get_text_editor():
 def get_hex_editor():
     """The path to the program named by the `HEXEDITOR` environment variable, or to bvi; raises if it isn't found."""
     return _find_editor("HEXEDITOR", "bvi")
+
+
+def save_tag_file_or_data(tag: "SeratoGeobTag", path: str) -> bool:
+    """Saves a tag `open_tag_file_or_data` read from `path`, if it changed, and returns whether it wrote.
+
+    A tag read from an audio file is saved to it; one read from the tag's own bytes writes its bytes back to `path`.
+    """
+    if tag.tagfile:
+        return tag.save()
+    if not tag.has_changed:
+        return False
+    with open(path, "wb") as f:
+        f.write(tag._raw_data or b"")  # pylint: disable=protected-access
+    return True
