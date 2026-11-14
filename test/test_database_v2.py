@@ -156,6 +156,24 @@ class TestCase(unittest.TestCase):
 
         self.assertFalse(os.path.exists(db_file), "nothing relocated, so not saved")
 
+    def test_find_missing_relocates_tracks_found_in_a_folder_given(self):
+        tmp = temp_dir(self)
+        db_file = os.path.join(tmp, "database V2")
+        shutil.copy("test/data/database_v2_test.bin", db_file)
+        db = DatabaseV2(db_file)
+        first, *rest = db.get_track_paths()
+        found_dir = os.path.join(tmp, "found")
+        os.mkdir(found_dir)
+        found = os.path.join(found_dir, os.path.basename(first))
+        open(found, "wb").close()  # pylint: disable=consider-using-with
+
+        # the folder for the first track, which later missing tracks are also looked for in; "s" skips the rest
+        answers = iter([found_dir])
+        with mock.patch("builtins.input", side_effect=lambda prompt: next(answers, "s")), mock.patch("builtins.print"):
+            db.find_missing()
+
+        self.assertEqual(DatabaseV2(db_file).get_track_paths(), [DatabaseV2.get_relative_path(found), *rest], "saved")
+
     def test_save_leaves_file_as_it_was_on_error(self):
         orig = read_bytes("test/data/database_v2_test.bin")
 
