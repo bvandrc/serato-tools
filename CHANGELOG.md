@@ -25,6 +25,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Breaking: `TrackBeatgrid.find_nearest_beat` raises `NoBeatgridError` without a beatgrid, rather than returning None, which read as "no beat nearby".
 - `serato_beatgrid` prints which tag is missing, rather than a traceback.
 - Add `GeobKeys`, in `serato_tools.utils.track_tags`: each Serato tag's GEOB key.
+- Add `SmartCrate.to_regular_crate(file)`, which gives a regular crate for `file` holding a smart crate's tracks and its sort and columns, but not its rules, such as for a drive, where Serato can't use a smart crate.
 
 ### Changed
 
@@ -65,7 +66,7 @@ This stays, still deprecated until a future major release: passing `delete_tags_
 - `remove_tracks`, and so `Library.remove_track_files`, match a track's path whatever its case, as `modify` and the methods built on it do. Before, given a path in another case than the library's, such as on a case-insensitive drive, `remove_track_files` deleted the file but left the track in the library.
 - USB export copies a track's own stems file, named after it with or without its extension. Before, it matched every stems file whose name started with the track's, so `B.mp3` beside `B Extended.serato-stems` found two and stopped the export partway, after the crates and database were written. NOTE: Exporting stems hasn't been tested yet, so it isn't known whether Serato even uses them on the drive.
 - `add_tracks_from_dir` adds only the folder's files. Before, it also added its subfolders and hidden files, such as `.DS_Store`, as tracks.
-- USB export writes each smart crate as a regular crate of the tracks it holds, keeping its sort and columns but not its rules, through the new `SmartCrate.to_regular_crate(file)`. Before, it only renamed the file to `.crate`, so it was still a smart crate, which `Crate` refuses to open.
+- USB export writes each smart crate as a regular crate of the tracks it holds, keeping its sort and columns but not its rules. Before, it only renamed the file to `.crate`, so it was still a smart crate, which `Crate` refuses to open.
 
 ## [5.6.1] - 2026-11-10
 
