@@ -682,35 +682,27 @@ class SeratoBinFile:
         drive = os.path.splitdrive(filepath)[0]
         return os.path.normpath(filepath if drive else os.path.join(SERATO_DRIVE, os.sep, filepath))
 
-    def get_entries(self) -> Generator[EntryFull, None, None]:
-        """Get entry fieldnames."""
-        yield from self.__get_entries_internal(track_matcher=None)
+    def get_entries(self, track_matcher: Optional[str | Pattern[str]] = None) -> Generator[EntryFull, None, None]:
+        """Each entry with its field's readable name, as is each entry in a nested entry list.
 
-    def get_entries_filtered(self, track_matcher: str | Pattern[str]) -> Generator[EntryFull, None, None]:
-        """Get entry fieldnames with track matching filter."""
-        yield from self.__get_entries_internal(track_matcher=track_matcher)
-
-    def __get_entries_internal(self, track_matcher: Optional[str | Pattern[str]]) -> Generator[EntryFull, None, None]:
-        """Internal implementation for getting entry fieldnames."""
+        Given `track_matcher`, a regex, only the tracks whose path it matches (ignoring case) are included. Raises
+        DeeplyNestedListError for an entry list nested in a nested one.
+        """
         for field, value in self.entries:
             if isinstance(value, list):
-                if track_matcher and field == SeratoBinFile.Fields.TRACK:
-                    if not isinstance(value, list):
-                        raise DataTypeError(value, list, field)
-                    track = self.__class__.Track(value, path_key=self.TRACK_PATH_KEY)
-                    if not bool(re.search(track_matcher, track.relpath, re.IGNORECASE)):
-                        continue
-
-                try:
-                    new_entries: list[SeratoBinFile.EntryFull] = []
-                    for f, v in value:
-                        if isinstance(v, list):
-                            raise DeeplyNestedListError
-                        new_entries.append((f, self.get_field_name(f), v))
-                except:
-                    logger.error(f"error on field: {field} value: {value}")
-                    raise
-                value = new_entries
+                if (
+                    track_matcher
+                    and field == SeratoBinFile.Fields.TRACK
+                    and not re.search(track_matcher, self._get_track(value).relpath, re.IGNORECASE)
+                ):
+                    continue
+                named: list[SeratoBinFile.EntryFull] = []
+                for nested_field, nested_value in value:
+                    if isinstance(nested_value, list):
+                        logger.error(f"error on field: {field} value: {value}")
+                        raise DeeplyNestedListError
+                    named.append((nested_field, self.get_field_name(nested_field), nested_value))
+                value = named
 
             yield field, self.get_field_name(field), value
 
