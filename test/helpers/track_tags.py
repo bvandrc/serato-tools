@@ -9,7 +9,7 @@ from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.utils.track_tags import del_geob, open_tagfile
 
-from test.helpers.files import temp_copy
+from test.helpers.files import copy_into, temp_copy
 
 TEST_MP3 = "test/data/test_mp3.mp3"
 
@@ -48,3 +48,26 @@ def has_tags_v1(path: str) -> bool:
 def cue_positions(tags: TrackCuesV2) -> list[int]:
     """The position of each of `tags`' cues, in order."""
     return [cue.position for cue in tags._from_entries().cues]  # pylint: disable=protected-access
+
+
+def copy_mp3(folder: str, name: str = "test.mp3") -> str:
+    """A copy of the test mp3, which has every Serato tag, as `name` in `folder`."""
+    return copy_into(folder, TEST_MP3, name)
+
+
+def copy_untagged_mp3(folder: str, name: str = "untagged.mp3") -> str:
+    """A copy of the test mp3 with no Serato Markers2 tag, as for a track Serato hasn't analyzed, as `name` in `folder`."""
+    path = copy_mp3(folder, name)
+    tags = TrackCuesV2(path)
+    tags.delete()
+    tags.save()
+    return path
+
+
+def copy_mp3_without(folder: str, geob_key: str, name: str = "test.mp3") -> str:
+    """A copy of the test mp3 without its `geob_key` GEOB tag, and with every other, as `name` in `folder`."""
+    path = copy_mp3(folder, name)
+    tagfile = open_tagfile(path)
+    del_geob(tagfile, geob_key)
+    tagfile.save()
+    return path
