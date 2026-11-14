@@ -16,6 +16,6 @@ def read_bytes(path: str) -> bytes:
         return f.read()
 
 
-def read_text(path: str, encoding: str = "utf-8") -> str:
-    with open(path, "r", encoding=encoding) as f:
+def read_text(path: str) -> str:
+    with open(path, "r", encoding="utf-8") as f:
         return f.read()

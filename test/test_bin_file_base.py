@@ -164,7 +164,7 @@ def test_modify():
         ]
     )
     assert changed, "reports change"
-    assert db.__str__() == read_text("test/data/database_v2_test_modified_output.txt", "utf-16")
+    assert db.__str__() == read_text("test/data/database_v2_test_modified_output.txt")
     assert db.to_bytes() == read_bytes("test/data/database_v2_test_modified_output.bin")
 
     db.modify(

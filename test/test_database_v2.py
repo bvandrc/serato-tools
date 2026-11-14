@@ -12,7 +12,7 @@ def test_parse_and_serialize():
     file = os.path.abspath(TEST_DATABASE)
     db = DatabaseV2(file)
     assert db.to_bytes() == read_bytes(file)
-    assert db.__str__() == read_text("test/data/database_v2_test_output.txt", "utf-16")
+    assert db.__str__() == read_text("test/data/database_v2_test_output.txt")
 
 
 def test_get_corrupt_tracks():
