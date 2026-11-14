@@ -61,6 +61,7 @@ This stays, still deprecated until a future major release: passing `delete_tags_
 
 ### Fixes
 
+- Of tracks that share a filename, USB export keeps the database and stems crate entries of the one whose file it copies, the first in the crates. Before, it kept whichever came first in the database, so the copied file could show another track's metadata.
 - USB export writes each smart crate as a regular crate of the tracks it holds, keeping its sort and columns but not its rules. It only renamed the file to `.crate`, so it was still a smart crate, which `Crate` refuses to open.
 
 ## [5.6.1] - 2026-11-10
