@@ -1,4 +1,4 @@
-"""What the CLIs share: terminal prompts, the editors their edit modes open, and saving a tag back to its file."""
+"""What the CLIs share: terminal prompts, the editors their edit modes open, and reading and saving a tag's file."""
 
 import os
 import shutil
@@ -39,6 +39,21 @@ def get_text_editor():
 def get_hex_editor():
     """The path to the program named by the `HEXEDITOR` environment variable, or to bvi; raises if it isn't found."""
     return _find_editor("HEXEDITOR", "bvi")
+
+
+def open_tag_file_or_data[T: SeratoGeobTag](tag_class: type[T], path: str) -> T:
+    """The tag read from `path`, for a CLI: an audio file, or any other file as the tag's own bytes.
+
+    A file of the tag's own bytes is one `serato_tagdump` writes (`Serato Markers2.octet-stream`), or a test fixture.
+    Write it back with `save_tag_file_or_data`.
+    """
+    # imported here, not at the top, so the module imports without the track_tags extra (mutagen)
+    from serato_tools.utils.track_tags import TAGFILE_EXTENSIONS  # pylint: disable=import-outside-toplevel
+
+    if path.lower().endswith(TAGFILE_EXTENSIONS):
+        return tag_class(path)
+    with open(path, "rb") as f:
+        return tag_class(f.read())
 
 
 def save_tag_file_or_data(tag: "SeratoGeobTag", path: str) -> bool:
