@@ -1,12 +1,10 @@
-"""What the CLIs share: terminal prompts, the editors their edit modes open, and saving a tag back to its file."""
+"""What the CLIs share: terminal prompts, the editors their edit modes open, and reading and saving a tag's file."""
 
 import os
 import shutil
-from typing import TYPE_CHECKING, Mapping, Optional
+from typing import Mapping, Optional
 
-if TYPE_CHECKING:
-    # only for annotations, so this module doesn't need the track_tags extra (mutagen) to import
-    from serato_tools.utils.track_tags import SeratoGeobTag
+from serato_tools.utils.track_tags import TAGFILE_EXTENSIONS, SeratoGeobTag
 
 
 def ui_ask(question: str, choices: Mapping[str, str], default: Optional[str] = None):
@@ -41,7 +39,19 @@ def get_hex_editor():
     return _find_editor("HEXEDITOR", "bvi")
 
 
-def save_tag_file_or_data(tag: "SeratoGeobTag", path: str) -> bool:
+def open_tag_file_or_data[T: SeratoGeobTag](tag_class: type[T], path: str) -> T:
+    """The tag read from `path`, for a CLI: an audio file, or any other file as the tag's own bytes.
+
+    A file of the tag's own bytes is one `serato_tagdump` writes (`Serato Markers2.octet-stream`), or a test fixture.
+    Write it back with `save_tag_file_or_data`.
+    """
+    if path.lower().endswith(TAGFILE_EXTENSIONS):
+        return tag_class(path)
+    with open(path, "rb") as f:
+        return tag_class(f.read())
+
+
+def save_tag_file_or_data(tag: SeratoGeobTag, path: str) -> bool:
     """Saves a tag `open_tag_file_or_data` read from `path`, if it changed, and returns whether it wrote.
 
     A tag read from an audio file is saved to it; one read from the tag's own bytes writes its bytes back to `path`.

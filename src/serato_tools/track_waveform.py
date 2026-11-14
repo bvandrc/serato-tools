@@ -9,7 +9,7 @@ import io
 from dataclasses import dataclass
 
 from serato_tools.utils import logger
-from serato_tools.utils.track_tags import GeobKeys, NoWaveformError, SeratoGeobTag, open_tag_file_or_data
+from serato_tools.utils.track_tags import GeobKeys, NoWaveformError, SeratoGeobTag
 
 
 class TrackWaveform(SeratoGeobTag):
@@ -82,6 +82,8 @@ class TrackWaveform(SeratoGeobTag):
 
 if __name__ == "__main__":
     import argparse
+
+    from serato_tools.utils.ui import open_tag_file_or_data
 
     @dataclass
     class Args:
