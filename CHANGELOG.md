@@ -62,7 +62,7 @@ This stays, still deprecated until a future major release: passing `delete_tags_
 ### Fixes
 
 - Of tracks that share a filename, USB export keeps the database and stems crate entries of the one whose file it copies, the first in the crates. Before, it kept whichever came first in the database, so the copied file could show another track's metadata.
-- `add_tracks_from_dir` adds only the folder's files, not its subfolders or hidden files such as `.DS_Store`, which it added as tracks.
+- `add_tracks_from_dir` adds only the folder's files. Before, it also added its subfolders and hidden files, such as `.DS_Store`, as tracks.
 
 ## [5.6.1] - 2026-11-10
 
