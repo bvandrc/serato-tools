@@ -7,6 +7,7 @@ import unittest
 from typing import cast
 from unittest import mock
 
+from serato_tools.crate import Crate
 from serato_tools.smart_crate import SmartCrate, main
 
 from test.helpers import read_bytes, temp_dir
@@ -124,6 +125,26 @@ class TestCase(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "requires an integer value"):
             rule.set_value("abc")
+
+    def test_to_crate_keeps_the_tracks_sort_and_columns_but_not_the_rules(self):
+        smart_crate = SmartCrate("test/data/TestSmartCrate.scrate")
+        path = os.path.join(temp_dir(self), "TestSmartCrate.crate")
+        crate = smart_crate.to_crate(path)
+        crate.save()
+
+        saved = Crate(path)
+        self.assertEqual(saved.version, Crate.DEFAULT_ENTRIES[0][1])
+        self.assertEqual(saved.get_track_paths(), smart_crate.get_track_paths())
+        rule_fields = {field.value for field in SmartCrate.RuleFields}
+        self.assertEqual(
+            [entry for entry in saved.entries[1:]],
+            [entry for entry in smart_crate.entries[1:] if entry[0] not in rule_fields],
+            "everything but the version and the rules, in order",
+        )
+        self.assertTrue(any(field in rule_fields for field, _ in smart_crate.entries), "the fixture has rules")
+
+        crate.entries[1][1].clear()  # type: ignore[union-attr]
+        self.assertNotEqual(smart_crate.entries[1][1], [], "the smart crate's entries aren't shared")
 
 
 class CliTestCase(unittest.TestCase):

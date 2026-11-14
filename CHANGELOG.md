@@ -38,6 +38,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Methods that took a list of track paths or rules take any collection of them, such as a set or a tuple.
 - The tag CLIs (`serato_snap_cues_v2`, `serato_beatgrid`, and running `track_autotags` or `track_waveform` as a module) read a file of the tag's own bytes, such as one `serato_tagdump` writes. They used to raise for any file that isn't .mp3, .aiff, or .aif.
 - A database, crate, or Serato tag that's cut off or malformed raises `ValueError` saying what's wrong, rather than an `AssertionError`.
+- `serato_usb_export` writes each smart crate to the drive as a regular crate, with its tracks, sort, and columns. It used to write the smart crate's own contents, rules included, under a `.crate` name, which isn't a crate Serato can read. `SmartCrate.to_crate` does the conversion.
 - Breaking: `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`, next to the database and crate code that raises them.
 
 ### Removed

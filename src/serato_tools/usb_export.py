@@ -98,7 +98,8 @@ def _export_crate(
 ) -> list[str]:
     """Writes the crate to the drive's crate folder, pointed at its tracks' paths there, and returns their paths here.
 
-    A smart crate is written as a regular crate, since Serato can't use one on a drive.
+    A smart crate is written as a regular crate, with its tracks, sort, and columns, since Serato can't use one on a
+    drive.
     """
     crate: Crate | SmartCrate
     if crate_file.endswith(Crate.EXTENSION):
@@ -121,17 +122,11 @@ def _export_crate(
     crate_filename = os.path.basename(crate_file)
     if root_crate is not None:
         crate_filename = root_crate + "%%" + crate_filename
-    dest_crate_file = os.path.join(dest_crate_dir, crate_filename)
-    crate.save(dest_crate_file)
-
     if isinstance(crate, SmartCrate):
-        # saved as a .scrate, which SmartCrate.save requires, then renamed; only the filename is changed, since
-        # str.replace on the full path could hit a folder's name
-        crate_file_as_crate = os.path.join(
-            dest_crate_dir, os.path.splitext(crate_filename.replace("≫≫", "%%"))[0] + Crate.EXTENSION
-        )
-        os.replace(dest_crate_file, crate_file_as_crate)
-        dest_crate_file = crate_file_as_crate
+        # only the filename is changed, since str.replace on the full path could hit a folder's name
+        crate_filename = os.path.splitext(crate_filename.replace("≫≫", "%%"))[0] + Crate.EXTENSION
+    dest_crate_file = os.path.join(dest_crate_dir, crate_filename)
+    (crate.to_crate(dest_crate_file) if isinstance(crate, SmartCrate) else crate).save(dest_crate_file)
     logger.info(f"copied crate {dest_crate_file}")
     return track_paths
 

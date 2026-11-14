@@ -1,11 +1,13 @@
 """Serato smart crate files (`.scrate`), and the `serato_smartcrate` CLI for listing their tracks and setting rules."""
 
+import copy
 import os
 import sys
 from dataclasses import dataclass
 from enum import IntEnum, StrEnum, unique
 from typing import cast
 
+from serato_tools.crate import Crate
 from serato_tools.utils import SERATO_DIR
 from serato_tools.utils.bin_file_base import DataTypeError
 from serato_tools.utils.crate_base import CrateBase
@@ -227,6 +229,21 @@ class SmartCrate(CrateBase):
             new_entries.append((f, v))
 
         self.entries = new_entries
+
+    def to_crate(self, file: str) -> Crate:
+        """A regular crate at `file` with this smart crate's tracks, sort, and columns, but not its rules.
+
+        For a library where a smart crate can't be used, such as one on a USB drive, which Serato doesn't export smart
+        crates to. The crate isn't saved: call its `save()`.
+        """
+        crate = Crate(file)
+        smart_crate_only = {SmartCrate.Fields.VERSION.value, *(field.value for field in SmartCrate.RuleFields)}
+        # the crate's own version, then the rest of this smart crate's entries, copied so the two don't share them
+        crate.entries = [
+            crate.entries[0],
+            *copy.deepcopy([entry for entry in self.entries if entry[0] not in smart_crate_only]),
+        ]
+        return crate
 
     def find_missing(self):
         """Always raises, since a smart crate's tracks come from its rules."""
