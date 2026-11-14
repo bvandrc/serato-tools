@@ -14,7 +14,7 @@ from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_text_frames import TrackTextFrames
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
-from test.helpers import TEST_DATABASE, has_tags_v1, temp_copy, temp_dir, temp_mp3, untagged_mp3
+from test.helpers import TEST_DATABASE, bin_file_writes, has_tags_v1, temp_copy, temp_dir, temp_mp3, untagged_mp3
 
 relpath = DatabaseV2.get_relative_path
 
@@ -75,21 +75,6 @@ class TestCase(unittest.TestCase):
             if os.path.basename(f.filepath) in names
         ]
 
-    def saved_file_names(self):
-        """Records the name of each library file written from now on, however it's saved, into the returned list."""
-        saved: list[str] = []
-
-        def record_write(file, *args, **kwargs):
-            if "w" in (args[0] if args else kwargs.get("mode", "r")):
-                saved.append(os.path.basename(file))
-            return open(file, *args, **kwargs)  # pylint: disable=unspecified-encoding
-
-        # every way of saving a bin file opens it for writing in its module
-        patcher = mock.patch("serato_tools.utils.bin_file_base.open", side_effect=record_write, create=True)
-        patcher.start()
-        self.addCleanup(patcher.stop)
-        return saved
-
     def test_files_are_parsed_when_first_needed(self):
         library = Library(os.path.join(self.serato_dir, "does not exist"))
         with self.assertRaises(FileNotFoundError, msg="database parsed on first access, not on init"):
@@ -107,7 +92,7 @@ class TestCase(unittest.TestCase):
         self.make_crate(Crate, "Without", [])
         self.make_crate(SmartCrate, "Smart", [src])
 
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
         library = Library(self.serato_dir)
         changed = library.rename_track_file(src, dest)
 
@@ -128,7 +113,7 @@ class TestCase(unittest.TestCase):
         db = DatabaseV2(self.db_file)
         db.entries.append((DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, "Unsaved.mp3")]))
 
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
         Library(self.serato_dir, database=db).rename_track_file(src, dest)
 
         self.assertIn(relpath(dest), db.get_track_paths(), "the given database updated")
@@ -138,7 +123,7 @@ class TestCase(unittest.TestCase):
     def test_rename_track_file_refuses_to_overwrite(self):
         src = self.make_track("Old.mp3")
         self.add_to_database(src)
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
 
         cases = {
             # os.rename silently overwrites on POSIX, unlike on Windows, so test with Windows' behaviour
@@ -158,7 +143,7 @@ class TestCase(unittest.TestCase):
     def test_rename_track_file_not_in_the_library(self):
         src, dest = self.make_track("Unimported.mp3"), self.music_path("New.mp3")
 
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
         changed = Library(self.serato_dir).rename_track_file(src, dest)
 
         self.assertTrue(os.path.exists(dest) and not os.path.exists(src), "file still renamed")
@@ -177,7 +162,7 @@ class TestCase(unittest.TestCase):
         self.make_crate(SmartCrate, "Smart", [missing])
         os.remove(missing)
 
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
         library = Library(self.serato_dir)
         result = library.remove_track_files([removed, missing])
 
@@ -202,7 +187,7 @@ class TestCase(unittest.TestCase):
         self.make_crate(Crate, "With", [first, second])
         self.make_crate(Crate, "Without", [removed])
 
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
         library = Library(self.serato_dir)
         new_first, new_second = (self.music_path(name) for name in ["New First.mp3", "New Second.mp3"])
         with library.batch():
@@ -233,7 +218,7 @@ class TestCase(unittest.TestCase):
         src, dest = self.make_track("Old.mp3"), self.music_path("New.mp3")
         self.add_to_database(src)
 
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
         library = Library(self.serato_dir)
         with self.assertRaises(RuntimeError, msg="the exception still propagates"):
             with library.batch():
@@ -247,7 +232,7 @@ class TestCase(unittest.TestCase):
         first, second = self.make_track("First.mp3"), self.make_track("Second.mp3")
         self.add_to_database(first, second)
 
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
         library = Library(self.serato_dir)
         with library.batch():
             with library.batch():
@@ -262,7 +247,7 @@ class TestCase(unittest.TestCase):
         self.add_to_database(track)
         self.make_crate(Crate, "Crate", [track])
 
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
         library = Library(self.serato_dir)
         self.set_genre(library.database, track)
         _ = library.crates
@@ -285,7 +270,7 @@ class TestCase(unittest.TestCase):
         database = DatabaseV2(self.db_file)
         self.set_genre(database, track)
 
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
         library = Library(self.serato_dir, database=database)
         self.assertEqual(library.save(), [database.filepath])
 
@@ -296,7 +281,7 @@ class TestCase(unittest.TestCase):
     def test_save_skips_unchanged_and_unparsed_files(self):
         self.make_crate(Crate, "Crate", [self.make_track("Track.mp3")])
 
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
         library = Library(self.serato_dir)
         self.assertEqual(library.save(), [], "nothing parsed")
         self.assertNotIn("database", vars(library), "save doesn't parse anything")
@@ -310,7 +295,7 @@ class TestCase(unittest.TestCase):
         other = self.copy_analyzed_track("Other.mp3")
         self.add_to_database(track, other)
 
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
         result = Library(self.serato_dir).set_db_track_tags(
             track, color=TrackCuesV2.TrackColors.PURPLE, beatgrid_locked=True
         )
@@ -374,7 +359,7 @@ class TestCase(unittest.TestCase):
         track = self.copy_analyzed_track("Colored.mp3")
         self.add_to_database(track)
 
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
         library = Library(self.serato_dir)
         with library.batch():
             self.assertTrue(library.set_db_track_tags(track, color=TrackCuesV2.TrackColors.PURPLE).database_changed)
@@ -390,7 +375,7 @@ class TestCase(unittest.TestCase):
         red, blue = self.copy_analyzed_track("Red.mp3"), self.copy_analyzed_track("Blue.mp3")
         self.add_to_database(red, blue)
 
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
         Library(self.serato_dir).set_db_tracks_tags(
             {red: {"color": TrackCuesV2.TrackColors.RED}, blue: {"color": TrackCuesV2.TrackColors.BLUE1}}
         )
@@ -422,7 +407,7 @@ class TestCase(unittest.TestCase):
         library = Library(self.serato_dir)
         library.set_db_track_tags(unchanged, color=TrackCuesV2.TrackColors.GREY)
 
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
         result = library.set_db_track_tags(unchanged, color=TrackCuesV2.TrackColors.GREY)
         self.assertFalse(result.database_changed)
         self.assertEqual(result.files_written, [], "file not written")
@@ -449,7 +434,7 @@ class TestCase(unittest.TestCase):
         track = self.copy_analyzed_track("Track.mp3")
         self.add_to_database(track)
 
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
         with self.assertRaises(ValueError):
             Library(self.serato_dir).set_db_tracks_tags(
                 {track: {"color": TrackCuesV2.TrackColors.RED, "rating": 5}}  # type: ignore[typeddict-unknown-key]
@@ -467,7 +452,7 @@ class TestCase(unittest.TestCase):
             },
             "bad value": {first: {"color": TrackCuesV2.TrackColors.RED}, first + "2": {"color": "red"}},
         }
-        saved = self.saved_file_names()
+        saved = bin_file_writes(self)
         for name, tracks in batches.items():
             with self.subTest(name):
                 with self.assertRaises((ValueError, AttributeError)):

@@ -3,12 +3,11 @@ import copy
 import os
 import unittest
 from typing import cast
-from unittest import mock
 
 from serato_tools.smart_crate import SmartCrate, main
 from serato_tools.utils.bin_file_base import DataTypeError
 
-from test.helpers import TEST_SMART_CRATE, cli_args, read_bytes, read_text, temp_copy
+from test.helpers import TEST_SMART_CRATE, bin_file_writes, cli_args, read_bytes, read_text, temp_copy
 
 SMART_CRATE = os.path.abspath(TEST_SMART_CRATE)
 expected = read_text("test/data/smart_crate.txt")
@@ -183,9 +182,9 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(list(self.saved_rules())[-2:], [SmartCrate.RuleField.GENRE, SmartCrate.RuleField.ALBUM])
 
     def test_rules_set_to_their_values_dont_rewrite_the_crate(self):
-        with mock.patch("serato_tools.utils.bin_file_base.open", wraps=open, create=True) as opened:
-            self.run_cli("--year", "str_is", "2000", "--label", "str_contains", "YT")
-        self.assertEqual([c for c in opened.call_args_list if "wb" in c.args], [], "nothing written")
+        written = bin_file_writes(self)
+        self.run_cli("--year", "str_is", "2000", "--label", "str_contains", "YT")
+        self.assertEqual(written, [], "nothing written")
 
     def test_without_rule_options_prints_the_crate_and_changes_nothing(self):
         before = read_bytes(self.path)

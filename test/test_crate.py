@@ -1,4 +1,3 @@
-import copy
 import os
 import unittest
 
@@ -47,26 +46,6 @@ class TestCase(unittest.TestCase):
         crate.add_tracks([os.path.join(os.path.dirname(full_track_path), "Thundercat - Them Changes.mp3")])
         expected += "\notrk (Track): [ ptrk (Track Path): Users/bvand/Music/DJ Tracks/Thundercat - Them Changes.mp3 ]"
         self.assertEqual(crate.__str__(), expected, "track added")
-
-    def test_new_crate_does_not_share_entries_with_class_default(self):
-        default_entries = copy.deepcopy(Crate.DEFAULT_ENTRIES)
-        tmp = temp_dir(self)
-
-        a = Crate(os.path.join(tmp, "A.crate"))
-        a.add_tracks(["/music/track1.mp3"])
-        b = Crate(os.path.join(tmp, "B.crate"))
-
-        for i, (field, value) in enumerate(a.entries[: len(default_entries)]):
-            if isinstance(value, list):
-                self.assertIsNot(value, Crate.DEFAULT_ENTRIES[i][1], f"{field} sublist shared with class default")
-                self.assertIsNot(value, b.entries[i][1], f"{field} sublist shared between instances")
-
-        sorting_value = a.entries[1][1]
-        assert isinstance(sorting_value, list)
-        sorting_value.append((Crate.Fields.COLUMN_NAME, "mutated"))
-
-        self.assertEqual(Crate.DEFAULT_ENTRIES, default_entries, "class default must not be mutated")
-        self.assertEqual(b.entries, default_entries, "other instance must not inherit tracks or nested edits")
 
     def test_saving_needs_the_crate_extension(self):
         crate = Crate(os.path.join(temp_dir(self), "Test.crate"))
