@@ -61,6 +61,14 @@ class TestCase(unittest.TestCase):
         tags.set(bpm=128)
         self.assertTrue(tags.has_changed, "differs from the bytes given")
 
+    def test_saving_a_tag_read_from_bytes_raises(self):
+        for tag_class in (TrackCuesV2, TrackAutotags):  # TrackCuesV2 has its own save()
+            with self.subTest(tag_class.__name__):
+                tags = tag_class(tag_class(TEST_MP3)._raw_data or b"")
+                tags.delete()
+                with self.assertRaisesRegex(ValueError, "read from bytes"):
+                    tags.save()
+
     def test_a_file_whose_id3_tags_have_no_frames_reads_and_saves(self):
         for tag_class in (TrackCuesV2, TrackAutotags):  # TrackCuesV2 has its own save()
             with self.subTest(tag_class.__name__):
@@ -93,6 +101,12 @@ class TestCase(unittest.TestCase):
                 self.assertIsNone(tags.tagfile, "read as bytes")
                 self.assertEqual(tags._raw_data, read_bytes(data_file))
                 self.assertIsNotNone(open_tag_file_or_data(tag_class, TEST_MP3).tagfile, "read as audio")
+
+    def test_tagdump_of_a_file_without_tags_raises(self):
+        path = temp_mp3(self)
+        MP3(path).delete()
+        with self.assertRaisesRegex(ValueError, "no tags"):
+            list(get_serato_tagdata(MP3(path)))
 
 
 if __name__ == "__main__":

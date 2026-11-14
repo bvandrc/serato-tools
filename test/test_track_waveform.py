@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 from serato_tools.track_waveform import TrackWaveform
 from serato_tools.utils.track_tags import NoWaveformError, del_geob, open_tagfile
@@ -27,6 +28,11 @@ class TestCase(unittest.TestCase):
     def test_a_partial_row_raises(self):
         with self.assertRaisesRegex(ValueError, "row of 5 bytes"):
             TrackWaveform(read_bytes("test/data/track_waveform.bin") + b"\x00" * 5)
+
+    def test_drawing_without_pillow_says_how_to_install_it(self):
+        tags = TrackWaveform(read_bytes("test/data/track_waveform.bin"))
+        with mock.patch.dict("sys.modules", {"PIL": None}), self.assertRaisesRegex(ImportError, "waveform_drawing"):
+            tags.draw_image()
 
 
 if __name__ == "__main__":

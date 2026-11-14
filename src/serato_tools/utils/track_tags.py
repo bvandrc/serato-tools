@@ -83,7 +83,7 @@ def open_tagfile(file: ID3FileOrPath) -> ID3File:
             return MP3(file)
         if file.lower().endswith(_AIFF_EXTENSIONS):
             return AIFF(file)
-    except:
+    except Exception:
         logger.error(f"Mutagen error for file {file}")
         raise
     raise ValueError(f"unsupported file type (only .mp3, .aiff, and .aif are supported): {file}")
@@ -192,7 +192,7 @@ class SeratoGeobTag(ID3FileTag):
     def _require_tagfile(self) -> ID3File:
         """The tag's open file; raises if it was read from bytes."""
         if self.tagfile is None:
-            raise Exception("no tagfile, no saving")
+            raise ValueError(f"{type(self).__name__} was read from bytes, so has no file to read or write")
         return self.tagfile
 
     def _get_geob(self):
@@ -268,7 +268,7 @@ class SeratoGeobTag(ID3FileTag):
     def save(self):
         """Writes the tag to the file, whether or not it changed; raises if it was read from bytes."""
         if self.tagfile is None:
-            raise Exception("no tagfile, no saving")
+            raise ValueError(f"{type(self).__name__} was read from bytes, so has no file to read or write")
         self._put_in_tagfile()
         self.tagfile.save()
 

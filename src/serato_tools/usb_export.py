@@ -213,11 +213,7 @@ def copy_crates_to_usb(
 
         maybe_stem_files = find_stem_files(src_path)
         if len(maybe_stem_files) > 1:
-            ERROR_STR = "should not have more than 1 stem file for: " + src_path
-            print(ERROR_STR)
-            print("Files found:")
-            print("\n".join(maybe_stem_files))
-            raise Exception(ERROR_STR)
+            raise ValueError(f"more than 1 stems file for {src_path}: {', '.join(maybe_stem_files)}")
         if len(maybe_stem_files) == 1:
             maybe_copy(
                 src_path=maybe_stem_files[0],

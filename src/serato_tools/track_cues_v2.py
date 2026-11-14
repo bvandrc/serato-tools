@@ -602,7 +602,7 @@ class TrackCuesV2(SeratoGeobTag):
         if not (self.has_changed or force):
             return
         if self.tagfile is None:
-            raise Exception("no tagfile, no saving")
+            raise ValueError(f"{type(self).__name__} was read from bytes, so has no file to read or write")
         self._put_in_tagfile(delete_tags_v1)
         self.tagfile.save()
 
