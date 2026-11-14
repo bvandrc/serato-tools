@@ -41,19 +41,6 @@ def _uniq_by_basename(paths: list[str]):
     return return_paths
 
 
-def _as_regular_crate(smart_crate: SmartCrate, file: str) -> Crate:
-    """A regular crate for `file`, holding `smart_crate`'s tracks and view settings (its sort and columns), without
-    its rules."""
-    crate = Crate(file)
-    rule_fields = {field.value for field in SmartCrate.RuleFields}
-    crate.entries = [
-        # a regular crate's version, then the smart crate's entries but its own version and its rules
-        *(entry for entry in crate.entries if entry[0] == Crate.Fields.VERSION),
-        *(entry for entry in smart_crate.entries if entry[0] != Crate.Fields.VERSION and entry[0] not in rule_fields),
-    ]
-    return crate
-
-
 def copy_crates_to_usb(
     crate_files: Iterable[str], dest_drive_dir: str, dest_tracks_dir: str, root_crate: Optional[str] = None
 ):
@@ -113,7 +100,7 @@ def copy_crates_to_usb(
         new_crate_file = os.path.join(crate_dir, crate_filename)
         if isinstance(crate, SmartCrate):
             # Serato can't use a smart crate on a drive
-            crate = _as_regular_crate(crate, new_crate_file)
+            crate = crate.to_regular_crate(new_crate_file)
         crate.save(new_crate_file)
         logger.info(f"copied crate {new_crate_file}")
 
