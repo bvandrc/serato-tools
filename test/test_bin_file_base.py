@@ -1,6 +1,7 @@
 import os
 import shutil
 import unittest
+from enum import StrEnum, unique
 from unittest import mock
 
 from serato_tools.crate import Crate
@@ -54,6 +55,22 @@ class PathTestCase(unittest.TestCase):
         full_path = SeratoBinFile.get_full_path("Music/DJ Tracks/Tripp St. - Enlighten.mp3")
         self.assertTrue(os.path.isabs(full_path), full_path)
         self.assertTrue(full_path.endswith(os.path.normpath("/Music/DJ Tracks/Tripp St. - Enlighten.mp3")), full_path)
+
+
+class FieldsTestCase(unittest.TestCase):
+    def test_a_subclass_extending_field_enums_gets_its_fields_and_names(self):
+        @unique
+        class ExtraFields(StrEnum):
+            EXTRA_THING = "uxtr"
+
+        class ExtendedCrate(Crate):
+            FIELD_ENUMS = (*Crate.FIELD_ENUMS, ExtraFields)
+
+        self.assertIn("uxtr", ExtendedCrate.FIELDS)
+        self.assertLess(Crate.FIELDS, ExtendedCrate.FIELDS, "the rest kept")
+        self.assertEqual(ExtendedCrate.get_field_name("uxtr"), "Extra Thing")
+        self.assertNotIn("uxtr", Crate.FIELDS, "the class it extends is unchanged")
+        self.assertEqual(Crate.get_field_name("uxtr"), "Unknown Field")
 
 
 class ParseTestCase(unittest.TestCase):
