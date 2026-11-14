@@ -3,7 +3,8 @@ import unittest
 
 from serato_tools.crate import Crate
 
-from test.helpers import TEST_CRATE, read_bytes, read_text, temp_dir
+from test.helpers.bin_files import TEST_CRATE
+from test.helpers.files import read_bytes, read_text, temp_dir
 
 base_expected = read_text("test/data/crate.txt")
 

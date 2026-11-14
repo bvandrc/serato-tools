@@ -14,7 +14,8 @@ from serato_tools.track_text_frames import TrackTextFrames
 from serato_tools.track_waveform import TrackWaveform
 from serato_tools.utils.track_tags import ID3FileTag, get_geob, open_tag_file_or_data
 
-from test.helpers import TEST_MP3, read_bytes, temp_mp3
+from test.helpers.files import read_bytes
+from test.helpers.track_tags import TEST_MP3, temp_mp3
 
 # each GEOB tag class, with a fixture of its tag's bytes
 GEOB_FIXTURES = {

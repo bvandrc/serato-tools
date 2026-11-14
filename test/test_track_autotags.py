@@ -2,7 +2,7 @@ import unittest
 
 from serato_tools.track_autotags import TrackAutotags
 
-from test.helpers import read_bytes
+from test.helpers.files import read_bytes
 
 
 class TestCase(unittest.TestCase):

@@ -3,7 +3,8 @@ import unittest
 
 from serato_tools.database_v2 import DatabaseV2
 
-from test.helpers import TEST_DATABASE, read_bytes, read_text
+from test.helpers.bin_files import TEST_DATABASE
+from test.helpers.files import read_bytes, read_text
 
 
 class TestCase(unittest.TestCase):

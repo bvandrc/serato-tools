@@ -4,7 +4,7 @@ from mutagen.id3 import COMM, ID3, TPE1, Encoding
 
 from serato_tools.track_text_frames import TrackTextFrames
 
-from test.helpers import temp_mp3
+from test.helpers.track_tags import temp_mp3
 
 
 class TestCase(unittest.TestCase):

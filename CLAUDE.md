@@ -171,11 +171,11 @@ Console scripts are declared in `[project.scripts]` in `pyproject.toml` and poin
 
 ## Repository layout notes
 
-- `test/helpers.py` — shared test setup, so tests don't repeat it:
-  - temp copies of fixtures, cleaned up with the test (`temp_copy`, `temp_mp3`, `untagged_mp3`, `mp3_without`), and constants for the fixture paths;
-  - `bin_file_writes`, the names of the database and crate files written during a test, which is how tests check what was saved or that nothing was;
-  - `cli_args`, for running a console script's `main()` with a command line;
-  - readers (`read_bytes`, `read_text`, `has_tags_v1`, `cue_positions`).
+- `test/helpers/` — shared test setup, so tests don't repeat it, a module for each kind (imported from the module, e.g. `from test.helpers.files import read_bytes`):
+  - `files`: temp copies of fixtures, cleaned up with the test (`temp_dir`, `temp_copy`), and `read_bytes` / `read_text`.
+  - `bin_files`: the database and crate fixture paths, and `bin_file_writes`, the names of the database and crate files written during a test, which is how tests check what was saved or that nothing was.
+  - `track_tags`: the test mp3 and copies of it (`temp_mp3`, `untagged_mp3`, `mp3_without`), and reading its tags (`has_tags_v1`, `cue_positions`). It's the only helper module that needs the track_tags extra, so tests that don't touch audio files must not import it.
+  - `cli`: `cli_args`, for running a console script's `main()` with a command line.
 
   Tests of a base class's behaviour go in the base's own module (`test_bin_file_base.py`, `test_track_tags.py`), driven through one subclass or looped over all of them, not repeated per subclass.
 - `test/data/` — fixtures for the unittest suite. Tests assert **byte-exact** round-trips (parse → serialize must reproduce the input), so regenerate fixtures deliberately, never to make a test pass.

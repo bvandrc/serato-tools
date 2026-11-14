@@ -4,7 +4,8 @@ from unittest import mock
 
 from serato_tools import usb_export
 
-from test.helpers import cli_args, temp_dir
+from test.helpers.cli import cli_args
+from test.helpers.files import temp_dir
 
 
 class GetCrateFilesTestCase(unittest.TestCase):

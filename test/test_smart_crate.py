@@ -7,7 +7,9 @@ from typing import cast
 from serato_tools.smart_crate import SmartCrate, main
 from serato_tools.utils.bin_file_base import DataTypeError
 
-from test.helpers import TEST_SMART_CRATE, bin_file_writes, cli_args, read_bytes, read_text, temp_copy
+from test.helpers.bin_files import TEST_SMART_CRATE, bin_file_writes
+from test.helpers.cli import cli_args
+from test.helpers.files import read_bytes, read_text, temp_copy
 
 SMART_CRATE = os.path.abspath(TEST_SMART_CRATE)
 expected = read_text("test/data/smart_crate.txt")

@@ -3,7 +3,8 @@ import unittest
 from serato_tools.track_waveform import TrackWaveform
 from serato_tools.utils.track_tags import NoWaveformError
 
-from test.helpers import mp3_without, read_bytes
+from test.helpers.files import read_bytes
+from test.helpers.track_tags import mp3_without
 
 WAVEFORM = "test/data/track_waveform.bin"
 

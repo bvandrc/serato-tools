@@ -9,14 +9,14 @@ from serato_tools.track_beatgrid import TrackBeatgrid
 from serato_tools.track_cues_v2 import TrackCuesV2, main
 from serato_tools.utils.track_tags import NoBeatgridError, NoCuesError
 
-from test.helpers import (
+from test.helpers.cli import cli_args
+from test.helpers.files import read_bytes
+from test.helpers.track_tags import (
     SNAPPED_CUE_POSITIONS,
     TEST_MP3,
-    cli_args,
     cue_positions,
     has_tags_v1,
     mp3_without,
-    read_bytes,
     temp_mp3,
     untagged_mp3,
 )

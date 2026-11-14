@@ -5,7 +5,9 @@ import unittest
 from serato_tools.track_beatgrid import TrackBeatgrid, main
 from serato_tools.utils.track_tags import NoBeatgridError
 
-from test.helpers import TEST_MP3, cli_args, mp3_without, read_bytes
+from test.helpers.cli import cli_args
+from test.helpers.files import read_bytes
+from test.helpers.track_tags import TEST_MP3, mp3_without
 
 BEATGRID = "test/data/track_beatgrid.bin"
 

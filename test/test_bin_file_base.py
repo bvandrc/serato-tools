@@ -11,7 +11,8 @@ from serato_tools.smart_crate import SmartCrate
 # bin_file_base raises the installed package's DataTypeError, so catch that one
 from serato_tools.utils.bin_file_base import DataTypeError, SeratoBinFile
 
-from test.helpers import TEST_CRATE, TEST_DATABASE, bin_file_writes, read_bytes, read_text, temp_copy, temp_dir
+from test.helpers.bin_files import TEST_CRATE, TEST_DATABASE, bin_file_writes
+from test.helpers.files import read_bytes, read_text, temp_copy, temp_dir
 
 
 def temp_db(testcase: unittest.TestCase) -> str:
