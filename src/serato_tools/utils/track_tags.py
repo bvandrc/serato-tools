@@ -68,6 +68,7 @@ class NoWaveformError(MissingTagError):
 # the track file types open_tagfile opens, by extension
 _MP3_EXTENSIONS = (".mp3",)
 _AIFF_EXTENSIONS = (".aiff", ".aif")
+TAGFILE_EXTENSIONS = _MP3_EXTENSIONS + _AIFF_EXTENSIONS
 
 
 def open_tagfile(file: ID3FileOrPath) -> ID3File:
@@ -271,15 +272,3 @@ class SeratoGeobTag(ID3FileTag):
             return False
         self._put_in_tagfile()
         return True
-
-
-def open_tag_file_or_data[T: SeratoGeobTag](tag_class: type[T], path: str) -> T:
-    """The tag read from `path`, for a CLI: an audio file, or any other file as the tag's own bytes.
-
-    A file of the tag's own bytes is one `serato_tagdump` writes (`Serato Markers2.octet-stream`), or a test fixture.
-    Write it back with `serato_tools.utils.ui.save_tag_file_or_data`.
-    """
-    if path.lower().endswith(_MP3_EXTENSIONS + _AIFF_EXTENSIONS):
-        return tag_class(path)
-    with open(path, "rb") as f:
-        return tag_class(f.read())

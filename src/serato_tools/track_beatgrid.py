@@ -17,7 +17,7 @@ from mutagen._file import FileType
 from mutagen.id3 import ID3
 
 from serato_tools.utils import logger
-from serato_tools.utils.track_tags import GeobKeys, NoBeatgridError, SeratoGeobTag, open_tag_file_or_data
+from serato_tools.utils.track_tags import GeobKeys, NoBeatgridError, SeratoGeobTag
 
 
 class TrackBeatgrid(SeratoGeobTag):
@@ -395,6 +395,8 @@ class TrackBeatgrid(SeratoGeobTag):
 def main():
     """Prints a track's beatgrid markers, or with `--analyze`, analyzes the track and writes a new grid."""
     import argparse
+
+    from serato_tools.utils.ui import open_tag_file_or_data
 
     @dataclass
     class Args:

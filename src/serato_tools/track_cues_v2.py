@@ -26,7 +26,6 @@ from serato_tools.utils.track_tags import (
     NoCuesError,
     SeratoGeobTag,
     del_geob,
-    open_tag_file_or_data,
 )
 
 if TYPE_CHECKING:
@@ -712,7 +711,13 @@ def main():
     import subprocess
     import tempfile
 
-    from serato_tools.utils.ui import get_hex_editor, get_text_editor, save_tag_file_or_data, ui_ask
+    from serato_tools.utils.ui import (
+        get_hex_editor,
+        get_text_editor,
+        open_tag_file_or_data,
+        save_tag_file_or_data,
+        ui_ask,
+    )
 
     @dataclass
     class Args:
