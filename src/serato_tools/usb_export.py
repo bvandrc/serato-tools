@@ -50,7 +50,8 @@ def copy_crates_to_usb(
 
     - Every track goes in `dest_tracks_dir` on the drive, and only the first of tracks that share a filename is kept.
     - The drive's `_Serato_` folder is replaced by one holding these crates and a database of just their tracks, all
-      pointed at the new paths. Smart crates become regular crates, since Serato can't use one on a drive.
+      pointed at the new paths. Smart crates become regular crates of the tracks they hold, keeping their sort and
+      columns but not their rules, since Serato can't use a smart crate on a drive.
     - A track whose file is already on the drive, unchanged, isn't copied again. Its stems file is copied too.
     - Given `root_crate`, every crate goes inside a crate of that name.
     """
@@ -93,19 +94,16 @@ def copy_crates_to_usb(
         crate.remove_duplicates()
 
         crate_filename = os.path.basename(crate_file)
+        if isinstance(crate, SmartCrate):
+            # a smart crate's subcrate separator in its filename is ≫≫, a regular crate's %%
+            crate_filename = os.path.splitext(crate_filename.replace("≫≫", "%%"))[0] + Crate.EXTENSION
         if root_crate is not None:
             crate_filename = root_crate + "%%" + crate_filename
         new_crate_file = os.path.join(crate_dir, crate_filename)
-        crate.save(new_crate_file)
-
-        # need to just save smartCrates as a .crate instead of a .scrate, can't do smart crate on USB.
         if isinstance(crate, SmartCrate):
-            existing = new_crate_file
-            dirname, basename = os.path.split(existing)
-            # only touch the filename: str.replace on the full path could hit a directory name
-            new = os.path.join(dirname, os.path.splitext(basename.replace("≫≫", "%%"))[0] + Crate.EXTENSION)
-            os.replace(existing, new)
-            new_crate_file = new
+            # Serato can't use a smart crate on a drive
+            crate = crate.to_regular_crate(new_crate_file)
+        crate.save(new_crate_file)
         logger.info(f"copied crate {new_crate_file}")
 
     # create the db file
