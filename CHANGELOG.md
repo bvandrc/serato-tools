@@ -61,6 +61,7 @@ This stays, still deprecated until a future major release: passing `delete_tags_
 
 ### Fixes
 
+- Of tracks that share a filename, USB export keeps the database and stems crate entries of the one whose file it copies, the first in the crates. Before, it kept whichever came first in the database, so the copied file could show another track's metadata.
 - USB export copies a track's own stems file, named after it with or without its extension. It matched every stems file whose name started with the track's, so `B.mp3` beside `B Extended.serato-stems` found two and stopped the export partway, after the crates and database were written.
 
 ## [5.6.1] - 2026-11-10
