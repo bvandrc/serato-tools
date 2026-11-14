@@ -255,13 +255,10 @@ class TrackBeatgrid(SeratoGeobTag):
         terminal_interval = 60.0 / terminal_marker.bpm
         return cumulative_beats + (position_s - terminal_marker.position_s) / terminal_interval
 
-    BeatPoint = collections.namedtuple(
-        "BeatInfo",
-        ("position_s", "bpm"),
-    )
+    BeatPoint = collections.namedtuple("BeatPoint", ("position_s", "bpm"))
 
     def get_beats(self) -> list["TrackBeatgrid.BeatPoint"]:
-        """Return a list of BeatInfo(position_s, bpm, index) for all beats in the track."""
+        """Every beat in the track, as a BeatPoint: its position in seconds, and the BPM there."""
         if not isinstance(self.tagfile, FileType):
             raise ValueError("no tagfile set, cannot determine track length")
         if not self.entries:
