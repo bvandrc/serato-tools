@@ -386,6 +386,8 @@ class TrackBeatgrid(SeratoGeobTag):
 
         self.entries = raw_entries
         self.enhanced_entries = self._enhance_entries(self.entries)
+        # the old grid's beats, which find_nearest_beat would otherwise still search
+        self.beats = None
 
         self._serialize()
         self.save()
