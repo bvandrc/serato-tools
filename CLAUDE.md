@@ -19,13 +19,13 @@ Work in the repo's `.venv` (gitignored), with the package installed editable so 
 ```bash
 python -m venv .venv
 source .venv/Scripts/activate                                     # Git Bash on Windows; .venv/bin/activate elsewhere
-pip install -e ".[all,dev]"                                  # all optional deps + black, isort, pylint, pyright
+pip install -e ".[all,dev]"                                  # all optional deps + pytest, black, isort, pylint, pyright
 ```
 
 ```bash
-python -m unittest                                                # full suite
-python -m unittest test.test_crate                                # one module
-python -m unittest test.test_crate.TestCase.test_saving_needs_the_crate_extension  # one test
+python -m pytest                                                  # full suite
+python -m pytest test/test_crate.py                               # one module
+python -m pytest test/test_crate.py::TestCase::test_saving_needs_the_crate_extension  # one test
 pylint $(git ls-files '*.py')                                     # lint (config in .pylintrc, most C/R checks disabled)
 pyright                                                           # type check (config in pyproject.toml)
 isort .                                                           # sort imports (config in pyproject.toml)
@@ -34,7 +34,7 @@ black .                                                           # format, line
 
 This is a Python repo with no package manager scripts, so `isort .` then `black .` is the "format script" the conventions require before every commit; CI checks both.
 
-Tests import the installed `serato_tools` (editable locally, a regular install in CI) and open fixtures by paths relative to the repo root, so `python -m unittest` only works from there.
+Tests import the installed `serato_tools` (editable locally, a regular install in CI) and open fixtures by paths relative to the repo root, so `python -m pytest` only works from there.
 
 CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pylint and pyright, plus isort and black once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15.
 - **Lint on every version:** neither tool pins one, and both check against the running interpreter, so 3.12 catches use of anything newer and later versions catch deprecations and removals.

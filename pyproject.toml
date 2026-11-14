@@ -38,7 +38,9 @@ waveform_drawing = [
 ]
 beatgrid_analysis = ["mutagen", "librosa", "numpy"]
 all = ["serato-tools[track_tags,waveform_drawing,beatgrid_analysis]"]
-dev = ["black", "isort", "pylint", "pyright"]
+test = ["pytest"]
+# the test extra too, so pyright can check the tests' pytest imports
+dev = ["serato-tools[test]", "black", "isort", "pylint", "pyright"]
 
 [project.urls]
 Homepage = "https://pypi.org/project/serato-tools/"
@@ -69,6 +71,9 @@ known_first_party = ["serato_tools"]
 # the tests' shared helpers, in their own group after the package's imports
 known_local_folder = ["test"]
 combine_as_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
 
 [tool.pyright]
 disableBytesTypePromotions = true
