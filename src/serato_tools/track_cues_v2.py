@@ -19,7 +19,6 @@ import dataclasses
 from dataclasses import dataclass, field
 
 
-
 from serato_tools.utils import _AssertionValueError
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils.track_tags import SeratoGeobTag, del_geob, GeobKeys, NoCuesError, open_tag_file_or_data

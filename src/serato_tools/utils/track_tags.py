@@ -289,6 +289,7 @@ def __getattr__(name: str):
         return new
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
+
 def open_tag_file_or_data[T: SeratoGeobTag](tag_class: type[T], path: str) -> T:
     """The tag read from `path`, for a CLI: an audio file, or any other file as the tag's own bytes.
 

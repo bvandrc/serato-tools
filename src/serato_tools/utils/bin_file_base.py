@@ -428,7 +428,9 @@ class SeratoBinFile:
 
             data = fp.read(length)
             if len(data) != length:
-                raise _AssertionValueError(f"file ends partway through a {field} entry: {len(data)} of its {length} bytes")
+                raise _AssertionValueError(
+                    f"file ends partway through a {field} entry: {len(data)} of its {length} bytes"
+                )
 
             value: SeratoBinFile.Value
             if type_id in ("o", "r"):  #  struct
