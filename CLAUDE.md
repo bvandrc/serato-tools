@@ -25,7 +25,7 @@ pip install -e ".[all,dev]"                                  # all optional deps
 ```bash
 python -m pytest                                                  # full suite
 python -m pytest test/test_crate.py                               # one module
-python -m pytest test/test_crate.py::TestCase::test_saving_needs_the_crate_extension  # one test
+python -m pytest test/test_crate.py::test_saving_needs_the_crate_extension  # one test
 pylint $(git ls-files '*.py')                                     # lint (config in .pylintrc, most C/R checks disabled)
 pyright                                                           # type check (config in pyproject.toml)
 isort .                                                           # sort imports (config in pyproject.toml)
@@ -39,7 +39,7 @@ Tests import the installed `serato_tools` (editable locally, a regular install i
 CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pylint and pyright, plus isort and black once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15.
 - **Lint on every version:** neither tool pins one, and both check against the running interpreter, so 3.12 catches use of anything newer and later versions catch deprecations and removals.
 - **Required checks:** the `main` ruleset requires these checks by name, so renaming a job or matrix entry means updating the ruleset too.
-- **OS-specific tests:** tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `unittest.skipUnless` / `skipIf`, with a matching test for the other OS family.
+- **OS-specific tests:** tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `pytest.mark.skipif`, with a matching test for the other OS family. A parametrized test marks just its OS-specific cases (`test_bin_file_base.py`'s `WINDOWS_ONLY` / `POSIX_ONLY`).
 
 Bump `version` in `pyproject.toml` and add a `CHANGELOG.md` entry for user-visible changes. End every sentence of a changelog entry with a period, the last one included, so an entry of two sentences doesn't end one with a period and not the other. Publishing a GitHub release then publishes that version to PyPI, through `.github/workflows/release.yml`:
 - **Tag:** it must be `v` + the version (e.g. `v6.0.0`), or the workflow fails before building.
@@ -171,14 +171,19 @@ Console scripts are declared in `[project.scripts]` in `pyproject.toml` and poin
 
 ## Repository layout notes
 
-- `test/helpers/` — shared test setup, so tests don't repeat it, a module for each kind (imported from the module, e.g. `from test.helpers.files import read_bytes`):
-  - `files`: temp copies of fixtures, cleaned up with the test (`temp_dir`, `temp_copy`), and `read_bytes` / `read_text`.
-  - `bin_files`: the database and crate fixture paths, and `bin_file_writes`, the names of the database and crate files written during a test, which is how tests check what was saved or that nothing was.
-  - `track_tags`: the test mp3 and copies of it (`temp_mp3`, `untagged_mp3`, `mp3_without`), and reading its tags (`has_tags_v1`, `cue_positions`). It's the only helper module that needs the track_tags extra, so tests that don't touch audio files must not import it.
+- **Test style:** the tests are pytest: plain test functions with bare `assert`s (with a message where it says what a check means), fixtures instead of setup methods, and `pytest.mark.parametrize` instead of loops over cases. A class groups tests only where they share a fixture of their own (`test_smart_crate.py`'s `TestCli`).
+- `test/conftest.py` — the shared fixtures:
+  - `tmp_dir`: pytest's `tmp_path` as the `str` path `serato_tools` takes.
+  - `mp3` / `untagged_mp3`: a copy of the test mp3, with every Serato tag or without its Serato Markers2 tag. They import the track_tags helpers inside the fixture, so `conftest.py` doesn't need the track_tags extra.
+  - `bin_file_writes`: the names of the database and crate files the test writes, which is how tests check what was saved or that nothing was. A test whose setup writes files clears it first.
+- `test/helpers/` — shared helpers that aren't fixtures, a module for each kind (imported from the module, e.g. `from test.helpers.files import read_bytes`):
+  - `files`: `copy_into` a folder, and `read_bytes` / `read_text`.
+  - `bin_files`: the database and crate fixture paths.
+  - `track_tags`: the test mp3 and copies of it (`copy_mp3`, `copy_untagged_mp3`, `copy_mp3_without`), and reading its tags (`has_tags_v1`, `cue_positions`). It's the only helper module that needs the track_tags extra, so tests that don't touch audio files must not import it.
   - `cli`: `cli_args`, for running a console script's `main()` with a command line.
 
   Tests of a base class's behaviour go in the base's own module (`test_bin_file_base.py`, `test_track_tags.py`), driven through one subclass or looped over all of them, not repeated per subclass.
-- `test/data/` — fixtures for the unittest suite. Tests assert **byte-exact** round-trips (parse → serialize must reproduce the input), so regenerate fixtures deliberately, never to make a test pass.
+- `test/data/` — fixtures for the test suite. Tests assert **byte-exact** round-trips (parse → serialize must reproduce the input), so regenerate fixtures deliberately, never to make a test pass.
 - `data/` — reference dumps of raw GEOB tags captured from real tracks, organized by container (`id3`, `flac`, `mp4`, `aif`, `ogg`) and scenario (`hotcue-colors`, `saved-loops`, `bpmlock`, ...). Used as evidence for the format writeups in `docs/`, not by the test suite. Committed as binary via `.gitattributes`.
 - `docs/` — per-tag format documentation; `docs/fileformats.md` covers how each container stores the tags.
 - `conventions/` — see [Conventions](#conventions) above; imported, not editable in place.
