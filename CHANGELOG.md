@@ -63,6 +63,7 @@ This stays, still deprecated until a future major release: passing `delete_tags_
 
 - Of tracks that share a filename, USB export keeps the database and stems crate entries of the one whose file it copies, the first in the crates. Before, it kept whichever came first in the database, so the copied file could show another track's metadata.
 - `remove_tracks`, and so `Library.remove_track_files`, match a track's path whatever its case, as `modify` and the methods built on it do. Before, given a path in another case than the library's, such as on a case-insensitive drive, `remove_track_files` deleted the file but left the track in the library.
+- USB export copies a track's own stems file, named after it with or without its extension. Before, it matched every stems file whose name started with the track's, so `B.mp3` beside `B Extended.serato-stems` found two and stopped the export partway, after the crates and database were written. NOTE: Exporting stems hasn't been tested yet, so it isn't known whether Serato even uses them on the drive.
 - USB export writes each smart crate as a regular crate of the tracks it holds, keeping its sort and columns but not its rules. Before, it only renamed the file to `.crate`, so it was still a smart crate, which `Crate` refuses to open.
 
 ## [5.6.1] - 2026-11-10
