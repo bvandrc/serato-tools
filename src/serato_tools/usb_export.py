@@ -11,7 +11,7 @@ import fnmatch
 import shutil
 import re
 import platform
-from typing import Optional
+from typing import Iterable, Optional
 from dataclasses import dataclass
 
 
@@ -41,7 +41,7 @@ def _uniq_by_basename(paths: list[str]):
 
 
 def copy_crates_to_usb(
-    crate_files: list[str], dest_drive_dir: str, dest_tracks_dir: str, root_crate: Optional[str] = None
+    crate_files: Iterable[str], dest_drive_dir: str, dest_tracks_dir: str, root_crate: Optional[str] = None
 ):
     """Copies the crates in `crate_files`, and their tracks, to the drive at `dest_drive_dir`.
 
