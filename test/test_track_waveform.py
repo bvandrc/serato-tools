@@ -1,8 +1,9 @@
 import unittest
 
 from serato_tools.track_waveform import TrackWaveform
+from serato_tools.utils.track_tags import NoWaveformError, del_geob, open_tagfile
 
-from test.helpers import read_bytes
+from test.helpers import read_bytes, temp_mp3
 
 
 class TestCase(unittest.TestCase):
@@ -13,6 +14,15 @@ class TestCase(unittest.TestCase):
             read_bytes("test/data/track_waveform_parsed.bin"),
             "parsed data",
         )
+
+    def test_without_a_waveform_raises(self):
+        path = temp_mp3(self)
+        tagfile = open_tagfile(path)
+        del_geob(tagfile, TrackWaveform.GEOB_KEY)
+        tagfile.save()
+        with self.assertRaises(NoWaveformError) as caught:
+            TrackWaveform(path)
+        self.assertEqual(caught.exception.filename, path)
 
 
 if __name__ == "__main__":

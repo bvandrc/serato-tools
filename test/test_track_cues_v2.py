@@ -10,6 +10,7 @@ from contextlib import redirect_stdout
 
 from serato_tools.track_beatgrid import TrackBeatgrid
 from serato_tools.track_cues_v2 import TrackCuesV2
+from serato_tools.utils.track_tags import NoCuesError
 
 from test.helpers import TEST_MP3, read_bytes, temp_mp3, untagged_mp3
 
@@ -269,11 +270,13 @@ class TestCase(unittest.TestCase):
         self.assertIsNone(tags.get_snapped_beat_ms(beat_ms - 1, 1 / 8))
         self.assertEqual(tags.get_snapped_beat_ms(beat_ms + 2, 1 / 8), beat_ms)
 
-    def test_snap_positions_to_beat_no_entries_raises(self):
-        tags = TrackCuesV2(TEST_MP3)
-        tags.entries = []
-        with self.assertRaises(ValueError):
+    def test_snap_positions_to_beat_without_a_cues_tag_raises(self):
+        path = untagged_mp3(self)
+        tags = TrackCuesV2(path)
+        with self.assertRaises(NoCuesError) as caught:
             tags.snap_positions_to_beat(1 / 8)
+        self.assertIsInstance(caught.exception, ValueError, "still caught as the ValueError it was")
+        self.assertEqual(str(caught.exception), f"no Serato Markers2 tag: {path}")
 
     def test_loop_fields(self):
         # track_cues_v2_saved_loops.bin is a tag Serato wrote with 4 loops, the second one locked

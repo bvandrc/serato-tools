@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from mutagen.mp3 import HeaderNotFoundError
 
 
-from serato_tools.utils.track_tags import SeratoGeobTag
 from serato_tools.utils import logger
+from serato_tools.utils.track_tags import SeratoGeobTag, GeobKeys, NoWaveformError
 
 
 class TrackWaveform(SeratoGeobTag):
@@ -20,17 +20,17 @@ class TrackWaveform(SeratoGeobTag):
 
     `data` holds the overview as 240 rows of 16 bytes.
 
-    Raises ValueError when read from a file Serato hasn't built the overview for yet.
+    Raises NoWaveformError when read from a file Serato hasn't built the overview for yet.
     """
 
-    GEOB_KEY = "Serato Overview"
+    GEOB_KEY = GeobKeys.WAVEFORM
     VERSION = (0x01, 0x05)
 
     def __init__(self, file_or_data: SeratoGeobTag.FileOrData):
         super().__init__(file_or_data)
 
         if self._raw_data is None:
-            raise ValueError("no waveform yet set")
+            raise NoWaveformError(self.filename)
 
         # materialize so the version check runs at construction time and the data can be read repeatedly
         self.data = self._parse(self._raw_data)

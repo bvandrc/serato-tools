@@ -23,7 +23,7 @@ from mutagen.mp3 import HeaderNotFoundError
 
 
 from serato_tools.track_cues_v1 import TrackCuesV1
-from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
+from serato_tools.utils.track_tags import SeratoGeobTag, del_geob, GeobKeys, NoCuesError
 from serato_tools.track_beatgrid import TrackBeatgrid
 
 # the sizes Serato writes the tag at, in an ID3 file: 470 bytes, or larger by a multiple of 512
@@ -82,7 +82,7 @@ class TrackCuesV2(SeratoGeobTag):
     call `save()`.
     """
 
-    GEOB_KEY = "Serato Markers2"
+    GEOB_KEY = GeobKeys.CUES_V2
     VERSION = (0x01, 0x01)
 
     # the colors Serato stores; Serato DJ Pro and Lite show each one a little differently (see docs/colors.md)
@@ -688,10 +688,10 @@ class TrackCuesV2(SeratoGeobTag):
     def snap_positions_to_beat(self, tolerance_beats: float, min_ms_change: int = 2) -> None:
         """Moves each cue to its nearest beat in memory, as `get_snapped_beat_ms` decides, and prints each move.
 
-        Raises ValueError if the tag has no entries. Call `save()` to write the change to the file.
+        Raises NoCuesError for a track without a `Serato Markers2` tag. Call `save()` to write the change to the file.
         """
         if not self.entries:
-            raise ValueError("No entries set")
+            raise NoCuesError(self.filename)
         track_before = self._from_entries()
         positions_before = {c.index: c.position for c in track_before.cues}
         self.modify_entries(self.snap_positions_to_beat_rule(tolerance_beats, min_ms_change))

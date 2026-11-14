@@ -1,10 +1,12 @@
 # pylint: disable=protected-access
 import unittest
 import struct
+from unittest import mock
 
-from serato_tools.track_beatgrid import TrackBeatgrid
+from serato_tools.track_beatgrid import TrackBeatgrid, main
+from serato_tools.utils.track_tags import NoBeatgridError
 
-from test.helpers import read_bytes
+from test.helpers import TEST_MP3, read_bytes, temp_mp3
 
 
 class TestCase(unittest.TestCase):
@@ -46,3 +48,29 @@ class TestCase(unittest.TestCase):
                 tags.entries = (*markers, TrackBeatgrid.Footer(0))  # pyright: ignore[reportAttributeAccessIssue]
                 with self.assertRaises(ValueError, msg="saving"):
                     tags._serialize()
+
+    def no_beatgrid_mp3(self) -> str:
+        path = temp_mp3(self)
+        beatgrid = TrackBeatgrid(path)
+        beatgrid.delete()
+        beatgrid.save()
+        return path
+
+    def test_without_a_beatgrid_get_beat_position_raises(self):
+        path = self.no_beatgrid_mp3()
+        with self.assertRaises(NoBeatgridError) as caught:
+            TrackBeatgrid(path).get_beat_position(45104)
+        self.assertEqual(caught.exception.filename, path)
+
+    def test_without_a_beatgrid_find_nearest_beat_returns_none(self):
+        # as in 5.6.1: raising instead is a breaking change, left for 6.0
+        self.assertIsNone(TrackBeatgrid(self.no_beatgrid_mp3()).find_nearest_beat(45104, 1 / 8))
+
+    def test_no_beatgrid_error_from_bytes_has_no_filename(self):
+        self.assertEqual(str(NoBeatgridError()), "no Serato BeatGrid tag")
+
+    def test_cli_without_a_beatgrid_exits_with_the_error(self):
+        path = self.no_beatgrid_mp3()
+        with mock.patch("sys.argv", ["serato_beatgrid", path]), self.assertRaises(SystemExit) as caught:
+            main()
+        self.assertEqual(caught.exception.code, f"no Serato BeatGrid tag: {path}")
