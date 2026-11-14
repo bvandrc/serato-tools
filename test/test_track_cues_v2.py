@@ -13,8 +13,9 @@ from serato_tools.track_cues_v2 import TrackCuesV2, main
 from serato_tools.utils.track_tags import NoBeatgridError, NoCuesError
 
 from test.helpers.cli import cli_args
-from test.helpers.files import read_bytes
+from test.helpers.files import copy_into, read_bytes
 from test.helpers.track_tags import (
+    CUES_V2_DATA,
     FIRST_CUE_POSITION,
     SNAPPED_CUE_POSITIONS,
     TEST_MP3,
@@ -374,3 +375,52 @@ ENTRIES_UNLIKE_SERATOS = _entries_unlike_seratos()
 def test_an_entry_unlike_seratos_raises(entry_class, data: bytes, message: str):
     with pytest.raises(ValueError, match=re.escape(message)):
         entry_class._parse(data)
+
+
+def test_two_color_entries_raise_on_an_edit():
+    tags = TrackCuesV2(cues_v2_data())
+    color = next(e for e in tags.entries if isinstance(e, TrackCuesV2.ColorEntry))
+    tags.entries.append(color)
+    with pytest.raises(ValueError, match="Multiple COLOR entries found"):
+        tags.set_track_color(Colors.RED)
+
+
+@pytest.mark.parametrize("name", ["purple", "PURPLE", "Purple"])
+def test_cli_set_color_in_any_case(mp3: str, name: str):
+    with cli_args("serato_snap_cues_v2", mp3, "--set_color", name), pytest.raises(SystemExit):
+        main()
+    assert TrackCuesV2(mp3).get_track_color() == Colors.PURPLE.value
+
+
+def test_cli_set_color_unknown_raises_and_changes_nothing(mp3: str):
+    before = read_bytes(mp3)
+    with cli_args("serato_snap_cues_v2", mp3, "--set_color", "mauve"):
+        with pytest.raises(ValueError, match="Invalid track color 'mauve', must be one of: .*PURPLE"):
+            main()
+    assert read_bytes(mp3) == before
+
+
+@pytest.mark.parametrize(
+    "tolerance_args, error, message",
+    [
+        pytest.param([], ValueError, "requires --snap_tolerance", id="no tolerance"),
+        pytest.param(["--snap_tolerance", "1/0"], ValueError, "denominator cannot be zero", id="1/0"),
+        pytest.param(["--snap_tolerance", "quarter"], ValueError, "expected format like '1/4'", id="no fraction"),
+        pytest.param(["--snap_tolerance", "a/4"], ValueError, "Invalid snap tolerance: 'a/4'", id="not a number"),
+        pytest.param(["--snap_tolerance", "1/1"], NotImplementedError, "less than 1 beat", id="a whole beat"),
+    ],
+)
+def test_cli_snap_cues_with_a_bad_tolerance_raises_and_changes_nothing(
+    mp3: str, tolerance_args: list[str], error: type[Exception], message: str
+):
+    before = read_bytes(mp3)
+    with cli_args("serato_snap_cues_v2", mp3, "--snap_cues", *tolerance_args), pytest.raises(error, match=message):
+        main()
+    assert read_bytes(mp3) == before
+
+
+def test_cli_snap_cues_needs_an_audio_file(tmp_dir: str):
+    data_file = copy_into(tmp_dir, CUES_V2_DATA)
+    with snap_cues_cli(data_file), pytest.raises(ValueError, match="needs an audio file"):
+        main()
+    assert read_bytes(data_file) == read_bytes(CUES_V2_DATA)

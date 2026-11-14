@@ -4,8 +4,13 @@ Needs the track_tags extra (mutagen), so only tests of track tags import it.
 """
 
 import contextlib
+import os
+import struct
 from typing import Iterator
 from unittest import mock
+
+from mutagen.aiff import AIFF
+from mutagen.mp3 import MP3
 
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
@@ -44,6 +49,27 @@ def copy_mp3_without_cues(folder: str, name: str = "no_cues.mp3") -> str:
     tags = TrackCuesV2(path)
     tags.delete()
     tags.save()  # which deletes Serato Markers_ too
+    return path
+
+
+def aiff_with_the_mp3s_tags(folder: str, name: str = "test.aif") -> str:
+    """A short silent AIFF, as `name` in `folder`, with every ID3 frame the test mp3 has."""
+    frames = 100
+    # 1 channel, `frames` sample frames, 16 bits, at 44100 Hz (an 80-bit float)
+    comm = struct.pack(">hIh", 1, frames, 16) + bytes.fromhex("400eac44000000000000")
+    ssnd = struct.pack(">II", 0, 0) + b"\x00" * (frames * 2)
+    body = b"AIFF" + b"COMM" + struct.pack(">I", len(comm)) + comm + b"SSND" + struct.pack(">I", len(ssnd)) + ssnd
+    path = os.path.join(folder, name)
+    with open(path, "wb") as f:
+        f.write(b"FORM" + struct.pack(">I", len(body)) + body)
+
+    aiff = AIFF(path)
+    aiff.add_tags()
+    mp3_tags = MP3(TEST_MP3).tags
+    assert aiff.tags is not None and mp3_tags is not None
+    for frame in mp3_tags.values():
+        aiff.tags.add(frame)
+    aiff.save()
     return path
 
 

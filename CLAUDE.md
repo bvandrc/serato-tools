@@ -179,7 +179,7 @@ Console scripts are declared in `[project.scripts]` in `pyproject.toml` and poin
 - `test/helpers/` — shared helpers that aren't fixtures, a module for each kind (imported from the module, e.g. `from test.helpers.files import read_bytes`):
   - `files`: `copy_into` a folder, and `read_bytes` / `read_text`.
   - `bin_files`: the database and crate fixture paths.
-  - `track_tags`: the test mp3 and copies of it (`copy_mp3`, `copy_mp3_without_cues`, `copy_mp3_without`), the GEOB tag fixture paths, reading its tags (`has_tags_v1`, `cue_positions`), and `tagfile_saves`, which counts an audio file's saves: how tests check what was written to one, or that nothing was. It's the only helper module that needs the track_tags extra, so tests that don't touch audio files must not import it.
+  - `track_tags`: the test mp3 and copies of it (`copy_mp3`, `copy_mp3_without_cues`, `copy_mp3_without`), an AIFF with its tags (`aiff_with_the_mp3s_tags`), the GEOB tag fixture paths, reading its tags (`has_tags_v1`, `cue_positions`), and `tagfile_saves`, which counts an audio file's saves: how tests check what was written to one, or that nothing was. It's the only helper module that needs the track_tags extra, so tests that don't touch audio files must not import it.
   - `cli`: `cli_args`, for running a console script's `main()` with a command line.
 
   Tests of a base class's behaviour go in the base's own module (`test_bin_file_base.py`, `test_track_tags.py`), driven through one subclass or looped over all of them, not repeated per subclass.

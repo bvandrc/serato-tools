@@ -2,13 +2,21 @@ import dataclasses
 from unittest import mock
 
 import pytest
+from mutagen.aiff import AIFF
 
 from serato_tools.track import Track
 from serato_tools.track_autotags import TrackAutotags
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_gain import TrackGain
 
-from test.helpers.track_tags import SNAPPED_CUE_POSITIONS, cue_positions, has_tags_v1, tagfile_saves
+from test.helpers.track_tags import (
+    SNAPPED_CUE_POSITIONS,
+    TEST_MP3,
+    aiff_with_the_mp3s_tags,
+    cue_positions,
+    has_tags_v1,
+    tagfile_saves,
+)
 
 
 def test_reads_each_tag_from_one_open_file_and_saves_none_unchanged(mp3: str):
@@ -171,3 +179,24 @@ def test_snap_cues_to_beats_warns_at_the_caller(mp3: str):
     with pytest.warns(UserWarning, match="min_ms_change=1") as caught:
         track.snap_cues_to_beats(1 / 8, min_ms_change=1)
     assert caught.pop(UserWarning).filename == __file__, "past Track, not at it"
+
+
+@pytest.mark.parametrize("name", ["test.aif", "test.aiff", "TEST.AIF"])
+def test_an_aiff_reads_and_saves_as_an_mp3_does(tmp_dir: str, name: str):
+    path = aiff_with_the_mp3s_tags(tmp_dir, name)
+    track, mp3 = Track(path, waveform=True), Track(TEST_MP3, waveform=True)
+
+    assert isinstance(track.tagfile, AIFF), "opened as an AIFF, whatever its extension's case"
+    assert not track.has_changed, "as read"
+    assert cue_positions(track.cues_v2) == cue_positions(mp3.cues_v2)
+    assert track.get_track_color() == mp3.get_track_color()
+    assert track.beatgrid.entries == mp3.beatgrid.entries
+    assert track.autotags.bpm == mp3.autotags.bpm
+    assert track.gain.gain == mp3.gain.gain
+    assert track.waveform.data == mp3.waveform.data
+    assert track.text_frames.get("TIT2") == mp3.text_frames.get("TIT2")
+
+    track.set_track_color(TrackCuesV2.TrackColors.BLUE1)
+    assert track.save()
+    assert Track(path).get_track_color() == TrackCuesV2.TrackColors.BLUE1.value
+    assert not has_tags_v1(path), "the v1 tag deleted, as from an mp3"

@@ -113,3 +113,11 @@ def test_cli_without_a_beatgrid_exits_with_the_error(no_beatgrid_mp3: str):
     with cli_args("serato_beatgrid", no_beatgrid_mp3), pytest.raises(SystemExit) as caught:
         main()
     assert caught.value.code == f"no Serato BeatGrid tag: {no_beatgrid_mp3}"
+
+
+def test_a_footer_only_tag_has_no_beatgrid():
+    # a version, a marker count of 0, and the footer
+    tags = TrackBeatgrid(b"\x01\x00" + struct.pack(">I", 0) + b"\x00")
+    assert tags.entries is None
+    with pytest.raises(NoBeatgridError):
+        tags.find_nearest_beat(FIRST_CUE_POSITION, 1 / 8)
