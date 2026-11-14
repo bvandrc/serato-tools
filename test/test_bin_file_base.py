@@ -1,5 +1,6 @@
 import os
 import shutil
+import struct
 import unittest
 
 from serato_tools.crate import Crate
@@ -73,6 +74,26 @@ class ParseTestCase(unittest.TestCase):
         rule: SeratoBinFile.ModifyRule = {"field": DatabaseV2.Fields.GENRE, "func": lambda *args: None}
         with self.assertRaisesRegex(ValueError, "1 rule per field"):
             db.modify([rule, rule])
+
+
+class SerializeTestCase(unittest.TestCase):
+    def test_a_number_out_of_its_fields_range_raises_naming_the_field(self):
+        db = DatabaseV2("test/data/database_v2_test.bin")
+        track_number = SeratoBinFile.Fields.TRACK_NUMBER.value
+        for value in (-1, 2**32):
+            with self.subTest(value):
+                with self.assertRaisesRegex(ValueError, f"{track_number} holds a number from 0 to") as caught:
+                    SeratoBinFile.check_value(track_number, value)
+                self.assertIsInstance(caught.exception, struct.error, "still caught as the struct.error it was")
+
+                def set_track_number(track: SeratoBinFile.Track, value: int = value) -> SeratoBinFile.Track:
+                    track.set_value(track_number, value)
+                    return track
+
+                db.modify_tracks(set_track_number)
+                with self.assertRaisesRegex(ValueError, track_number) as saving:
+                    db.to_bytes()
+                self.assertIsInstance(saving.exception, struct.error, "saving raises it too")
 
 
 class TrackTestCase(unittest.TestCase):
