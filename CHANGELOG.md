@@ -21,12 +21,6 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - A bad field, comparison, value, or number of arguments is rejected before any crate is changed.
   - A crate whose rules the options leave as they were isn't rewritten.
   - Breaking: `--set_rules` is removed. Pass the rule options directly, without it.
-- A track missing a tag that's needed, such as one Serato hasn't analyzed yet, raises an error saying which tag and file: `NoCuesError`, `NoBeatgridError`, or `NoWaveformError`, all `MissingTagError`s in `serato_tools.utils.track_tags`. Catch one to handle that case without also catching a corrupt tag. They're still `ValueError`s, so existing `except ValueError` code keeps working.
-  - Breaking: `TrackBeatgrid.find_nearest_beat` raises `NoBeatgridError` without a beatgrid, rather than returning None, which read as "no beat nearby".
-- `serato_beatgrid` prints which tag is missing, rather than a traceback.
-- Add `GeobKeys`, in `serato_tools.utils.track_tags`: each Serato tag's GEOB key.
-- Add `SmartCrate.to_regular_crate(file)`, which gives a regular crate for `file` holding a smart crate's tracks and its sort and columns, but not its rules.
-- Add `SeratoBinFile.check_value(field, value)`, which raises for a value a database or crate field can't hold, as saving it would, for code that has to check before changing anything.
 
 ### Changed
 
@@ -37,15 +31,11 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Breaking: `Library.rename_track_file` returns the paths of the database, crates, and smart crates it changed, rather than a bool. The list is empty when none held the track, such as a file Serato hasn't imported.
   - Breaking: it raises `FileExistsError` when a different file already exists at `dest`, rather than logging an error and returning False. Catch it where you checked for False.
 - `Library.remove_track_files` returns a `RemoveTrackFilesResult`: `files_deleted`, the track files it deleted, and `library_files_changed`, the paths of the database, crates, and smart crates it changed.
-- Methods that took a list of track paths or rules take any collection of them, such as a set or a tuple.
 - `SmartCrate.delete_rule` returns whether the crate had a rule on that field to remove.
-- A database, crate, or Serato tag that's cut off or malformed raises `ValueError` saying what's wrong, rather than an `AssertionError`.
-- The tag CLIs (`serato_snap_cues_v2`, `serato_beatgrid`, and running `track_autotags` or `track_waveform` as a module) read a file of the tag's own bytes, such as one `serato_tagdump` writes, and write an edit back to it. They used to raise for any file that isn't .mp3, .aiff, or .aif.
-- Errors that were a bare `Exception` have a specific type, with a message saying what's wrong. Each is still an `Exception`, so existing `except Exception` code keeps working:
-  - `ValueError` for `get_serato_tagdata` on a file without tags, `TrackBeatgrid.analyze_and_write` on a tag read from bytes, and a track with more than one stems file in `copy_crates_to_usb`.
-  - `TypeError` for `SmartCrate.find_missing`.
-  - `FileNotFoundError` when no editor is found for a CLI's edit mode.
-  - `ImportError`, saying to install the `waveform_drawing` extra, for `TrackWaveform.draw_image` without pillow.
+- Breaking: `TrackBeatgrid.find_nearest_beat` raises `NoBeatgridError` without a beatgrid, rather than returning None, which read as "no beat nearby".
+- Breaking: a database, crate, or Serato tag that's cut off or malformed raises only `ValueError`, no longer also `AssertionError`, and a number too big or negative for its field raises only `ValueError`, no longer also `struct.error`. Catch `ValueError`, as 5.7.0 deprecated catching the others.
+- `serato_tagdump` exits saying a file has no tags, rather than with a traceback.
+- Breaking: `serato_tools.utils.ui` is renamed `serato_tools.utils.cli`.
 - Breaking: `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`, next to the database and crate code that raises them.
 
 ### Removed
@@ -67,16 +57,36 @@ Breaking: `TrackCuesV2` no longer reads the beatgrid from its own file for cue s
 
 This stays, still deprecated until a future major release: passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`), in favor of passing it to `save()`.
 
+## [5.7.0] - 2026-11-15
+
+### Features
+
+- Add `GeobKeys`, each Serato tag's GEOB key.
+- Add `SmartCrate.to_regular_crate(file)`, which gives a regular crate of a smart crate's tracks, sort, and columns.
+- Add `SeratoBinFile.check_value(field, value)`, which raises for a value the field can't hold.
+- The tag CLIs now read a file of the tag's own bytes, such as one `serato_tagdump` writes.
+- Methods that took a list of track paths or rules now take any collection of them, such as a `set` or `tuple`, not just a `list`.
+- Error types and messages:
+  - A track missing a tag that's needed, such as one Serato hasn't analyzed yet, now raises `NoCuesError`, `NoBeatgridError`, or `NoWaveformError`, naming the tag and file. They're `MissingTagError`s, in `serato_tools.utils.track_tags`, and still `ValueError`s.
+  - A cut-off or malformed database, crate, or tag now raises `ValueError` saying what's wrong. It's still an `AssertionError` too.
+  - A number too big or negative for its field now raises `ValueError` naming the field. It's still a `struct.error` too.
+  - Errors that were a bare `Exception` are now a `ValueError`, `TypeError`, `FileNotFoundError`, or `ImportError` saying what's wrong.
+  - `serato_beatgrid` now prints which tag is missing, rather than a traceback.
+
 ### Fixes
 
-- Of tracks that share a filename, USB export keeps the database and stems crate entries of the one whose file it copies, the first in the crates. Before, it kept whichever came first in the database, so the copied file could show another track's metadata.
-- `remove_tracks`, and so `Library.remove_track_files`, match a track's path whatever its case, as `modify` and the methods built on it do. Before, given a path in another case than the library's, such as on a case-insensitive drive, `remove_track_files` deleted the file but left the track in the library.
-- USB export copies a track's own stems file, named after it with or without its extension. Before, it matched every stems file whose name started with the track's, so `B.mp3` beside `B Extended.serato-stems` found two and stopped the export partway, after the crates and database were written. NOTE: Exporting stems hasn't been tested yet, so it isn't known whether Serato even uses them on the drive.
-- `add_tracks_from_dir` adds only the folder's files. Before, it also added its subfolders and hidden files, such as `.DS_Store`, as tracks.
-- USB export writes each smart crate as a regular crate of the tracks it holds, keeping its sort and columns but not its rules. Before, it only renamed the file to `.crate`, so it was still a smart crate, which `Crate` refuses to open.
-- Saving a database or crate with a number too big or negative for its field raises `ValueError` naming the field. Before, it raised `struct.error`.
-- `Library.set_db_track_tags` / `set_db_tracks_tags` check that each number fits its database field before changing anything, as they promise: one too big or negative, such as a track number of `-1`, raises `ValueError`. Before, it was written to the track file before saving the database failed, which also left it in the library's database in memory, so every later save failed too.
-- After `TrackBeatgrid.analyze_and_write`, `find_nearest_beat` and `get_snapped_position` use the new grid. Before, they kept using the beats `get_beats` had found for the old one, if it had been called.
+- A track's Serato tags can now be read and saved in a file whose ID3 tags have no frames.
+- USB export now keeps the database entries of the track whose file it copies, when tracks share a filename. Before, the copy could show another track's metadata.
+- USB export now copies only a track's own stems file. Before, `B Extended.serato-stems` beside `B.mp3` stopped the export partway. NOTE: Using stems via USB is still completely untested.
+- USB export now writes each smart crate as a regular crate of its tracks, which `Crate` can open.
+- `remove_tracks` and `Library.remove_track_files` now match a track's path whatever its case.
+- `add_tracks_from_dir` now skips subfolders and hidden files, such as `.DS_Store`.
+- `Library.set_db_track_tags` / `set_db_tracks_tags` now raise for a value the database can't hold before changing any file.
+- After `TrackBeatgrid.analyze_and_write`, `find_nearest_beat` now uses the new grid.
+
+### Deprecations
+
+- Catching a malformed file's error as `AssertionError`, or an out-of-range number's as `struct.error`, is deprecated, but still works: catch `ValueError`, which is all they'll be in 6.0.
 
 ## [5.6.1] - 2026-11-10
 
@@ -269,7 +279,8 @@ This stays, still deprecated until a future major release: passing `delete_tags_
 
 - Initial publish (pyproject.toml added). Serato library and track metadata modification.
 
-[6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.6.1...v6.0.0
+[6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.7.0...v6.0.0
+[5.7.0]: https://github.com/bvandrc/serato-tools/compare/v5.6.1...v5.7.0
 [5.6.1]: https://github.com/bvandrc/serato-tools/compare/v5.6.0...v5.6.1
 [5.6.0]: https://github.com/bvandrc/serato-tools/compare/v5.5.0...v5.6.0
 [5.5.0]: https://github.com/bvandrc/serato-tools/compare/v5.4.1...v5.5.0
