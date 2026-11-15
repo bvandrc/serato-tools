@@ -86,7 +86,9 @@ def copy_crates_to_usb(
         elif crate_file.endswith(SmartCrate.EXTENSION):
             crate = SmartCrate(crate_file)
         else:
-            raise ValueError(f"crate file must end with {Crate.EXTENSION} or {SmartCrate.EXTENSION}: {crate_file}")
+            raise ValueError(
+                f"not a crate file, should end with {Crate.EXTENSION} or {SmartCrate.EXTENSION}: {crate_file}"
+            )
 
         crate.modify_tracks(modify_crate_track)
         crate.remove_duplicates()
@@ -211,9 +213,7 @@ def copy_crates_to_usb(
 
         maybe_stem_files = find_stem_files(src_path)
         if len(maybe_stem_files) > 1:
-            raise ValueError(
-                f"a track must have at most 1 stems file, not {len(maybe_stem_files)}, for {src_path}: {', '.join(maybe_stem_files)}"
-            )
+            raise ValueError(f"more than 1 stems file for {src_path}: {', '.join(maybe_stem_files)}")
         if len(maybe_stem_files) == 1:
             maybe_copy(
                 src_path=maybe_stem_files[0],

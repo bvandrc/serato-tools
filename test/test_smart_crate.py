@@ -121,7 +121,7 @@ class TestCase(unittest.TestCase):
         rule = make_rule(
             SmartCrate.RuleComparison.INT_IS_GE, SmartCrate.RuleField.PLAYS, SmartCrate.RuleFields.RULE_VALUE_INTEGER, 5
         )
-        with self.assertRaisesRegex(ValueError, "must have an integer value"):
+        with self.assertRaisesRegex(ValueError, "requires an integer value"):
             rule.set_value("abc")
 
 

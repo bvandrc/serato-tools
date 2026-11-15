@@ -86,7 +86,7 @@ def open_tagfile(file: ID3FileOrPath) -> ID3File:
     except Exception:
         logger.error(f"Mutagen error for file {file}")
         raise
-    raise ValueError(f"file must be .mp3, .aiff, or .aif: {file}")
+    raise ValueError(f"unsupported file type (only .mp3, .aiff, and .aif are supported): {file}")
 
 
 def del_tag(tagfile: ID3File, key: str) -> bool:

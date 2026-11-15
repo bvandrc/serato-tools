@@ -44,13 +44,13 @@ _PACKAGE_DIR = os.path.dirname(__file__) + os.sep
 def _check_len(entry_name: str, data: bytes, expected: int):
     """Raises ValueError unless the entry's data is `expected` bytes long."""
     if len(data) != expected:
-        raise ValueError(f"{entry_name} entry must be {expected} bytes, not {len(data)}")
+        raise ValueError(f"{entry_name} entry is {len(data)} bytes, not {expected}")
 
 
 def _check_fixed(entry_name: str, field: str, value: bytes, expected: bytes):
     """Raises ValueError unless a field Serato always writes the same holds that value, `expected`."""
     if value != expected:
-        raise ValueError(f"{entry_name} entry's {field} must be {expected!r}, not {value!r}")
+        raise ValueError(f"{entry_name} entry's {field} isn't {expected!r}: {value!r}")
 
 
 def _check_cue_index(index: int):
@@ -58,9 +58,7 @@ def _check_cue_index(index: int):
     # Serato only has 8 cue pads, so it ignores a cue past them: it doesn't show it, or move it up when a cue before it
     # is deleted. Such cues, found in real tags, also have bytes unlike any cue Serato shows (field4 cc, color cccccc).
     if index > _MAX_CUE_INDEX:
-        raise ValueError(
-            f"cue {index + 1} must be on one of Serato's 8 cue pads, as Serato ignores any past them: remove it from the tag"
-        )
+        raise ValueError(f"cue {index + 1} is past Serato's 8 cue pads, so Serato ignores it: remove it from the tag")
 
 
 def _parse_name(entry_name: str, data: bytes) -> str:
@@ -70,7 +68,7 @@ def _parse_name(entry_name: str, data: bytes) -> str:
     """
     name, nullbyte, other = data.partition(b"\x00")
     if nullbyte != b"\x00" or other != b"":
-        raise ValueError(f"{entry_name} entry's name must be followed by a null byte and nothing else: {data!r}")
+        raise ValueError(f"{entry_name} entry's name isn't followed by a null byte and nothing else: {data!r}")
     return name.decode("utf-8")
 
 
@@ -387,13 +385,13 @@ class TrackCuesV2(SeratoGeobTag):
         MAX_PARSE_ENTRIES = 100
         while True:
             if num_entries >= MAX_PARSE_ENTRIES:
-                raise ValueError(f"cue payload must have at most {MAX_PARSE_ENTRIES} entries; malformed or unsupported")
+                raise ValueError(f"cue payload has more than {MAX_PARSE_ENTRIES} entries; malformed or unsupported")
             entry_name = SeratoGeobTag._readbytes(fp).decode("utf-8")
             if not entry_name:
                 break
             entry_len = struct.unpack(">I", fp.read(4))[0]
             if entry_len == 0:
-                raise _AssertionValueError(f"{entry_name} entry must have data")
+                raise _AssertionValueError(f"{entry_name} entry has no data")
 
             entry_class = TrackCuesV2._get_entry_class(entry_name)
             yield entry_class._parse(fp.read(entry_len))
@@ -499,11 +497,11 @@ class TrackCuesV2(SeratoGeobTag):
             for e in entries:
                 if isinstance(e, TrackCuesV2.BpmLockEntry):
                     if bpm_lock is not None:
-                        raise ValueError("a tag must have at most 1 BPMLOCK entry")
+                        raise ValueError("Multiple BPMLOCK entries found")
                     bpm_lock = e
                 elif isinstance(e, TrackCuesV2.ColorEntry):
                     if color is not None:
-                        raise ValueError("a tag must have at most 1 COLOR entry")
+                        raise ValueError("Multiple COLOR entries found")
                     color = e
                 elif isinstance(e, TrackCuesV2.CueEntry):
                     cues_list.append(e)
@@ -707,7 +705,7 @@ class TrackCuesV2(SeratoGeobTag):
         """Reads the beatgrid from `file_or_data`, or from this tag's file, and keeps it as `self.beatgrid`."""
         if file_or_data is None:
             if self.tagfile is None:
-                raise ValueError("a beatgrid must be passed, or the tag must be read from an audio file")
+                raise ValueError("No tagfile set, or must pass beatgrid")
             self.beatgrid = TrackBeatgrid(self.tagfile)
         else:
             self.beatgrid = TrackBeatgrid(file_or_data)
@@ -787,17 +785,17 @@ def main():
 
     if args.snap_cues:
         if not args.snap_tolerance:
-            raise ValueError("--snap_tolerance must be given with --snap_cues")
+            raise ValueError("--snap_cues requires --snap_tolerance")
         num_str, sep, den_str = args.snap_tolerance.partition("/")
         if sep != "/" or not num_str or not den_str:
-            raise ValueError(f"snap tolerance must be a fraction like '1/4', not {args.snap_tolerance!r}")
+            raise ValueError(f"Invalid snap tolerance: {args.snap_tolerance!r}, expected format like '1/4'")
         try:
             num = float(num_str)
             den = float(den_str)
         except ValueError as exc:
-            raise ValueError(f"snap tolerance must be a fraction like '1/4', not {args.snap_tolerance!r}") from exc
+            raise ValueError(f"Invalid snap tolerance: {args.snap_tolerance!r}") from exc
         if den == 0:
-            raise ValueError("snap tolerance's denominator must not be zero")
+            raise ValueError("Snap tolerance denominator cannot be zero")
         tolerance_beats = num / den
         if tolerance_beats >= 1:
             raise NotImplementedError("Snap tolerance must be less than 1 beat. TODO: implement this to allow")

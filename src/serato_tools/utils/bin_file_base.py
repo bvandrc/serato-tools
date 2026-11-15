@@ -326,7 +326,7 @@ class SeratoBinFile:
             # on the failure path.
             if len(set(self.fields)) != len(self.fields):
                 duplicates = sorted({f for f in self.fields if self.fields.count(f) > 1})
-                raise ValueError(f"an entry's fields must each appear once, but these repeat: {', '.join(duplicates)}")
+                raise ValueError(f"duplicate field(s) in entry: {', '.join(duplicates)}")
 
         def __repr__(self) -> str:
             return str(self.to_entries())
@@ -383,7 +383,7 @@ class SeratoBinFile:
             Raises ValueError for the track's path, since a track can't be without one.
             """
             if field == self.path_key:
-                raise ValueError(f"a track must keep its path ({field})")
+                raise ValueError(f"can't remove a track's path ({field})")
             return super().remove_field(field)
 
         def set_path(self, path: str):
@@ -441,7 +441,7 @@ class SeratoBinFile:
             elif type_id == "b":  # single byte, is a boolean
                 # anything but 0x00/0x01 would be rewritten as 0x01 on save, so refuse it like an unknown version
                 if data not in (b"\x00", b"\x01"):
-                    raise ValueError(f"boolean field {field} must be 1 byte of 00 or 01, not {data!r}")
+                    raise ValueError(f"unexpected boolean value for field {field}: {data!r}")
                 value = cast(bool, struct.unpack("?", data)[0])
             elif type_id == "s":  # unsigned 16-bit int
                 value = cast(int, struct.unpack(">H", data)[0])
@@ -504,7 +504,7 @@ class SeratoBinFile:
         if field == SeratoBinFile.Fields.VERSION:
             self._check_version(value)
             if value != self.version:
-                raise ValueError(f"version field must be the parsed version, {self.version}, not {value}")
+                raise ValueError(f"version field value {value} does not match parsed value {self.version}")
 
         if SeratoBinFile._get_type(field) in ("o", "r"):  #  struct (list)
             if not isinstance(value, list):
@@ -645,7 +645,7 @@ class SeratoBinFile:
         it calls super().__init__().
         """
         if not self._parsed:
-            raise RuntimeError(f"a {type(self).__name__} must finish parsing before it's saved")
+            raise RuntimeError(f"cannot save a {type(self).__name__} before it has finished parsing")
         if file is None:
             file = self.filepath
         if file.lower().endswith(".json"):
@@ -798,7 +798,7 @@ class SeratoBinFile:
                     if not isinstance(maybe_new_val, str):
                         raise DataTypeError(maybe_new_val, str, field)
                     if not os.path.exists(SeratoBinFile.get_full_path(maybe_new_val)):
-                        raise FileNotFoundError(f"a track's new location must exist: {maybe_new_val}")
+                        raise FileNotFoundError(f"set track location to {maybe_new_val}, but doesn't exist")
                     maybe_new_val = SeratoBinFile.get_relative_path(maybe_new_val)
 
                 logger.info(

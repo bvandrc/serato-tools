@@ -125,7 +125,7 @@ class CopyCratesToUsbTestCase(unittest.TestCase):
 
     def test_a_track_with_two_stems_files_raises(self):
         self.add_track(os.path.join(self.music, "one", "a.mp3.serato-stems"))
-        with self.assertRaisesRegex(ValueError, "must have at most 1 stems file, not 2"):
+        with self.assertRaisesRegex(ValueError, "more than 1 stems file"):
             usb_export.copy_crates_to_usb([self.house], self.drive, "Tracks")
 
 
