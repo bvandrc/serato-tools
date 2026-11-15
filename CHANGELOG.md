@@ -35,6 +35,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Breaking: `TrackBeatgrid.find_nearest_beat` raises `NoBeatgridError` without a beatgrid, rather than returning None, which read as "no beat nearby".
 - Breaking: a database, crate, or Serato tag that's cut off or malformed raises only `ValueError`, no longer also `AssertionError`, and a number too big or negative for its field raises only `ValueError`, no longer also `struct.error`. Catch `ValueError`, as 5.7.0 deprecated catching the others.
 - `serato_tagdump` exits saying a file has no tags, rather than with a traceback.
+- Breaking: `serato_tools.utils.ui` is renamed `serato_tools.utils.cli`.
 - Breaking: `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`, next to the database and crate code that raises them.
 
 ### Removed
@@ -47,7 +48,6 @@ Breaking: most of what was deprecated in 5.x is removed, along with a redundant 
 - `TrackCuesV2.modified`: use `has_changed`.
 - `add_track` and `remove_track`: use `add_tracks` and `remove_tracks`.
 - `get_entries_filtered(track_matcher)` on the database, crates, and smart crates: use `get_entries(track_matcher)`.
-- The `serato_tools.utils.ui` name: use `serato_tools.utils.cli`.
 
 Breaking: `TrackCuesV2` no longer reads the beatgrid from its own file for cue snapping. It's passed one instead, so that each tag class reads only its own tag:
 
@@ -96,7 +96,6 @@ This stays, still deprecated until a future major release: passing `delete_tags_
 
 ### Deprecations
 
-- `serato_tools.utils.ui` is renamed `serato_tools.utils.cli`. The old name still imports, with a `DeprecationWarning`, until 6.0.
 - Catching a malformed file's error as `AssertionError`, or a number out of its field's range as `struct.error`, is deprecated in favor of catching `ValueError`. In 6.0 they'll only be `ValueError`s.
 
 ## [5.6.1] - 2026-11-10
