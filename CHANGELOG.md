@@ -6,17 +6,17 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Features
 
+- Add `GeobKeys`, each Serato tag's GEOB key.
+- Add `SmartCrate.to_regular_crate(file)`, which gives a regular crate of a smart crate's tracks, sort, and columns.
+- Add `SeratoBinFile.check_value(field, value)`, which raises for a value the field can't hold.
+- The tag CLIs now read a file of the tag's own bytes, such as one `serato_tagdump` writes.
+- Methods that took a list of track paths or rules now take any collection of them, such as a `set` or `tuple`, not just a `list`.
 - Error types and messages:
   - A track missing a tag that's needed, such as one Serato hasn't analyzed yet, now raises `NoCuesError`, `NoBeatgridError`, or `NoWaveformError`, naming the tag and file. They're `MissingTagError`s, in `serato_tools.utils.track_tags`, and still `ValueError`s.
   - A cut-off or malformed database, crate, or tag now raises `ValueError` saying what's wrong. It's still an `AssertionError` too.
   - A number too big or negative for its field now raises `ValueError` naming the field. It's still a `struct.error` too.
   - Errors that were a bare `Exception` are now a `ValueError`, `TypeError`, `FileNotFoundError`, or `ImportError` saying what's wrong.
   - `serato_beatgrid` now prints which tag is missing, rather than a traceback.
-- Add `GeobKeys`, each Serato tag's GEOB key.
-- Add `SmartCrate.to_regular_crate(file)`, which gives a regular crate of a smart crate's tracks, sort, and columns.
-- Add `SeratoBinFile.check_value(field, value)`, which raises for a value the field can't hold.
-- The tag CLIs now read a file of the tag's own bytes, such as one `serato_tagdump` writes.
-- Methods that took a list of track paths or rules now take any collection of them, such as a `set` or `tuple`, not just a `list`.
 
 ### Fixes
 
