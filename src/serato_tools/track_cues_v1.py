@@ -210,7 +210,7 @@ if __name__ == "__main__":
     import subprocess
     import tempfile
 
-    from serato_tools.utils.cli import get_hex_editor, get_text_editor, ui_ask
+    from serato_tools.utils.ui import get_hex_editor, get_text_editor, ui_ask
 
     @dataclass
     class Args:

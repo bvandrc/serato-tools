@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from serato_tools.utils import _AssertionValueError
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils.track_tags import SeratoGeobTag, del_geob, GeobKeys, NoCuesError
-from serato_tools.utils.cli import open_tag_file_or_data
+from serato_tools.utils.ui import open_tag_file_or_data
 from serato_tools.track_beatgrid import TrackBeatgrid
 
 # the sizes Serato writes the tag at, in an ID3 file: 470 bytes, or larger by a multiple of 512
@@ -738,7 +738,7 @@ def main():
     import subprocess
     import tempfile
 
-    from serato_tools.utils.cli import get_hex_editor, get_text_editor, ui_ask
+    from serato_tools.utils.ui import get_hex_editor, get_text_editor, ui_ask
 
     @dataclass
     class Args:

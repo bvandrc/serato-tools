@@ -18,7 +18,7 @@ from mutagen.id3 import ID3
 
 from serato_tools.utils import _AssertionValueError, logger
 from serato_tools.utils.track_tags import GeobKeys, NoBeatgridError, SeratoGeobTag
-from serato_tools.utils.cli import open_tag_file_or_data
+from serato_tools.utils.ui import open_tag_file_or_data
 
 _T = TypeVar("_T")
 
