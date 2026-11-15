@@ -16,7 +16,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Add `SmartCrate.to_regular_crate(file)`, which gives a regular crate of a smart crate's tracks, sort, and columns.
 - Add `SeratoBinFile.check_value(field, value)`, which raises for a value the field can't hold.
 - The tag CLIs read a file of the tag's own bytes, such as one `serato_tagdump` writes.
-- Methods that took a list of track paths or rules take any collection of them.
+- Methods that took a list of track paths or rules take any collection of them, such as a `set` or `tuple`, not just a `list`.
 
 ### Fixes
 
