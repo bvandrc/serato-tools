@@ -381,6 +381,8 @@ class TrackBeatgrid(SeratoGeobTag):
             TrackBeatgrid.Footer(0),
         )
 
+        # checked before replacing the old grid, so an analysis that gives an invalid one leaves it as it was
+        self._check_markers(*self._check_and_split(raw_entries)[:2])
         self.entries = raw_entries
         self.enhanced_entries = self._enhance_entries(self.entries)
         # the old grid's beats, which find_nearest_beat would otherwise still search
