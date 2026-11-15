@@ -9,16 +9,16 @@ numpy).
 import collections
 import io
 import struct
+import sys
 from typing import cast, overload, TypeVar, Unpack
 from dataclasses import dataclass
 
 from mutagen._file import FileType
-from mutagen.mp3 import HeaderNotFoundError
 from mutagen.id3 import ID3
 
-
-from serato_tools.utils.track_tags import SeratoGeobTag
-from serato_tools.utils import logger
+from serato_tools.utils import _AssertionValueError, logger
+from serato_tools.utils.track_tags import GeobKeys, NoBeatgridError, SeratoGeobTag
+from serato_tools.utils.ui import open_tag_file_or_data
 
 _T = TypeVar("_T")
 
@@ -32,7 +32,7 @@ class TrackBeatgrid(SeratoGeobTag):
     grid. `enhanced_entries` adds each non-terminal marker's BPM.
     """
 
-    GEOB_KEY = "Serato BeatGrid"
+    GEOB_KEY = GeobKeys.BEATGRID
     VERSION = (0x01, 0x00)
 
     NonTerminalBeatgridMarker = collections.namedtuple(
@@ -109,7 +109,8 @@ class TrackBeatgrid(SeratoGeobTag):
         footer_byte = fp.read(1)
         footer_value = struct.unpack("B", footer_byte)[0] if len(footer_byte) == 1 else 0
         yield TrackBeatgrid.Footer(footer_value)
-        assert fp.read() == b""
+        if rest := fp.read():
+            raise _AssertionValueError(f"beatgrid has {len(rest)} bytes after its footer, should have 0")
 
     __SplitEntryList = tuple[list[_T], TerminalBeatgridMarker, Footer]
 
@@ -120,13 +121,14 @@ class TrackBeatgrid(SeratoGeobTag):
     def _check_and_split(self, entries: "_EntryList[_T] | None" = None):
         """Splits `entries`, or `self.entries`, into the non-terminal markers, the terminal marker, and the footer.
 
-        Raises if there are none, or they aren't in that order with one terminal marker and one footer.
+        Raises NoBeatgridError if there are none, and ValueError if they aren't in that order with one terminal marker
+        and one footer.
         """
         if entries is None:
             entries = cast("TrackBeatgrid._EntryList[_T]", self.entries)
 
         if not entries:
-            raise ValueError("no entries set")
+            raise NoBeatgridError(self.filename)
 
         nonterminal_markers: list[_T] = []
         terminal_markers: list[TrackBeatgrid.TerminalBeatgridMarker] = []
@@ -144,10 +146,14 @@ class TrackBeatgrid(SeratoGeobTag):
             else:
                 raise TypeError(f"unexpected value type {entry}")
 
-        assert len(terminal_markers) == 1, f"should only be 1 terminal marker, but #: {len(terminal_markers)}"
-        assert len(footers) == 1, f"should only be 1 footer, but #: {len(footers)}"
-        assert isinstance(entries[-1], TrackBeatgrid.Footer), "last item should be a footer"
-        assert isinstance(entries[-2], TrackBeatgrid.TerminalBeatgridMarker), "last item should be a terminal marker"
+        if len(terminal_markers) != 1 or len(footers) != 1:
+            raise _AssertionValueError(
+                f"beatgrid has {len(terminal_markers)} terminal markers and {len(footers)} footers, not 1 of each"
+            )
+        if not isinstance(entries[-1], TrackBeatgrid.Footer):
+            raise _AssertionValueError("a beatgrid's last entry must be its footer")
+        if not isinstance(entries[-2], TrackBeatgrid.TerminalBeatgridMarker):
+            raise _AssertionValueError("a beatgrid's footer must come right after its terminal marker")
         return (nonterminal_markers, terminal_markers[0], footers[0])
 
     @staticmethod
@@ -250,13 +256,10 @@ class TrackBeatgrid(SeratoGeobTag):
         terminal_interval = 60.0 / terminal_marker.bpm
         return cumulative_beats + (position_s - terminal_marker.position_s) / terminal_interval
 
-    BeatPoint = collections.namedtuple(
-        "BeatInfo",
-        ("position_s", "bpm"),
-    )
+    BeatPoint = collections.namedtuple("BeatPoint", ("position_s", "bpm"))
 
     def get_beats(self) -> list["TrackBeatgrid.BeatPoint"]:
-        """Return a list of BeatInfo(position_s, bpm, index) for all beats in the track."""
+        """Every beat in the track, as a BeatPoint: its position in seconds, and the BPM there."""
         if not isinstance(self.tagfile, FileType):
             raise ValueError("no tagfile set, cannot determine track length")
         if not self.entries:
@@ -339,13 +342,12 @@ class TrackBeatgrid(SeratoGeobTag):
         `beatgrid_analysis` extra (librosa and numpy), and takes seconds. An MP3's grid may be off by tens of ms, since
         the analysis decodes it differently than Serato does.
         """
-        if not self.tagfile:
-            raise Exception("No tagfile set")
+        tagfile = self._require_tagfile()
 
         from serato_tools.utils.beatgrid_analyze import analyze_beatgrid
 
-        bpm = float(str(self.tagfile["TBPM"]))
-        filename = cast(str, self.tagfile.filename)
+        bpm = float(str(tagfile["TBPM"]))
+        filename = cast(str, tagfile.filename)
 
         # Serato's beatgrid positions are times in audio as Serato's own MP3 decoder decodes it. Other decoders start
         # MP3s at a different point: Serato's times are about 26 ms (44.1 kHz) or 24 ms (48 kHz) late for FFmpeg or
@@ -368,6 +370,8 @@ class TrackBeatgrid(SeratoGeobTag):
 
         self.entries = raw_entries
         self.enhanced_entries = self._enhance_entries(self.entries)
+        # the old grid's beats, which find_nearest_beat would otherwise still search
+        self.beats = None
 
         self._serialize()
         self.save()
@@ -387,18 +391,13 @@ def main():
     parser.add_argument("-a", "--analyze", action="store_true", help="Analyze dynamic beatgrid and write to file")
     args = Args(**vars(parser.parse_args()))
 
-    try:
-        tags = TrackBeatgrid(args.file)
-    except HeaderNotFoundError:
-        with open(args.file, mode="rb") as fp:
-            data = fp.read()
-        tags = TrackBeatgrid(data)
+    tags = open_tag_file_or_data(TrackBeatgrid, args.file)
 
-    if args.analyze and tags.tagfile:
+    if args.analyze and tags.tagfile is not None:
         tags.analyze_and_write()
     else:
         if not tags.entries:
-            raise ValueError("no entries")
+            sys.exit(str(NoBeatgridError(tags.filename)))
         for entry in tags.entries:
             print(entry)
 

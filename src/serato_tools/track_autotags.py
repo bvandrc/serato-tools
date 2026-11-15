@@ -7,11 +7,8 @@ import sys
 from typing import Optional
 from dataclasses import dataclass
 
-from mutagen.mp3 import HeaderNotFoundError
-
-
-from serato_tools.utils.track_tags import SeratoGeobTag
-from serato_tools.utils import logger
+from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag
+from serato_tools.utils.ui import open_tag_file_or_data
 
 
 class TrackAutotags(SeratoGeobTag):
@@ -20,7 +17,7 @@ class TrackAutotags(SeratoGeobTag):
     It holds the track's `bpm`, `autogain`, and `gaindb`, each None if the tag isn't set.
     """
 
-    GEOB_KEY = "Serato Autotags"
+    GEOB_KEY = GeobKeys.AUTOTAGS
     VERSION = (0x01, 0x01)
 
     def __init__(self, file_or_data: SeratoGeobTag.FileOrData):
@@ -103,12 +100,7 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--edit", action="store_true")
     args = Args(**vars(parser.parse_args()))
 
-    try:
-        tags = TrackAutotags(args.file)
-    except HeaderNotFoundError:
-        with open(args.file, mode="rb") as fp:
-            data = fp.read()
-        tags = TrackAutotags(data)
+    tags = open_tag_file_or_data(TrackAutotags, args.file)
 
     if args.edit:
         editor = get_text_editor()
@@ -121,10 +113,7 @@ if __name__ == "__main__":
             output = f.read()
 
         if status != 0:
-            ERROR_STR = f"Command executation failed with status: {status}"
-            print(ERROR_STR, file=sys.stderr)
-            logger.error(ERROR_STR)
-            raise Exception(ERROR_STR)
+            sys.exit(f"the editor exited with status {status}, so no changes were made")
 
         cp = configparser.ConfigParser()
         try:
@@ -133,14 +122,11 @@ if __name__ == "__main__":
             bpm = cp.getfloat(SECTION, "bpm")
             autogain = cp.getfloat(SECTION, "autogain")
             gaindb = cp.getfloat(SECTION, "gaindb")
-        except Exception:
-            ERROR_STR = "Invalid input, no changes made"
-            print(ERROR_STR, file=sys.stderr)
-            logger.error(ERROR_STR)
-            raise
+        except (configparser.Error, ValueError) as error:
+            sys.exit(f"invalid input, so no changes were made: {error}")
 
         tags.set(bpm=bpm, autogain=autogain, gaindb=gaindb)
-        if tags.tagfile:
+        if tags.tagfile is not None:
             tags.save()
         else:
             with open(args.file, mode="wb") as fp:

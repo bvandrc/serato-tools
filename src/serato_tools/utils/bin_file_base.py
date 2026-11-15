@@ -13,9 +13,13 @@ import hashlib
 import warnings
 from enum import StrEnum, unique
 import json
-from typing import Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
+from typing import Collection, Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
 
-from serato_tools.utils import logger, SERATO_DRIVE, DataTypeError, DeeplyNestedListError
+from serato_tools.utils import _AssertionValueError, logger, SERATO_DRIVE, DataTypeError, DeeplyNestedListError
+
+
+class _OutOfRangeError(ValueError, struct.error):
+    """A number too big or negative for its field: a ValueError, and the struct.error 5.6 raised until 6.0."""
 
 
 class SeratoBinFile:
@@ -129,7 +133,7 @@ class SeratoBinFile:
 
         for key in ["TESTED_VERSIONS", "TRACK_PATH_KEY", "DEFAULT_ENTRIES"]:
             if not hasattr(self, key):
-                raise AttributeError(f"need to set {key} in subclass")
+                raise AttributeError(f"must set {key} in subclass")
 
         if os.path.exists(file):
             if file.lower().endswith(".json"):
@@ -414,7 +418,8 @@ class SeratoBinFile:
         fp = io.BytesIO(item_data)
         version_set = False
         for header in iter(lambda: fp.read(8), b""):
-            assert len(header) == 8
+            if len(header) != 8:
+                raise _AssertionValueError(f"file ends partway through an entry's header: {header!r}")
             field_ascii: bytes
             length: int
             field_ascii, length = struct.unpack(">4sI", header)
@@ -422,7 +427,10 @@ class SeratoBinFile:
             type_id: str = SeratoBinFile._get_type(field)
 
             data = fp.read(length)
-            assert len(data) == length
+            if len(data) != length:
+                raise _AssertionValueError(
+                    f"file ends partway through a {field} entry: {len(data)} of its {length} bytes"
+                )
 
             value: SeratoBinFile.Value
             if type_id in ("o", "r"):  #  struct
@@ -448,6 +456,41 @@ class SeratoBinFile:
 
             yield field, value
 
+    @staticmethod
+    def check_value(field: str, value: Value):
+        """Raises unless `field` can hold `value`, as saving it would.
+
+        Raises DataTypeError for the wrong type, and ValueError for a number too big or negative, or a field of no known
+        type. Check a value with it before changing anything that a failed save would leave half done.
+        """
+        if SeratoBinFile._get_type(field) in ("o", "r"):
+            if not isinstance(value, list):
+                raise DataTypeError(value, list, field)
+        else:
+            SeratoBinFile._pack_value(field, value)
+
+    @staticmethod
+    def _pack_value(field: str, value: Value) -> bytes:
+        """The bytes `field` holds `value` as, for any field but a nested entry list; raises as `check_value`."""
+        type_id = SeratoBinFile._get_type(field)
+        if type_id in ("p", "t"):  # text
+            if not isinstance(value, str):
+                raise DataTypeError(value, str, field)
+            return value.encode("utf-16-be")
+        if type_id == "b":  # single byte, is a boolean
+            if not isinstance(value, bool):
+                raise DataTypeError(value, bool, field)
+            return struct.pack("?", value)
+        if type_id in ("s", "u"):  # unsigned 16-bit or 32-bit int
+            if not isinstance(value, int):
+                raise DataTypeError(value, int, field)
+            bits = 16 if type_id == "s" else 32
+            # checked here, rather than left to struct.error, so the message names the field
+            if not 0 <= value < 2**bits:
+                raise _OutOfRangeError(f"{field} must be a number from 0 to {2**bits - 1}, not {value}")
+            return struct.pack(">H" if type_id == "s" else ">I", value)
+        raise ValueError(f"unexpected type for field: {field}")
+
     def _serialize_item(self, entry: Entry) -> bytes:
         """An entry's bytes.
 
@@ -455,37 +498,20 @@ class SeratoBinFile:
         """
         field, value = entry
         field_bytes = field.encode("ascii")
-        assert len(field_bytes) == 4
+        if len(field_bytes) != 4:
+            raise _AssertionValueError(f"field names must be 4 characters: {field!r}")
 
         if field == SeratoBinFile.Fields.VERSION:
             self._check_version(value)
             if value != self.version:
                 raise ValueError(f"version field value {value} does not match parsed value {self.version}")
 
-        type_id: str = SeratoBinFile._get_type(field)
-
-        if type_id in ("o", "r"):  #  struct (list)
+        if SeratoBinFile._get_type(field) in ("o", "r"):  #  struct (list)
             if not isinstance(value, list):
                 raise DataTypeError(value, list, field)
             data = self._serialize_entries(value)
-        elif type_id in ("p", "t"):  # text
-            if not isinstance(value, str):
-                raise DataTypeError(value, str, field)
-            data = value.encode("utf-16-be")
-        elif type_id == "b":  # single byte, is a boolean
-            if not isinstance(value, bool):
-                raise DataTypeError(value, bool, field)
-            data = struct.pack("?", value)
-        elif type_id == "s":  # unsigned 16-bit int
-            if not isinstance(value, int):
-                raise DataTypeError(value, int, field)
-            data = struct.pack(">H", value)
-        elif type_id == "u":  # unsigned int
-            if not isinstance(value, int):
-                raise DataTypeError(value, int, field)
-            data = struct.pack(">I", value)
         else:
-            raise ValueError(f"unexpected type for field: {field}")
+            data = SeratoBinFile._pack_value(field, value)
 
         length = len(data)
         header = struct.pack(">4sI", field_bytes, length)
@@ -546,7 +572,7 @@ class SeratoBinFile:
         """
         return [t.get_full_path() if include_drive else t.relpath for t in self.get_tracks()]
 
-    def modify_tracks(self, func: Callable[[Track], Track], files: Optional[list[str]] = None) -> bool:
+    def modify_tracks(self, func: Callable[[Track], Track], files: Optional[Iterable[str]] = None) -> bool:
         """
         Replaces each track with what `func` returns for it, and returns whether any track changed.
 
@@ -593,9 +619,12 @@ class SeratoBinFile:
         return self.remove_tracks([filepath])
 
     def remove_tracks(self, filepaths: Iterable[str]) -> bool:
-        """Removes every track whose path is in `filepaths`, in one pass, and returns whether any was removed."""
-        relpaths = {SeratoBinFile.get_relative_path(f) for f in filepaths}
-        return self.filter_tracks(lambda track: track.relpath not in relpaths)
+        """Removes every track whose path is in `filepaths`, in one pass, and returns whether any was removed.
+
+        Paths match whatever their case, as `modify_tracks` matches its `files`.
+        """
+        relpaths = {SeratoBinFile.get_relative_path(f).upper() for f in filepaths}
+        return self.filter_tracks(lambda track: track.relpath.upper() not in relpaths)
 
     def remove_duplicates(self) -> bool:
         """Removes every repeat of an earlier track's path, and returns whether any were removed."""
@@ -720,9 +749,9 @@ class SeratoBinFile:
 
         field: "SeratoBinFile.Fields"
         func: "SeratoBinFile.ModifyFunc"
-        files: NotRequired[list[str]]
+        files: NotRequired[Collection[str]]
 
-    def modify(self, rules: list[ModifyRule]) -> bool:
+    def modify(self, rules: Collection[ModifyRule]) -> bool:
         """Applies `rules` to every track, and returns whether any track changed.
 
         A rule whose `func` returns `""` removes the field from the track, as Serato does when a tag is cleared. A rule
@@ -730,9 +759,8 @@ class SeratoBinFile:
         """
         # check rule fields
         all_field_names = [rule["field"] for rule in rules]
-        assert len(list(rules)) == len(
-            list(set(all_field_names))
-        ), f"must only have 1 function per field. fields passed: {str(sorted(all_field_names))}"
+        if len(all_field_names) != len(set(all_field_names)):
+            raise _AssertionValueError(f"must only have 1 rule per field. fields passed: {sorted(all_field_names)}")
         for field in all_field_names:
             self._check_valid_field(field)
 
@@ -781,7 +809,7 @@ class SeratoBinFile:
 
         return self.modify_tracks(modify_track, files=only_files)
 
-    def modify_and_save(self, rules: list[ModifyRule], file: Optional[str] = None):
+    def modify_and_save(self, rules: Collection[ModifyRule], file: Optional[str] = None):
         """
         Applies `rules` to every track, then saves.
 

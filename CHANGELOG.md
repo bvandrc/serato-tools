@@ -2,6 +2,37 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.7.0] - 2026-11-14
+
+### Features
+
+- Add `GeobKeys`, each Serato tag's GEOB key.
+- Add `SmartCrate.to_regular_crate(file)`, which gives a regular crate of a smart crate's tracks, sort, and columns.
+- Add `SeratoBinFile.check_value(field, value)`, which raises for a value the field can't hold.
+- The tag CLIs now read a file of the tag's own bytes, such as one `serato_tagdump` writes.
+- Methods that took a list of track paths or rules now take any collection of them, such as a `set` or `tuple`, not just a `list`.
+- Error types and messages:
+  - A track missing a tag that's needed, such as one Serato hasn't analyzed yet, now raises `NoCuesError`, `NoBeatgridError`, or `NoWaveformError`, naming the tag and file. They're `MissingTagError`s, in `serato_tools.utils.track_tags`, and still `ValueError`s.
+  - A cut-off or malformed database, crate, or tag now raises `ValueError` saying what's wrong. It's still an `AssertionError` too.
+  - A number too big or negative for its field now raises `ValueError` naming the field. It's still a `struct.error` too.
+  - Errors that were a bare `Exception` are now a `ValueError`, `TypeError`, `FileNotFoundError`, or `ImportError` saying what's wrong.
+  - `serato_beatgrid` now prints which tag is missing, rather than a traceback.
+
+### Fixes
+
+- A track's Serato tags can now be read and saved in a file whose ID3 tags have no frames.
+- USB export now keeps the database entries of the track whose file it copies, when tracks share a filename. Before, the copy could show another track's metadata.
+- USB export now copies only a track's own stems file. Before, `B Extended.serato-stems` beside `B.mp3` stopped the export partway. NOTE: Using stems via USB is still completely untested.
+- USB export now writes each smart crate as a regular crate of its tracks, which `Crate` can open.
+- `remove_tracks` and `Library.remove_track_files` now match a track's path whatever its case.
+- `add_tracks_from_dir` now skips subfolders and hidden files, such as `.DS_Store`.
+- `Library.set_db_track_tags` / `set_db_tracks_tags` now raise for a value the database can't hold before changing any file.
+- After `TrackBeatgrid.analyze_and_write`, `find_nearest_beat` now uses the new grid.
+
+### Deprecations
+
+- Catching a malformed file's error as `AssertionError`, or an out-of-range number's as `struct.error`, is deprecated, but still works: catch `ValueError`, which is all they'll be in 6.0.
+
 ## [5.6.1] - 2026-11-10
 
 ### Fixes
@@ -76,7 +107,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - The smart crate field holding the on/off value of "match all" and "live update" is named too: `SmartCrate.RuleFields.SETTING_VALUE`
 - Add `DatabaseV2.get_corrupt_tracks`, and `--list_corrupt` to the database CLI, which list the tracks Serato marked corrupt along with the reason Serato gives
 
-## [5.2.1] - 2026-11-03
+## 5.2.1 - 2026-11-03
 
 - Fix `TrackGain`, which never read or wrote anything: Serato stores a track's gain as an `RVA2` ID3 frame named `SeratoGain`, not the `replaygain_SeratoGain_gain` / `_peak` keys we had before
   - **If you delete gain when `gain` or `peak` isn't `None`, check that code**: Serato writes the frame on most analyzed tracks, with a gain of `0.0` unless one was set, so it's now `0.0` rather than `None` for them
@@ -119,7 +150,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `modify` on a database or regular crate now rejects smart crate rule fields, which moved from the shared `Fields` enum to the new `SmartCrate.RuleFields`
 
-## [5.0.1] - 2026-11-03
+## 5.0.1 - 2026-11-03
 
 - Fix smart crate rules with a value of `0` or empty text being read as having no value
 
@@ -172,7 +203,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `get_tracks` to bin_file
 
-## [3.6.1] - 2025-10-28
+## 3.6.1 - 2025-10-28
 
 - bugfix
 
@@ -184,7 +215,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Convert smartcrate rules from objects to enums
 
-## [3.4.0] - 2025-06-11
+## 3.4.0 - 2025-06-11
 
 - Modify smartcrate rules
 - Add `serato_smartcrate` and `serato_crate` entry points
@@ -192,3 +223,31 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.5.1] - 2025-04-11
 
 - Initial publish (pyproject.toml added). Serato library and track metadata modification.
+
+[5.7.0]: https://github.com/bvandrc/serato-tools/compare/v5.6.1...v5.7.0
+[5.6.1]: https://github.com/bvandrc/serato-tools/compare/v5.6.0...v5.6.1
+[5.6.0]: https://github.com/bvandrc/serato-tools/compare/v5.5.0...v5.6.0
+[5.5.0]: https://github.com/bvandrc/serato-tools/compare/v5.4.1...v5.5.0
+[5.4.1]: https://github.com/bvandrc/serato-tools/compare/v5.4.0...v5.4.1
+[5.4.0]: https://github.com/bvandrc/serato-tools/compare/v5.3.2...v5.4.0
+[5.3.2]: https://github.com/bvandrc/serato-tools/compare/v5.3.1...v5.3.2
+[5.3.1]: https://github.com/bvandrc/serato-tools/compare/v5.3.0...v5.3.1
+[5.3.0]: https://github.com/bvandrc/serato-tools/compare/v5.2.0...v5.3.0
+[5.2.0]: https://github.com/bvandrc/serato-tools/compare/v5.1.2...v5.2.0
+[5.1.2]: https://github.com/bvandrc/serato-tools/compare/v5.1.1...v5.1.2
+[5.1.1]: https://github.com/bvandrc/serato-tools/compare/v5.1.0...v5.1.1
+[5.1.0]: https://github.com/bvandrc/serato-tools/compare/v5.0.2...v5.1.0
+[5.0.2]: https://github.com/bvandrc/serato-tools/compare/v5.0.0...v5.0.2
+[5.0.0]: https://github.com/bvandrc/serato-tools/compare/v4.1.0...v5.0.0
+[4.1.0]: https://github.com/bvandrc/serato-tools/compare/v4.0.4...v4.1.0
+[4.0.4]: https://github.com/bvandrc/serato-tools/compare/v4.0.3...v4.0.4
+[4.0.3]: https://github.com/bvandrc/serato-tools/compare/v4.0.2...v4.0.3
+[4.0.2]: https://github.com/bvandrc/serato-tools/compare/v4.0.1...v4.0.2
+[4.0.1]: https://github.com/bvandrc/serato-tools/compare/v4.0.0...v4.0.1
+[4.0.0]: https://github.com/bvandrc/serato-tools/compare/v3.8.2...v4.0.0
+[3.8.2]: https://github.com/bvandrc/serato-tools/compare/v3.7.1...v3.8.2
+[3.7.1]: https://github.com/bvandrc/serato-tools/compare/v3.7.0...v3.7.1
+[3.7.0]: https://github.com/bvandrc/serato-tools/compare/v3.5.3...v3.7.0
+[3.5.3]: https://github.com/bvandrc/serato-tools/compare/v3.4.3...v3.5.3
+[3.4.3]: https://github.com/bvandrc/serato-tools/compare/v1.5.1...v3.4.3
+[1.5.1]: https://github.com/bvandrc/serato-tools/releases/tag/v1.5.1

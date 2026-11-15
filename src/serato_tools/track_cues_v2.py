@@ -19,11 +19,10 @@ import dataclasses
 from dataclasses import dataclass, field
 
 
-from mutagen.mp3 import HeaderNotFoundError
-
-
+from serato_tools.utils import _AssertionValueError
 from serato_tools.track_cues_v1 import TrackCuesV1
-from serato_tools.utils.track_tags import SeratoGeobTag, del_geob
+from serato_tools.utils.track_tags import SeratoGeobTag, del_geob, GeobKeys, NoCuesError
+from serato_tools.utils.ui import open_tag_file_or_data
 from serato_tools.track_beatgrid import TrackBeatgrid
 
 # the sizes Serato writes the tag at, in an ID3 file: 470 bytes, or larger by a multiple of 512
@@ -82,7 +81,7 @@ class TrackCuesV2(SeratoGeobTag):
     call `save()`.
     """
 
-    GEOB_KEY = "Serato Markers2"
+    GEOB_KEY = GeobKeys.CUES_V2
     VERSION = (0x01, 0x01)
 
     # the colors Serato stores; Serato DJ Pro and Lite show each one a little differently (see docs/colors.md)
@@ -391,7 +390,8 @@ class TrackCuesV2(SeratoGeobTag):
             if not entry_name:
                 break
             entry_len = struct.unpack(">I", fp.read(4))[0]
-            assert entry_len > 0
+            if entry_len == 0:
+                raise _AssertionValueError(f"{entry_name} entry has no data")
 
             entry_class = TrackCuesV2._get_entry_class(entry_name)
             yield entry_class._parse(fp.read(entry_len))
@@ -565,7 +565,7 @@ class TrackCuesV2(SeratoGeobTag):
         super()._put_in_tagfile()
         # deleted only here, when this tag writes, and not by the edit: deleted from the shared tagfile for an edit
         # that changed nothing, or was changed back, it would be written by another tag's save
-        if delete_tags_v1 and not self._edits_keep_tags_v1 and self.tagfile:
+        if delete_tags_v1 and not self._edits_keep_tags_v1 and self.tagfile is not None:
             # TODO: keep Serato Markers_ in sync with Markers2 instead of deleting it
             del_geob(self.tagfile, TrackCuesV1.GEOB_KEY)
         self._edits_keep_tags_v1 = None
@@ -601,8 +601,8 @@ class TrackCuesV2(SeratoGeobTag):
         """
         if not (self.has_changed or force):
             return
-        if not self.tagfile:
-            raise Exception("no tagfile, no saving")
+        if self.tagfile is None:
+            raise ValueError(f"{type(self).__name__} was read from bytes, so has no file to read or write")
         self._put_in_tagfile(delete_tags_v1)
         self.tagfile.save()
 
@@ -688,10 +688,10 @@ class TrackCuesV2(SeratoGeobTag):
     def snap_positions_to_beat(self, tolerance_beats: float, min_ms_change: int = 2) -> None:
         """Moves each cue to its nearest beat in memory, as `get_snapped_beat_ms` decides, and prints each move.
 
-        Raises ValueError if the tag has no entries. Call `save()` to write the change to the file.
+        Raises NoCuesError for a track without a `Serato Markers2` tag. Call `save()` to write the change to the file.
         """
         if not self.entries:
-            raise ValueError("No entries set")
+            raise NoCuesError(self.filename)
         track_before = self._from_entries()
         positions_before = {c.index: c.position for c in track_before.cues}
         self.modify_entries(self.snap_positions_to_beat_rule(tolerance_beats, min_ms_change))
@@ -704,7 +704,7 @@ class TrackCuesV2(SeratoGeobTag):
     def _get_beatgrid(self, file_or_data: SeratoGeobTag.FileOrData | None = None) -> TrackBeatgrid:
         """Reads the beatgrid from `file_or_data`, or from this tag's file, and keeps it as `self.beatgrid`."""
         if file_or_data is None:
-            if not self.tagfile:
+            if self.tagfile is None:
                 raise ValueError("No tagfile set, or must pass beatgrid")
             self.beatgrid = TrackBeatgrid(self.tagfile)
         else:
@@ -770,12 +770,7 @@ def main():
     parser.add_argument("-e", "--edit", action="store_true")
     args = Args(**vars(parser.parse_args()))
 
-    try:
-        tags = TrackCuesV2(args.file)
-    except HeaderNotFoundError:
-        with open(args.file, mode="rb") as fp:
-            data = fp.read()
-        tags = TrackCuesV2(data)
+    tags = open_tag_file_or_data(TrackCuesV2, args.file)
 
     if args.set_color:
         try:
@@ -931,7 +926,7 @@ def main():
         else:
             tags.entries = new_entries
             tags._serialize()
-            if tags.tagfile:
+            if tags.tagfile is not None:
                 tags.save()
             else:
                 with open(args.file, mode="wb") as fp:

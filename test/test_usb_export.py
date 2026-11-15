@@ -1,8 +1,12 @@
 import os
+import shutil
 import unittest
 from unittest import mock
 
 from serato_tools import usb_export
+from serato_tools.crate import Crate
+from serato_tools.database_v2 import DatabaseV2
+from serato_tools.smart_crate import SmartCrate
 
 from test.helpers import temp_dir
 
@@ -61,6 +65,68 @@ class GetCrateFilesTestCase(unittest.TestCase):
     def test_invalid_regex_with_no_glob_match_is_empty(self):
         self._add_file("house.crate")
         self.assertEqual(self._matched_names("*[techno*"), set())
+
+
+class CopyCratesToUsbTestCase(unittest.TestCase):
+    """copy_crates_to_usb on a small library in a temp folder, exported to another temp folder as the drive."""
+
+    def setUp(self):
+        tmp = temp_dir(self)
+        self.music = os.path.join(tmp, "music")
+        self.serato_dir = os.path.join(tmp, "_Serato_")
+        self.drive = os.path.join(tmp, "drive")
+        for folder in (os.path.join(self.music, "one"), os.path.join(self.music, "two"), self.serato_dir, self.drive):
+            os.makedirs(folder)
+        self.a, self.b, self.a_again, self.c = (
+            self.add_track(os.path.join(self.music, *parts))
+            for parts in (("one", "a.mp3"), ("one", "b.mp3"), ("two", "a.mp3"), ("one", "c.mp3"))
+        )
+        self.add_track(os.path.join(self.music, "one", "a.serato-stems"))
+
+        shutil.copy("test/data/database_v2_test.bin", os.path.join(self.serato_dir, DatabaseV2.FILENAME))
+        db = DatabaseV2(os.path.join(self.serato_dir, DatabaseV2.FILENAME))
+        db.filter_tracks(lambda track: False)
+        for path in (self.a, self.b, self.c):
+            db.entries.append((DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, db.get_relative_path(path))]))
+        db.save()
+
+        self.house = self.add_crate(Crate, "House", [self.a, self.a_again])
+        self.deep = self.add_crate(SmartCrate, "Deep", [self.b])
+        self.add_crate(Crate, os.path.join("Serato Stems", "Stems"), [self.a, self.c])
+        with open(os.path.join(self.serato_dir, "neworder.pref"), "w", encoding="utf-8") as f:
+            f.write("[begin record]\n[crate]House\n[crate]Stems\n[end record]\n")
+
+        for patch in (
+            mock.patch.object(usb_export, "LOCAL_SERATO_DIR", self.serato_dir),
+            mock.patch.object(usb_export, "LOCAL_SERATO_DRIVE", os.path.splitdrive(tmp)[0]),
+            mock.patch.object(usb_export, "print"),
+            # DatabaseV2() opens the database at its default path, which is bound when the module loads, so patching
+            # LOCAL_SERATO_DIR doesn't reach it
+            mock.patch.object(
+                DatabaseV2.__init__, "__defaults__", (os.path.join(self.serato_dir, DatabaseV2.FILENAME),)
+            ),
+        ):
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    @staticmethod
+    def add_track(path: str) -> str:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(path)
+        return path
+
+    def add_crate(self, crate_class: type[Crate] | type[SmartCrate], name: str, tracks: list[str]) -> str:
+        path = os.path.join(self.serato_dir, crate_class.DIR, name + crate_class.EXTENSION)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        crate = crate_class(path)
+        crate.add_tracks(tracks)
+        crate.save()
+        return path
+
+    def test_a_track_with_two_stems_files_raises(self):
+        self.add_track(os.path.join(self.music, "one", "a.mp3.serato-stems"))
+        with self.assertRaisesRegex(ValueError, "more than 1 stems file"):
+            usb_export.copy_crates_to_usb([self.house], self.drive, "Tracks")
 
 
 class TestCase(unittest.TestCase):

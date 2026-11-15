@@ -2,13 +2,16 @@
 
 import os
 import sys
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from enum import Enum, StrEnum, IntEnum, unique
 from dataclasses import dataclass
 
 
 from serato_tools.utils.crate_base import CrateBase
 from serato_tools.utils import SERATO_DIR, DataTypeError
+
+if TYPE_CHECKING:
+    from serato_tools.crate import Crate
 
 
 class SmartCrate(CrateBase):
@@ -243,9 +246,28 @@ class SmartCrate(CrateBase):
 
         self.entries = new_entries
 
+    def to_regular_crate(self, file: str) -> "Crate":
+        """A regular crate for `file`, holding this smart crate's tracks and view settings (its sort and columns), but
+        not its rules.
+
+        Serato can't use a smart crate on a drive, so USB export writes each one as this. Call its `save()` to write
+        the file.
+        """
+        # imported here, since only this method needs regular crates
+        from serato_tools.crate import Crate
+
+        crate = Crate(file)
+        rule_fields = {field.value for field in SmartCrate.RuleFields}
+        crate.entries = [
+            # a regular crate's version, then this smart crate's entries but its own version and its rules
+            *(entry for entry in crate.entries if entry[0] == Crate.Fields.VERSION),
+            *(entry for entry in self.entries if entry[0] != Crate.Fields.VERSION and entry[0] not in rule_fields),
+        ]
+        return crate
+
     def find_missing(self):
         """Always raises, since a smart crate's tracks come from its rules."""
-        raise Exception("cannot be done on smart crate")
+        raise TypeError("a smart crate's tracks come from its rules, so it can't have missing tracks to find")
 
 
 def main():

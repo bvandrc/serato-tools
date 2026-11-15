@@ -8,11 +8,9 @@ It can draw the overview as an image, which needs the `waveform_drawing` extra (
 import io
 from dataclasses import dataclass
 
-from mutagen.mp3 import HeaderNotFoundError
-
-
-from serato_tools.utils.track_tags import SeratoGeobTag
-from serato_tools.utils import logger
+from serato_tools.utils import _AssertionValueError
+from serato_tools.utils.track_tags import GeobKeys, NoWaveformError, SeratoGeobTag
+from serato_tools.utils.ui import open_tag_file_or_data
 
 
 class TrackWaveform(SeratoGeobTag):
@@ -20,17 +18,17 @@ class TrackWaveform(SeratoGeobTag):
 
     `data` holds the overview as 240 rows of 16 bytes.
 
-    Raises ValueError when read from a file Serato hasn't built the overview for yet.
+    Raises NoWaveformError when read from a file Serato hasn't built the overview for yet.
     """
 
-    GEOB_KEY = "Serato Overview"
+    GEOB_KEY = GeobKeys.WAVEFORM
     VERSION = (0x01, 0x05)
 
     def __init__(self, file_or_data: SeratoGeobTag.FileOrData):
         super().__init__(file_or_data)
 
         if self._raw_data is None:
-            raise ValueError("no waveform yet set")
+            raise NoWaveformError(self.filename)
 
         # materialize so the version check runs at construction time and the data can be read repeatedly
         self.data = self._parse(self._raw_data)
@@ -48,7 +46,8 @@ class TrackWaveform(SeratoGeobTag):
 
         rows: list[bytearray] = []
         for x in iter(lambda: fp.read(16), b""):
-            assert len(x) == 16
+            if len(x) != 16:
+                raise _AssertionValueError(f"waveform ends with a row of {len(x)} bytes, not 16")
             rows.append(bytearray(x))
         return rows
 
@@ -56,9 +55,10 @@ class TrackWaveform(SeratoGeobTag):
         """The waveform overview as a 240 x 16 pixel PIL image. Needs the `waveform_drawing` extra (pillow)."""
         try:
             from PIL import Image, ImageColor
-        except:
-            logger.error('must install package "pillow"')
-            raise
+        except ImportError as error:
+            raise ImportError(
+                'drawing the waveform needs the waveform_drawing extra: pip install "serato-tools[waveform_drawing]"'
+            ) from error
 
         img = Image.new("RGB", (240, 16), "black")
         pixels = img.load()
@@ -93,12 +93,7 @@ if __name__ == "__main__":
     parser.add_argument("file")
     args = Args(**vars(parser.parse_args()))
 
-    try:
-        tags = TrackWaveform(args.file)
-    except HeaderNotFoundError:
-        with open(args.file, mode="rb") as fp:
-            data = fp.read()
-        tags = TrackWaveform(data)
+    tags = open_tag_file_or_data(TrackWaveform, args.file)
 
     img = tags.draw_image()
     img.show()

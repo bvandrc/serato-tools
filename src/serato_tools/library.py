@@ -4,6 +4,7 @@
 
 import os
 from functools import cached_property
+from collections.abc import Collection
 from typing import TYPE_CHECKING, Mapping, Unpack
 
 
@@ -102,7 +103,7 @@ class Library:
                 file.save()
         return True
 
-    def remove_track_files(self, filepaths: list[str]):
+    def remove_track_files(self, filepaths: Collection[str]):
         """Removes the tracks from the database and crates, then deletes their files.
 
         Paths whose file is already gone are still removed from the library, which cleans up missing tracks. Only the
@@ -134,11 +135,14 @@ class Library:
         - See TrackCuesV2.save for `delete_tags_v1`.
         """
         props = _db_track_props()
-        # converted before any file is written, so a value the database can't hold changes nothing
+        # converted and checked before any file is written, so a value the database can't hold changes nothing
         db_values = {
             DatabaseV2.get_relative_path(filepath).upper(): props.to_db_values(tags)
             for filepath, tags in tracks.items()
         }
+        for values in db_values.values():
+            for field, value in values.items():
+                SeratoBinFile.check_value(field, value)
         props.write_db_track_tags_to_files(tracks, delete_tags_v1)
 
         found: set[str] = set()
@@ -151,7 +155,7 @@ class Library:
                 track.set_value(field, value)
             return track
 
-        changed = self.database.modify_tracks(set_values, files=list(tracks))
+        changed = self.database.modify_tracks(set_values, files=tracks)
         for filepath in tracks:
             if DatabaseV2.get_relative_path(filepath).upper() not in found:
                 logger.warning(f"track isn't in the database, so only its file's tags were set: {filepath}")

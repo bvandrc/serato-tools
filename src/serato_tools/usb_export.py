@@ -11,7 +11,7 @@ import fnmatch
 import shutil
 import re
 import platform
-from typing import Optional
+from typing import Iterable, Optional
 from dataclasses import dataclass
 
 
@@ -27,6 +27,9 @@ from serato_tools.utils import (
 
 # TODO: put in folders if there are different locations locally for the same basename
 
+# the extension of the file Serato keeps a track's stems in, beside the track
+STEMS_EXTENSION = ".serato-stems"
+
 
 def _uniq_by_basename(paths: list[str]):
     """`paths` without any whose filename an earlier one already has."""
@@ -41,13 +44,14 @@ def _uniq_by_basename(paths: list[str]):
 
 
 def copy_crates_to_usb(
-    crate_files: list[str], dest_drive_dir: str, dest_tracks_dir: str, root_crate: Optional[str] = None
+    crate_files: Iterable[str], dest_drive_dir: str, dest_tracks_dir: str, root_crate: Optional[str] = None
 ):
     """Copies the crates in `crate_files`, and their tracks, to the drive at `dest_drive_dir`.
 
     - Every track goes in `dest_tracks_dir` on the drive, and only the first of tracks that share a filename is kept.
     - The drive's `_Serato_` folder is replaced by one holding these crates and a database of just their tracks, all
-      pointed at the new paths. Smart crates become regular crates, since Serato can't use one on a drive.
+      pointed at the new paths. Smart crates become regular crates of the tracks they hold, keeping their sort and
+      columns but not their rules, since Serato can't use a smart crate on a drive.
     - A track whose file is already on the drive, unchanged, isn't copied again. Its stems file is copied too.
     - Given `root_crate`, every crate goes inside a crate of that name.
     """
@@ -90,34 +94,32 @@ def copy_crates_to_usb(
         crate.remove_duplicates()
 
         crate_filename = os.path.basename(crate_file)
+        if isinstance(crate, SmartCrate):
+            # a smart crate's subcrate separator in its filename is ≫≫, a regular crate's %%
+            crate_filename = os.path.splitext(crate_filename.replace("≫≫", "%%"))[0] + Crate.EXTENSION
         if root_crate is not None:
             crate_filename = root_crate + "%%" + crate_filename
         new_crate_file = os.path.join(crate_dir, crate_filename)
-        crate.save(new_crate_file)
-
-        # need to just save smartCrates as a .crate instead of a .scrate, can't do smart crate on USB.
         if isinstance(crate, SmartCrate):
-            existing = new_crate_file
-            dirname, basename = os.path.split(existing)
-            # only touch the filename: str.replace on the full path could hit a directory name
-            new = os.path.join(dirname, os.path.splitext(basename.replace("≫≫", "%%"))[0] + Crate.EXTENSION)
-            os.replace(existing, new)
-            new_crate_file = new
+            # Serato can't use a smart crate on a drive
+            crate = crate.to_regular_crate(new_crate_file)
+        crate.save(new_crate_file)
         logger.info(f"copied crate {new_crate_file}")
 
     # create the db file
     db = DatabaseV2()
     tracks_to_copy = [os.path.normpath(f) for f in tracks_to_copy]
+    # of tracks that share a filename, the first in the crates is the one copied, so it's the one whose entries are kept
     tracks_to_copy = _uniq_by_basename(tracks_to_copy)
     # a set: both filters below test against it per track
-    tracks_to_copy_basenames = {os.path.basename(f) for f in tracks_to_copy}
+    tracks_to_copy_set = set(tracks_to_copy)
 
     def modify_db_track(track: DatabaseV2.Track) -> DatabaseV2.Track:
         track.set_path(os.path.join(dest_tracks_dir, os.path.basename(track.relpath)))
         track.set_value(DatabaseV2.Fields.PLAYED, False)
         return track
 
-    db.filter_tracks(lambda track: os.path.basename(track.relpath) in tracks_to_copy_basenames)
+    db.filter_tracks(lambda track: os.path.normpath(track.relpath) in tracks_to_copy_set)
     db.modify_tracks(modify_db_track)
     db.remove_duplicates()
 
@@ -162,7 +164,7 @@ def copy_crates_to_usb(
             track.set_path(change_track_path(track.relpath))
             return track
 
-        stems_crate.filter_tracks(lambda track: os.path.basename(track.relpath) in tracks_to_copy_basenames)
+        stems_crate.filter_tracks(lambda track: os.path.normpath(track.relpath) in tracks_to_copy_set)
         stems_crate.modify_tracks(modify_stems_crate_track)
         stems_crate.remove_duplicates()
         stems_crate.save(DEST_STEMS_CRATE)
@@ -185,9 +187,11 @@ def copy_crates_to_usb(
                 dir_filenames = os.listdir(dirname)
             except OSError:
                 dir_filenames = []
-            stem_files_by_dir[dirname] = [f for f in dir_filenames if f.endswith(".serato-stems")]
-        track_name = os.path.splitext(basename)[0]
-        return [os.path.join(dirname, f) for f in stem_files_by_dir[dirname] if f.startswith(track_name)]
+            stem_files_by_dir[dirname] = [f for f in dir_filenames if f.endswith(STEMS_EXTENSION)]
+        # named after the track, with or without its extension: matching by prefix would also find another track's,
+        # such as "B Extended.serato-stems" for "B.mp3"
+        stem_names = {os.path.splitext(basename)[0] + STEMS_EXTENSION, basename + STEMS_EXTENSION}
+        return [os.path.join(dirname, f) for f in stem_files_by_dir[dirname] if f in stem_names]
 
     def maybe_copy(src_path: str, dst_path: str):
         if not os.path.exists(src_path):
@@ -209,11 +213,7 @@ def copy_crates_to_usb(
 
         maybe_stem_files = find_stem_files(src_path)
         if len(maybe_stem_files) > 1:
-            ERROR_STR = "should not have more than 1 stem file for: " + src_path
-            print(ERROR_STR)
-            print("Files found:")
-            print("\n".join(maybe_stem_files))
-            raise Exception(ERROR_STR)
+            raise ValueError(f"more than 1 stems file for {src_path}: {', '.join(maybe_stem_files)}")
         if len(maybe_stem_files) == 1:
             maybe_copy(
                 src_path=maybe_stem_files[0],

@@ -1,11 +1,13 @@
 import os
 import shutil
+import struct
 import unittest
 
 from serato_tools.crate import Crate
+from serato_tools.database_v2 import DatabaseV2
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
-from test.helpers import temp_dir
+from test.helpers import read_bytes, temp_dir
 
 
 class PathTestCase(unittest.TestCase):
@@ -52,6 +54,46 @@ class PathTestCase(unittest.TestCase):
         full_path = SeratoBinFile.get_full_path("Music/DJ Tracks/Tripp St. - Enlighten.mp3")
         self.assertTrue(os.path.isabs(full_path), full_path)
         self.assertTrue(full_path.endswith(os.path.normpath("/Music/DJ Tracks/Tripp St. - Enlighten.mp3")), full_path)
+
+
+class ParseTestCase(unittest.TestCase):
+    def test_a_file_cut_off_raises(self):
+        data = read_bytes("test/data/database_v2_test.bin")
+        tmp = temp_dir(self)
+        for name, cut_at in (("partway through a header", 3), ("partway through an entry", len(data) - 1)):
+            with self.subTest(name):
+                path = os.path.join(tmp, f"{cut_at}.crate")
+                with open(path, "wb") as f:
+                    f.write(data[:cut_at])
+                with self.assertRaisesRegex(ValueError, "file ends partway through") as caught:
+                    DatabaseV2(path)
+                self.assertIsInstance(caught.exception, AssertionError, "still caught as the AssertionError it was")
+
+    def test_modify_with_two_rules_for_a_field_raises(self):
+        db = DatabaseV2("test/data/database_v2_test.bin")
+        rule: SeratoBinFile.ModifyRule = {"field": DatabaseV2.Fields.GENRE, "func": lambda *args: None}
+        with self.assertRaisesRegex(ValueError, "1 rule per field"):
+            db.modify([rule, rule])
+
+
+class SerializeTestCase(unittest.TestCase):
+    def test_a_number_out_of_its_fields_range_raises_naming_the_field(self):
+        db = DatabaseV2("test/data/database_v2_test.bin")
+        track_number = SeratoBinFile.Fields.TRACK_NUMBER.value
+        for value in (-1, 2**32):
+            with self.subTest(value):
+                with self.assertRaisesRegex(ValueError, f"{track_number} must be a number from 0 to") as caught:
+                    SeratoBinFile.check_value(track_number, value)
+                self.assertIsInstance(caught.exception, struct.error, "still caught as the struct.error it was")
+
+                def set_track_number(track: SeratoBinFile.Track, value: int = value) -> SeratoBinFile.Track:
+                    track.set_value(track_number, value)
+                    return track
+
+                db.modify_tracks(set_track_number)
+                with self.assertRaisesRegex(ValueError, track_number) as saving:
+                    db.to_bytes()
+                self.assertIsInstance(saving.exception, struct.error, "saving raises it too")
 
 
 class TrackTestCase(unittest.TestCase):
