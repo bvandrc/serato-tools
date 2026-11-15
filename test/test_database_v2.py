@@ -169,11 +169,14 @@ class TestCase(unittest.TestCase):
             "every other entry",
         )
 
-    def test_find_missing_skips_save_when_nothing_relocated(self):
-        tmp = temp_dir(self)
-        db_file = os.path.join(tmp, "database V2")
+    def temp_database(self) -> tuple[str, DatabaseV2]:
+        """A copy of the database fixture in a temporary folder: its path, and it opened."""
+        db_file = os.path.join(temp_dir(self), "database V2")
         shutil.copy(TEST_DATABASE, db_file)
-        db = DatabaseV2(db_file)
+        return db_file, DatabaseV2(db_file)
+
+    def test_find_missing_skips_save_when_nothing_relocated(self):
+        db_file, db = self.temp_database()
         os.remove(db_file)  # so any save shows up as the file reappearing
 
         # the fixture's tracks don't exist here, so each one prompts; "s" skips it
@@ -181,6 +184,48 @@ class TestCase(unittest.TestCase):
             db.find_missing()
 
         self.assertFalse(os.path.exists(db_file), "nothing relocated, so not saved")
+
+    def test_find_missing_relocates_tracks_found_in_a_folder_given(self):
+        db_file, db = self.temp_database()
+        first, *rest = db.get_track_paths()
+        found_dir = os.path.join(os.path.dirname(db_file), "found")
+        os.mkdir(found_dir)
+        found = os.path.join(found_dir, os.path.basename(first))
+        open(found, "wb").close()  # pylint: disable=consider-using-with
+
+        # the folder for the first track, which later missing tracks are also looked for in; "s" skips the rest
+        answers = iter([found_dir])
+        with mock.patch("builtins.input", side_effect=lambda prompt: next(answers, "s")), mock.patch("builtins.print"):
+            db.find_missing()
+
+        self.assertEqual(DatabaseV2(db_file).get_track_paths(), [DatabaseV2.get_relative_path(found), *rest], "saved")
+
+    def test_find_missing_takes_a_files_new_path(self):
+        db_file, db = self.temp_database()
+        rest = db.get_track_paths()[1:]
+        found = os.path.join(os.path.dirname(db_file), "renamed.mp3")
+        open(found, "wb").close()  # pylint: disable=consider-using-with
+
+        answers = iter([found])
+        with mock.patch("builtins.input", side_effect=lambda prompt: next(answers, "s")), mock.patch("builtins.print"):
+            db.find_missing()
+
+        self.assertEqual(DatabaseV2(db_file).get_track_paths(), [DatabaseV2.get_relative_path(found), *rest])
+
+    def test_find_missing_interrupted_changes_nothing(self):
+        db_file, db = self.temp_database()
+        found = os.path.join(os.path.dirname(db_file), "renamed.mp3")
+        open(found, "wb").close()  # pylint: disable=consider-using-with
+
+        # the first track is relocated, then the prompt for the second is interrupted
+        with (
+            mock.patch("builtins.input", side_effect=[found, KeyboardInterrupt()]),
+            mock.patch("builtins.print"),
+            self.assertRaises(KeyboardInterrupt),
+        ):
+            db.find_missing()
+
+        self.assertFalse(db.has_changed, "the first track's relocation is undone")
 
     def test_save_leaves_file_as_it_was_on_error(self):
         orig = read_bytes(TEST_DATABASE)

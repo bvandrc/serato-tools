@@ -825,46 +825,43 @@ class SeratoBinFile:
         """Prompts for a new location for each track whose file doesn't exist, then saves if any was given.
 
         Each answer can be the file's new path; a folder, where it and later missing tracks are looked for by name; or
-        "s" to skip it.
+        "s" to skip it. Interrupting a prompt (Ctrl-C, or input running out) leaves every track as it was.
         """
-        new_entries: SeratoBinFile.EntryList = []
         new_dir: str | None = None
-        changed = False
-        for field, value in self.entries:
-            if field == SeratoBinFile.Fields.TRACK:
-                if not isinstance(value, list):
-                    raise DataTypeError(value, list, field)
-                track = self._get_track(value)
-                track_path = track.get_full_path()
-                if not os.path.isfile(track_path):
-                    print(f"missing: {track_path}")
-                    new_location = None
-                    if new_dir is not None:
-                        if os.path.isfile(possible_new_loc := os.path.join(new_dir, os.path.basename(track_path))):
-                            new_location = possible_new_loc
-                    if not new_location:
-                        while True:
-                            new_location = os.path.normpath(
-                                input(
-                                    'enter new location of file, or directory to look for missing files, or "s" to skip:'
-                                )
-                                .strip()
-                                .strip('"')
-                            )
-                            if new_location == "s":
-                                new_location = None
-                                break
-                            if os.path.isdir(new_location):
-                                new_dir = new_location
-                                new_location = os.path.join(new_dir, os.path.basename(track_path))
-                            if os.path.exists(new_location):
-                                break
-                    if new_location:
-                        print("   new_location: " + new_location)
-                        track.set_path(new_location)
-                        changed = True
-                value = track.to_entries()
-            new_entries.append((field, value))
-        self.entries = new_entries
+
+        def relocate(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
+            nonlocal new_dir
+            track_path = track.get_full_path()
+            if os.path.isfile(track_path):
+                return track
+            print(f"missing: {track_path}")
+            filename = os.path.basename(track_path)
+            new_location = None
+            if new_dir is not None and os.path.isfile(in_new_dir := os.path.join(new_dir, filename)):
+                new_location = in_new_dir
+            while not new_location:
+                answer = os.path.normpath(
+                    input('enter new location of file, or directory to look for missing files, or "s" to skip:')
+                    .strip()
+                    .strip('"')
+                )
+                if answer == "s":
+                    return track
+                if os.path.isdir(answer):
+                    new_dir = answer
+                    answer = os.path.join(new_dir, filename)
+                if os.path.exists(answer):
+                    new_location = answer
+            print("   new_location: " + new_location)
+            track.set_path(new_location)
+            return track
+
+        entries = list(self.entries)
+        try:
+            changed = self.modify_tracks(relocate)
+        except BaseException:
+            # modify_tracks replaces tracks as it goes, so an interrupted prompt would leave the earlier ones relocated
+            self.entries = entries
+            raise
         if changed:
             self.save()
