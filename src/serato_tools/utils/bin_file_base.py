@@ -162,7 +162,7 @@ class SeratoBinFile:
             self.version = default_version
 
         if not hasattr(self, "version"):
-            raise AttributeError("file must have a version entry")
+            raise AttributeError("version not set after parsing file")
 
         self._parsed = True
 
