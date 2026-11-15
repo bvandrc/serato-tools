@@ -151,9 +151,9 @@ class TrackBeatgrid(SeratoGeobTag):
                 f"beatgrid has {len(terminal_markers)} terminal markers and {len(footers)} footers, not 1 of each"
             )
         if not isinstance(entries[-1], TrackBeatgrid.Footer):
-            raise _AssertionValueError("a beatgrid's last entry is its footer")
+            raise _AssertionValueError("a beatgrid's last entry must be its footer")
         if not isinstance(entries[-2], TrackBeatgrid.TerminalBeatgridMarker):
-            raise _AssertionValueError("a beatgrid's footer comes right after its terminal marker")
+            raise _AssertionValueError("a beatgrid's footer must come right after its terminal marker")
         return (nonterminal_markers, terminal_markers[0], footers[0])
 
     @staticmethod
