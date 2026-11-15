@@ -4,7 +4,8 @@ from unittest import mock
 from serato_tools.track_waveform import TrackWaveform
 from serato_tools.utils.track_tags import NoWaveformError, del_geob, open_tagfile
 
-from test.helpers import read_bytes, temp_mp3
+from test.helpers.files import read_bytes
+from test.helpers.track_tags import temp_mp3
 
 
 class TestCase(unittest.TestCase):

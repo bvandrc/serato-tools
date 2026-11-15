@@ -11,10 +11,10 @@ from unittest import mock
 from serato_tools.smart_crate import SmartCrate, main
 from serato_tools.utils.bin_file_base import DataTypeError
 
-from test.helpers import read_bytes, temp_dir
+from test.helpers.bin_files import TEST_SMART_CRATE
+from test.helpers.files import read_bytes, read_text, temp_dir
 
-with open("test/data/smart_crate.txt", "r", encoding="utf-8") as f:
-    expected = f.read()
+expected = read_text("test/data/smart_crate.txt")
 
 
 def make_rule(
@@ -41,7 +41,7 @@ class TestCase(unittest.TestCase):
         self.assertMultiLineEqual(given, exp)
 
     def test_parse(self):
-        file = os.path.abspath("test/data/TestSmartCrate.scrate")
+        file = os.path.abspath(TEST_SMART_CRATE)
         crate = SmartCrate(file)
 
         self.assertEqual(crate.to_bytes(), read_bytes(file), "to_bytes")
@@ -49,10 +49,10 @@ class TestCase(unittest.TestCase):
 
     def test_find_missing_raises(self):
         with self.assertRaises(TypeError, msg="its tracks come from its rules"):
-            SmartCrate("test/data/TestSmartCrate.scrate").find_missing()
+            SmartCrate(TEST_SMART_CRATE).find_missing()
 
     def test_add_rule(self):
-        file = os.path.abspath("test/data/TestSmartCrate.scrate")
+        file = os.path.abspath(TEST_SMART_CRATE)
 
         crate = SmartCrate(file)
         crate.set_rule(SmartCrate.RuleField.ALBUM, SmartCrate.RuleComparison.STR_IS_NOT, "albo")
@@ -63,7 +63,7 @@ class TestCase(unittest.TestCase):
         )
 
     def test_set_rule_on_malformed_crate_changes_nothing(self):
-        crate = SmartCrate(os.path.abspath("test/data/TestSmartCrate.scrate"))
+        crate = SmartCrate(os.path.abspath(TEST_SMART_CRATE))
         # a rule entry after the GROUPING rule that holds text rather than an entry list
         crate.entries.append((SmartCrate.RuleFields.SMARTCRATE_RULE.value, "not a rule"))
         entries_before = copy.deepcopy(crate.entries)
@@ -73,7 +73,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(crate.entries, entries_before, "a rule before the malformed one must not be replaced")
 
     def test_delete_rule_returns_whether_removed(self):
-        crate = SmartCrate(os.path.abspath("test/data/TestSmartCrate.scrate"))
+        crate = SmartCrate(os.path.abspath(TEST_SMART_CRATE))
 
         self.assertFalse(crate.delete_rule(SmartCrate.RuleField.ALBUM), "the crate has no album rule")
         self.assertFalse(crate.has_changed)
@@ -153,7 +153,7 @@ class TestCase(unittest.TestCase):
 class CliTestCase(unittest.TestCase):
     def setUp(self):
         self.path = os.path.join(temp_dir(self), "test.scrate")
-        shutil.copy("test/data/TestSmartCrate.scrate", self.path)
+        shutil.copy(TEST_SMART_CRATE, self.path)
 
     def run_cli(self, *args: str) -> str:
         """Runs `serato_smartcrate` on the test smart crate's copy with `args`, and returns what it printed to stdout."""

@@ -7,7 +7,8 @@ from serato_tools.track_beatgrid import TrackBeatgrid, main
 from serato_tools.utils.beatgrid_analyze import BeatGridInfo
 from serato_tools.utils.track_tags import NoBeatgridError
 
-from test.helpers import TEST_MP3, read_bytes, temp_mp3
+from test.helpers.files import read_bytes
+from test.helpers.track_tags import TEST_MP3, temp_mp3
 
 
 class TestCase(unittest.TestCase):

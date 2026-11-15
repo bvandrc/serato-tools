@@ -8,7 +8,7 @@ from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_gain import TrackGain
 
-from test.helpers import temp_mp3, untagged_mp3
+from test.helpers.track_tags import temp_mp3, untagged_mp3
 
 
 class TestCase(unittest.TestCase):

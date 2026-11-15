@@ -12,23 +12,22 @@ from serato_tools.database_v2 import DatabaseV2
 # bin_file_base raises the installed package's DataTypeError, so catch that one
 from serato_tools.utils.bin_file_base import DataTypeError
 
-from test.helpers import read_bytes, temp_dir
+from test.helpers.bin_files import TEST_DATABASE
+from test.helpers.files import read_bytes, read_text, temp_dir
 
 
 class TestCase(unittest.TestCase):
     def test_parse_and_serialize(self):
-        file = os.path.abspath("test/data/database_v2_test.bin")
+        file = os.path.abspath(TEST_DATABASE)
         db = DatabaseV2(file)
 
         self.maxDiff = None
         self.assertEqual(db.to_bytes(), read_bytes(file), "to_bytes")
 
-        with open("test/data/database_v2_test_output.txt", "r", encoding="utf-16") as f:
-            expected = f.read()
-            self.assertEqual(db.__str__(), expected, "parse")
+        self.assertEqual(db.__str__(), read_text("test/data/database_v2_test_output.txt"), "parse")
 
     def test_remove_tracks(self):
-        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        db = DatabaseV2(os.path.abspath(TEST_DATABASE))
         paths = db.get_track_paths()
         self.assertGreater(len(paths), 2)
 
@@ -37,7 +36,7 @@ class TestCase(unittest.TestCase):
         self.assertFalse(db.remove_tracks(paths[:2]), "reports no change when already gone")
 
     def test_parse_and_modify(self):
-        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        db = DatabaseV2(os.path.abspath(TEST_DATABASE))
         self.maxDiff = None
         expected = db.__str__()
 
@@ -57,8 +56,9 @@ class TestCase(unittest.TestCase):
             ]
         )
         self.assertTrue(changed, "reports change")
-        with open("test/data/database_v2_test_modified_output.txt", "r", encoding="utf-16") as f:
-            self.assertEqual(db.__str__(), f.read(), "was modified correctly")
+        self.assertEqual(
+            db.__str__(), read_text("test/data/database_v2_test_modified_output.txt"), "was modified correctly"
+        )
         with open("test/data/database_v2_test_modified_output.bin", "rb") as f:
             self.assertEqual(db.to_bytes(), f.read(), "was modified correctly")
 
@@ -83,15 +83,18 @@ class TestCase(unittest.TestCase):
                 },
             ]
         )
-        with open("test/data/database_v2_test_modified_output_2.txt", "r", encoding="utf-8") as f:
-            self.assertEqual(db.__str__(), f.read(), "was modified correctly, given files")
+        self.assertEqual(
+            db.__str__(),
+            read_text("test/data/database_v2_test_modified_output_2.txt"),
+            "was modified correctly, given files",
+        )
         with open("test/data/database_v2_test_modified_output_2.bin", "rb") as f:
             self.assertEqual(db.to_bytes(), f.read(), "was modified correctly, given files")
 
     def test_modify_and_save_skips_save_when_unchanged(self):
         tmp = temp_dir(self)
         db_file = os.path.join(tmp, "database V2")
-        shutil.copy("test/data/database_v2_test.bin", db_file)
+        shutil.copy(TEST_DATABASE, db_file)
         db = DatabaseV2(db_file)
         os.remove(db_file)  # so any save shows up as the file reappearing
 
@@ -113,7 +116,7 @@ class TestCase(unittest.TestCase):
 
     def test_modify_empty_value_removes_field(self):
         # as Serato does when a tag is cleared
-        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        db = DatabaseV2(os.path.abspath(TEST_DATABASE))
         target = "Users/bvand/Music/DJ Tracks/SiR - D'Evils.mp3"
         other = "Users/bvand/Music/DJ Tracks/Slaycub - Visceral Planet.mp3"
         clear_grouping: list[DatabaseV2.ModifyRule] = [
@@ -135,7 +138,7 @@ class TestCase(unittest.TestCase):
     def test_modify_and_save_empty_value_removes_field(self):
         tmp = temp_dir(self)
         db_file = os.path.join(tmp, "database V2")
-        shutil.copy("test/data/database_v2_test.bin", db_file)
+        shutil.copy(TEST_DATABASE, db_file)
         target = "Users/bvand/Music/DJ Tracks/SiR - D'Evils.mp3"
 
         DatabaseV2(db_file).modify_and_save(
@@ -145,7 +148,7 @@ class TestCase(unittest.TestCase):
         self.assertNotIn(DatabaseV2.Fields.GROUPING, track.fields, "removed in the saved file")
 
     def test_get_entries_matching_tracks(self):
-        db = DatabaseV2("test/data/database_v2_test.bin")
+        db = DatabaseV2(TEST_DATABASE)
 
         def track_paths(entries: Iterable[DatabaseV2.EntryFull]) -> list[str]:
             return [
@@ -169,7 +172,7 @@ class TestCase(unittest.TestCase):
     def test_find_missing_skips_save_when_nothing_relocated(self):
         tmp = temp_dir(self)
         db_file = os.path.join(tmp, "database V2")
-        shutil.copy("test/data/database_v2_test.bin", db_file)
+        shutil.copy(TEST_DATABASE, db_file)
         db = DatabaseV2(db_file)
         os.remove(db_file)  # so any save shows up as the file reappearing
 
@@ -180,11 +183,11 @@ class TestCase(unittest.TestCase):
         self.assertFalse(os.path.exists(db_file), "nothing relocated, so not saved")
 
     def test_save_leaves_file_as_it_was_on_error(self):
-        orig = read_bytes("test/data/database_v2_test.bin")
+        orig = read_bytes(TEST_DATABASE)
 
         tmp = temp_dir(self)
         db_file = os.path.join(tmp, "database V2")
-        shutil.copy("test/data/database_v2_test.bin", db_file)
+        shutil.copy(TEST_DATABASE, db_file)
 
         db = DatabaseV2(db_file)
         db.entries.append((DatabaseV2.Fields.TRACK, "not a list"))
@@ -205,7 +208,7 @@ class TestCase(unittest.TestCase):
             self.assertEqual(f.read(), orig, "save before parse finished")
 
     def test_mistyped_json_value_is_refused(self):
-        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        db = DatabaseV2(os.path.abspath(TEST_DATABASE))
         original_entries = copy.deepcopy(db.entries)
         json_obj = db.to_json_object()
         track = json_obj[1]["value"]
@@ -225,7 +228,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(db.entries, original_entries, "existing entries left as they were")
 
     def test_modify_tracks_given_files(self):
-        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        db = DatabaseV2(os.path.abspath(TEST_DATABASE))
         target = "Users/bvand/Music/DJ Tracks/Tripp St. - Enlighten.mp3"
 
         seen: list[str] = []
@@ -240,18 +243,16 @@ class TestCase(unittest.TestCase):
     def test_dedupe(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_duplicates.bin"))
 
-        with open("test/data/database_v2_duplicates_output.txt", "r", encoding="utf-8") as f:
-            self.assertEqual(db.__str__(), f.read(), "original")
+        self.assertEqual(db.__str__(), read_text("test/data/database_v2_duplicates_output.txt"), "original")
 
         self.assertTrue(db.remove_duplicates(), "reports removal")
 
-        with open("test/data/database_v2_duplicates_output_deduped.txt", "r", encoding="utf-8") as f:
-            self.assertEqual(db.__str__(), f.read(), "deduped")
+        self.assertEqual(db.__str__(), read_text("test/data/database_v2_duplicates_output_deduped.txt"), "deduped")
 
         self.assertFalse(db.remove_duplicates(), "nothing left to remove")
 
     def test_get_corrupt_tracks(self):
-        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        db = DatabaseV2(os.path.abspath(TEST_DATABASE))
         self.assertEqual(db.get_corrupt_tracks(), {}, "no corrupt tracks in the test database")
 
         fields = DatabaseV2.Fields
@@ -269,7 +270,7 @@ class TestCase(unittest.TestCase):
         )
 
     def test_json_round_trip(self):
-        db_from_bin = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        db_from_bin = DatabaseV2(os.path.abspath(TEST_DATABASE))
         with open("test/data/database_v2_json.json", "r", encoding="utf-8") as f:
             self.assertEqual(db_from_bin.to_json_object(), json.load(f), "to_json_object")
 

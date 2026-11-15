@@ -171,7 +171,12 @@ Console scripts are declared in `[project.scripts]` in `pyproject.toml` and poin
 
 ## Repository layout notes
 
-- `test/helpers.py` — shared test setup: temp copies of the test mp3 (`temp_mp3`, `untagged_mp3`, cleaned up with the test) and `read_bytes`. Tests of a base class's behaviour go in the base's own module (`test_bin_file_base.py`, `test_track_tags.py`), driven through one subclass or looped over all of them, not repeated per subclass.
+- `test/helpers/` — shared test setup, a module for each kind (imported from the module, e.g. `from test.helpers.files import read_bytes`):
+  - `files`: `temp_dir` (cleaned up with the test), and `read_bytes` / `read_text`.
+  - `bin_files`: the database and crate fixture paths (`TEST_DATABASE`, `TEST_CRATE`, `TEST_SMART_CRATE`).
+  - `track_tags`: the test mp3 and temp copies of it (`temp_mp3`, `untagged_mp3`). It's the only helper module that needs the track_tags extra, so tests that don't touch audio files must not import it.
+
+  Tests of a base class's behaviour go in the base's own module (`test_bin_file_base.py`, `test_track_tags.py`), driven through one subclass or looped over all of them, not repeated per subclass.
 - `test/data/` — fixtures for the unittest suite. Tests assert **byte-exact** round-trips (parse → serialize must reproduce the input), so regenerate fixtures deliberately, never to make a test pass.
 - `data/` — reference dumps of raw GEOB tags captured from real tracks, organized by container (`id3`, `flac`, `mp4`, `aif`, `ogg`) and scenario (`hotcue-colors`, `saved-loops`, `bpmlock`, ...). Used as evidence for the format writeups in `docs/`, not by the test suite. Committed as binary via `.gitattributes`.
 - `docs/` — per-tag format documentation; `docs/fileformats.md` covers how each container stores the tags.

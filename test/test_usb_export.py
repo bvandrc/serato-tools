@@ -8,7 +8,8 @@ from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.smart_crate import SmartCrate
 
-from test.helpers import temp_dir
+from test.helpers.bin_files import TEST_DATABASE
+from test.helpers.files import temp_dir
 
 
 class GetCrateFilesTestCase(unittest.TestCase):
@@ -83,7 +84,7 @@ class CopyCratesToUsbTestCase(unittest.TestCase):
         )
         self.add_track(os.path.join(self.music, "one", "a.serato-stems"))
 
-        shutil.copy("test/data/database_v2_test.bin", os.path.join(self.serato_dir, DatabaseV2.FILENAME))
+        shutil.copy(TEST_DATABASE, os.path.join(self.serato_dir, DatabaseV2.FILENAME))
         db = DatabaseV2(os.path.join(self.serato_dir, DatabaseV2.FILENAME))
         db.filter_tracks(lambda track: False)
         for path in (self.a, self.b, self.c):

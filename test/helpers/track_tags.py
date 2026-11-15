@@ -1,18 +1,17 @@
-"""Fixtures shared by the test modules."""
+"""The test mp3, and copies of it.
+
+Needs the track_tags extra (mutagen), so only tests of track tags import it.
+"""
 
 import os
 import shutil
-import tempfile
 import unittest
 
+from serato_tools.track_cues_v2 import TrackCuesV2
+
+from test.helpers.files import temp_dir
+
 TEST_MP3 = "test/data/test_mp3.mp3"
-
-
-def temp_dir(testcase: unittest.TestCase) -> str:
-    """A new temporary folder, removed when `testcase`'s test ends."""
-    tmp = tempfile.TemporaryDirectory()
-    testcase.addCleanup(tmp.cleanup)
-    return tmp.name
 
 
 def temp_mp3(testcase: unittest.TestCase, name: str = "test.mp3", folder: str | None = None) -> str:
@@ -24,16 +23,8 @@ def temp_mp3(testcase: unittest.TestCase, name: str = "test.mp3", folder: str | 
 
 def untagged_mp3(testcase: unittest.TestCase, name: str = "untagged.mp3", folder: str | None = None) -> str:
     """A copy of the test mp3 with no Serato Markers2 tag, as for a track Serato hasn't analyzed."""
-    # imported here so the tests that don't touch track tags don't need the track_tags extra (mutagen)
-    from serato_tools.track_cues_v2 import TrackCuesV2  # pylint: disable=import-outside-toplevel
-
     path = temp_mp3(testcase, name, folder)
     tags = TrackCuesV2(path)
     tags.delete()
     tags.save()
     return path
-
-
-def read_bytes(path: str) -> bytes:
-    with open(path, "rb") as f:
-        return f.read()

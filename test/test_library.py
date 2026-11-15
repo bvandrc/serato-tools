@@ -16,7 +16,9 @@ from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_text_frames import TrackTextFrames
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
-from test.helpers import temp_dir, temp_mp3, untagged_mp3
+from test.helpers.bin_files import TEST_DATABASE
+from test.helpers.files import temp_dir
+from test.helpers.track_tags import temp_mp3, untagged_mp3
 
 
 class TestCase(unittest.TestCase):
@@ -27,7 +29,7 @@ class TestCase(unittest.TestCase):
         for d in [self.serato_dir, self.music_dir]:
             os.mkdir(d)
         self.db_file = os.path.join(self.serato_dir, DatabaseV2.FILENAME)
-        shutil.copy("test/data/database_v2_test.bin", self.db_file)
+        shutil.copy(TEST_DATABASE, self.db_file)
 
     def make_track(self, name: str) -> str:
         path = os.path.join(self.music_dir, name)

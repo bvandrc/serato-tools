@@ -16,7 +16,7 @@ from serato_tools.track_text_frames import TrackTextFrames
 from serato_tools.track_waveform import TrackWaveform
 from serato_tools.utils.track_tags import ID3FileTag, get_geob
 
-from test.helpers import TEST_MP3, temp_mp3
+from test.helpers.track_tags import TEST_MP3, temp_mp3
 
 
 class TestCase(unittest.TestCase):

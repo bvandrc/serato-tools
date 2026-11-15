@@ -12,7 +12,8 @@ from serato_tools.track_beatgrid import TrackBeatgrid
 from serato_tools.track_cues_v2 import TrackCuesV2, main
 from serato_tools.utils.track_tags import NoBeatgridError, NoCuesError
 
-from test.helpers import TEST_MP3, read_bytes, temp_mp3, untagged_mp3
+from test.helpers.files import read_bytes
+from test.helpers.track_tags import TEST_MP3, temp_mp3, untagged_mp3
 
 
 class TestCase(unittest.TestCase):
