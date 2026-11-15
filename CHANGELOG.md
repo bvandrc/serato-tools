@@ -83,7 +83,6 @@ This stays, still deprecated until a future major release: passing `delete_tags_
 - `add_tracks_from_dir` now skips subfolders and hidden files, such as `.DS_Store`.
 - `Library.set_db_track_tags` / `set_db_tracks_tags` now raise for a value the database can't hold before changing any file.
 - After `TrackBeatgrid.analyze_and_write`, `find_nearest_beat` now uses the new grid.
-- `TrackBeatgrid.BeatPoint`'s `repr` now says `BeatPoint`, not `BeatInfo`.
 
 ### Deprecations
 
