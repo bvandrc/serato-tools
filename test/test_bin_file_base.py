@@ -6,7 +6,7 @@ from unittest import mock
 
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
-from serato_tools.utils.bin_file_base import DeeplyNestedListError, SeratoBinFile
+from serato_tools.utils.bin_file_base import DataTypeError, DeeplyNestedListError, SeratoBinFile
 
 from test.helpers.bin_files import TEST_CRATE, TEST_DATABASE
 from test.helpers.files import read_bytes, temp_dir
@@ -141,6 +141,41 @@ class TrackTestCase(unittest.TestCase):
         self.assertEqual(track.to_entries(), [(path, "a.mp3")], "not added when already gone")
         with self.assertRaises(ValueError, msg="a track can't be without its path"):
             track.set_value(path, "")
+
+    def test_paths_follow_the_path_however_its_set(self):
+        path = SeratoBinFile.Fields.FILE_PATH.value
+        track = SeratoBinFile.Track([(path, "Music/a.mp3")], path_key=path)
+
+        track.set_value(path, "Music/b.mp3")
+        self.assertEqual(track.relpath, "Music/b.mp3", "set_value")
+        self.assertEqual(track.full_path, SeratoBinFile.get_full_path("Music/b.mp3"), "set_value")
+        track.set_path("Music/c.mp3")
+        self.assertEqual(track.relpath, "Music/c.mp3", "set_path")
+        self.assertEqual(track.full_path, SeratoBinFile.get_full_path("Music/c.mp3"), "set_path")
+
+    def test_a_path_that_isnt_text_raises(self):
+        path = SeratoBinFile.Fields.FILE_PATH.value
+        with self.assertRaises(DataTypeError, msg="on load"):
+            SeratoBinFile.Track([(path, 1)], path_key=path)
+
+        track = SeratoBinFile.Track([(path, "Music/a.mp3")], path_key=path)
+        with self.assertRaises(DataTypeError, msg="on set"):
+            track.set_value(path, 1)
+        self.assertEqual(track.relpath, "Music/a.mp3", "path kept")
+
+    def test_modify_passes_later_rules_the_new_path(self):
+        database = DatabaseV2(TEST_DATABASE)
+        old, new = database.get_track_paths()[:2]
+        database.remove_tracks([new])  # so moving a track there doesn't duplicate one
+        seen: list[str] = []
+        with mock.patch("os.path.exists", return_value=True):
+            database.modify(
+                [
+                    {"field": DatabaseV2.Fields.FILE_PATH, "func": lambda f, _: new if f == old else None},
+                    {"field": DatabaseV2.Fields.GENRE, "func": lambda f, _: seen.append(f) if f == new else None},
+                ]
+            )
+        self.assertEqual(seen, [new])
 
 
 class HasChangedTestCase(unittest.TestCase):

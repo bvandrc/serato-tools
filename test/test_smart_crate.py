@@ -99,6 +99,25 @@ class TestCase(unittest.TestCase):
                 )
                 self.assertEqual(rule.value, falsy_values[value_field], "a falsy rule value must not read as no value")
 
+    def test_rule_properties_follow_its_entries(self):
+        rule = make_rule(
+            SmartCrate.RuleComparison.INT_IS_GE,
+            SmartCrate.RuleField.PLAYS,
+            SmartCrate.RuleFields.RULE_VALUE_INTEGER,
+            5,
+        )
+        rule.set_comparison(SmartCrate.RuleComparison.STR_CONTAINS)
+        rule.set_field(SmartCrate.RuleField.GENRE)
+        rule.set_value("House")
+        self.assertEqual(
+            (rule.comparison, rule.field, rule.value),
+            (SmartCrate.RuleComparison.STR_CONTAINS.value, SmartCrate.RuleField.GENRE.value, "House"),
+            "set through its setters",
+        )
+
+        rule.remove_field(SmartCrate.RuleFields.RULE_VALUE_TEXT)
+        self.assertIsNone(rule.value, "removed")
+
     def test_every_comparison_maps_to_a_value_field(self):
         # the suffix lookup must cover every comparison, so a comparison with an unknown suffix
         # fails here rather than at set_rule time
@@ -166,7 +185,7 @@ class CliTestCase(unittest.TestCase):
             main()
         return stdout.getvalue()
 
-    def saved_rules(self) -> dict[SmartCrate.RuleField, tuple[str, str | int | float]]:
+    def saved_rules(self) -> dict[SmartCrate.RuleField, tuple[str, str | int | None]]:
         """Each rule in the saved crate, by field, as its comparison and value."""
         crate = SmartCrate(self.path)
         rules = [

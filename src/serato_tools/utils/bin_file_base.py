@@ -396,17 +396,30 @@ class SeratoBinFile:
             super().__init__(entries)
 
             self.path_key = path_key
-            relative_path = self.get_value(path_key)
+            # relpath raises for a path that isn't text: read it now, so a bad one raises when the file is loaded
+            _ = self.relpath
+
+        @property
+        def relpath(self) -> str:
+            """The track's path as stored: without its drive, `/`-separated."""
+            relative_path = self.get_value(self.path_key)
             if not isinstance(relative_path, str):
-                raise DataTypeError(relative_path, str, path_key)
-            self.relpath: str = relative_path
+                raise DataTypeError(relative_path, str, self.path_key)
+            return relative_path
+
+        @property
+        def full_path(self) -> str:
+            """The track's absolute path, which is its `relpath` on `SERATO_DRIVE`."""
+            return SeratoBinFile.get_full_path(self.relpath)
 
         def set_value(self, field: str, value: "SeratoBinFile.Value"):
             """Sets `field` to `value`.
 
             An empty string removes the field instead, as Serato does when a tag is cleared, so a track never stores
-            one empty.
+            one empty. Raises DataTypeError for a path that isn't text.
             """
+            if field == self.path_key and not isinstance(value, str):
+                raise DataTypeError(value, str, field)
             if value == "":
                 self.remove_field(field)
             else:
@@ -423,13 +436,7 @@ class SeratoBinFile:
 
         def set_path(self, path: str):
             """Points the track at `path`, stored without its drive, as Serato stores paths."""
-            relpath = SeratoBinFile.get_relative_path(path)
-            self.set_value(self.path_key, relpath)
-            self.relpath = relpath
-
-        def get_full_path(self):
-            """The track's absolute path, which is its `relpath` on `SERATO_DRIVE`."""
-            return SeratoBinFile.get_full_path(self.relpath)
+            self.set_value(self.path_key, SeratoBinFile.get_relative_path(path))
 
     def _get_track(self, entries: "SeratoBinFile.EntryList"):
         return SeratoBinFile.Track(entries, path_key=self.TRACK_PATH_KEY)
@@ -609,7 +616,7 @@ class SeratoBinFile:
 
     def get_track_paths(self, include_drive: bool = False) -> list[str]:
         """Each track's path: as stored, with no drive, or with `include_drive`, as an absolute path."""
-        return [t.get_full_path() if include_drive else t.relpath for t in self.get_tracks()]
+        return [t.full_path if include_drive else t.relpath for t in self.get_tracks()]
 
     def modify_tracks(self, func: Callable[[Track], Track], files: Optional[Iterable[str]] = None) -> bool:
         """
@@ -831,7 +838,7 @@ class SeratoBinFile:
 
         def relocate(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
             nonlocal new_dir
-            track_path = track.get_full_path()
+            track_path = track.full_path
             if os.path.isfile(track_path):
                 return track
             print(f"missing: {track_path}")
