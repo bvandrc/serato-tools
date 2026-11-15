@@ -36,6 +36,9 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Breaking: a database, crate, or Serato tag that's cut off or malformed raises only `ValueError`, no longer also `AssertionError`, and a number too big or negative for its field raises only `ValueError`, no longer also `struct.error`. Catch `ValueError`, as 5.7.0 deprecated catching the others.
 - `serato_tagdump` exits saying a file has no tags, rather than with a traceback.
 - Breaking: `serato_tools.utils.ui` is renamed `serato_tools.utils.cli`.
+- Breaking: a database or crate track's `get_full_path()` is now its `full_path` property.
+- A database or crate track's `relpath` and `full_path`, and a smart crate rule's `comparison`, `field`, and `value`, read the track's or rule's current entries, so they no longer keep a value set through `set_value` or removed through `remove_field`. In particular, the rules of one `modify()` call after one that changes a track's path are passed its new path, not its old one.
+- Setting a database or crate track's path to anything but text through `set_value` raises `DataTypeError`, as loading one does.
 - Breaking: `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`, next to the database and crate code that raises them.
 
 ### Removed
