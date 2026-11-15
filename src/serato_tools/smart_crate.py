@@ -277,7 +277,7 @@ def main():
     """
     import argparse
 
-    from serato_tools.utils.ui import parse_cli_keys_and_values
+    from serato_tools.utils.cli import parse_cli_keys_and_values
 
     def member_named[E: Enum](enum_class: type[E], name: str) -> E:
         """The member of `enum_class` named `name`, in any case; raises KeyError listing the names if there's none."""

@@ -7,7 +7,8 @@ import sys
 from typing import Optional
 from dataclasses import dataclass
 
-from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag, open_tag_file_or_data
+from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag
+from serato_tools.utils.cli import open_tag_file_or_data
 
 
 class TrackAutotags(SeratoGeobTag):
@@ -87,7 +88,7 @@ if __name__ == "__main__":
     import subprocess
     import tempfile
 
-    from serato_tools.utils.ui import get_text_editor
+    from serato_tools.utils.cli import get_text_editor
 
     @dataclass
     class Args:

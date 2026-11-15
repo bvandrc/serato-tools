@@ -41,6 +41,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Deprecations
 
+- `serato_tools.utils.ui` is renamed `serato_tools.utils.cli`. The old name still imports, with a `DeprecationWarning`, until 6.0.
 - Catching a malformed file's error as `AssertionError`, or a number out of its field's range as `struct.error`, is deprecated in favor of catching `ValueError`. In 6.0 they'll only be `ValueError`s.
 
 ## [5.6.1] - 2026-11-10

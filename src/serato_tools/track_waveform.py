@@ -9,7 +9,8 @@ import io
 from dataclasses import dataclass
 
 from serato_tools.utils import _AssertionValueError
-from serato_tools.utils.track_tags import GeobKeys, NoWaveformError, SeratoGeobTag, open_tag_file_or_data
+from serato_tools.utils.track_tags import GeobKeys, NoWaveformError, SeratoGeobTag
+from serato_tools.utils.cli import open_tag_file_or_data
 
 
 class TrackWaveform(SeratoGeobTag):
