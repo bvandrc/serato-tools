@@ -47,7 +47,7 @@ class TrackWaveform(SeratoGeobTag):
         rows: list[bytearray] = []
         for x in iter(lambda: fp.read(16), b""):
             if len(x) != 16:
-                raise _AssertionValueError(f"waveform ends with a row of {len(x)} bytes, not 16")
+                raise _AssertionValueError(f"waveform rows must be 16 bytes, but its last is {len(x)}")
             rows.append(bytearray(x))
         return rows
 
@@ -64,7 +64,7 @@ class TrackWaveform(SeratoGeobTag):
         pixels = img.load()
 
         if len(self.data) < img.size[0]:
-            raise ValueError(f"waveform data has {len(self.data)} rows, expected at least {img.size[0]}")
+            raise ValueError(f"waveform data must have at least {img.size[0]} rows, not {len(self.data)}")
 
         for i in range(img.size[0]):
             rowdata = self.data[i]

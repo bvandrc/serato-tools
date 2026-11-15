@@ -26,7 +26,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(caught.exception.filename, path)
 
     def test_a_partial_row_raises(self):
-        with self.assertRaisesRegex(ValueError, "row of 5 bytes"):
+        with self.assertRaisesRegex(ValueError, "rows must be 16 bytes, but its last is 5"):
             TrackWaveform(read_bytes("test/data/track_waveform.bin") + b"\x00" * 5)
 
     def test_drawing_without_pillow_says_how_to_install_it(self):

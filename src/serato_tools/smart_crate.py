@@ -127,7 +127,7 @@ class SmartCrate(CrateBase):
             try:
                 return int(value)
             except ValueError:
-                raise ValueError(f'comparison "{comparison}" requires an integer value, got "{value}"') from None
+                raise ValueError(f'comparison "{comparison}" must have an integer value, not "{value}"') from None
         return str(value)
 
     def _stringify_entry(self, entry: CrateBase.EntryFull, indent: int = 0) -> str:

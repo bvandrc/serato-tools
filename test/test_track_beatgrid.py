@@ -85,7 +85,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(caught.exception.code, f"no Serato BeatGrid tag: {path}")
 
     def test_bytes_after_the_footer_raise(self):
-        with self.assertRaisesRegex(ValueError, "1 bytes after its footer"):
+        with self.assertRaisesRegex(ValueError, "must end with its footer, but has 1 bytes after it"):
             TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin") + b"\x00")
 
     def test_entries_out_of_order_raise_on_saving(self):

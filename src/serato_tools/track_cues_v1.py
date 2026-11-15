@@ -91,12 +91,12 @@ class TrackCuesV1(SeratoGeobTag):
             for field, value in zip(cls.FIELDS, info):
                 if field == "start_position_set":
                     if value not in (0x00, 0x7F):
-                        raise _AssertionValueError(f"start_position_set is 00 or 7f, not {value:02x}")
+                        raise _AssertionValueError(f"start_position_set must be 00 or 7f, not {value:02x}")
                     value = value != 0x7F
                     start_position_set = value
                 elif field == "end_position_set":
                     if value not in (0x00, 0x7F):
-                        raise _AssertionValueError(f"end_position_set is 00 or 7f, not {value:02x}")
+                        raise _AssertionValueError(f"end_position_set must be 00 or 7f, not {value:02x}")
                     value = value != 0x7F
                     end_position_set = value
                 elif field == "start_position":
@@ -323,7 +323,7 @@ if __name__ == "__main__":
                                 cp.read_string(output.decode())
                                 sections = tuple(sorted(cp.sections()))
                                 if action != "a" and len(sections) != 1:
-                                    raise _AssertionValueError(f"expected exactly one entry, got {len(sections)}")
+                                    raise _AssertionValueError(f"there must be exactly one entry, not {len(sections)}")
 
                                 results = []
                                 for section in sections:

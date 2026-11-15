@@ -82,7 +82,7 @@ class SerializeTestCase(unittest.TestCase):
         track_number = SeratoBinFile.Fields.TRACK_NUMBER.value
         for value in (-1, 2**32):
             with self.subTest(value):
-                with self.assertRaisesRegex(ValueError, f"{track_number} holds a number from 0 to") as caught:
+                with self.assertRaisesRegex(ValueError, f"{track_number} must be a number from 0 to") as caught:
                     SeratoBinFile.check_value(track_number, value)
                 self.assertIsInstance(caught.exception, struct.error, "still caught as the struct.error it was")
 

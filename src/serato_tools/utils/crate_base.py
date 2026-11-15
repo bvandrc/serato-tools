@@ -53,7 +53,7 @@ class CrateBase(SeratoBinFile):
             file = self.filepath
 
         if not file.endswith(self.EXTENSION):
-            raise ValueError(f"file should end with {self.EXTENSION}: " + file)
+            raise ValueError(f"file must end with {self.EXTENSION}: " + file)
 
         super().save(file)
 

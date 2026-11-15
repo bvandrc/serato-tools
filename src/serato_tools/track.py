@@ -47,7 +47,7 @@ class Track:
     @staticmethod
     def _parsed[T](tag: T | None, name: str) -> T:
         if tag is None:
-            raise ValueError(f"the track's {name} wasn't parsed: pass {name}=True to Track")
+            raise ValueError(f"the track's {name} must be parsed to use it: pass {name}=True to Track")
         return tag
 
     @property

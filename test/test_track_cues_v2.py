@@ -245,12 +245,12 @@ class TestCase(unittest.TestCase):
         # cue 11 as found in a real tag, which Serato ignored: field4 cc and color cccccc
         cue_11 = bytes.fromhex("00 0a 00 02 14 98 cc cc cc cc 00 00 00")
         payload = b"\x01\x01" + b"CUE\x00" + struct.pack(">I", len(cue_11)) + cue_11 + b"\x00"
-        with self.assertRaisesRegex(ValueError, "cue 11 is past Serato's 8 cue pads"):
+        with self.assertRaisesRegex(ValueError, "cue 11 must be on one of Serato's 8 cue pads"):
             TrackCuesV2(b"\x01\x01" + base64.b64encode(payload))
 
         tags = TrackCuesV2(read_bytes("test/data/track_cues_v2_analyzed.bin"))
         cue_9 = TrackCuesV2.CueEntry(b"\x00", 8, 1000, b"\x00", TrackCuesV2.CueColors.RED.value, b"\x00\x00", "")
-        with self.assertRaisesRegex(ValueError, "cue 9 is past Serato's 8 cue pads"):
+        with self.assertRaisesRegex(ValueError, "cue 9 must be on one of Serato's 8 cue pads"):
             tags.modify_entries(lambda info: dataclasses.replace(info, cues=[cue_9]))
 
     def test_snap_position_to_beat(self):

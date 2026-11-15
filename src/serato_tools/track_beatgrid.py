@@ -110,7 +110,7 @@ class TrackBeatgrid(SeratoGeobTag):
         footer_value = struct.unpack("B", footer_byte)[0] if len(footer_byte) == 1 else 0
         yield TrackBeatgrid.Footer(footer_value)
         if rest := fp.read():
-            raise _AssertionValueError(f"beatgrid has {len(rest)} bytes after its footer")
+            raise _AssertionValueError(f"a beatgrid must end with its footer, but has {len(rest)} bytes after it")
 
     __SplitEntryList = tuple[list[_T], TerminalBeatgridMarker, Footer]
 
@@ -148,7 +148,7 @@ class TrackBeatgrid(SeratoGeobTag):
 
         if len(terminal_markers) != 1 or len(footers) != 1:
             raise _AssertionValueError(
-                f"beatgrid has {len(terminal_markers)} terminal markers and {len(footers)} footers, not 1 of each"
+                f"a beatgrid must have 1 terminal marker and 1 footer, not {len(terminal_markers)} and {len(footers)}"
             )
         if not isinstance(entries[-1], TrackBeatgrid.Footer):
             raise _AssertionValueError("a beatgrid's last entry must be its footer")
@@ -168,15 +168,17 @@ class TrackBeatgrid(SeratoGeobTag):
         previous_position_s = None
         for marker in nonterminal_markers:
             if marker.beats_till_next_marker <= 0:
-                raise ValueError(f"beatgrid marker at {marker.position_s} s has {marker.beats_till_next_marker} beats")
+                raise ValueError(
+                    f"beatgrid marker at {marker.position_s} s must have at least 1 beat, not {marker.beats_till_next_marker}"
+                )
         for marker in (*nonterminal_markers, terminal_marker):
             if previous_position_s is not None and marker.position_s <= previous_position_s:
                 raise ValueError(
-                    f"beatgrid marker at {marker.position_s} s doesn't come after the one at {previous_position_s} s"
+                    f"beatgrid marker at {marker.position_s} s must come after the one at {previous_position_s} s"
                 )
             previous_position_s = marker.position_s
         if not terminal_marker.bpm > 0:
-            raise ValueError(f"beatgrid's last marker has a BPM of {terminal_marker.bpm}")
+            raise ValueError(f"beatgrid's last marker must have a BPM above 0, not {terminal_marker.bpm}")
 
     def _serialize(self):
         entries = self._check_and_split()
@@ -245,14 +247,14 @@ class TrackBeatgrid(SeratoGeobTag):
             if position_s < next_pos:
                 if marker.beats_till_next_marker <= 0 or next_pos <= marker.position_s:
                     raise ValueError(
-                        f"invalid beatgrid: zero-length or zero-beat segment at {marker.position_s}s (beats_till_next_marker={marker.beats_till_next_marker}, next marker at {next_pos}s)"
+                        f"beatgrid segment at {marker.position_s}s must have a length and at least 1 beat (beats_till_next_marker={marker.beats_till_next_marker}, next marker at {next_pos}s)"
                     )
                 interval = (next_pos - marker.position_s) / marker.beats_till_next_marker
                 return cumulative_beats + (position_s - marker.position_s) / interval
             cumulative_beats += marker.beats_till_next_marker
 
         if terminal_marker.bpm <= 0:
-            raise ValueError(f"invalid terminal marker bpm: {terminal_marker.bpm}")
+            raise ValueError(f"beatgrid's last marker must have a BPM above 0, not {terminal_marker.bpm}")
         terminal_interval = 60.0 / terminal_marker.bpm
         return cumulative_beats + (position_s - terminal_marker.position_s) / terminal_interval
 
@@ -261,7 +263,7 @@ class TrackBeatgrid(SeratoGeobTag):
     def get_beats(self) -> list["TrackBeatgrid.BeatPoint"]:
         """Every beat in the track, as a BeatPoint: its position in seconds, and the BPM there."""
         if not isinstance(self.tagfile, FileType):
-            raise ValueError("no tagfile set, cannot determine track length")
+            raise ValueError("the tag must be read from an audio file, for the track's length")
         if not self.entries:
             return []
         if not self.enhanced_entries:
@@ -279,7 +281,7 @@ class TrackBeatgrid(SeratoGeobTag):
             )
             if marker.beats_till_next_marker <= 0:
                 raise ValueError(
-                    f"invalid beatgrid: marker at {marker.position_s}s has beats_till_next_marker={marker.beats_till_next_marker}"
+                    f"beatgrid marker at {marker.position_s} s must have at least 1 beat, not {marker.beats_till_next_marker}"
                 )
             interval = (next_pos - marker.position_s) / marker.beats_till_next_marker
             for j in range(marker.beats_till_next_marker):
@@ -287,12 +289,14 @@ class TrackBeatgrid(SeratoGeobTag):
                 beats.append(TrackBeatgrid.BeatPoint(position_s=pos, bpm=marker.bpm))
 
         if isinstance(self.tagfile, ID3):
-            raise ValueError("ID3 tagfile not supported, must pass MP3() type or other that has .length attribute")
+            raise ValueError(
+                "the tag must be read from an audio file, such as an MP3, not bare ID3 tags, for the track's length"
+            )
         track_length: float = self.tagfile.info.length
         if track_length > 60 * 60 * 3:  # 3 hours
-            raise ValueError(f"Track length is too long: {track_length} seconds")
+            raise ValueError(f"track must be at most 3 hours long, not {track_length} seconds")
         if terminal_marker.bpm <= 0:
-            raise ValueError(f"invalid terminal marker bpm: {terminal_marker.bpm}")
+            raise ValueError(f"beatgrid's last marker must have a BPM above 0, not {terminal_marker.bpm}")
         terminal_interval = 60.0 / terminal_marker.bpm
         pos = terminal_marker.position_s
         while pos <= track_length:

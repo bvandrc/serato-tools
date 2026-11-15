@@ -49,7 +49,7 @@ def _check_db_track_tags(tags: DbTrackTags):
     """Raises ValueError if `tags` has a key that isn't one of DbTrackTags'."""
     unknown = set(tags) - DbTrackTags.__optional_keys__
     if unknown:
-        raise ValueError(f"unknown track tags: {sorted(unknown)}, expected some of {sorted(_DB_TRACK_PROPS)}")
+        raise ValueError(f"track tags must be some of {sorted(_DB_TRACK_PROPS)}, not {sorted(unknown)}")
 
 
 def write_db_track_tags_to_files(tracks: Mapping[str, DbTrackTags], delete_tags_v1: bool = True):
