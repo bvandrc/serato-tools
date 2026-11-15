@@ -124,6 +124,45 @@ class CopyCratesToUsbTestCase(unittest.TestCase):
         crate.save()
         return path
 
+    def dest(self, *parts: str) -> str:
+        return os.path.join(self.drive, *parts)
+
+    def test_exports_crates_their_tracks_and_a_database_of_them(self):
+        usb_export.copy_crates_to_usb([self.house, self.deep], self.drive, "Tracks", root_crate="USB")
+
+        crates = os.path.join(self.drive, "_Serato_", Crate.DIR)
+        self.assertEqual(sorted(os.listdir(crates)), ["Serato Stems", "USB%%Deep.crate", "USB%%House.crate"])
+        self.assertEqual(Crate(os.path.join(crates, "USB%%House.crate")).get_track_paths(), ["Tracks/a.mp3"])
+        # a smart crate becomes a regular crate of its tracks
+        self.assertEqual(Crate(os.path.join(crates, "USB%%Deep.crate")).get_track_paths(), ["Tracks/b.mp3"])
+        self.assertEqual(
+            Crate(os.path.join(crates, "Serato Stems", "Stems.crate")).get_track_paths(),
+            ["Tracks/a.mp3"],
+            "only the exported tracks",
+        )
+
+        db = DatabaseV2(self.dest("_Serato_", DatabaseV2.FILENAME))
+        self.assertEqual(db.get_track_paths(), ["Tracks/a.mp3", "Tracks/b.mp3"], "only the exported tracks")
+        self.assertEqual([t.get_value(DatabaseV2.Fields.PLAYED) for t in db.get_tracks()], [False, False])
+
+        with open(self.dest("_Serato_", "neworder.pref"), encoding="utf-8") as f:
+            self.assertEqual(f.read(), "[begin record]\n[crate]USB%%House\n[crate]Stems\n[end record]\n")
+
+        self.assertEqual(sorted(os.listdir(self.dest("Tracks"))), ["a.mp3", "a.serato-stems", "b.mp3"])
+        with open(self.dest("Tracks", "a.mp3"), encoding="utf-8") as f:
+            self.assertEqual(f.read(), self.a, "the first of the tracks with that filename")
+
+    def test_replaces_the_drives_library_and_skips_unchanged_tracks(self):
+        usb_export.copy_crates_to_usb([self.house], self.drive, "Tracks")
+        stale = self.dest("_Serato_", Crate.DIR, "Old.crate")
+        open(stale, "wb").close()  # pylint: disable=consider-using-with
+
+        with mock.patch.object(usb_export.shutil, "copy2") as copy2:
+            usb_export.copy_crates_to_usb([self.house], self.drive, "Tracks")
+        copy2.assert_not_called()
+        self.assertFalse(os.path.exists(stale), "the drive's _Serato_ folder is replaced")
+        self.assertTrue(os.path.exists(self.dest("_Serato_", Crate.DIR, "House.crate")))
+
     def test_a_track_with_two_stems_files_raises(self):
         self.add_track(os.path.join(self.music, "one", "a.mp3.serato-stems"))
         with self.assertRaisesRegex(ValueError, "more than 1 stems file"):
