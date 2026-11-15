@@ -12,7 +12,19 @@ import os
 import re
 import struct
 from enum import StrEnum, unique
-from typing import Any, Callable, Collection, Generator, Iterable, NotRequired, Optional, Pattern, TypedDict, cast
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Generator,
+    Iterable,
+    NotRequired,
+    Optional,
+    Pattern,
+    TypedDict,
+    cast,
+    overload,
+)
 
 from serato_tools.utils import SERATO_DRIVE, logger
 
@@ -25,8 +37,18 @@ class DataTypeError(Exception):
             f"value must be {expected_type.__name__} when field is {field} (type: {type(value).__name__}) (value: {str(value)})"
         )
 
+    # for `list`, a bare `type[T]` would type the result `list[Unknown]`; this overload keeps the element type of
+    # `value`'s list member instead, as an isinstance check would
+    @overload
     @staticmethod
-    def check[T](value: object, expected_type: type[T], field: str | None) -> T:
+    def check[I](value: object | list[I], expected_type: type[list[Any]], field: str | None) -> list[I]: ...
+
+    @overload
+    @staticmethod
+    def check[T](value: object, expected_type: type[T], field: str | None) -> T: ...
+
+    @staticmethod
+    def check(value: object, expected_type: type, field: str | None) -> object:
         """`value`, typed as `expected_type`; raises DataTypeError if it isn't an instance of it."""
         if not isinstance(value, expected_type):
             raise DataTypeError(value, expected_type, field)
