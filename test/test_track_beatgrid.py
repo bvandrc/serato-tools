@@ -20,6 +20,17 @@ class TestCase(unittest.TestCase):
             beatgrid.analyze_and_write()
         self.assertEqual(beatgrid.find_nearest_beat(520, 0.1), 500.0, "the new grid's first beat")
 
+    def test_analyze_and_write_giving_an_invalid_grid_keeps_the_old_one(self):
+        beatgrid = TrackBeatgrid(temp_mp3(self))
+        entries, raw_data = beatgrid.entries, beatgrid._raw_data
+        analyzed = BeatGridInfo(100.0, [], 1.0, 0.0, 1.0, downbeats=[2.9, 0.5])  # out of order
+        with (
+            mock.patch("serato_tools.utils.beatgrid_analyze.analyze_beatgrid", return_value=analyzed),
+            self.assertRaises(ValueError),
+        ):
+            beatgrid.analyze_and_write()
+        self.assertEqual((beatgrid.entries, beatgrid._raw_data), (entries, raw_data))
+
     def test_parse_and_serialize(self):
         file_data = read_bytes("test/data/track_beatgrid.bin")
         tags = TrackBeatgrid(file_data)
