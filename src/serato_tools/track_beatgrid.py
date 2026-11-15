@@ -110,7 +110,7 @@ class TrackBeatgrid(SeratoGeobTag):
         footer_value = struct.unpack("B", footer_byte)[0] if len(footer_byte) == 1 else 0
         yield TrackBeatgrid.Footer(footer_value)
         if rest := fp.read():
-            raise _AssertionValueError(f"beatgrid has {len(rest)} bytes after its footer")
+            raise _AssertionValueError(f"beatgrid has {len(rest)} bytes after its footer, should have 0")
 
     __SplitEntryList = tuple[list[_T], TerminalBeatgridMarker, Footer]
 
