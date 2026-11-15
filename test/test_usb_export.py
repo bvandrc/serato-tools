@@ -1,3 +1,4 @@
+# pylint: disable=protected-access
 import os
 import shutil
 import unittest
@@ -88,7 +89,7 @@ class CopyCratesToUsbTestCase(unittest.TestCase):
         db = DatabaseV2(os.path.join(self.serato_dir, DatabaseV2.FILENAME))
         db.filter_tracks(lambda track: False)
         for path in (self.a, self.b, self.c):
-            db.entries.append((DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, db.get_relative_path(path))]))
+            db._entries.append((DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, db.get_relative_path(path))]))
         db.save()
 
         self.house = self.add_crate(Crate, "House", [self.a, self.a_again])

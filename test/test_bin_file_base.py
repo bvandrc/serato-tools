@@ -1,3 +1,4 @@
+# pylint: disable=protected-access
 import os
 import shutil
 import unittest
@@ -115,7 +116,7 @@ class TrackTestCase(unittest.TestCase):
             SeratoBinFile.Track(entries, path_key=path)
 
         database = DatabaseV2(TEST_DATABASE)
-        database.entries.append((SeratoBinFile.Fields.TRACK.value, entries))
+        database._entries.append((SeratoBinFile.Fields.TRACK.value, entries))
         with self.assertRaisesRegex(DeeplyNestedListError, f"in field {SeratoBinFile.Fields.TRACK.value}.*a\\.mp3"):
             list(database.get_entries())
 
@@ -153,15 +154,17 @@ class TrackTestCase(unittest.TestCase):
         self.assertEqual(track.relpath, "Music/c.mp3", "set_path")
         self.assertEqual(track.full_path, SeratoBinFile.get_full_path("Music/c.mp3"), "set_path")
 
-    def test_a_path_that_isnt_text_raises(self):
-        path = SeratoBinFile.Fields.FILE_PATH.value
-        with self.assertRaises(DataTypeError, msg="on load"):
-            SeratoBinFile.Track([(path, 1)], path_key=path)
-
-        track = SeratoBinFile.Track([(path, "Music/a.mp3")], path_key=path)
-        with self.assertRaises(DataTypeError, msg="on set"):
+    def test_set_value_refuses_a_value_its_field_cant_hold(self):
+        fields = SeratoBinFile.Fields
+        path, genre = fields.FILE_PATH.value, fields.GENRE.value
+        track = SeratoBinFile.Track([(path, "Music/a.mp3"), (genre, "House")], path_key=path)
+        with self.assertRaises(DataTypeError, msg="path"):
             track.set_value(path, 1)
-        self.assertEqual(track.relpath, "Music/a.mp3", "path kept")
+        with self.assertRaises(DataTypeError, msg="other text field"):
+            track.set_value(genre, 1)
+        with self.assertRaises(ValueError, msg="number too big"):
+            track.set_value(fields.PLAY_COUNT.value, 2**32)
+        self.assertEqual(track.to_entries(), [(path, "Music/a.mp3"), (genre, "House")], "values kept")
 
     def test_modify_passes_later_rules_the_new_path(self):
         database = DatabaseV2(TEST_DATABASE)
@@ -197,7 +200,7 @@ class HasChangedTestCase(unittest.TestCase):
         crate.save()
         self.assertFalse(crate.has_changed, "saved")
 
-        sorting = crate.entries[1][1]
+        sorting = crate._entries[1][1]
         assert isinstance(sorting, list)
         sorting.append((Crate.Fields.COLUMN_NAME, "edited in place"))
         self.assertTrue(crate.has_changed, "nested entry edited in place")

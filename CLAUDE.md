@@ -64,14 +64,19 @@ Subclasses (`DatabaseV2`, `CrateBase` → `Crate` / `SmartCrate`):
   - Each class lists its valid set in `FIELD_ENUMS`, so a rule field in a database or regular crate is rejected. `__init_subclass__` derives the `FIELDS` frozenset and the `FIELD_NAMES` dict of readable names from it, so a subclass sets only `FIELD_ENUMS`.
 - **Smart crate rule values:** a rule holds exactly one of the `RULE_VALUE_FIELDS`, picked by its comparison's type suffix (`cond_*_str`/`_time`/`_uint`), never by the value's Python type. `set_rule` and `Rule.set_value` coerce the value to match, as Serato does.
 
-The lifecycle is `parse → self.entries → change through the class's methods → to_bytes() → save()`:
+The lifecycle is `parse → self._entries → change through the class's methods → to_bytes() → save()`:
 
-- The file's bytes aren't stored. Each `to_bytes()` call serializes `entries` from scratch, so changes cost nothing and each `save()` pays for one serialization. Change a file through its methods (`modify_tracks`, `modify`, `filter_tracks`, `add_tracks`, ...), not by editing `entries` directly, and point callers and docs at those methods too. (The `SeratoGeobTag` classes below do store theirs, in the internal `_raw_data`.)
+- The file's bytes aren't stored. Each `to_bytes()` call serializes `_entries` from scratch, so changes cost nothing and each `save()` pays for one serialization. (The `SeratoGeobTag` classes below do store theirs, in the internal `_raw_data`.)
+- `_entries` is internal: callers change a file through its methods (`modify_tracks`, `modify`, `filter_tracks`, `add_tracks`, ...) and read it through `get_entries`, `get_tracks`, and `to_json_object`. Point callers and docs at those methods too.
+- **Value types:** every value in `_entries` has the type its field holds, so code reading one `cast`s it to that type rather than checking it.
+  - It's checked wherever a value comes in: parsing gives each field its type, `from_json_object` serializes the entries before taking them, and `EntryListCls.set_value` calls `check_value`. A new way in has to check too.
+  - `expect_type(value, type, field)` does those checks: it raises `DataTypeError` or returns the value, typed, so one call checks and narrows.
 - The read-only `has_changed` property compares a hash of `to_bytes()` with one of the bytes the file was loaded from or last saved to its own path (`_saved_hash`).
   - It sees in-place edits too, and a file that didn't exist yet counts as changed.
-  - Load hashes the bytes it already read rather than copying `entries`, so a read-only use pays next to nothing for it, and each `has_changed` call pays one serialization instead.
+  - Load hashes the bytes it already read rather than copying `_entries`, so a read-only use pays next to nothing for it, and each `has_changed` call pays one serialization instead.
   - A file loaded from JSON is serialized once at load for its hash.
 - `save(file=None, force=False)` writes to the file's own path only if its bytes differ from that hash, unless `force`, and returns whether it wrote. Saving to another path ("save as", e.g. `usb_export`) always writes. It serializes once, to check and to write. `CrateBase` overrides it to also check the file's extension.
+- `modify_tracks` replaces the tracks only once `func` has run for every one, so a `func` that raises changes nothing.
 - `modify_tracks`, `modify`, `change_track_path`, `filter_tracks`, `remove_tracks`, and `remove_duplicates` return whether anything changed. Methods that save on the caller's behalf (`modify_and_save`, `find_missing`, and `Library`'s methods) use that to skip even `save()`'s serialization when nothing changed.
 - `modify()` takes a list of `ModifyRule` dicts (`{"field": ..., "func": (filename, prev_val) -> new_val | None, "files": [...]}`); returning `None` from `func` means "leave unchanged". A `func` returning `""` removes the field, as does a track entry's `set_value` with `""` (through its `remove_field`), since Serato removes a tag's field when the tag is cleared rather than storing it empty.
 - `modify_tracks(func, files=...)` and `modify()` with every rule limited to `files` skip every other track after reading only its path, which keeps single-track edits fast on a large library.

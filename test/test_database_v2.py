@@ -40,10 +40,10 @@ class TestCase(unittest.TestCase):
         self.maxDiff = None
         expected = db.__str__()
 
-        original_entries = copy.deepcopy(db.entries)
+        original_entries = copy.deepcopy(db._entries)
         original_bytes = db.to_bytes()
         self.assertFalse(db.modify([]), "reports no change")
-        self.assertEqual(db.entries, original_entries, "was not modified")
+        self.assertEqual(db._entries, original_entries, "was not modified")
         self.assertEqual(db.to_bytes(), original_bytes, "was not modified")
         self.assertEqual(db.__str__(), expected, "was not modified")
 
@@ -235,7 +235,7 @@ class TestCase(unittest.TestCase):
         shutil.copy(TEST_DATABASE, db_file)
 
         db = DatabaseV2(db_file)
-        db.entries.append((DatabaseV2.Fields.TRACK, "not a list"))
+        db._entries.append((DatabaseV2.Fields.TRACK, "not a list"))
         with self.assertRaises(DataTypeError):
             db.save()
         with open(db_file, "rb") as f:
@@ -254,7 +254,7 @@ class TestCase(unittest.TestCase):
 
     def test_mistyped_json_value_is_refused(self):
         db = DatabaseV2(os.path.abspath(TEST_DATABASE))
-        original_entries = copy.deepcopy(db.entries)
+        original_entries = copy.deepcopy(db._entries)
         json_obj = db.to_json_object()
         track = json_obj[1]["value"]
         assert isinstance(track, list)
@@ -270,7 +270,7 @@ class TestCase(unittest.TestCase):
 
         with self.assertRaises(DataTypeError, msg="into an existing db"):
             db.from_json_object(json_obj)
-        self.assertEqual(db.entries, original_entries, "existing entries left as they were")
+        self.assertEqual(db._entries, original_entries, "existing entries left as they were")
 
     def test_modify_tracks_given_files(self):
         db = DatabaseV2(os.path.abspath(TEST_DATABASE))
@@ -284,6 +284,28 @@ class TestCase(unittest.TestCase):
 
         db.modify_tracks(func, files=[target])
         self.assertEqual(seen, [DatabaseV2.get_relative_path(target)], "only the given track is passed to func")
+
+    def test_modify_tracks_changes_nothing_if_func_raises(self):
+        db = DatabaseV2(os.path.abspath(TEST_DATABASE))
+        calls = 0
+
+        def func(track: DatabaseV2.Track):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise RuntimeError("second track")
+            track.set_value(DatabaseV2.Fields.GENRE, "Changed")
+            return track
+
+        with self.assertRaises(RuntimeError):
+            db.modify_tracks(func)
+        self.assertFalse(db.has_changed, "the first track is left as it was")
+
+    def test_modify_with_a_value_of_the_wrong_type_changes_nothing(self):
+        db = DatabaseV2(os.path.abspath(TEST_DATABASE))
+        with self.assertRaises(DataTypeError):
+            db.modify([{"field": DatabaseV2.Fields.GENRE, "func": lambda *_: 1}])
+        self.assertFalse(db.has_changed)
 
     def test_dedupe(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_duplicates.bin"))
@@ -301,7 +323,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(db.get_corrupt_tracks(), {}, "no corrupt tracks in the test database")
 
         fields = DatabaseV2.Fields
-        db.entries += [
+        db._entries += [
             (
                 fields.TRACK,
                 [(fields.FILE_PATH, "Music/Bad.mp3"), (fields.CORRUPT, True), (fields.CORRUPT_REASON, "why")],
@@ -322,6 +344,6 @@ class TestCase(unittest.TestCase):
         db_from_json = DatabaseV2(os.path.abspath("test/data/database_v2_json.json"))
         self.assertEqual(db_from_json.__str__(), db_from_bin.__str__(), "loaded from a JSON file")
 
-        db_from_json.entries = []
+        db_from_json._entries = []
         db_from_json.from_json_object(db_from_bin.to_json_object())
         self.assertEqual(db_from_json.__str__(), db_from_bin.__str__(), "from_json_object")
