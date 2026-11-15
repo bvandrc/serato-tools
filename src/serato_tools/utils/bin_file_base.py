@@ -158,7 +158,7 @@ class SeratoBinFile:
             if not isinstance(default_version, str):
                 raise DataTypeError(default_version, str, version_entry[0])
             if default_version not in self.TESTED_VERSIONS:
-                raise ValueError("version in DEFAULT_ENTRIES must be in TESTED_VERSIONS")
+                raise ValueError("version in DEFAULT_ENTRIES is not in TESTED_VERSIONS")
             self.version = default_version
 
         if not hasattr(self, "version"):
