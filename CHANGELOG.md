@@ -117,7 +117,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - The smart crate field holding the on/off value of "match all" and "live update" is named too: `SmartCrate.RuleFields.SETTING_VALUE`
 - Add `DatabaseV2.get_corrupt_tracks`, and `--list_corrupt` to the database CLI, which list the tracks Serato marked corrupt along with the reason Serato gives
 
-## [5.2.1] - 2026-11-03
+## 5.2.1 - 2026-11-03
 
 - Fix `TrackGain`, which never read or wrote anything: Serato stores a track's gain as an `RVA2` ID3 frame named `SeratoGain`, not the `replaygain_SeratoGain_gain` / `_peak` keys we had before
   - **If you delete gain when `gain` or `peak` isn't `None`, check that code**: Serato writes the frame on most analyzed tracks, with a gain of `0.0` unless one was set, so it's now `0.0` rather than `None` for them
@@ -160,7 +160,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `modify` on a database or regular crate now rejects smart crate rule fields, which moved from the shared `Fields` enum to the new `SmartCrate.RuleFields`
 
-## [5.0.1] - 2026-11-03
+## 5.0.1 - 2026-11-03
 
 - Fix smart crate rules with a value of `0` or empty text being read as having no value
 
@@ -213,7 +213,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `get_tracks` to bin_file
 
-## [3.6.1] - 2025-10-28
+## 3.6.1 - 2025-10-28
 
 - bugfix
 
@@ -225,7 +225,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Convert smartcrate rules from objects to enums
 
-## [3.4.0] - 2025-06-11
+## 3.4.0 - 2025-06-11
 
 - Modify smartcrate rules
 - Add `serato_smartcrate` and `serato_crate` entry points
@@ -233,3 +233,31 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.5.1] - 2025-04-11
 
 - Initial publish (pyproject.toml added). Serato library and track metadata modification.
+
+[5.7.0]: https://github.com/bvandrc/serato-tools/compare/v5.6.1...v5.7.0
+[5.6.1]: https://github.com/bvandrc/serato-tools/compare/v5.6.0...v5.6.1
+[5.6.0]: https://github.com/bvandrc/serato-tools/compare/v5.5.0...v5.6.0
+[5.5.0]: https://github.com/bvandrc/serato-tools/compare/v5.4.1...v5.5.0
+[5.4.1]: https://github.com/bvandrc/serato-tools/compare/v5.4.0...v5.4.1
+[5.4.0]: https://github.com/bvandrc/serato-tools/compare/v5.3.2...v5.4.0
+[5.3.2]: https://github.com/bvandrc/serato-tools/compare/v5.3.1...v5.3.2
+[5.3.1]: https://github.com/bvandrc/serato-tools/compare/v5.3.0...v5.3.1
+[5.3.0]: https://github.com/bvandrc/serato-tools/compare/v5.2.0...v5.3.0
+[5.2.0]: https://github.com/bvandrc/serato-tools/compare/v5.1.2...v5.2.0
+[5.1.2]: https://github.com/bvandrc/serato-tools/compare/v5.1.1...v5.1.2
+[5.1.1]: https://github.com/bvandrc/serato-tools/compare/v5.1.0...v5.1.1
+[5.1.0]: https://github.com/bvandrc/serato-tools/compare/v5.0.2...v5.1.0
+[5.0.2]: https://github.com/bvandrc/serato-tools/compare/v5.0.0...v5.0.2
+[5.0.0]: https://github.com/bvandrc/serato-tools/compare/v4.1.0...v5.0.0
+[4.1.0]: https://github.com/bvandrc/serato-tools/compare/v4.0.4...v4.1.0
+[4.0.4]: https://github.com/bvandrc/serato-tools/compare/v4.0.3...v4.0.4
+[4.0.3]: https://github.com/bvandrc/serato-tools/compare/v4.0.2...v4.0.3
+[4.0.2]: https://github.com/bvandrc/serato-tools/compare/v4.0.1...v4.0.2
+[4.0.1]: https://github.com/bvandrc/serato-tools/compare/v4.0.0...v4.0.1
+[4.0.0]: https://github.com/bvandrc/serato-tools/compare/v3.8.2...v4.0.0
+[3.8.2]: https://github.com/bvandrc/serato-tools/compare/v3.7.1...v3.8.2
+[3.7.1]: https://github.com/bvandrc/serato-tools/compare/v3.7.0...v3.7.1
+[3.7.0]: https://github.com/bvandrc/serato-tools/compare/v3.5.3...v3.7.0
+[3.5.3]: https://github.com/bvandrc/serato-tools/compare/v3.4.3...v3.5.3
+[3.4.3]: https://github.com/bvandrc/serato-tools/compare/v1.5.1...v3.4.3
+[1.5.1]: https://github.com/bvandrc/serato-tools/releases/tag/v1.5.1
