@@ -2,6 +2,23 @@
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.8.0] - 2026-11-15
+
+### Features
+
+- Add `Track.snap_cues_to_beats(tolerance_beats)`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `SnappedCue`.
+  - `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)` does the same with the `TrackBeatgrid` passed to it.
+  - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to.
+  - Each raises `NoCuesError` or `NoBeatgridError` for a track without cues or a beatgrid.
+- `serato_snap_cues_v2 --snap_cues` now says which cue each move was for, and which tag is missing for a track without cues or a beatgrid. Its options are unchanged.
+
+### Deprecations
+
+- `TrackCuesV2`'s old snapping methods are deprecated, but still work, until 6.0:
+  - `snap_positions_to_beat` and `snap_positions_to_beat_rule`: use `Track.snap_cues_to_beats`, or `TrackCuesV2.snap_cues_to_beats`.
+  - `get_snapped_beat_ms`: use `TrackBeatgrid.get_snapped_position`.
+  - `get_beat_position(entry)`: use `TrackBeatgrid.get_beat_position(entry.position)`.
+
 ## [5.7.0] - 2026-11-15
 
 ### Features
@@ -224,6 +241,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Initial publish (pyproject.toml added). Serato library and track metadata modification.
 
+[5.8.0]: https://github.com/bvandrc/serato-tools/compare/v5.7.0...v5.8.0
 [5.7.0]: https://github.com/bvandrc/serato-tools/compare/v5.6.1...v5.7.0
 [5.6.1]: https://github.com/bvandrc/serato-tools/compare/v5.6.0...v5.6.1
 [5.6.0]: https://github.com/bvandrc/serato-tools/compare/v5.5.0...v5.6.0

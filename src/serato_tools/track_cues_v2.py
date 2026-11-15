@@ -21,7 +21,14 @@ from dataclasses import dataclass, field
 
 from serato_tools.utils import _AssertionValueError
 from serato_tools.track_cues_v1 import TrackCuesV1
-from serato_tools.utils.track_tags import SeratoGeobTag, del_geob, GeobKeys, NoCuesError
+from serato_tools.utils.track_tags import (
+    SeratoGeobTag,
+    del_geob,
+    GeobKeys,
+    MissingTagError,
+    NoBeatgridError,
+    NoCuesError,
+)
 from serato_tools.utils.ui import open_tag_file_or_data
 from serato_tools.track_beatgrid import TrackBeatgrid
 
@@ -650,17 +657,77 @@ class TrackCuesV2(SeratoGeobTag):
 
         self.modify_entries(rule, delete_tags_v1)
 
-    def get_snapped_beat_ms(self, postion_ms: int, tolerance_beats: float, min_ms_change: int = 2) -> int | None:
-        """Returns the ms position to snap `postion_ms` to, or `None` if it shouldn't move.
+    @dataclass(frozen=True)
+    class SnappedCue:
+        """A cue that `snap_cues_to_beats` moved: its index (from 0) and its position in ms before and after."""
 
-        It shouldn't move when no beat is within `tolerance_beats`, or the nearest one is less than `min_ms_change` away.
-        The default of 2 leaves 1 ms differences alone: Serato stores cues in whole ms, often 1 ms off the rounded beat.
-        Below 2, it warns, since that moves nearly every cue Serato placed.
+        index: int
+        old_position: int
+        new_position: int
+
+    def snap_cues_to_beats(
+        self, beatgrid: TrackBeatgrid, tolerance_beats: float, min_ms_change: int = 2
+    ) -> list["TrackCuesV2.SnappedCue"]:
+        """Moves each cue to its nearest beat in `beatgrid` in memory, and returns the moves.
+
+        Where each cue goes is decided by `beatgrid.get_snapped_position`. Pass the track's own beatgrid, as
+        `Track.snap_cues_to_beats` does. Call `save()` to write the change to the file. A `min_ms_change` below 2
+        warns, since that moves nearly every cue Serato placed.
+
+        Raises NoCuesError for a track without a `Serato Markers2` tag, and NoBeatgridError for one without a beatgrid,
+        such as one Serato hasn't analyzed, which Mixed In Key may already have added cues to. A tag with no cues in it
+        moves nothing.
         """
+        if not self.entries:
+            raise NoCuesError(self.filename)
+        if not beatgrid.entries:
+            raise NoBeatgridError(beatgrid.filename)
         if min_ms_change < 2:
             warnings.warn(
                 f"min_ms_change={min_ms_change} snaps cues that are 1 ms off the beat, which is most cues Serato placed",
-                stacklevel=2,
+                skip_file_prefixes=(_PACKAGE_DIR,),
+            )
+        snapped: list[TrackCuesV2.SnappedCue] = []
+
+        def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
+            new_cues: list[TrackCuesV2.CueEntry] = []
+            for cue in track.cues:
+                new_ms = beatgrid.get_snapped_position(cue.position, tolerance_beats, min_ms_change)
+                # a min_ms_change of 0 or less can snap a cue to where it already is, which isn't a move
+                if new_ms is None or new_ms == cue.position:
+                    new_cues.append(cue)
+                else:
+                    snapped.append(TrackCuesV2.SnappedCue(cue.index, cue.position, new_ms))
+                    new_cues.append(dataclasses.replace(cue, position=new_ms))
+            return dataclasses.replace(track, cues=new_cues) if snapped else None
+
+        self.modify_entries(rule)
+        return snapped
+
+    @staticmethod
+    def _warn_deprecated(name: str, instead: str):
+        """Warns, at the caller's code, that `name` is deprecated in favor of `instead`."""
+        warnings.warn(
+            f"{name} is deprecated and will be removed in version 6, use {instead} instead",
+            DeprecationWarning,
+            skip_file_prefixes=(_PACKAGE_DIR,),
+        )
+
+    def get_snapped_beat_ms(self, postion_ms: int, tolerance_beats: float, min_ms_change: int = 2) -> int | None:
+        """Deprecated, to be removed in version 6: use `TrackBeatgrid.get_snapped_position`.
+
+        Returns the ms position to snap `postion_ms` to, or `None` if it shouldn't move. It shouldn't move when no beat
+        is within `tolerance_beats`, or the nearest one is less than `min_ms_change` away. Below 2, it warns, since that
+        moves nearly every cue Serato placed.
+        """
+        self._warn_deprecated("TrackCuesV2.get_snapped_beat_ms", "TrackBeatgrid.get_snapped_position")
+        return self._get_snapped_beat_ms(postion_ms, tolerance_beats, min_ms_change)
+
+    def _get_snapped_beat_ms(self, postion_ms: int, tolerance_beats: float, min_ms_change: int) -> int | None:
+        if min_ms_change < 2:
+            warnings.warn(
+                f"min_ms_change={min_ms_change} snaps cues that are 1 ms off the beat, which is most cues Serato placed",
+                skip_file_prefixes=(_PACKAGE_DIR,),
             )
         beatgrid = self.beatgrid or self._get_beatgrid()
         snapped_ms = beatgrid.find_nearest_beat(postion_ms, tolerance_beats)
@@ -670,12 +737,18 @@ class TrackCuesV2(SeratoGeobTag):
         return snapped_ms if abs(snapped_ms - postion_ms) >= min_ms_change else None
 
     def snap_positions_to_beat_rule(self, tolerance_beats: float, min_ms_change: int = 2) -> ModifyCallback:
-        """A `modify_entries` callback that moves each cue to its nearest beat, as `get_snapped_beat_ms` decides."""
+        """Deprecated, to be removed in version 6: use `snap_cues_to_beats`, or `Track.snap_cues_to_beats`.
 
+        A `modify_entries` callback that moves each cue to its nearest beat, as `get_snapped_beat_ms` decides.
+        """
+        self._warn_deprecated("TrackCuesV2.snap_positions_to_beat_rule", "TrackCuesV2.snap_cues_to_beats")
+        return self._snap_positions_to_beat_rule(tolerance_beats, min_ms_change)
+
+    def _snap_positions_to_beat_rule(self, tolerance_beats: float, min_ms_change: int) -> ModifyCallback:
         def rule(track: "TrackCuesV2.TrackCuesInfo") -> "TrackCuesV2.TrackCuesInfo | None":
             new_cues = []
             for cue in track.cues:
-                new_ms = self.get_snapped_beat_ms(cue.position, tolerance_beats, min_ms_change)
+                new_ms = self._get_snapped_beat_ms(cue.position, tolerance_beats, min_ms_change)
                 if new_ms is not None:
                     new_cues.append(dataclasses.replace(cue, position=new_ms))
                 else:
@@ -686,15 +759,17 @@ class TrackCuesV2(SeratoGeobTag):
         return rule
 
     def snap_positions_to_beat(self, tolerance_beats: float, min_ms_change: int = 2) -> None:
-        """Moves each cue to its nearest beat in memory, as `get_snapped_beat_ms` decides, and prints each move.
+        """Deprecated, to be removed in version 6: use `snap_cues_to_beats`, or `Track.snap_cues_to_beats`.
 
-        Raises NoCuesError for a track without a `Serato Markers2` tag. Call `save()` to write the change to the file.
+        Moves each cue to its nearest beat in memory, as `get_snapped_beat_ms` decides, and prints each move. Raises
+        NoCuesError for a track without a `Serato Markers2` tag. Call `save()` to write the change to the file.
         """
+        self._warn_deprecated("TrackCuesV2.snap_positions_to_beat", "TrackCuesV2.snap_cues_to_beats")
         if not self.entries:
             raise NoCuesError(self.filename)
         track_before = self._from_entries()
         positions_before = {c.index: c.position for c in track_before.cues}
-        self.modify_entries(self.snap_positions_to_beat_rule(tolerance_beats, min_ms_change))
+        self.modify_entries(self._snap_positions_to_beat_rule(tolerance_beats, min_ms_change))
         track_after = self._from_entries()
         for c in track_after.cues:
             prev = positions_before.get(c.index)
@@ -714,10 +789,12 @@ class TrackCuesV2(SeratoGeobTag):
     def get_beat_position(
         self, entry: "TrackCuesV2.CueEntry", file_or_data: SeratoGeobTag.FileOrData | None = None
     ) -> float:
-        """How many beats into the track's beatgrid the cue is, counting from 0 at the grid's first marker.
+        """Deprecated, to be removed in version 6: use `TrackBeatgrid.get_beat_position(entry.position)`.
 
-        The beatgrid is read from `file_or_data`, or from this tag's file, the first time it's needed.
+        How many beats into the track's beatgrid the cue is, counting from 0 at the grid's first marker. The beatgrid
+        is read from `file_or_data`, or from this tag's file, the first time it's needed.
         """
+        self._warn_deprecated("TrackCuesV2.get_beat_position", "TrackBeatgrid.get_beat_position(entry.position)")
         beatgrid = self.beatgrid or self._get_beatgrid(file_or_data)
         return beatgrid.get_beat_position(entry.position)
 
@@ -800,7 +877,14 @@ def main():
         if tolerance_beats >= 1:
             raise NotImplementedError("Snap tolerance must be less than 1 beat. TODO: implement this to allow")
 
-        tags.snap_positions_to_beat(tolerance_beats)
+        if tags.tagfile is None:
+            raise ValueError("--snap_cues needs an audio file, to read its beatgrid")
+        try:
+            snapped_cues = tags.snap_cues_to_beats(TrackBeatgrid(tags.tagfile), tolerance_beats)
+        except MissingTagError as error:
+            sys.exit(f"Can't snap the cues: {error}")
+        for snapped in snapped_cues:
+            print(f"Snapped cue {snapped.index + 1} by {snapped.new_position - snapped.old_position} ms")
         tags.save(delete_tags_v1=True)
         sys.exit()
 

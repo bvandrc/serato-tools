@@ -8,7 +8,7 @@ from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_gain import TrackGain
 
-from test.helpers import temp_mp3
+from test.helpers import temp_mp3, untagged_mp3
 
 
 class TestCase(unittest.TestCase):
@@ -153,6 +153,35 @@ class TestCase(unittest.TestCase):
 
                 self.assertTrue(track.save(), "deletion alone is a change")
                 self.assertNotIn(key, Track(self.path).tagfile)
+
+    def cue_positions(self, track: Track) -> list[int]:
+        return [cue.position for cue in track.cues_v2._from_entries().cues]  # pylint: disable=protected-access
+
+    def test_snap_cues_to_beats_with_its_own_beatgrid(self):
+        # what moves, and where to, is TrackCuesV2.snap_cues_to_beats', tested in test_track_cues_v2
+        track = Track(self.path)
+        with mock.patch.object(track.cues_v2, "snap_cues_to_beats", wraps=track.cues_v2.snap_cues_to_beats) as snap:
+            snapped = track.snap_cues_to_beats(1 / 16)
+        snap.assert_called_once_with(track.beatgrid, 1 / 16, 2)
+        self.assertEqual(len(snapped), 3)
+
+        self.assertTrue(track.save())
+        self.assertEqual(self.cue_positions(Track(self.path)), [45146, 67472, 112125, 134449, 156776, 201428], "saved")
+
+    def test_snap_cues_to_beats_needs_only_cues_v2_and_beatgrid(self):
+        track = Track(self.path, cues_v1=False, autotags=False, gain=False)
+        self.assertTrue(track.snap_cues_to_beats(1 / 16))
+        for name in ("cues_v2", "beatgrid"):
+            with self.subTest(name), self.assertRaisesRegex(ValueError, f"{name}=True"):
+                Track(self.path, **{name: False}).snap_cues_to_beats(1 / 16)
+        with self.assertRaisesRegex(ValueError, "beatgrid=True"):
+            Track(untagged_mp3(self), beatgrid=False).snap_cues_to_beats(1 / 16)  # even with no cues to move
+
+    def test_snap_cues_to_beats_warns_at_the_caller(self):
+        track = Track(self.path)
+        with self.assertWarnsRegex(UserWarning, "min_ms_change=1") as caught:
+            track.snap_cues_to_beats(1 / 8, min_ms_change=1)
+        self.assertEqual(caught.filename, __file__, "past Track, not at it")
 
 
 if __name__ == "__main__":

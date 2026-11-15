@@ -7,7 +7,7 @@ from serato_tools.track_beatgrid import TrackBeatgrid, main
 from serato_tools.utils.beatgrid_analyze import BeatGridInfo
 from serato_tools.utils.track_tags import NoBeatgridError
 
-from test.helpers import read_bytes, temp_mp3
+from test.helpers import TEST_MP3, read_bytes, temp_mp3
 
 
 class TestCase(unittest.TestCase):
@@ -69,6 +69,24 @@ class TestCase(unittest.TestCase):
         path = self.no_beatgrid_mp3()
         with self.assertRaises(NoBeatgridError) as caught:
             TrackBeatgrid(path).get_beat_position(45104)
+        self.assertEqual(caught.exception.filename, path)
+
+    def test_get_snapped_position_ignores_1ms_by_default(self):
+        beatgrid = TrackBeatgrid(TEST_MP3)
+        beat = beatgrid.find_nearest_beat(45104, 1)  # the test mp3's first cue, 42 ms before a beat
+        assert beat is not None
+        beat_ms = round(beat)
+        self.assertIsNone(beatgrid.get_snapped_position(beat_ms + 1, 1 / 8))
+        self.assertIsNone(beatgrid.get_snapped_position(beat_ms - 1, 1 / 8))
+        self.assertEqual(beatgrid.get_snapped_position(beat_ms + 2, 1 / 8), beat_ms)
+        self.assertEqual(beatgrid.get_snapped_position(beat_ms + 1, 1 / 8, min_ms_change=1), beat_ms)
+        self.assertIsNone(beatgrid.get_snapped_position(beat_ms + 60, 1 / 1000), "outside tolerance")
+
+    def test_without_a_beatgrid_get_snapped_position_raises(self):
+        # rather than returning None, as find_nearest_beat does until 6.0, which reads as "don't move the cue"
+        path = self.no_beatgrid_mp3()
+        with self.assertRaises(NoBeatgridError) as caught:
+            TrackBeatgrid(path).get_snapped_position(45104, 1 / 8)
         self.assertEqual(caught.exception.filename, path)
 
     def test_without_a_beatgrid_find_nearest_beat_returns_none(self):
