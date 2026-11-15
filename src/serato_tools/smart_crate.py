@@ -7,7 +7,7 @@ from enum import IntEnum, StrEnum, unique
 from typing import TYPE_CHECKING, cast
 
 from serato_tools.utils import SERATO_DIR
-from serato_tools.utils.bin_file_base import DataTypeError
+from serato_tools.utils.bin_file_base import expect_type
 from serato_tools.utils.crate_base import CrateBase
 
 if TYPE_CHECKING:
@@ -124,9 +124,9 @@ class SmartCrate(CrateBase):
 
         ret_val = str(value)
         if field == SmartCrate.RuleFields.RULE_FIELD:
-            ret_val += f" ({SmartCrate.RuleField(DataTypeError.check(value, int, field)).name.lower()})"
+            ret_val += f" ({SmartCrate.RuleField(expect_type(value, int, field)).name.lower()})"
         elif field == SmartCrate.RuleFields.RULE_COMPARISON:
-            ret_val += f" ({SmartCrate.RuleComparison(DataTypeError.check(value, str, field)).name})"
+            ret_val += f" ({SmartCrate.RuleComparison(expect_type(value, str, field)).name})"
 
         return ret_val
 
@@ -155,7 +155,7 @@ class SmartCrate(CrateBase):
             self, value: str | int
         ):
             """Sets the rule's value, converted to the type its comparison stores, in the field that type goes in."""
-            comparison = DataTypeError.check(self.comparison, str, SmartCrate.RuleFields.RULE_COMPARISON)
+            comparison = expect_type(self.comparison, str, SmartCrate.RuleFields.RULE_COMPARISON)
             # pylint: disable=protected-access
             field = SmartCrate._get_rule_value_field(comparison)
             value = SmartCrate._coerce_rule_value(comparison, value)
