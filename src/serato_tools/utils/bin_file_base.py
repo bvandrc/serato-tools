@@ -133,7 +133,7 @@ class SeratoBinFile:
 
         for key in ["TESTED_VERSIONS", "TRACK_PATH_KEY", "DEFAULT_ENTRIES"]:
             if not hasattr(self, key):
-                raise AttributeError(f"a subclass must set {key}")
+                raise AttributeError(f"must set {key} in subclass")
 
         if os.path.exists(file):
             if file.lower().endswith(".json"):
