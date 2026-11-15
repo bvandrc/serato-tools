@@ -10,10 +10,6 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Add `TrackTextFrames` (`serato_tools.track_text_frames`), which reads and sets a track file's ID3 text frames, and `Track.text_frames`. Setting a frame to `""` removes it, as Serato does when a tag is cleared.
   - `TrackTextFrames.Fields` names the frames Serato shows a column for (`Fields.TITLE`, `Fields.GENRE`, ...), as `DatabaseV2.Fields` does, to pass to `get` and `set` in place of the frame ID.
   - `Fields.COMMENT` gets and sets the track's comment the way Serato reads and writes it, so Serato shows the comment you set.
-- Add `Track.snap_cues_to_beats(tolerance_beats)`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `SnappedCue`. It needs the `Track`'s `cues_v2` and `beatgrid` parsed (the default).
-  - `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)` does the same with the `TrackBeatgrid` passed to it.
-  - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to.
-  - `serato_snap_cues_v2 --snap_cues` now says which cue each move was for, and which tag is missing for a track without cues or a beatgrid. Its options are unchanged.
 - Add `Library.save`, which writes each of the library's parsed files that has changed, once, and returns their paths. It saves changes made through `library.database`'s or the crates' own methods, such as `modify`.
 - Add `Library.batch()`, a context manager: inside `with library.batch():`, `rename_track_file`, `remove_track_files`, and `set_db_tracks_tags` hold back writing the database and crates, and each changed file is written once when the block ends, instead of once per track. The track files themselves still change right away, so it saves even if the block raises.
 - `serato_smartcrate` CLI now takes each rule field as its own option, e.g. `serato_smartcrate Dubstep.scrate --grouping str_is UNTAGGED --year DELETE`.
@@ -56,6 +52,23 @@ Breaking: `TrackCuesV2` no longer reads the beatgrid from its own file for cue s
 - `TrackCuesV2.get_beat_position(entry)`: use `beatgrid.get_beat_position(entry.position)`.
 
 This stays, still deprecated until a future major release: passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`), in favor of passing it to `save()`.
+
+## [5.8.0] - 2026-11-15
+
+### Features
+
+- Add `Track.snap_cues_to_beats(tolerance_beats)`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `SnappedCue`.
+  - `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)` does the same with the `TrackBeatgrid` passed to it.
+  - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to.
+  - Each raises `NoCuesError` or `NoBeatgridError` for a track without cues or a beatgrid.
+- `serato_snap_cues_v2 --snap_cues` now says which cue each move was for, and which tag is missing for a track without cues or a beatgrid. Its options are unchanged.
+
+### Deprecations
+
+- `TrackCuesV2`'s old snapping methods are deprecated, but still work, until 6.0:
+  - `snap_positions_to_beat` and `snap_positions_to_beat_rule`: use `Track.snap_cues_to_beats`, or `TrackCuesV2.snap_cues_to_beats`.
+  - `get_snapped_beat_ms`: use `TrackBeatgrid.get_snapped_position`.
+  - `get_beat_position(entry)`: use `TrackBeatgrid.get_beat_position(entry.position)`.
 
 ## [5.7.0] - 2026-11-15
 
@@ -279,7 +292,8 @@ This stays, still deprecated until a future major release: passing `delete_tags_
 
 - Initial publish (pyproject.toml added). Serato library and track metadata modification.
 
-[6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.7.0...v6.0.0
+[6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.8.0...v6.0.0
+[5.8.0]: https://github.com/bvandrc/serato-tools/compare/v5.7.0...v5.8.0
 [5.7.0]: https://github.com/bvandrc/serato-tools/compare/v5.6.1...v5.7.0
 [5.6.1]: https://github.com/bvandrc/serato-tools/compare/v5.6.0...v5.6.1
 [5.6.0]: https://github.com/bvandrc/serato-tools/compare/v5.5.0...v5.6.0
