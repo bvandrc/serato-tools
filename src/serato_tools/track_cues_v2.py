@@ -822,7 +822,8 @@ def main():
 
             if action in ("y", "a", "b"):
                 while True:
-                    with tempfile.NamedTemporaryFile() as f:
+                    # closed before the editor opens it, which Windows needs, and deleted when the block ends
+                    with tempfile.NamedTemporaryFile(delete_on_close=False) as f:
                         if action == "b":
                             f.write(entry._serialize())
                             editor = hex_editor  # pyright: ignore[reportPossiblyUnboundVariable]
@@ -844,10 +845,11 @@ def main():
                                     f.write("{}: {!r}\n".format(field_name, getattr(e, field_name)).encode())
                                 f.write(b"\n")
                             editor = text_editor  # pyright: ignore[reportPossiblyUnboundVariable]
-                        f.flush()
+                        f.close()
                         status = subprocess.call((editor, f.name))
-                        f.seek(0)
-                        output = f.read()
+                        # read by name, since an editor may write its changes to a new file in this one's place
+                        with open(f.name, "rb") as edited:
+                            output = edited.read()
 
                     if status != 0:
                         if (
@@ -860,6 +862,9 @@ def main():
                             )
                             == "n"
                         ):
+                            new_entries.append(entry)
+                            if action == "a":
+                                action = "q"
                             break
                     else:
                         try:
@@ -879,6 +884,9 @@ def main():
                                 )
                                 == "n"
                             ):
+                                new_entries.append(entry)
+                                if action == "a":
+                                    action = "q"
                                 break
                         else:
                             for i, e in enumerate(results, start=entry_index):
