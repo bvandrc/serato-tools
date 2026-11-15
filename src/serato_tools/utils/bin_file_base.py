@@ -533,16 +533,13 @@ class SeratoBinFile:
         """The bytes `field` holds `value` as, for any field but a nested entry list; raises as `check_value`."""
         type_id = SeratoBinFile._get_type(field)
         if type_id in ("p", "t"):  # text
-            if not isinstance(value, str):
-                raise DataTypeError(value, str, field)
+            value = DataTypeError.check(value, str, field)
             return value.encode("utf-16-be")
         if type_id == "b":  # single byte, is a boolean
-            if not isinstance(value, bool):
-                raise DataTypeError(value, bool, field)
+            value = DataTypeError.check(value, bool, field)
             return struct.pack("?", value)
         if type_id in ("s", "u"):  # unsigned 16-bit or 32-bit int
-            if not isinstance(value, int):
-                raise DataTypeError(value, int, field)
+            value = DataTypeError.check(value, int, field)
             bits = 16 if type_id == "s" else 32
             # checked here, rather than left to struct.error, so the message names the field
             if not 0 <= value < 2**bits:
