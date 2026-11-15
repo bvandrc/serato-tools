@@ -79,7 +79,7 @@ This stays, still deprecated until a future major release: passing `delete_tags_
 - USB export keeps the database entries of the track whose file it copies, when tracks share a filename. Before, the copy could show another track's metadata.
 - USB export copies only a track's own stems file. Before, `B Extended.serato-stems` beside `B.mp3` stopped the export partway. NOTE: Using stems via USB is still completely untested.
 - USB export writes each smart crate as a regular crate of its tracks, which `Crate` can open.
-- `remove_tracks` and `Library.remove_track_files` match a track's path whatever its case.
+- `remove_tracks` and `Library.remove_track_files` now match a track's path whatever its case.
 - `add_tracks_from_dir` skips subfolders and hidden files, such as `.DS_Store`.
 - `Library.set_db_track_tags` / `set_db_tracks_tags` raise for a value the database can't hold before changing any file.
 - After `TrackBeatgrid.analyze_and_write`, `find_nearest_beat` uses the new grid.
