@@ -31,7 +31,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Deprecations
 
-- Catching a malformed file's error as `AssertionError`, or an out-of-range number's as `struct.error`, is deprecated: catch `ValueError`, which is all they'll be in 6.0.
+- Catching a malformed file's error as `AssertionError`, or an out-of-range number's as `struct.error`, is deprecated, but still works: catch `ValueError`, which is all they'll be in 6.0.
 
 ## [5.6.1] - 2026-11-10
 
