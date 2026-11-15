@@ -77,7 +77,7 @@ This stays, still deprecated until a future major release: passing `delete_tags_
 
 - A track's Serato tags can be read and saved in a file whose ID3 tags have no frames.
 - USB export keeps the database entries of the track whose file it copies, when tracks share a filename. Before, the copy could show another track's metadata.
-- USB export copies only a track's own stems file. Before, `B Extended.serato-stems` beside `B.mp3` stopped the export partway. Exporting stems is still untested.
+- USB export copies only a track's own stems file. Before, `B Extended.serato-stems` beside `B.mp3` stopped the export partway. NOTE: Using stems via USB is still completely untested.
 - USB export writes each smart crate as a regular crate of its tracks, which `Crate` can open.
 - `remove_tracks` and `Library.remove_track_files` match a track's path whatever its case.
 - `add_tracks_from_dir` skips subfolders and hidden files, such as `.DS_Store`.
