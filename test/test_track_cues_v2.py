@@ -1,6 +1,8 @@
 # pylint: disable=protected-access
 import base64
 import dataclasses
+import os
+import shutil
 import struct
 import unittest
 from unittest import mock
@@ -9,10 +11,10 @@ from typing import Callable
 from contextlib import redirect_stdout
 
 from serato_tools.track_beatgrid import TrackBeatgrid
-from serato_tools.track_cues_v2 import TrackCuesV2
+from serato_tools.track_cues_v2 import TrackCuesV2, main
 from serato_tools.utils.track_tags import NoCuesError
 
-from test.helpers import TEST_MP3, read_bytes, temp_mp3, untagged_mp3
+from test.helpers import TEST_MP3, read_bytes, temp_dir, temp_mp3, untagged_mp3
 
 
 class TestCase(unittest.TestCase):
@@ -321,6 +323,62 @@ class TestCase(unittest.TestCase):
         for name, (entry_class, data) in cases.items():
             with self.subTest(name), self.assertRaises(ValueError):
                 entry_class._parse(data)
+
+
+class CliEditTestCase(unittest.TestCase):
+    """The edit mode (`-e`) on a file of the tag's data, with its prompts answered and a scripted editor."""
+
+    FIXTURE = "test/data/track_cues_v2.bin"
+
+    def edit(self, answers: list[str], editor: Callable[[str], int]) -> str:
+        """Runs the edit mode on a copy of the fixture, with `editor(path)` as the editors; returns the copy's path."""
+        path = os.path.join(temp_dir(self), "cues.bin")
+        shutil.copy(self.FIXTURE, path)
+        with (
+            mock.patch("sys.argv", ["serato_snap_cues_v2", path, "-e"]),
+            mock.patch("builtins.input", side_effect=answers),
+            mock.patch("serato_tools.utils.ui.shutil.which", return_value="editor"),
+            mock.patch("subprocess.call", side_effect=lambda args: editor(args[1])),
+            redirect_stdout(io.StringIO()),
+        ):
+            main()
+        return path
+
+    def test_an_edited_entry_is_saved(self):
+        def editor(path: str) -> int:
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+            self.assertIn("[CUE]\nfield1: b'\\x00'\nindex: 0\nposition: 29\n", text, "the editor is given the entry")
+            # written to a new file in the old one's place, as some editors save
+            with open(path + ".new", "w", encoding="utf-8") as f:
+                f.write(text.replace("position: 29", "position: 500"))
+            os.replace(path + ".new", path)
+            return 0
+
+        # skip the color, edit the first cue, save it, then quit
+        path = self.edit(["n", "y", "y", "q"], editor)
+        expected = list(TrackCuesV2(read_bytes(self.FIXTURE)).entries)
+        expected[1] = dataclasses.replace(expected[1], position=500)
+        self.assertEqual(TrackCuesV2(read_bytes(path)).entries, expected)
+
+    def test_leaving_unchanged_keeps_the_entries(self):
+        def fails(_path: str) -> int:
+            return 1
+
+        def writes_invalid_content(path: str) -> int:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("not an entry")
+            return 0
+
+        cases = {
+            "after the editor fails": (["y", "n", "q"], fails),
+            "after invalid content": (["y", "n", "q"], writes_invalid_content),
+            "editing every later entry": (["a", "n"], fails),
+        }
+        for name, (answers, editor) in cases.items():
+            with self.subTest(name):
+                path = self.edit(answers, editor)
+                self.assertEqual(read_bytes(path), read_bytes(self.FIXTURE), "nothing dropped, so nothing saved")
 
 
 if __name__ == "__main__":
