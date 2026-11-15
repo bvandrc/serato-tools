@@ -1,4 +1,6 @@
 # pylint: disable=protected-access
+import os
+import runpy
 import unittest
 from unittest import mock
 
@@ -99,6 +101,29 @@ class TestCase(unittest.TestCase):
         MP3(path).delete()
         with self.assertRaisesRegex(ValueError, "no tags"):
             list(get_serato_tagdata(MP3(path)))
+
+    def test_tagdump_cli_says_why_it_cant_dump_a_file(self):
+        no_frames, no_tags, not_audio = (
+            temp_mp3(self, "no_frames.mp3"),
+            temp_mp3(self, "no_tags.mp3"),
+            temp_mp3(self, "notes.txt"),
+        )
+        tagfile = MP3(no_frames)
+        assert tagfile.tags is not None
+        tagfile.tags.clear()
+        tagfile.save()
+        MP3(no_tags).delete()
+        with open(not_audio, "wb") as f:
+            f.write(b"not audio")
+        for path, message in (
+            (no_frames, f"file has no tags: {no_frames}"),
+            (no_tags, f"file has no tags: {no_tags}"),
+            (not_audio, f"not an audio file mutagen can read: {not_audio}"),
+        ):
+            with self.subTest(os.path.basename(path)):
+                with mock.patch("sys.argv", ["serato_tagdump", path]), self.assertRaises(SystemExit) as caught:
+                    runpy.run_module("serato_tools.track_tagdump", run_name="__main__")
+                self.assertEqual(caught.exception.code, message)
 
 
 if __name__ == "__main__":

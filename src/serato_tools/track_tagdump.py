@@ -100,8 +100,11 @@ if __name__ == "__main__":
     # pylint: disable-next=protected-access
     tagfile: mutagen._file.FileType | None = mutagen._file.File(args.input_file)
 
-    if not tagfile:
+    # not `if not tagfile`: an audio file with no tags, or ID3 tags with no frames, is falsy
+    if tagfile is None:
         sys.exit(f"not an audio file mutagen can read: {args.input_file}")
+    if not tagfile.tags:
+        sys.exit(f"file has no tags: {args.input_file}")
 
     for field, value in get_serato_tagdata(tagfile, decode=args.decode):
         log_str = f'field {field} { "decoded " if args.decode else "" }value: {value}'
