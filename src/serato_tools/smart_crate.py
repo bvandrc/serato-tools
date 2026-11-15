@@ -7,7 +7,7 @@ from enum import IntEnum, StrEnum, unique
 from typing import TYPE_CHECKING, cast
 
 from serato_tools.utils import SERATO_DIR
-from serato_tools.utils.bin_file_base import DataTypeError
+from serato_tools.utils.bin_file_base import expect_type
 from serato_tools.utils.crate_base import CrateBase
 
 if TYPE_CHECKING:
@@ -124,13 +124,9 @@ class SmartCrate(CrateBase):
 
         ret_val = str(value)
         if field == SmartCrate.RuleFields.RULE_FIELD:
-            if not isinstance(value, int):
-                raise DataTypeError(value, int, field)
-            ret_val += f" ({SmartCrate.RuleField(value).name.lower()})"
+            ret_val += f" ({SmartCrate.RuleField(expect_type(value, int, field)).name.lower()})"
         elif field == SmartCrate.RuleFields.RULE_COMPARISON:
-            if not isinstance(value, str):
-                raise DataTypeError(value, str, field)
-            ret_val += f" ({SmartCrate.RuleComparison(value).name})"
+            ret_val += f" ({SmartCrate.RuleComparison(expect_type(value, str, field)).name})"
 
         return ret_val
 
@@ -159,11 +155,10 @@ class SmartCrate(CrateBase):
             self, value: str | int
         ):
             """Sets the rule's value, converted to the type its comparison stores, in the field that type goes in."""
-            if not isinstance(self.comparison, str):
-                raise DataTypeError(self.comparison, str, SmartCrate.RuleFields.RULE_COMPARISON)
+            comparison = expect_type(self.comparison, str, SmartCrate.RuleFields.RULE_COMPARISON)
             # pylint: disable=protected-access
-            field = SmartCrate._get_rule_value_field(self.comparison)
-            value = SmartCrate._coerce_rule_value(self.comparison, value)
+            field = SmartCrate._get_rule_value_field(comparison)
+            value = SmartCrate._coerce_rule_value(comparison, value)
             # when the comparison's type differs from the old value's (e.g. text -> integer), replace
             # the old value field in place instead of leaving both in the rule
             for other in SmartCrate.RULE_VALUE_FIELDS - {field}:
