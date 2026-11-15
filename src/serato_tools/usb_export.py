@@ -125,30 +125,7 @@ def copy_crates_to_usb(
     db.save(new_db_file)
     logger.info(f"created database file {new_db_file}")
 
-    # copy crate order file, modify if needed
-    NEW_ORDER_FILE = "neworder.pref"
-    LOCAL_NEW_ORDER_FILEPATH = os.path.join(LOCAL_SERATO_DIR, NEW_ORDER_FILE)
-    if os.path.isfile(LOCAL_NEW_ORDER_FILEPATH):
-        with open(LOCAL_NEW_ORDER_FILEPATH, "r", encoding="utf-8") as f:
-            lines = f.read().splitlines()
-
-        if root_crate:
-            CRATE_KEY = "[crate]"
-            new_lines = []
-            for line in lines:
-                if line.startswith(CRATE_KEY):
-                    if (value := line[len(CRATE_KEY) :]) != "Stems":
-                        line = f"{CRATE_KEY}{root_crate}%%{value}"
-                new_lines.append(line)
-            lines = new_lines
-
-        DEST_NEW_ORDER_FILEPATH = os.path.join(DEST_SERATO_DIR, NEW_ORDER_FILE)
-        with open(DEST_NEW_ORDER_FILEPATH, "w", encoding="utf-8") as f:
-            # splitlines() strips the newlines, so they must be re-added on write
-            f.write("\n".join(lines) + "\n")
-            logger.info(f"copied order file {DEST_NEW_ORDER_FILEPATH}")
-    else:
-        logger.warning(f"no order file to copy: {LOCAL_NEW_ORDER_FILEPATH}")
+    _copy_order_file(DEST_SERATO_DIR, root_crate)
 
     # copy stems crate
     LOCAL_STEMS_CRATE = os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
@@ -167,14 +144,43 @@ def copy_crates_to_usb(
         stems_crate.save(DEST_STEMS_CRATE)
         logger.info(f"copied crate {DEST_STEMS_CRATE}")
 
-    # copy files
+    _copy_tracks(tracks_to_copy, os.path.join(dest_drive_dir, dest_tracks_dir))
+
+
+def _copy_order_file(dest_serato_dir: str, root_crate: Optional[str]):
+    """Copies Serato's crate order file to the drive, with each crate in `root_crate` if given."""
+    ORDER_FILE = "neworder.pref"
+    LOCAL_ORDER_FILE = os.path.join(LOCAL_SERATO_DIR, ORDER_FILE)
+    if not os.path.isfile(LOCAL_ORDER_FILE):
+        logger.warning(f"no order file to copy: {LOCAL_ORDER_FILE}")
+        return
+    with open(LOCAL_ORDER_FILE, "r", encoding="utf-8") as f:
+        lines = f.read().splitlines()
+
+    if root_crate:
+        CRATE_KEY = "[crate]"
+        for i, line in enumerate(lines):
+            if line.startswith(CRATE_KEY) and (crate := line[len(CRATE_KEY) :]) != "Stems":
+                lines[i] = f"{CRATE_KEY}{root_crate}%%{crate}"
+
+    dest_order_file = os.path.join(dest_serato_dir, ORDER_FILE)
+    with open(dest_order_file, "w", encoding="utf-8") as f:
+        # splitlines() strips the newlines, so they must be re-added on write
+        f.write("\n".join(lines) + "\n")
+    logger.info(f"copied order file {dest_order_file}")
+
+
+def _copy_tracks(track_paths: list[str], dest_dir: str):
+    """Copies each track, as Serato stores its path, and its stems file, to `dest_dir`, unless it's there unchanged.
+
+    Raises for a track with more than one stems file.
+    """
     logger.info("copying files over...")
 
     root = LOCAL_SERATO_DRIVE + os.sep if LOCAL_SERATO_DRIVE else os.sep
-    tracks_to_copy = [os.path.join(root, t) for t in tracks_to_copy]
+    src_paths = [os.path.join(root, t) for t in track_paths]
 
     not_found: list[str] = []
-
     stem_files_by_dir: dict[str, list[str]] = {}
 
     def find_stem_files(src_path: str) -> list[str]:
@@ -190,37 +196,30 @@ def copy_crates_to_usb(
         stem_names = {os.path.splitext(basename)[0] + STEMS_EXTENSION, basename + STEMS_EXTENSION}
         return [os.path.join(dirname, f) for f in stem_files_by_dir[dirname] if f in stem_names]
 
-    def maybe_copy(src_path: str, dst_path: str):
+    def maybe_copy(src_path: str):
         if not os.path.exists(src_path):
             not_found.append(src_path)
             return
-        copy = (not filecmp.cmp(src_path, dst_path, shallow=True)) if os.path.exists(dst_path) else True
-        if copy:
-            os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+        dst_path = os.path.join(dest_dir, os.path.basename(src_path))
+        if not os.path.exists(dst_path) or not filecmp.cmp(src_path, dst_path, shallow=True):
+            os.makedirs(dest_dir, exist_ok=True)
             logger.info(f"copying {src_path}")
             shutil.copy2(src_path, dst_path)
 
-    for index, src_path in enumerate(tracks_to_copy):
-        percent_complete = index / float(len(tracks_to_copy)) * 100
-        print(f"{percent_complete:.1f}%", end="\r", flush=True)
-        maybe_copy(
-            src_path=src_path,
-            dst_path=os.path.join(dest_drive_dir, dest_tracks_dir, os.path.basename(src_path)),
-        )
+    for index, src_path in enumerate(src_paths):
+        print(f"{index / len(src_paths) * 100:.1f}%", end="\r", flush=True)
+        maybe_copy(src_path)
 
-        maybe_stem_files = find_stem_files(src_path)
-        if len(maybe_stem_files) > 1:
-            raise ValueError(f"more than 1 stems file for {src_path}: {', '.join(maybe_stem_files)}")
-        if len(maybe_stem_files) == 1:
-            maybe_copy(
-                src_path=maybe_stem_files[0],
-                dst_path=os.path.join(dest_drive_dir, dest_tracks_dir, os.path.basename(maybe_stem_files[0])),
-            )
+        stem_files = find_stem_files(src_path)
+        if len(stem_files) > 1:
+            raise ValueError(f"more than 1 stems file for {src_path}: {', '.join(stem_files)}")
+        if stem_files:
+            maybe_copy(stem_files[0])
     print("\n")
 
-    if tracks_to_copy and len(not_found) == len(tracks_to_copy):
+    if src_paths and len(not_found) == len(src_paths):
         logger.error("No source files found.")
-        uniq_dirs = list(set(os.path.dirname(d) for d in tracks_to_copy))
+        uniq_dirs = list(set(os.path.dirname(d) for d in src_paths))
         logger.error(f"Directories: \n{"\n    ".join(uniq_dirs)}")
         return
 
