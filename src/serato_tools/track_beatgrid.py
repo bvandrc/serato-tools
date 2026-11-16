@@ -202,29 +202,31 @@ class TrackBeatgrid(SeratoGeobTag):
         fp.seek(0)
         self._raw_data = fp.getvalue()
 
+    type _NonTerminalMarker = NonTerminalBeatgridMarker | NonTerminalBeatgridMarkerEnhanced
+
+    @staticmethod
+    def _marker_spans[T: "TrackBeatgrid._NonTerminalMarker"](
+        nonterminal_markers: list[T], terminal_marker: "TrackBeatgrid.TerminalBeatgridMarker"
+    ) -> list[tuple[T, float]]:
+        """Each non-terminal marker's span: the marker, and the position in seconds where its beats end, at the next marker."""
+        ends_s = [marker.position_s for marker in nonterminal_markers[1:]] + [terminal_marker.position_s]
+        return list(zip(nonterminal_markers, ends_s))
+
     @staticmethod
     def _enhance_entries(raw_entries: "TrackBeatgrid.EntryList") -> "TrackBeatgrid.EntryListEnhanced":
         """`raw_entries` with each non-terminal marker's BPM, from its beats and the time to the next marker, added."""
-        *markers, footer = raw_entries
-        enhanced: list[TrackBeatgrid.NonTerminalBeatgridMarkerEnhanced | TrackBeatgrid.TerminalBeatgridMarker] = []
-        for i, marker in enumerate(markers):
-            if isinstance(marker, TrackBeatgrid.NonTerminalBeatgridMarker):
-                next_marker = markers[i + 1]
-                time_diff = next_marker.position_s - marker.position_s
-                if time_diff == 0:
-                    bpm = float("nan")  # mark invalid BPM when segment has zero duration
-                else:
-                    bpm = marker.beats_till_next_marker / time_diff * 60
-                enhanced.append(
-                    TrackBeatgrid.NonTerminalBeatgridMarkerEnhanced(
-                        marker.position_s,
-                        marker.beats_till_next_marker,
-                        bpm,
-                    )
-                )
+        *markers, terminal_marker, footer = raw_entries
+        enhanced: list[TrackBeatgrid.NonTerminalBeatgridMarkerEnhanced] = []
+        for marker, end_s in TrackBeatgrid._marker_spans(markers, terminal_marker):
+            time_diff = end_s - marker.position_s
+            if time_diff == 0:
+                bpm = float("nan")  # mark invalid BPM when segment has zero duration
             else:
-                enhanced.append(marker)
-        return cast(TrackBeatgrid.EntryListEnhanced, (*enhanced, footer))
+                bpm = marker.beats_till_next_marker / time_diff * 60
+            enhanced.append(
+                TrackBeatgrid.NonTerminalBeatgridMarkerEnhanced(marker.position_s, marker.beats_till_next_marker, bpm)
+            )
+        return (*enhanced, terminal_marker, footer)
 
     def get_beat_position(self, position_ms: float) -> float:
         """How many beats into the grid `position_ms` is, from 0 at the first marker; fractional between beats."""
@@ -232,18 +234,13 @@ class TrackBeatgrid(SeratoGeobTag):
         nonterminal_markers, terminal_marker, _footer = self._check_and_split()
 
         cumulative_beats = 0.0
-        for i, marker in enumerate(nonterminal_markers):
-            next_pos = (
-                nonterminal_markers[i + 1].position_s
-                if i + 1 < len(nonterminal_markers)
-                else terminal_marker.position_s
-            )
-            if position_s < next_pos:
-                if marker.beats_till_next_marker <= 0 or next_pos <= marker.position_s:
+        for marker, end_s in self._marker_spans(nonterminal_markers, terminal_marker):
+            if position_s < end_s:
+                if marker.beats_till_next_marker <= 0 or end_s <= marker.position_s:
                     raise ValueError(
-                        f"invalid beatgrid: zero-length or zero-beat segment at {marker.position_s}s (beats_till_next_marker={marker.beats_till_next_marker}, next marker at {next_pos}s)"
+                        f"invalid beatgrid: zero-length or zero-beat segment at {marker.position_s}s (beats_till_next_marker={marker.beats_till_next_marker}, next marker at {end_s}s)"
                     )
-                interval = (next_pos - marker.position_s) / marker.beats_till_next_marker
+                interval = (end_s - marker.position_s) / marker.beats_till_next_marker
                 return cumulative_beats + (position_s - marker.position_s) / interval
             cumulative_beats += marker.beats_till_next_marker
 
@@ -267,17 +264,12 @@ class TrackBeatgrid(SeratoGeobTag):
 
         beats: list[TrackBeatgrid.BeatPoint] = []
 
-        for i, marker in enumerate(nonterminal_markers):
-            next_pos = (
-                nonterminal_markers[i + 1].position_s
-                if i + 1 < len(nonterminal_markers)
-                else terminal_marker.position_s
-            )
+        for marker, end_s in self._marker_spans(nonterminal_markers, terminal_marker):
             if marker.beats_till_next_marker <= 0:
                 raise ValueError(
                     f"invalid beatgrid: marker at {marker.position_s}s has beats_till_next_marker={marker.beats_till_next_marker}"
                 )
-            interval = (next_pos - marker.position_s) / marker.beats_till_next_marker
+            interval = (end_s - marker.position_s) / marker.beats_till_next_marker
             for j in range(marker.beats_till_next_marker):
                 pos = marker.position_s + j * interval
                 beats.append(TrackBeatgrid.BeatPoint(position_s=pos, bpm=marker.bpm))
@@ -367,17 +359,14 @@ class TrackBeatgrid(SeratoGeobTag):
         # libmad, and 12 to 60 ms late for CoreAudio. The analysis below doesn't correct for its decoder, so an MP3's
         # grid may be off by about that much.
         logger.info("Analyzing beat grid...")
-        analyzed_breatgrid = analyze_beatgrid(filename, bpm_helper=bpm)
-        if not analyzed_breatgrid.downbeats:
+        analyzed = analyze_beatgrid(filename, bpm_helper=bpm)
+        if not analyzed.downbeats:
             raise ValueError("beatgrid analysis found no downbeats, cannot write beatgrid")
 
         logger.info("Writing tags...")
         raw_entries: TrackBeatgrid.EntryList = (
-            *(
-                TrackBeatgrid.NonTerminalBeatgridMarker(position_s, 4)
-                for position_s in analyzed_breatgrid.downbeats[:-1]
-            ),
-            TrackBeatgrid.TerminalBeatgridMarker(analyzed_breatgrid.downbeats[-1], bpm=bpm or analyzed_breatgrid.bpm),
+            *(TrackBeatgrid.NonTerminalBeatgridMarker(position_s, 4) for position_s in analyzed.downbeats[:-1]),
+            TrackBeatgrid.TerminalBeatgridMarker(analyzed.downbeats[-1], bpm=bpm or analyzed.bpm),
             TrackBeatgrid.Footer(0),
         )
 

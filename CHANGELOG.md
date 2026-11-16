@@ -90,6 +90,7 @@ This stays, still deprecated until a future major release: passing `delete_tags_
 - `Library.set_db_track_tags` / `set_db_tracks_tags` now raise for a value the database can't hold before changing any file.
 - After `TrackBeatgrid.analyze_and_write`, `find_nearest_beat` now uses the new grid.
 - `TrackBeatgrid.analyze_and_write` now keeps the old grid when the analysis gives one Serato wouldn't write, such as downbeats out of order.
+- `serato_snap_cues_v2 -e` now keeps an entry you leave unchanged after the editor fails or the content is invalid, and works on Windows, where the editor couldn't open its file.
 
 ### Deprecations
 
