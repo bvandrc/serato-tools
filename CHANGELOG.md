@@ -21,6 +21,8 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Read `.database_changed` where you used the bool, since the result is always truthy.
 - **[BREAKING]** `Library.rename_track_file` returns the paths of the database, crates, and smart crates it changed, rather than a bool, and raises `FileExistsError` when a different file already exists at `dest`, rather than logging an error and returning False. The list is empty when none held the track, such as a file Serato hasn't imported.
   - **Upgrading:** Catch `FileExistsError` where you checked for False. It renamed the file whenever it returns, so a check for True can go.
+- **[BREAKING]** `Library.set_db_track_tags` / `set_db_tracks_tags` raise only `DataTypeError` for a color that isn't a `TrackCuesV2.TrackColors`, no longer also `AttributeError`.
+  - **Upgrading:** Catch `DataTypeError`, as 5.8.0 deprecated catching `AttributeError`.
 - **Feature:** `Library.set_db_track_tags` / `set_db_tracks_tags` also set a track's metadata in its ID3 text frames and the database: `title`, `artist`, `album`, `genre`, `key`, `grouping`, `publisher`, `composer`, `year`, `remixer`, `track_number`, `disc_number`, and `comment`. An empty value removes it from both, as Serato does when a tag is cleared.
 - **Feature:** Add `Library.save`, which writes each of the library's parsed files that has changed, once, and returns their paths. It saves changes made through `library.database`'s or the crates' own methods, such as `modify`.
 - **Feature:** Add `Library.batch()`, a context manager: inside `with library.batch():`, `rename_track_file`, `remove_track_files`, and `set_db_tracks_tags` hold back writing the database and crates, and each changed file is written once when the block ends, instead of once per track. The track files themselves still change right away, so it saves even if the block raises.
@@ -100,7 +102,8 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Library
 
-- **Fix:** `Library.set_db_track_tags` / `set_db_tracks_tags` now raise `DataTypeError` for a color that isn't a `TrackCuesV2.TrackColors`, before changing any file, rather than `AttributeError`.
+- **Fix:** `Library.set_db_track_tags` / `set_db_tracks_tags` now raise `DataTypeError` for a color that isn't a `TrackCuesV2.TrackColors`, before changing any file. It's still an `AttributeError` too, as it was.
+- **Deprecated:** Catching that error as `AttributeError` is deprecated, but still works: catch `DataTypeError`, which is all it'll be in 6.0.
 
 ## [5.7.0] - 2026-11-15
 
