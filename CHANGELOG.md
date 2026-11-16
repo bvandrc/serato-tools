@@ -44,6 +44,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Breaking: a database's or crate's `entries` and `version` are now internal. Change a file through its methods (`modify_tracks`, `modify`, `add_tracks`, `set_rule`, ...), and read it through `get_entries`, `get_tracks`, or `to_json_object`.
 - `modify_tracks`, and so `modify`, change no track when `func` raises for one, rather than keeping the changes to the tracks before it.
 - A smart crate rule's `comparison` is typed as `str` and its `field` as `int`, rather than as any value an entry can hold.
+- Breaking: `TrackCuesV1.Entry` and `TrackCuesV1.Color` are dataclasses, so entries with the same values are equal. `Color` is no longer a subclass of `Entry`: check for a cue or loop slot with `isinstance(entry, TrackCuesV1.Entry)` as before, which a `Color` no longer passes.
 - Breaking: `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`, next to the database and crate code that raises them.
 
 ### Removed
