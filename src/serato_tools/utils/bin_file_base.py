@@ -516,11 +516,11 @@ class SeratoBinFile:
                     raise ValueError(f"unexpected boolean value for field {field}: {data!r}")
                 value = cast(bool, struct.unpack("?", data)[0])
             elif type_id in ("s", "u"):  # unsigned 16-bit or 32-bit int
-                size = 2 if type_id == "s" else 4
+                size, fmt = (2, ">H") if type_id == "s" else (4, ">I")
                 # checked here, rather than left to struct.error, which isn't a ValueError like other malformed data
                 if len(data) != size:
                     raise ValueError(f"{field} holds a {size}-byte number, not {len(data)} bytes: {data!r}")
-                value = cast(int, struct.unpack(">H" if type_id == "s" else ">I", data)[0])
+                value = cast(int, struct.unpack(fmt, data)[0])
             else:
                 raise ValueError(f"unexpected type for field: {field}")
 
@@ -554,11 +554,11 @@ class SeratoBinFile:
             return struct.pack("?", value)
         if type_id in ("s", "u"):  # unsigned 16-bit or 32-bit int
             value = expect_type(value, int, field)
-            bits = 16 if type_id == "s" else 32
+            bits, fmt = (16, ">H") if type_id == "s" else (32, ">I")
             # checked here, rather than left to struct.error, so the message names the field
             if not 0 <= value < 2**bits:
                 raise ValueError(f"{field} holds a number from 0 to {2**bits - 1}, not {value}")
-            return struct.pack(">H" if type_id == "s" else ">I", value)
+            return struct.pack(fmt, value)
         raise ValueError(f"unexpected type for field: {field}")
 
     def _serialize_item(self, entry: Entry) -> bytes:
