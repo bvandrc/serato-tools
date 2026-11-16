@@ -100,6 +100,16 @@ library.rename_track_file(
 library.remove_track_files(["/Users/Username/Music/Dubstep/Raaket - ILL (Radio Edit).mp3"])  # deletes the files too
 ```
 
+Each of those writes the library files that contain the track. `rename_track_file` returns their paths, and raises `FileExistsError` if a different file is already at `dest`. `remove_track_files` returns them as `library_files_changed`, along with the track files it deleted, as `files_deleted`. For many changes, put them in a `batch()`, which writes each changed file once, when the block ends. The track files themselves still change right away, so the library is saved even if the block raises:
+
+```python
+with library.batch():
+    for src, dest in renames:
+        library.rename_track_file(src, dest)
+```
+
+To save changes made through `library.database`'s or the crates' own methods, such as `modify`, call `library.save()`, which writes each file that changed, once, and returns their paths.
+
 ### Modifying the database file
 
 _NOTE: Close Serato first. It keeps the library in memory, and saves it over any changes made while it's open._
@@ -205,6 +215,9 @@ library.set_db_tracks_tags({
     '/Users/Username/Music/Dubstep/Raaket - ILL.mp3': {'color': TrackCuesV2.TrackColors.PURPLE},
     '/Users/Username/Music/Dubstep/Other.mp3': {'color': TrackCuesV2.TrackColors.BLUE1, 'beatgrid_locked': False},
 })
+# both return whether the database changed, and which track files were written
+result = library.set_db_track_tags('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', color=TrackCuesV2.TrackColors.PURPLE)
+result.database_changed, result.files_written
 ```
 
 The same goes for a track's metadata, which Serato keeps both in the file's ID3 text frames and in the database: `title`, `artist`, `album`, `genre`, `key`, `grouping`, `publisher`, `composer`, `year`, `remixer`, `track_number`, `disc_number`, and `comment`. An empty value removes it, as clearing it in Serato does.
@@ -214,6 +227,8 @@ library.set_db_track_tags('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', grou
 ```
 
 Only ID3 files (.mp3, .aiff, .aif) are currently supported. A track Serato hasn't analyzed yet gets the color or lock added to its tags, as Serato writes them.
+
+Inside a `library.batch()` (see [above](#renaming-or-removing-track-files-across-the-library)), the database is written when the batch ends, along with any renames or removals in it, rather than once per call.
 
 Avoid `Track.set_track_color` / `set_beatgrid_locked` (or `TrackCuesV2`'s), or `DatabaseV2.modify` on the `COLOR` / `BEATGRID_LOCKED` fields, on their own, since each changes only one of the two.
 
@@ -277,8 +292,10 @@ def track_rule(track: TrackCuesV2.TrackCuesInfo) -> TrackCuesV2.TrackCuesInfo | 
     return new_track if new_track != track else None
 
 tags.modify_entries(track_rule)
-# delete_tags_v1 (the default) deletes the legacy "Serato Markers_" tag, since a stale one stops changes from appearing in Serato
-tags.save(delete_tags_v1=True)
+# delete_tags_v1 (the default) deletes the legacy "Serato Markers_" tag, since a stale one stops changes from appearing in Serato.
+# save() writes only when the cues changed, so the Grouping set on tags.tagfile above is saved here otherwise
+if not tags.save(delete_tags_v1=True):
+    tags.tagfile.save()
 ```
 
 ### Listing available crates or smart crates

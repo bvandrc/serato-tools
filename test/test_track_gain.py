@@ -3,7 +3,7 @@ from unittest import mock
 
 from serato_tools.track_gain import TrackGain
 
-from test.helpers import TEST_MP3, temp_mp3
+from test.helpers.track_tags import TEST_MP3, temp_mp3
 
 
 class TestCase(unittest.TestCase):

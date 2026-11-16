@@ -65,6 +65,12 @@ class NoWaveformError(MissingTagError):
     GEOB_KEY = GeobKeys.WAVEFORM
 
 
+# the track file types open_tagfile opens, by extension
+_MP3_EXTENSIONS = (".mp3",)
+_AIFF_EXTENSIONS = (".aiff", ".aif")
+TAGFILE_EXTENSIONS = _MP3_EXTENSIONS + _AIFF_EXTENSIONS
+
+
 def open_tagfile(file: ID3FileOrPath) -> ID3File:
     """Opens the track file at `file` with mutagen, or returns `file` if it's already open.
 
@@ -73,11 +79,11 @@ def open_tagfile(file: ID3FileOrPath) -> ID3File:
     if not isinstance(file, str):
         return file
     try:
-        if file.lower().endswith(".mp3"):
+        if file.lower().endswith(_MP3_EXTENSIONS):
             return MP3(file)
-        if file.lower().endswith((".aiff", ".aif")):
+        if file.lower().endswith(_AIFF_EXTENSIONS):
             return AIFF(file)
-    except:
+    except Exception:
         logger.error(f"Mutagen error for file {file}")
         raise
     raise ValueError(f"unsupported file type (only .mp3, .aiff, and .aif are supported): {file}")
@@ -130,11 +136,35 @@ class ID3FileTag:
         # raises rather than returning False, as _write_to_tagfile does
         raise NotImplementedError(f"{type(self).__name__} doesn't implement has_changed")
 
+    def _require_tagfile(self) -> ID3File:
+        """The tag's open file; raises if it has none, as a `SeratoGeobTag` read from bytes doesn't."""
+        if self.tagfile is None:
+            raise ValueError(f"{type(self).__name__} was read from bytes, so has no file to read or write")
+        return self.tagfile
+
     def _write_to_tagfile(self) -> bool:
         """Puts this tag's unsaved changes into `tagfile` without saving the file; returns whether it had any."""
         # raises rather than returning False, so a tag class that doesn't implement it fails loudly instead of having
         # its changes silently dropped
         raise NotImplementedError(f"{type(self).__name__} doesn't implement _write_to_tagfile")
+
+    def save(self, force: bool = False) -> bool:
+        """Writes the tag to the file, if it changed since it was read or last saved, or if `force`.
+
+        Returns whether it wrote. Raises ValueError if it has a change to write but no file, as a tag read from bytes.
+
+        Writes only when this tag has a change, so other unsaved changes to a tagfile passed in (frames set on it
+        directly, or by another tag object sharing it) are only written then: otherwise save the tagfile yourself, or
+        pass `force`.
+        """
+        if not (self.has_changed or force):
+            return False
+        tagfile = self._require_tagfile()
+        # a forced save of an unchanged tag puts nothing in the tagfile, so it can't restore a frame another tag
+        # sharing it deleted (TrackCuesV2 deleting a stale Serato Markers_)
+        self._write_to_tagfile()
+        tagfile.save()
+        return True
 
 
 class SeratoGeobTag(ID3FileTag):
@@ -171,13 +201,7 @@ class SeratoGeobTag(ID3FileTag):
     @property
     def filename(self) -> str | None:
         """The track file's path, or None for a tag read from bytes."""
-        return self.tagfile.filename if self.tagfile else None
-
-    def _require_tagfile(self) -> ID3File:
-        """The tag's open file; raises if it was read from bytes."""
-        if not self.tagfile:
-            raise Exception("no tagfile, no saving")
-        return self.tagfile
+        return self.tagfile.filename if self.tagfile is not None else None
 
     def _get_geob(self):
         return get_geob(self._require_tagfile(), self.GEOB_KEY)
@@ -220,7 +244,7 @@ class SeratoGeobTag(ID3FileTag):
 
     def delete(self):
         """Deletes the tag in memory, returning whether the file had it; call `save()` to write the deletion."""
-        was_deleted = self._del_geob() if self.tagfile else False
+        was_deleted = self._del_geob() if self.tagfile is not None else False
         # clear _raw_data so a later save() persists the deletion instead of re-tagging the old bytes
         self._raw_data = None
         return was_deleted
@@ -248,10 +272,3 @@ class SeratoGeobTag(ID3FileTag):
             return False
         self._put_in_tagfile()
         return True
-
-    def save(self):
-        """Writes the tag to the file, whether or not it changed; raises if it was read from bytes."""
-        if not self.tagfile:
-            raise Exception("no tagfile, no saving")
-        self._put_in_tagfile()
-        self.tagfile.save()

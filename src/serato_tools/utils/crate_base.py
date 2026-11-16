@@ -3,7 +3,6 @@
 """What crates and smart crates share: their file extension and folder, track paths, and how they print."""
 
 import os
-import warnings
 from typing import Iterable, Optional
 
 from serato_tools.utils.bin_file_base import SeratoBinFile
@@ -17,8 +16,24 @@ class CrateBase(SeratoBinFile):
     DIR_PATH: str
     TRACK_PATH_KEY = SeratoBinFile.Fields.TRACK_PATH
 
+    # the sort and columns Serato gives a new crate or smart crate, which follow the version (and a smart crate's
+    # settings) in each one's DEFAULT_ENTRIES
+    DEFAULT_VIEW_ENTRIES: SeratoBinFile.EntryList = [
+        (
+            SeratoBinFile.Fields.SORTING,
+            [(SeratoBinFile.Fields.COLUMN_NAME, "key"), (SeratoBinFile.Fields.REVERSE_ORDER, False)],
+        ),
+        *(
+            (
+                SeratoBinFile.Fields.COLUMN,
+                [(SeratoBinFile.Fields.COLUMN_NAME, column), (SeratoBinFile.Fields.COLUMN_WIDTH, "0")],
+            )
+            for column in ("song", "playCount", "artist", "bpm", "key", "album", "length", "comment", "added")
+        ),
+    ]
+
     def _stringify_entry(self, entry: SeratoBinFile.EntryFull, indent: int = 0) -> str:
-        field, fieldname, value = entry  # pylint: disable=unused-variable
+        _field, _fieldname, value = entry
         return self._stringify_entries(value, indent) if isinstance(value, list) else str(value)
 
     def _stringify_entries(self, entries: Iterable[SeratoBinFile.EntryFull], indent: int = 0) -> str:
@@ -43,7 +58,7 @@ class CrateBase(SeratoBinFile):
             track_paths = [os.path.splitext(os.path.basename(t))[0] for t in track_paths]
         print("\n".join(track_paths))
 
-    def save(self, file: Optional[str] = None):
+    def save(self, file: Optional[str] = None, force: bool = False) -> bool:
         """As `SeratoBinFile.save`, but raises ValueError if `file` doesn't end with this class's `EXTENSION`."""
         if file is None:
             file = self.filepath
@@ -51,12 +66,7 @@ class CrateBase(SeratoBinFile):
         if not file.endswith(self.EXTENSION):
             raise ValueError(f"file should end with {self.EXTENSION}: " + file)
 
-        super().save(file)
-
-    def add_track(self, filepath: str):
-        """Deprecated, to be removed in the next major version: use add_tracks(), which this calls."""
-        warnings.warn("add_track is deprecated, use add_tracks instead", DeprecationWarning, stacklevel=2)
-        self.add_tracks([filepath])
+        return super().save(file, force)
 
     def add_tracks(self, filepaths: Iterable[str]):
         """Adds the tracks not already in the crate. Filepaths must include the containing dir."""
@@ -64,17 +74,22 @@ class CrateBase(SeratoBinFile):
         # the whole crate per file
         existing = set(self.get_track_paths())
         for filepath in filepaths:
-            relpath = self.get_relative_path(filepath)
-            if relpath not in existing:
-                self.entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, relpath)]))
+            if (relpath := self.get_relative_path(filepath)) not in existing:
+                self._entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, relpath)]))
                 existing.add(relpath)
 
     def add_tracks_from_dir(self, dir: str, replace: bool = False):
-        """Adds every file directly in `dir`; with `replace`, first removes every track that isn't one of them."""
-        dir_tracks = [self.get_relative_path(os.path.join(dir, t)) for t in os.listdir(dir)]
+        """Adds every file directly in `dir` but hidden ones, such as `.DS_Store`; with `replace`, first removes every
+        track that isn't one of them."""
+        dir_tracks = [
+            self.get_relative_path(path)
+            for name in os.listdir(dir)
+            # not a subfolder, which isn't a track
+            if not name.startswith(".") and os.path.isfile(path := os.path.join(dir, name))
+        ]
 
         if replace:
-            # one filter pass instead of a full remove_track scan per removed track
+            # one filter pass instead of a full scan per removed track
             dir_track_set = set(dir_tracks)
             self.filter_tracks(lambda track: track.relpath in dir_track_set)
 

@@ -1,18 +1,19 @@
+# pylint: disable=protected-access
 import copy
 import os
 import unittest
 
 from serato_tools.crate import Crate
 
-from test.helpers import read_bytes, temp_dir
+from test.helpers.bin_files import TEST_CRATE
+from test.helpers.files import read_bytes, read_text, temp_dir
 
-with open("test/data/crate.txt", "r", encoding="utf-8") as f:
-    base_expected = f.read()
+base_expected = read_text("test/data/crate.txt")
 
 
 class TestCase(unittest.TestCase):
     def test_parse_and_modify_and_serialize(self):
-        file = os.path.abspath("test/data/TestCrate.crate")
+        file = os.path.abspath(TEST_CRATE)
         crate = Crate(file)
 
         self.maxDiff = None
@@ -57,17 +58,22 @@ class TestCase(unittest.TestCase):
         a.add_tracks(["/music/track1.mp3"])
         b = Crate(os.path.join(tmp, "B.crate"))
 
-        for i, (field, value) in enumerate(a.entries[: len(default_entries)]):
+        for i, (field, value) in enumerate(a._entries[: len(default_entries)]):
             if isinstance(value, list):
                 self.assertIsNot(value, Crate.DEFAULT_ENTRIES[i][1], f"{field} sublist shared with class default")
-                self.assertIsNot(value, b.entries[i][1], f"{field} sublist shared between instances")
+                self.assertIsNot(value, b._entries[i][1], f"{field} sublist shared between instances")
 
-        sorting_value = a.entries[1][1]
+        sorting_value = a._entries[1][1]
         assert isinstance(sorting_value, list)
         sorting_value.append((Crate.Fields.COLUMN_NAME, "mutated"))
 
         self.assertEqual(Crate.DEFAULT_ENTRIES, default_entries, "class default must not be mutated")
-        self.assertEqual(b.entries, default_entries, "other instance must not inherit tracks or nested edits")
+        self.assertEqual(b._entries, default_entries, "other instance must not inherit tracks or nested edits")
+
+    def test_saving_needs_the_crate_extension(self):
+        crate = Crate(os.path.join(temp_dir(self), "Test.crate"))
+        with self.assertRaisesRegex(ValueError, "should end with .crate"):
+            crate.save(os.path.join(temp_dir(self), "Test.txt"))
 
     def test_add_tracks_is_saved(self):
         file = os.path.join(temp_dir(self), "Test.crate")

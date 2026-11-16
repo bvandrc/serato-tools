@@ -3,7 +3,7 @@ import unittest
 
 from serato_tools.track_cues_v1 import TrackCuesV1
 
-from test.helpers import read_bytes
+from test.helpers.files import read_bytes
 
 
 class TestCase(unittest.TestCase):
@@ -39,6 +39,16 @@ class TestCase(unittest.TestCase):
         tags.entries = [e for e in tags.entries if not isinstance(e, TrackCuesV1.Color)]
         with self.assertRaises(ValueError, msg="entries without a trailing Color must not serialize"):
             tags._serialize()
+
+    def test_malformed_tag_raises(self):
+        bad_flag = bytearray(self.file_data)
+        bad_flag[6] = 0x01  # the first entry's start_position_set
+        for name, data, message in (
+            ("a set flag that isn't 00 or 7f", bytes(bad_flag), "start_position_set is 00 or 7f, not 01"),
+            ("cut off partway through an entry", self.file_data[:20], "partway through an entry"),
+        ):
+            with self.subTest(name), self.assertRaisesRegex(ValueError, message):
+                TrackCuesV1(data)
 
     def test_a_tag_unlike_seratos_raises(self):
         # track_cues_v1.bin's entries: 0-2 are set cues, 3-4 unset cues, and 5-13 unset loops

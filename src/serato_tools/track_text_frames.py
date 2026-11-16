@@ -179,8 +179,7 @@ class TrackTextFrames(ID3FileTag):
             )
         # it rewrites some text too, as TCON's numeric genres ("128" reads as "Club-House"); "" removes the frame
         # instead, so isn't checked
-        loaded = _get_texts_from_frame(tags[frame_id])
-        if text and loaded != [text]:
+        if text and (loaded := _get_texts_from_frame(tags[frame_id])) != [text]:
             raise ValueError(f"loading reads {frame_id} {text!r} as {loaded}")
         self._unsaved[frame_id] = text
 
@@ -220,8 +219,3 @@ class TrackTextFrames(ID3FileTag):
         changed = _put_frames(self.tagfile, self._changes())
         self._unsaved = {}
         return changed
-
-    def save(self, force: bool = False):
-        """Writes the frames set since the file was read or last saved, if any changed, or if `force`."""
-        if self._write_to_tagfile() or force:
-            self.tagfile.save()

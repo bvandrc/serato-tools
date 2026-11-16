@@ -8,9 +8,6 @@ It can draw the overview as an image, which needs the `waveform_drawing` extra (
 import io
 from dataclasses import dataclass
 
-from mutagen.mp3 import HeaderNotFoundError
-
-from serato_tools.utils import logger
 from serato_tools.utils.track_tags import GeobKeys, NoWaveformError, SeratoGeobTag
 
 
@@ -47,7 +44,8 @@ class TrackWaveform(SeratoGeobTag):
 
         rows: list[bytearray] = []
         for x in iter(lambda: fp.read(16), b""):
-            assert len(x) == 16
+            if len(x) != 16:
+                raise ValueError(f"waveform ends with a row of {len(x)} bytes, not 16")
             rows.append(bytearray(x))
         return rows
 
@@ -55,9 +53,10 @@ class TrackWaveform(SeratoGeobTag):
         """The waveform overview as a 240 x 16 pixel PIL image. Needs the `waveform_drawing` extra (pillow)."""
         try:
             from PIL import Image, ImageColor
-        except:
-            logger.error('must install package "pillow"')
-            raise
+        except ImportError as error:
+            raise ImportError(
+                'drawing the waveform needs the waveform_drawing extra: pip install "serato-tools[waveform_drawing]"'
+            ) from error
 
         img = Image.new("RGB", (240, 16), "black")
         pixels = img.load()
@@ -84,6 +83,8 @@ class TrackWaveform(SeratoGeobTag):
 if __name__ == "__main__":
     import argparse
 
+    from serato_tools.utils.cli import open_tag_file_or_data
+
     @dataclass
     class Args:
         file: str
@@ -92,12 +93,7 @@ if __name__ == "__main__":
     parser.add_argument("file")
     args = Args(**vars(parser.parse_args()))
 
-    try:
-        tags = TrackWaveform(args.file)
-    except HeaderNotFoundError:
-        with open(args.file, mode="rb") as fp:
-            data = fp.read()
-        tags = TrackWaveform(data)
+    tags = open_tag_file_or_data(TrackWaveform, args.file)
 
     img = tags.draw_image()
     img.show()

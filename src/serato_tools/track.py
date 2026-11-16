@@ -147,6 +147,9 @@ class Track:
         """Writes every tag's changes to the file in one write, and returns whether there were any to write.
 
         See `TrackCuesV2.save` for `delete_tags_v1`, which applies when `cues_v2` has changes.
+
+        Writes only when a tag has a change, so other unsaved changes to a tagfile passed in (frames set on it directly)
+        are only written then: otherwise save the tagfile yourself.
         """
         # a set built in full, not any() over a generator, so that every tag puts its changes in before the one write
         # pylint: disable=protected-access

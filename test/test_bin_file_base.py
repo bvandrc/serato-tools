@@ -1,11 +1,17 @@
+# pylint: disable=protected-access
 import os
 import shutil
+import struct
 import unittest
+from enum import StrEnum, unique
+from unittest import mock
 
 from serato_tools.crate import Crate
-from serato_tools.utils.bin_file_base import SeratoBinFile
+from serato_tools.database_v2 import DatabaseV2
+from serato_tools.utils.bin_file_base import DataTypeError, DeeplyNestedListError, SeratoBinFile
 
-from test.helpers import temp_dir
+from test.helpers.bin_files import TEST_CRATE, TEST_DATABASE
+from test.helpers.files import read_bytes, temp_dir
 
 
 class PathTestCase(unittest.TestCase):
@@ -54,6 +60,65 @@ class PathTestCase(unittest.TestCase):
         self.assertTrue(full_path.endswith(os.path.normpath("/Music/DJ Tracks/Tripp St. - Enlighten.mp3")), full_path)
 
 
+class FieldsTestCase(unittest.TestCase):
+    def test_a_subclass_extending_field_enums_gets_its_fields_and_names(self):
+        @unique
+        class ExtraFields(StrEnum):
+            EXTRA_THING = "uxtr"
+
+        class ExtendedCrate(Crate):
+            FIELD_ENUMS = (*Crate.FIELD_ENUMS, ExtraFields)
+
+        self.assertIn("uxtr", ExtendedCrate.FIELDS)
+        self.assertLess(Crate.FIELDS, ExtendedCrate.FIELDS, "the rest kept")
+        self.assertEqual(ExtendedCrate.FIELD_NAMES["uxtr"], "Extra Thing")
+        self.assertEqual(ExtendedCrate.get_field_name("uxtr"), "Extra Thing")
+        self.assertNotIn("uxtr", Crate.FIELDS, "the class it extends is unchanged")
+        self.assertNotIn("uxtr", Crate.FIELD_NAMES)
+        self.assertEqual(Crate.get_field_name("uxtr"), "Unknown Field")
+
+
+class ParseTestCase(unittest.TestCase):
+    def test_a_file_cut_off_raises(self):
+        data = read_bytes(TEST_DATABASE)
+        tmp = temp_dir(self)
+        for name, cut_at in (("partway through a header", 3), ("partway through an entry", len(data) - 1)):
+            with self.subTest(name):
+                path = os.path.join(tmp, f"{cut_at}.crate")
+                with open(path, "wb") as f:
+                    f.write(data[:cut_at])
+                with self.assertRaisesRegex(ValueError, "file ends partway through"):
+                    DatabaseV2(path)
+
+    def test_a_number_of_the_wrong_length_raises(self):
+        tmp = temp_dir(self)
+        version = Crate.DEFAULT_ENTRIES[0][1]
+        assert isinstance(version, str)
+
+        def entry(field: str, data: bytes) -> bytes:
+            return field.encode("ascii") + struct.pack(">I", len(data)) + data
+
+        for field, data in (("stst", b"\x01"), ("utst", b"\x00\x00\x01")):
+            with self.subTest(field):
+                path = os.path.join(tmp, f"{field}.crate")
+                with open(path, "wb") as f:
+                    f.write(entry("vrsn", version.encode("utf-16-be")) + entry(field, data))
+                with self.assertRaisesRegex(ValueError, f"{field} holds a"):
+                    Crate(path)
+
+    def test_a_file_without_a_version_raises(self):
+        path = os.path.join(temp_dir(self), "empty.crate")
+        open(path, "wb").close()  # pylint: disable=consider-using-with
+        with self.assertRaisesRegex(ValueError, "no version entry"):
+            Crate(path)
+
+    def test_modify_with_two_rules_for_a_field_raises(self):
+        db = DatabaseV2(TEST_DATABASE)
+        rule: SeratoBinFile.ModifyRule = {"field": DatabaseV2.Fields.GENRE, "func": lambda *args: None}
+        with self.assertRaisesRegex(ValueError, "1 rule per field"):
+            db.modify([rule, rule])
+
+
 class TrackTestCase(unittest.TestCase):
     def test_duplicate_field_raises(self):
         # a repeated field would be silently collapsed/duplicated on round-trip, corrupting the file
@@ -66,6 +131,17 @@ class TrackTestCase(unittest.TestCase):
                 ],
                 path_key=SeratoBinFile.Fields.FILE_PATH.value,
             )
+
+    def test_a_nested_entry_list_raises_naming_the_field(self):
+        path = SeratoBinFile.Fields.FILE_PATH.value
+        entries = [(path, "a.mp3"), ("onst", [(path, "b.mp3")])]
+        with self.assertRaisesRegex(DeeplyNestedListError, "in field onst"):
+            SeratoBinFile.Track(entries, path_key=path)
+
+        database = DatabaseV2(TEST_DATABASE)
+        database._entries.append((SeratoBinFile.Fields.TRACK.value, entries))
+        with self.assertRaisesRegex(DeeplyNestedListError, f"in field {SeratoBinFile.Fields.TRACK.value}.*a\\.mp3"):
+            list(database.get_entries())
 
     def test_remove_field(self):
         path, genre = SeratoBinFile.Fields.FILE_PATH.value, SeratoBinFile.Fields.GENRE.value
@@ -90,6 +166,43 @@ class TrackTestCase(unittest.TestCase):
         with self.assertRaises(ValueError, msg="a track can't be without its path"):
             track.set_value(path, "")
 
+    def test_paths_follow_the_path_however_its_set(self):
+        path = SeratoBinFile.Fields.FILE_PATH.value
+        track = SeratoBinFile.Track([(path, "Music/a.mp3")], path_key=path)
+
+        track.set_value(path, "Music/b.mp3")
+        self.assertEqual(track.relpath, "Music/b.mp3", "set_value")
+        self.assertEqual(track.full_path, SeratoBinFile.get_full_path("Music/b.mp3"), "set_value")
+        track.set_path("Music/c.mp3")
+        self.assertEqual(track.relpath, "Music/c.mp3", "set_path")
+        self.assertEqual(track.full_path, SeratoBinFile.get_full_path("Music/c.mp3"), "set_path")
+
+    def test_set_value_refuses_a_value_its_field_cant_hold(self):
+        fields = SeratoBinFile.Fields
+        path, genre = fields.FILE_PATH.value, fields.GENRE.value
+        track = SeratoBinFile.Track([(path, "Music/a.mp3"), (genre, "House")], path_key=path)
+        with self.assertRaises(DataTypeError, msg="path"):
+            track.set_value(path, 1)
+        with self.assertRaises(DataTypeError, msg="other text field"):
+            track.set_value(genre, 1)
+        with self.assertRaises(ValueError, msg="number too big"):
+            track.set_value(fields.PLAY_COUNT.value, 2**32)
+        self.assertEqual(track.to_entries(), [(path, "Music/a.mp3"), (genre, "House")], "values kept")
+
+    def test_modify_passes_later_rules_the_new_path(self):
+        database = DatabaseV2(TEST_DATABASE)
+        old, new = database.get_track_paths()[:2]
+        database.remove_tracks([new])  # so moving a track there doesn't duplicate one
+        seen: list[str] = []
+        with mock.patch("os.path.exists", return_value=True):
+            database.modify(
+                [
+                    {"field": DatabaseV2.Fields.FILE_PATH, "func": lambda f, _: new if f == old else None},
+                    {"field": DatabaseV2.Fields.GENRE, "func": lambda f, _: seen.append(f) if f == new else None},
+                ]
+            )
+        self.assertEqual(seen, [new])
+
 
 class HasChangedTestCase(unittest.TestCase):
     """has_changed, through Crate, the smallest of the bin file classes."""
@@ -97,7 +210,7 @@ class HasChangedTestCase(unittest.TestCase):
     def setUp(self):
         self.tmp = temp_dir(self)
         self.file = os.path.join(self.tmp, "Test.crate")
-        shutil.copy("test/data/TestCrate.crate", self.file)
+        shutil.copy(TEST_CRATE, self.file)
 
     def test_has_changed(self):
         crate = Crate(self.file)
@@ -110,7 +223,7 @@ class HasChangedTestCase(unittest.TestCase):
         crate.save()
         self.assertFalse(crate.has_changed, "saved")
 
-        sorting = crate.entries[1][1]
+        sorting = crate._entries[1][1]
         assert isinstance(sorting, list)
         sorting.append((Crate.Fields.COLUMN_NAME, "edited in place"))
         self.assertTrue(crate.has_changed, "nested entry edited in place")
@@ -139,6 +252,38 @@ class HasChangedTestCase(unittest.TestCase):
         self.assertFalse(crate.has_changed)
         crate.add_tracks(["/music/track1.mp3"])
         self.assertTrue(crate.has_changed)
+
+
+class SaveTestCase(unittest.TestCase):
+    """save, through Crate, as HasChangedTestCase."""
+
+    def setUp(self):
+        self.tmp = temp_dir(self)
+        self.file = os.path.join(self.tmp, "Test.crate")
+        shutil.copy(TEST_CRATE, self.file)
+
+    def test_unchanged_file_isnt_written_unless_forced(self):
+        crate = Crate(self.file)
+        with mock.patch("builtins.open", wraps=open) as opened:
+            self.assertFalse(crate.save())
+        opened.assert_not_called()
+        with mock.patch("builtins.open", wraps=open) as opened:
+            self.assertTrue(crate.save(force=True))
+        opened.assert_called_once_with(self.file, "wb")
+
+    def test_changed_file_is_written_once_serialized(self):
+        crate = Crate(self.file)
+        crate.add_tracks(["/music/track1.mp3"])
+        with mock.patch.object(Crate, "to_bytes", autospec=True, side_effect=Crate.to_bytes) as to_bytes:
+            self.assertTrue(crate.save())
+        self.assertEqual(to_bytes.call_count, 1, "serialized once, to check and to write")
+        self.assertEqual(Crate(self.file).get_track_paths(), crate.get_track_paths(), "written")
+        self.assertFalse(crate.save(), "not written again")
+
+    def test_saving_elsewhere_always_writes(self):
+        copy = os.path.join(self.tmp, "Copy.crate")
+        self.assertTrue(Crate(self.file).save(copy))
+        self.assertEqual(read_bytes(copy), read_bytes(self.file))
 
 
 if __name__ == "__main__":

@@ -37,9 +37,9 @@ class DatabaseV2(SeratoBinFile):
         fields = SeratoBinFile.Fields
         corrupt: dict[str, str] = {}
         for track in self.get_tracks():
-            if fields.CORRUPT in track.fields and track.get_value(fields.CORRUPT):
-                reason = track.get_value(fields.CORRUPT_REASON) if fields.CORRUPT_REASON in track.fields else ""
-                corrupt[track.get_full_path()] = str(reason)
+            if fields.CORRUPT in track.fields and track.get_value(fields.CORRUPT, bool):
+                reason = track.get_value(fields.CORRUPT_REASON, str) if fields.CORRUPT_REASON in track.fields else ""
+                corrupt[track.full_path] = reason
         return corrupt
 
 
