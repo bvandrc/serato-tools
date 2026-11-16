@@ -207,8 +207,6 @@ Each release groups its changes by the part of the package they're in. Within ea
   - The smart crate field holding the on/off value of "match all" and "live update" is named too: `SmartCrate.RuleFields.SETTING_VALUE`.
 - **Feature:** Add `DatabaseV2.get_corrupt_tracks`, and `--list_corrupt` to the database CLI, which list the tracks Serato marked corrupt along with the reason Serato gives.
 
-## 5.2.1 - 2026-11-03
-
 ### Track Gain Tags
 
 - **[BREAKING] Fix:** Fix `TrackGain`, which never read or wrote anything: Serato stores a track's gain as an `RVA2` ID3 frame named `SeratoGain`, not the `replaygain_SeratoGain_gain` / `_peak` keys we had before.
@@ -281,8 +279,6 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **[BREAKING]** `modify` on a database or regular crate now rejects smart crate rule fields, which moved from the shared `Fields` enum to the new `SmartCrate.RuleFields`.
   - **Upgrading:** Name a smart crate rule field through `SmartCrate.RuleFields` rather than `Fields`.
-
-## 5.0.1 - 2026-11-03
 
 ### Smart Crates
 
