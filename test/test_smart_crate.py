@@ -74,6 +74,14 @@ class TestCase(unittest.TestCase):
                 )
                 self.assertEqual(rule.value, falsy_values[value_field], "a falsy rule value must not read as no value")
 
+    def test_delete_rule_returns_whether_removed(self):
+        crate = SmartCrate(os.path.abspath("test/data/TestSmartCrate.scrate"))
+
+        self.assertFalse(crate.delete_rule(SmartCrate.RuleField.ALBUM), "the crate has no album rule")
+        self.assertFalse(crate.has_changed)
+        self.assertTrue(crate.delete_rule(SmartCrate.RuleField.GROUPING))
+        self.assertFalse(crate.delete_rule(SmartCrate.RuleField.GROUPING), "the grouping rule was already removed")
+
     def test_rule_properties_follow_its_entries(self):
         rule = make_rule(
             SmartCrate.RuleComparison.INT_IS_GE,

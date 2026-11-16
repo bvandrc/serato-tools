@@ -232,8 +232,8 @@ class SmartCrate(CrateBase):
 
         self.entries = new_entries
 
-    def delete_rule(self, field: "SmartCrate.RuleField"):
-        """Removes every rule on `field`."""
+    def delete_rule(self, field: "SmartCrate.RuleField") -> bool:
+        """Removes every rule on `field`, and returns whether there was one to remove."""
         rule_field_id = field.value
         new_entries: SmartCrate.EntryList = []
         for f, v in self.entries:
@@ -245,7 +245,9 @@ class SmartCrate(CrateBase):
                     continue
             new_entries.append((f, v))
 
+        removed = len(new_entries) != len(self.entries)
         self.entries = new_entries
+        return removed
 
     def to_regular_crate(self, file: str) -> "Crate":
         """A regular crate for `file`, holding this smart crate's tracks and view settings (its sort and columns), but
