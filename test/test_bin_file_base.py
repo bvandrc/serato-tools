@@ -1,4 +1,3 @@
-# pylint: disable=protected-access
 import copy
 import json
 import os

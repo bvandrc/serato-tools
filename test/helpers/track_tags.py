@@ -124,7 +124,7 @@ def has_tags_v1(path: str) -> bool:
 
 def cue_positions(tags: TrackCuesV2) -> list[int]:
     """The position of each of `tags`' cues, in order."""
-    return [cue.position for cue in tags._from_entries().cues]  # pylint: disable=protected-access
+    return [cue.position for cue in tags._from_entries().cues]
 
 
 @contextlib.contextmanager

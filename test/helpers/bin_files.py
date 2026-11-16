@@ -73,7 +73,7 @@ class LibraryFolders:
         for track in tracks:
             entries = [(DatabaseV2.Fields.FILE_PATH, DatabaseV2.get_relative_path(track)), *(fields or [])]
             # the database has no method that adds a track
-            db._entries.append((DatabaseV2.Fields.TRACK, entries))  # pylint: disable=protected-access
+            db._entries.append((DatabaseV2.Fields.TRACK, entries))
         db.save()
 
     def db_track(self, track: str) -> SeratoBinFile.Track:

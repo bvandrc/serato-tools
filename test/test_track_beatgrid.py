@@ -1,4 +1,3 @@
-# pylint: disable=protected-access
 import struct
 from unittest import mock
 
