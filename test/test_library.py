@@ -15,7 +15,7 @@ from serato_tools.smart_crate import SmartCrate
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_text_frames import TrackTextFrames
-from serato_tools.utils.bin_file_base import SeratoBinFile
+from serato_tools.utils.bin_file_base import DataTypeError, SeratoBinFile
 
 from test.helpers.bin_files import TEST_DATABASE
 from test.helpers.files import temp_dir
@@ -489,7 +489,7 @@ class TestCase(unittest.TestCase):
         saved = self.saved_file_names()
         for name, tracks in batches.items():
             with self.subTest(name):
-                with self.assertRaises((ValueError, AttributeError)):
+                with self.assertRaises((ValueError, DataTypeError)):
                     Library(self.serato_dir).set_db_tracks_tags(tracks)
                 self.assertEqual(saved, [], "database not saved")
                 self.assertEqual(TrackCuesV2(first).get_track_color(), b"\xbb\xbb\xbb", "first file not changed")
