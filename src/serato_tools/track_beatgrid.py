@@ -13,7 +13,7 @@ import sys
 from typing import cast, overload, TypeVar, Unpack
 from dataclasses import dataclass
 
-from mutagen._file import FileType
+from mutagen import FileType
 from mutagen.id3 import ID3
 
 from serato_tools.utils import _AssertionValueError, logger
