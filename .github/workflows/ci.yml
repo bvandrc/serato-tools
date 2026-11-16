@@ -40,11 +40,11 @@ jobs:
         working-directory: .
 
     # Ruff's output doesn't depend on the Python version: it checks against requires-python, not the running one
-    - name: Lint (Ruff)
+    - name: Lint
       if: matrix.python-version == '3.12'
       run: ruff check --output-format=github .
 
-    - name: Format Check (Ruff)
+    - name: Format Check
       if: matrix.python-version == '3.12'
       run: ruff format --check --diff .
 
