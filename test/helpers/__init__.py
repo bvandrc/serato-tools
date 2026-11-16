@@ -3,4 +3,6 @@
 - `files`: temporary folders, copies of fixtures, and reading files back.
 - `bin_files`: the database and crate fixtures.
 - `track_tags`: the test mp3 and the GEOB tag fixtures, and copies of the mp3. Needs the track_tags extra.
+- `cli`: running a console script with a command line.
+- `platforms`: marks for tests that only make sense on one OS family.
 """
