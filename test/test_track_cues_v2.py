@@ -2,7 +2,7 @@ import base64
 import dataclasses
 import re
 import struct
-from typing import Callable
+from collections.abc import Callable
 
 import pytest
 
@@ -402,9 +402,11 @@ def test_cli_set_color_in_any_case(mp3: str, name: str):
 
 def test_cli_set_color_unknown_raises_and_changes_nothing(mp3: str):
     before = read_bytes(mp3)
-    with cues_cli(mp3, "--set_color", "mauve"):
-        with pytest.raises(ValueError, match="Invalid track color 'mauve', must be one of: .*PURPLE"):
-            main()
+    with (
+        cues_cli(mp3, "--set_color", "mauve"),
+        pytest.raises(ValueError, match=r"Invalid track color 'mauve', must be one of: .*PURPLE"),
+    ):
+        main()
     assert read_bytes(mp3) == before
 
 

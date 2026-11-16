@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """Dumps every Serato tag in an audio file, of any container mutagen reads, for inspecting or capturing raw tag data."""
 
 import base64
@@ -28,7 +26,7 @@ def get_serato_tagdata(tagfile: mutagen._file.FileType, decode: bool = False):
         raise ValueError(f"file has no tags: {tagfile.filename}")
 
     if isinstance(tagfile, (mutagen.mp3.MP3, mutagen.aiff.AIFF)):
-        for tagname in tagfile.tags.keys():
+        for tagname in tagfile.tags:
             tagname = str(tagname)
             if tagname.startswith("GEOB:Serato"):
                 tagvalue = get_geob(tagfile, tagname[len("GEOB:") :])
@@ -39,7 +37,7 @@ def get_serato_tagdata(tagfile: mutagen._file.FileType, decode: bool = False):
     elif isinstance(tagfile, (mutagen.flac.FLAC, mutagen.mp4.MP4)):
         for tagname, tagvalue in tagfile.tags.items():  # type: ignore
             tagname = str(tagname)
-            if not (tagname.startswith("serato_") or tagname.startswith("----:com.serato.dj:")):
+            if not (tagname.startswith(("serato_", "----:com.serato.dj:"))):
                 continue
 
             tagvalue = tagvalue[0]
@@ -107,7 +105,7 @@ if __name__ == "__main__":
         sys.exit(f"file has no tags: {args.input_file}")
 
     for field, value in get_serato_tagdata(tagfile, decode=args.decode):
-        log_str = f'field {field} { "decoded " if args.decode else "" }value: {value}'
+        log_str = f"field {field} {'decoded ' if args.decode else ''}value: {value}"
         if args.output_dir:
             filepath = os.path.join(args.output_dir, f"{field}.octet-stream")
             print(log_str + f" (written to file {filepath})")

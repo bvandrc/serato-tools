@@ -219,12 +219,12 @@ class SeratoGeobTag(ID3FileTag):
         given_version: SeratoGeobTag.Version = struct.unpack(SeratoGeobTag.VERSION_FORMAT, given)
         if given_version != self.VERSION:
             raise ValueError(f"""
-                ERROR: Untested Serato tag version: {str(given_version)}
+                ERROR: Untested Serato tag version: {given_version!s}
                 Please contact the developer so we can get it tested and supported!
                 We will have you send the file you are trying to parse so we can add support and tests for it.
                 We do not want to risk damaging users' library database or crate files!
 
-                Expected version: {str(self.VERSION)}
+                Expected version: {self.VERSION!s}
                 """)
 
     def _pack_version(self):

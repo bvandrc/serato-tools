@@ -7,7 +7,6 @@ writing a beatgrid with `TrackBeatgrid` works without it.
 
 import sys
 from dataclasses import asdict, dataclass
-from typing import List, Optional
 
 import librosa
 import numpy as np
@@ -18,14 +17,14 @@ class BeatGridInfo:
     """What `analyze_beatgrid` found in a track: its tempo, and its beats and downbeats as times in seconds."""
 
     bpm: float
-    beat_positions: List[float]
+    beat_positions: list[float]
     confidence: float
     phase_offset: float
     grid_consistency: float
-    downbeats: List[float]
+    downbeats: list[float]
 
 
-def analyze_beatgrid(file: str, bpm_helper: Optional[int | float] = None):
+def analyze_beatgrid(file: str, bpm_helper: int | float | None = None):
     """Decodes the audio file at `file` and finds its beats and downbeats.
 
     `bpm_helper`, such as the BPM already in the track's tags, is the tempo the beat tracker starts from. Decoding and

@@ -1,13 +1,11 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """A Serato library folder as a whole, for changes that have to reach its database and every crate together."""
 
 import os
-from collections.abc import Collection, Generator
+from collections.abc import Callable, Collection, Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING, Callable, Mapping, Unpack
+from typing import TYPE_CHECKING, Unpack
 
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
@@ -122,8 +120,9 @@ class Library:
         """
         saved: list[str] = []
         for file in self._get_parsed_bin_files():
+            # a loop rather than a comprehension, so the save isn't hidden in its filter
             if file.save():
-                saved.append(file.filepath)
+                saved.append(file.filepath)  # noqa: PERF401
         return saved
 
     @contextmanager
