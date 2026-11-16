@@ -8,6 +8,7 @@ numpy).
 
 import collections
 import io
+import math
 import struct
 import sys
 from dataclasses import dataclass
@@ -64,7 +65,7 @@ class TrackBeatgrid(SeratoGeobTag):
                 entries = None
             if entries:
                 self.entries = cast(TrackBeatgrid.EntryList, entries)
-                self._check_markers(*self._check_and_split(self.entries)[:2])
+                self._validate_grid(self.entries)
                 self.enhanced_entries = self._enhance_entries(self.entries)
 
         self.beats: list[TrackBeatgrid.BeatPoint] | None = None
@@ -74,8 +75,8 @@ class TrackBeatgrid(SeratoGeobTag):
             return ""
         if not self.enhanced_entries:
             raise ValueError("no enhanced_entries set")
-        nonterminal_markers, terminal_marker, _footer = self._check_and_split(self.enhanced_entries)
-        return "\n".join(str(marker) for marker in (*nonterminal_markers, terminal_marker))
+        # unchecked, so that a grid set in memory prints even when it's invalid
+        return "\n".join(str(marker) for marker in self.enhanced_entries[:-1])
 
     def delete(self):
         """Deletes the tag in memory, returning whether the file had it; call `save()` to write the deletion."""
@@ -108,17 +109,15 @@ class TrackBeatgrid(SeratoGeobTag):
         if rest := fp.read():
             raise ValueError(f"beatgrid has {len(rest)} bytes after its footer")
 
-    type __SplitEntryList[T] = tuple[list[T], "TrackBeatgrid.TerminalBeatgridMarker", "TrackBeatgrid.Footer"]
-
     @overload
-    def _check_and_split(self) -> "__SplitEntryList[NonTerminalBeatgridMarker]": ...
+    def _validate_grid(self) -> "TrackBeatgrid.EntryList": ...
     @overload
-    def _check_and_split[T](self, entries: "_EntryList[T]") -> "__SplitEntryList[T]": ...
-    def _check_and_split[T](self, entries: "_EntryList[T] | None" = None):
-        """Splits `entries`, or `self.entries`, into the non-terminal markers, the terminal marker, and the footer.
+    def _validate_grid[T: "TrackBeatgrid._NonTerminalMarker"](self, entries: "_EntryList[T]") -> "_EntryList[T]": ...
+    def _validate_grid[T: "TrackBeatgrid._NonTerminalMarker"](self, entries: "_EntryList[T] | None" = None):
+        """Validates the grid in `entries`, or `self.entries`, and returns it.
 
-        Raises NoBeatgridError if there are none, and ValueError if they aren't in that order with one terminal marker
-        and one footer.
+        Raises NoBeatgridError if there are no entries, and ValueError if they aren't non-terminal markers, then one
+        terminal marker, then one footer, or for a grid with markers out of order, a 0-beat segment, or no BPM.
         """
         if entries is None:
             entries = cast("TrackBeatgrid._EntryList[T]", self.entries)
@@ -126,58 +125,34 @@ class TrackBeatgrid(SeratoGeobTag):
         if not entries:
             raise NoBeatgridError(self.filename)
 
-        nonterminal_markers: list[T] = []
-        terminal_markers: list[TrackBeatgrid.TerminalBeatgridMarker] = []
-        footers: list[TrackBeatgrid.Footer] = []
-
-        for entry in entries:
-            if isinstance(
-                entry, (TrackBeatgrid.NonTerminalBeatgridMarker, TrackBeatgrid.NonTerminalBeatgridMarkerEnhanced)
-            ):
-                nonterminal_markers.append(cast(T, entry))
-            elif isinstance(entry, TrackBeatgrid.TerminalBeatgridMarker):
-                terminal_markers.append(entry)
-            elif isinstance(entry, TrackBeatgrid.Footer):
-                footers.append(entry)
-            else:
-                raise TypeError(f"unexpected value type {entry}")
-
-        if len(terminal_markers) != 1 or len(footers) != 1:
-            raise ValueError(
-                f"beatgrid has {len(terminal_markers)} terminal markers and {len(footers)} footers, not 1 of each"
-            )
         if not isinstance(entries[-1], TrackBeatgrid.Footer):
-            raise ValueError("a beatgrid's last entry is its footer")
-        if not isinstance(entries[-2], TrackBeatgrid.TerminalBeatgridMarker):
-            raise ValueError("a beatgrid's footer comes right after its terminal marker")
-        return (nonterminal_markers, terminal_markers[0], footers[0])
+            raise ValueError("a beatgrid's last entry must be its footer")
+        if len(entries) < 2 or not isinstance(entries[-2], TrackBeatgrid.TerminalBeatgridMarker):
+            raise ValueError("a beatgrid's footer must come right after its terminal marker")
+        *nonterminal_markers, terminal_marker, _footer = entries
+        if not all(
+            isinstance(
+                marker, (TrackBeatgrid.NonTerminalBeatgridMarker, TrackBeatgrid.NonTerminalBeatgridMarkerEnhanced)
+            )
+            for marker in nonterminal_markers
+        ):
+            raise ValueError("a beatgrid's entries before its terminal marker must be non-terminal markers")
 
-    @staticmethod
-    def _check_markers(
-        nonterminal_markers: "list[TrackBeatgrid.NonTerminalBeatgridMarker]",
-        terminal_marker: "TrackBeatgrid.TerminalBeatgridMarker",
-    ):
-        """Raises ValueError for a grid with markers out of order, a 0-beat segment, or no BPM."""
-        # Every grid Serato DJ Pro 2 was seen writing passes these checks, so one that doesn't is a grid this class may
-        # misread, or one Serato can't use. A negative position isn't rejected, since a grid whose first beat comes
+        # Every grid Serato DJ Pro 2 was seen writing passes the checks below, so one that doesn't is a grid this class
+        # may misread, or one Serato can't use. A negative position isn't rejected, since a grid whose first beat comes
         # before the track starts seems possible.
-        previous_position_s = None
-        for marker in nonterminal_markers:
+        for marker, end_s in self._marker_spans(nonterminal_markers, terminal_marker):
             if marker.beats_till_next_marker <= 0:
                 raise ValueError(f"beatgrid marker at {marker.position_s} s has {marker.beats_till_next_marker} beats")
-        for marker in (*nonterminal_markers, terminal_marker):
-            if previous_position_s is not None and marker.position_s <= previous_position_s:
-                raise ValueError(
-                    f"beatgrid marker at {marker.position_s} s doesn't come after the one at {previous_position_s} s"
-                )
-            previous_position_s = marker.position_s
-        if not terminal_marker.bpm > 0:
+            if end_s <= marker.position_s:
+                raise ValueError(f"beatgrid marker at {end_s} s doesn't come after the one at {marker.position_s} s")
+        if math.isnan(terminal_marker.bpm) or terminal_marker.bpm <= 0:
             raise ValueError(f"beatgrid's last marker has a BPM of {terminal_marker.bpm}")
 
+        return entries
+
     def _serialize(self):
-        entries = self._check_and_split()
-        nonterminal_markers, terminal_marker, footer = entries
-        self._check_markers(nonterminal_markers, terminal_marker)
+        *nonterminal_markers, terminal_marker, footer = self._validate_grid()
         markers = (*nonterminal_markers, terminal_marker)
 
         fp = io.BytesIO()
@@ -214,38 +189,37 @@ class TrackBeatgrid(SeratoGeobTag):
 
     @staticmethod
     def _enhance_entries(raw_entries: "TrackBeatgrid.EntryList") -> "TrackBeatgrid.EntryListEnhanced":
-        """`raw_entries` with each non-terminal marker's BPM, from its beats and the time to the next marker, added."""
+        """`raw_entries` with each non-terminal marker's BPM, from its beats and the time to the next marker, added.
+
+        Needs entries that `_validate_grid` accepts, so that no segment is zero seconds long.
+        """
         *markers, terminal_marker, footer = raw_entries
-        enhanced: list[TrackBeatgrid.NonTerminalBeatgridMarkerEnhanced] = []
-        for marker, end_s in TrackBeatgrid._marker_spans(markers, terminal_marker):
-            time_diff = end_s - marker.position_s
-            if time_diff == 0:
-                bpm = float("nan")  # mark invalid BPM when segment has zero duration
-            else:
-                bpm = marker.beats_till_next_marker / time_diff * 60
-            enhanced.append(
-                TrackBeatgrid.NonTerminalBeatgridMarkerEnhanced(marker.position_s, marker.beats_till_next_marker, bpm)
-            )
-        return (*enhanced, terminal_marker, footer)
+        return (
+            *(
+                TrackBeatgrid.NonTerminalBeatgridMarkerEnhanced(
+                    marker.position_s,
+                    marker.beats_till_next_marker,
+                    marker.beats_till_next_marker / (end_s - marker.position_s) * 60,
+                )
+                for marker, end_s in TrackBeatgrid._marker_spans(markers, terminal_marker)
+            ),
+            terminal_marker,
+            footer,
+        )
 
     def get_beat_position(self, position_ms: float) -> float:
         """How many beats into the grid `position_ms` is, from 0 at the first marker; fractional between beats."""
         position_s = position_ms / 1000.0
-        nonterminal_markers, terminal_marker, _footer = self._check_and_split()
+        # checked again, since entries may have been changed since they were parsed
+        *nonterminal_markers, terminal_marker, _footer = self._validate_grid()
 
         cumulative_beats = 0.0
         for marker, end_s in self._marker_spans(nonterminal_markers, terminal_marker):
             if position_s < end_s:
-                if marker.beats_till_next_marker <= 0 or end_s <= marker.position_s:
-                    raise ValueError(
-                        f"invalid beatgrid: zero-length or zero-beat segment at {marker.position_s}s (beats_till_next_marker={marker.beats_till_next_marker}, next marker at {end_s}s)"
-                    )
                 interval = (end_s - marker.position_s) / marker.beats_till_next_marker
                 return cumulative_beats + (position_s - marker.position_s) / interval
             cumulative_beats += marker.beats_till_next_marker
 
-        if terminal_marker.bpm <= 0:
-            raise ValueError(f"invalid terminal marker bpm: {terminal_marker.bpm}")
         terminal_interval = 60.0 / terminal_marker.bpm
         return cumulative_beats + (position_s - terminal_marker.position_s) / terminal_interval
 
@@ -260,15 +234,13 @@ class TrackBeatgrid(SeratoGeobTag):
         if not self.enhanced_entries:
             raise ValueError("no enhanced_entries set")
 
-        nonterminal_markers, terminal_marker, _footer = self._check_and_split(self.enhanced_entries)
+        # enhanced_entries is only built from checked markers, but it's checked again rather than divide by a 0 beat
+        # count or terminal BPM if it was set directly
+        *nonterminal_markers, terminal_marker, _footer = self._validate_grid(self.enhanced_entries)
 
         beats: list[TrackBeatgrid.BeatPoint] = []
 
         for marker, end_s in self._marker_spans(nonterminal_markers, terminal_marker):
-            if marker.beats_till_next_marker <= 0:
-                raise ValueError(
-                    f"invalid beatgrid: marker at {marker.position_s}s has beats_till_next_marker={marker.beats_till_next_marker}"
-                )
             interval = (end_s - marker.position_s) / marker.beats_till_next_marker
             for j in range(marker.beats_till_next_marker):
                 pos = marker.position_s + j * interval
@@ -279,8 +251,6 @@ class TrackBeatgrid(SeratoGeobTag):
         track_length: float = self.tagfile.info.length
         if track_length > 60 * 60 * 3:  # 3 hours
             raise ValueError(f"Track length is too long: {track_length} seconds")
-        if terminal_marker.bpm <= 0:
-            raise ValueError(f"invalid terminal marker bpm: {terminal_marker.bpm}")
         terminal_interval = 60.0 / terminal_marker.bpm
         pos = terminal_marker.position_s
         while pos <= track_length:
@@ -370,8 +340,9 @@ class TrackBeatgrid(SeratoGeobTag):
             TrackBeatgrid.Footer(0),
         )
 
-        # checked before replacing the old grid, so an analysis that gives an invalid one leaves it as it was
-        self._check_markers(*self._check_and_split(raw_entries)[:2])
+        # checked before replacing the old grid, so an analysis that gives an invalid one leaves it as it was, and
+        # before _enhance_entries, which needs valid markers
+        self._validate_grid(raw_entries)
         self.entries = raw_entries
         self.enhanced_entries = self._enhance_entries(self.entries)
         # the old grid's beats, which find_nearest_beat would otherwise still search
