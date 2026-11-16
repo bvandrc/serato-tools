@@ -301,6 +301,17 @@ class TestCase(unittest.TestCase):
             db.modify_tracks(func)
         self.assertFalse(db.has_changed, "the first track is left as it was")
 
+    def test_modify_tracks_refuses_a_value_that_skipped_set_value(self):
+        db = DatabaseV2(os.path.abspath(TEST_DATABASE))
+
+        def func(track: DatabaseV2.Track):
+            setattr(track, DatabaseV2.Fields.GENRE, 1)
+            return track
+
+        with self.assertRaises(DataTypeError):
+            db.modify_tracks(func)
+        self.assertFalse(db.has_changed)
+
     def test_modify_with_a_value_of_the_wrong_type_changes_nothing(self):
         db = DatabaseV2(os.path.abspath(TEST_DATABASE))
         with self.assertRaises(DataTypeError):

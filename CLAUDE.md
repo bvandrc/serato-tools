@@ -69,7 +69,8 @@ The lifecycle is `parse → self._entries → change through the class's methods
 - The file's bytes aren't stored. Each `to_bytes()` call serializes `_entries` from scratch, so changes cost nothing and each `save()` pays for one serialization. (The `SeratoGeobTag` classes below do store theirs, in the internal `_raw_data`.)
 - `_entries` is internal: callers change a file through its methods (`modify_tracks`, `modify`, `filter_tracks`, `add_tracks`, ...) and read it through `get_entries`, `get_tracks`, and `to_json_object`. Point callers and docs at those methods too.
 - **Value types:** every value in `_entries` has the type its field holds, so code reading one `cast`s it to that type rather than checking it.
-  - It's checked wherever a value comes in: parsing gives each field its type, `from_json_object` serializes the entries before taking them, and `EntryListCls.set_value` calls `check_value`. A new way in has to check too.
+  - It's checked wherever a value comes in: parsing gives each field its type, `from_json_object` serializes the entries before taking them, `EntryListCls.set_value` calls `check_value`, and `modify_tracks` checks each track it replaces, for a value that skipped `set_value` (assigned straight to an attribute, or in a `Track` built by hand). A new way in has to check too.
+  - `modify_tracks` checks only the tracks that changed, not every track it builds, since a `Track` built from loaded entries holds values already checked and checking them all made building one several times slower.
   - `expect_type(value, type, field)` does those checks: it raises `DataTypeError` or returns the value, typed, so one call checks and narrows.
 - The read-only `has_changed` property compares a hash of `to_bytes()` with one of the bytes the file was loaded from or last saved to its own path (`_saved_hash`).
   - It sees in-place edits too, and a file that didn't exist yet counts as changed.
