@@ -86,13 +86,14 @@ Each release groups its changes by the part of the package they're in. Within ea
 ### Database / Crates
 
 - **Feature:** `get_entries` on the database, crates, and smart crates takes an optional `track_matcher`, a regex, and then gives only the tracks whose path it matches, ignoring case, as `get_entries_filtered` does.
+  - **Deprecated:** `get_entries_filtered(track_matcher)`, in favor of `get_entries(track_matcher)`. It still works, with a `DeprecationWarning`, until 6.0 removes it.
 - **Feature:** Add a `full_path` property to a database or crate track: its absolute path, as `get_full_path()` gives.
+  - **Deprecated:** A track's `get_full_path()`, in favor of `full_path`. It still works, with a `DeprecationWarning`, until 6.0 removes it.
 - **Feature:** `SmartCrate.delete_rule` returns whether the crate had a rule on that field to remove.
 - **Fix:** A database or crate track's `relpath`, and a smart crate rule's `comparison`, `field`, and `value`, now read the track's or rule's current entries, so they no longer keep a value set through `set_value` or removed through `remove_field`. In particular, the rules of one `modify()` call after one that changes a track's path are passed its new path, not its old one. They're now read-only, since assigning one never changed the file: change it through `set_path`, `set_value`, or the rule's setters.
 - **Fix:** Setting a track's path to a value that isn't text, through `set_value`, now raises `DataTypeError`.
 - **Fix:** `modify_tracks`, and so `modify`, now change no track when `func` raises for one, rather than keeping the changes to the tracks before it.
 - **Fix:** A crate's `add_tracks`, and so `add_tracks_from_dir`, now skip a track already in the crate in another case, and `remove_duplicates` removes a repeat of a track's path in another case, as `remove_tracks` and `modify` match paths whatever their case. Before, a crate could hold one track twice, under paths differing only in case, and `add_tracks_from_dir` with `replace` removed a track held in another case than its file's name, then added it again.
-- **Deprecated:** A track's `get_full_path()` is deprecated in favor of its `full_path` property, and `get_entries_filtered(track_matcher)` in favor of `get_entries(track_matcher)`. Both still work, with a `DeprecationWarning`, until 6.0 removes them.
 
 ### Track Tags
 
@@ -103,7 +104,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 ### Library
 
 - **Fix:** `Library.set_db_track_tags` / `set_db_tracks_tags` now raise `DataTypeError` for a color that isn't a `TrackCuesV2.TrackColors`, before changing any file. It's still an `AttributeError` too, as it was.
-- **Deprecated:** Catching that error as `AttributeError` is deprecated, but still works: catch `DataTypeError`, which is all it'll be in 6.0.
+  - **Deprecated:** Catching that error as `AttributeError`. It still works until 6.0, where it's only a `DataTypeError`.
 
 ## [5.7.0] - 2026-11-15
 
