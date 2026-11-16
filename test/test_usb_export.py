@@ -148,6 +148,13 @@ class CopyCratesToUsbTestCase(unittest.TestCase):
         with open(self.dest("Tracks", "a.mp3"), encoding="utf-8") as f:
             self.assertEqual(f.read(), self.a, "the first of the tracks with that filename")
 
+    def test_logs_the_database_and_stems_crate_it_writes(self):
+        with self.assertLogs("serato-tools", "INFO") as logs:
+            usb_export.copy_crates_to_usb([self.house], self.drive, "Tracks")
+        messages = [record.getMessage() for record in logs.records]
+        self.assertIn(f"created database file {self.dest('_Serato_', DatabaseV2.FILENAME)}", messages)
+        self.assertIn(f"copied crate {self.dest('_Serato_', Crate.SERATO_STEMS_CRATE_PATH)}", messages)
+
     def test_replaces_the_drives_library_and_skips_unchanged_tracks(self):
         usb_export.copy_crates_to_usb([self.house], self.drive, "Tracks")
         stale = self.dest("_Serato_", Crate.DIR, "Old.crate")

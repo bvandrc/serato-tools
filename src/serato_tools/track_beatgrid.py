@@ -183,7 +183,10 @@ class TrackBeatgrid(SeratoGeobTag):
     def _marker_spans[T: "TrackBeatgrid._NonTerminalMarker"](
         nonterminal_markers: list[T], terminal_marker: "TrackBeatgrid.TerminalBeatgridMarker"
     ) -> list[tuple[T, float]]:
-        """Each non-terminal marker's span: the marker, and the position in seconds where its beats end, at the next marker."""
+        """Each non-terminal marker's span: the marker, and the position in seconds where its beats end.
+
+        A marker's beats end at the next marker, which for the last non-terminal marker is the terminal marker.
+        """
         ends_s = [marker.position_s for marker in nonterminal_markers[1:]] + [terminal_marker.position_s]
         return list(zip(nonterminal_markers, ends_s))
 

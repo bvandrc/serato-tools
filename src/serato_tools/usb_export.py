@@ -67,7 +67,7 @@ def copy_crates_to_usb(
         return Crate.get_relative_path(os.path.join(dest_tracks_dir, os.path.basename(track_path)))
 
     dest_crate_dir = os.path.join(dest_serato_dir, Crate.DIR)
-    os.makedirs(dest_crate_dir)
+    os.makedirs(dest_crate_dir, exist_ok=True)
     track_paths: list[str] = []
     for crate_file in crate_files:
         if not os.path.isdir(crate_file):
@@ -80,21 +80,21 @@ def copy_crates_to_usb(
     def reset_played(track: DatabaseV2.Track):
         track.set_value(DatabaseV2.Fields.PLAYED, False)
 
+    dest_db_file = os.path.join(dest_serato_dir, DatabaseV2.FILENAME)
     _export_library_file(
         DatabaseV2(os.path.join(LOCAL_SERATO_DIR, DatabaseV2.FILENAME)),
-        os.path.join(dest_serato_dir, DatabaseV2.FILENAME),
+        dest_db_file,
         track_paths_set,
         dest_track_path,
         edit_track=reset_played,
     )
+    logger.info(f"created database file {dest_db_file}")
     _copy_order_file(dest_serato_dir, root_crate)
     if os.path.exists(local_stems_crate := os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)):
-        _export_library_file(
-            Crate(local_stems_crate),
-            os.path.join(dest_serato_dir, Crate.SERATO_STEMS_CRATE_PATH),
-            track_paths_set,
-            dest_track_path,
-        )
+        dest_stems_crate = os.path.join(dest_serato_dir, Crate.SERATO_STEMS_CRATE_PATH)
+        os.makedirs(os.path.dirname(dest_stems_crate), exist_ok=True)
+        _export_library_file(Crate(local_stems_crate), dest_stems_crate, track_paths_set, dest_track_path)
+        logger.info(f"copied crate {dest_stems_crate}")
     _copy_tracks(track_paths, os.path.join(dest_drive_dir, dest_tracks_dir))
 
 
@@ -150,7 +150,7 @@ def _export_library_file(
 ):
     """Writes the database or crate to `dest_file` with only the tracks in `track_paths`, at their drive paths.
 
-    `edit_track` makes any other change to each of those tracks.
+    `edit_track` makes any other change to each of those tracks. `dest_file`'s folder must already exist.
     """
     file.filter_tracks(lambda track: os.path.normpath(track.relpath) in track_paths)
 
@@ -162,9 +162,7 @@ def _export_library_file(
 
     file.modify_tracks(move_track)
     file.remove_duplicates()
-    os.makedirs(os.path.dirname(dest_file), exist_ok=True)
     file.save(dest_file)
-    logger.info(f"copied {dest_file}")
 
 
 def _copy_order_file(dest_serato_dir: str, root_crate: Optional[str]):
