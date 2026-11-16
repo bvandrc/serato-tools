@@ -79,7 +79,9 @@ class LibraryFolders:
     def db_track(self, track: str) -> SeratoBinFile.Track:
         """`track`'s entry in the saved database."""
         path = DatabaseV2.get_relative_path(track)
-        return next(t for t in DatabaseV2(self.db_file).get_tracks() if t.relpath == path)
+        saved = next((t for t in DatabaseV2(self.db_file).get_tracks() if t.relpath == path), None)
+        assert saved is not None, f"{path} isn't in the saved database"
+        return saved
 
     def db_values(self, field: DatabaseV2.Fields) -> dict[str, SeratoBinFile.Value]:
         """Each saved database track's value of `field`, by path, for the tracks that have it."""

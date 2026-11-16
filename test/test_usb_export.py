@@ -94,7 +94,11 @@ class Export(LibraryFolders):
 
 @pytest.fixture
 def export(tmp_dir: str, monkeypatch: pytest.MonkeyPatch) -> Export:
-    export = Export(*(os.path.join(tmp_dir, name) for name in ["_Serato_", "Music", "Drive"]))
+    export = Export(
+        serato_dir=os.path.join(tmp_dir, "_Serato_"),
+        music_dir=os.path.join(tmp_dir, "Music"),
+        drive=os.path.join(tmp_dir, "Drive"),
+    )
     monkeypatch.setattr(usb_export, "LOCAL_SERATO_DIR", export.serato_dir)
     monkeypatch.setattr(usb_export, "LOCAL_SERATO_DRIVE", os.path.splitdrive(tmp_dir)[0])
     return export
