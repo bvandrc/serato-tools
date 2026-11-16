@@ -65,38 +65,34 @@ include = ["serato_tools*"]
 line-length = 120
 
 [tool.ruff.lint]
-# Ruff's defaults, plus:
-extend-select = [
-    "I",  # import order
-    "UP",  # newer syntax and the standard library's current names
-    "B",  # likely bugs
-    "SIM",  # simpler equivalents
-    "C4",  # simpler comprehensions
-    "PIE",  # unnecessary code
-    "PERF",  # slow loops
-    "FURB",  # modernizations
-    "FLY",  # joins that should be f-strings
-    "RSE",  # unnecessary parentheses on raise
-    "RET",  # needless assignments and branches around return
-    "ERA",  # commented-out code
-    "W",  # pycodestyle's warnings
-    "LOG",  # logging misuse
-    "G",  # logging calls that format their message
-    "SLOT",  # subclasses of str, tuple, and namedtuple without __slots__
-    "PYI",  # type hints, such as typing.NamedTuple for collections.namedtuple
-    "PGH",  # type: ignore and noqa without a rule code
-    "PT",  # pytest style, such as pytest.raises without match
-    "RUF",  # Ruff's own
-    # what pylint checked
-    "SLF",  # access to another class's private members
-    "ARG",  # unused arguments
-    "BLE",  # catching any exception
-    "PLE",  # pylint's errors
-    "PLW",  # pylint's warnings
-    "S102",  # exec
-    "S307",  # eval
-]
+# Every stable rule, less those below. A Ruff minor release can add stable rules, which only reach CI through a PR
+# that bumps the pinned Ruff, so each one gets a decision there.
+select = ["ALL"]
 ignore = [
+    # whole families that don't fit this codebase
+    "ANN",  # type annotations everywhere: pyright checks the types
+    "D",  # docstring style: the repo's docstrings follow its own conventions
+    "PTH",  # pathlib: the API takes and returns str paths
+    "FBT",  # boolean positional arguments: changing them would change the public API, e.g. save(file, force)
+    "T20",  # print: the CLIs print
+    "EM",  # exception messages assigned to a variable before raising
+    "CPY",  # copyright notices
+    "TD",  # TODO comment format
+    "FIX",  # TODO comments
+    "C90",  # complexity limits
+    "N",  # naming: the test helpers use classes as namespaces of constants, and parsers use local constants
+    "A",  # shadowing builtins
+    "COM",  # trailing commas: the formatter adds them, and COM812 conflicts with it
+    "ISC001",  # implicitly concatenated strings on one line: conflicts with the formatter
+    # single rules, in families that are otherwise on
+    "S101",  # assert: tests assert, and the code asserts to narrow types
+    "S603",  # subprocess calls: every call here passes a fixed argument list
+    "TRY003",  # long exception messages: the messages say what went wrong
+    "E501",  # line length: the formatter wraps code, and what's left is long strings
+    "PLR2004",  # magic values: the binary formats' constants
+    "PLR09",  # too many branches, arguments, or statements
+    "PLC0415",  # imports inside functions: optional extras and the CLIs' argparse load only when used
+    "TC006",  # quoting the type in cast()
     # takes any UPPER_CASE name for a constant, so it would swap `assert cls.DEFAULT_ENTRIES == default` to put the
     # expected value first
     "SIM300",
@@ -107,10 +103,19 @@ ignore = [
     # checks this in an optional extension
     "PLW2901",
 ]
+# rules in Ruff's defaults that the family ignores above would otherwise turn off
+extend-select = [
+    "D419",  # empty docstrings
+    "N999",  # module names that aren't valid identifiers
+    "PTH124",  # the py.path library
+    "PTH210",  # invalid suffixes passed to Path.with_suffix
+]
 
 [tool.ruff.lint.per-file-ignores]
 # tests reach into internals to set up and check state the public API doesn't expose
 "test/**" = ["SLF001"]
+# a standalone script, not part of a package, which runs the gh CLI found on PATH
+".github/scripts/**" = ["INP001", "S607"]
 
 [tool.ruff.lint.flake8-pytest-style]
 # the tests name their parametrize arguments in one string, "a, b, c"

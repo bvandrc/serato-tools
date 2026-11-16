@@ -37,7 +37,7 @@ Tests import the installed `serato_tools` (editable locally, a regular install i
 
 CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pyright, plus Ruff's lint and format checks once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15.
 - **Lint on every version:** pyright checks against the running interpreter, so 3.12 catches use of anything newer and later versions catch deprecations and removals. Ruff checks against `requires-python` instead, so it runs once.
-- **Ruff's version:** pinned below its next minor version (`ruff>=0.17,<0.18` in the `dev` extra), since Ruff's minor releases can change its default rules and its formatting. Moving to a new minor version is its own PR, fixing whatever the new version flags.
+- **Ruff's rules and version:** `pyproject.toml` selects every stable rule (`ALL`) and ignores, each with its reason, those that don't fit. Ruff is pinned below its next minor version (`ruff>=0.17,<0.18` in the `dev` extra), since only a minor release adds stable rules or changes the formatting. So moving to a new minor version is its own PR, deciding for each new rule whether to fix what it flags or ignore it.
 - **Required checks:** the `main` ruleset requires these checks by name, so renaming a job or matrix entry means updating the ruleset too.
 - **OS-specific tests:** tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `pytest.mark.skipif`, with a matching test for the other OS family. A parametrized test marks just its OS-specific cases, with `WINDOWS_ONLY` / `POSIX_ONLY` from `test.helpers.platforms`.
 
