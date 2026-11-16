@@ -302,10 +302,10 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Database / Crates
 
-- **Feature:** Add a `files` parameter to `modify_tracks`, to only pass the given tracks to `func`.
-- **Feature:** `modify`, `modify_tracks`, `change_track_path`, `filter_tracks`, `remove_track`, and `remove_duplicates` now return whether anything changed.
 - **Performance:** Editing a database or crate is now much faster.
 - **Performance:** `modify` is now much faster, and even faster when every rule is limited to certain `files`, such as when editing a single track.
+- **Feature:** Add a `files` parameter to `modify_tracks`, to only pass the given tracks to `func`.
+- **Feature:** `modify`, `modify_tracks`, `change_track_path`, `filter_tracks`, `remove_track`, and `remove_duplicates` now return whether anything changed.
 - **Fix:** `modify_and_save`, `find_missing`, and `DatabaseV2.rename_track_file` now skip saving files that didn't change.
 - **Fix:** Loading a JSON file with an invalid value now raises an error right away instead of on save, and a failed save no longer leaves the file empty.
 - **Deprecated:** `raw_data` is deprecated in favor of the new `to_bytes()`, and will be removed in 5.0.
