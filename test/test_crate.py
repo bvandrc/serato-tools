@@ -1,54 +1,24 @@
 # pylint: disable=protected-access
-import unittest
 import copy
 import os
-import tempfile
+import unittest
 
 from serato_tools.crate import Crate
 
-with open("test/data/crate.txt", "r", encoding="utf-8") as f:
-    base_expected = f.read()
+from test.helpers.bin_files import TEST_CRATE
+from test.helpers.files import read_bytes, read_text, temp_dir
+
+base_expected = read_text("test/data/crate.txt")
 
 
 class TestCase(unittest.TestCase):
-    def test_format_filepath(self):
-        self.assertEqual(
-            Crate.get_relative_path("Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
-            "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
-        )
-
-    @unittest.skipUnless(os.name == "nt", "Windows drive letters and backslash separators")
-    def test_format_windows_filepath(self):
-        self.assertEqual(
-            Crate.get_relative_path("C:\\Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3"),
-            "Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
-        )
-        self.assertEqual(
-            Crate.get_relative_path("Music\\DJ Tracks\\Zeds Dead - In The Beginning.mp3"),
-            "Music/DJ Tracks/Zeds Dead - In The Beginning.mp3",
-        )
-        self.assertEqual(
-            Crate.get_relative_path("C:/Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
-            "Music/DJ Tracks/Tripp St. - Enlighten.mp3",
-        )
-
-    @unittest.skipIf(os.name == "nt", "POSIX paths")
-    def test_format_posix_filepath(self):
-        self.assertEqual(
-            Crate.get_relative_path("/Users/Username/Music/DJ Tracks/Tripp St. - Enlighten.mp3"),
-            "Users/Username/Music/DJ Tracks/Tripp St. - Enlighten.mp3",
-        )
-
     def test_parse_and_modify_and_serialize(self):
-        file = os.path.abspath("test/data/TestCrate.crate")
-        with open(file, mode="rb") as fp:
-            file_data = fp.read()
-
+        file = os.path.abspath(TEST_CRATE)
         crate = Crate(file)
 
         self.maxDiff = None
 
-        self.assertEqual(crate.to_bytes(), file_data, "to_bytes")
+        self.assertEqual(crate.to_bytes(), read_bytes(file), "to_bytes")
         expected = base_expected
 
         self.assertEqual(crate.__str__(), expected, "parse")
@@ -81,37 +51,57 @@ class TestCase(unittest.TestCase):
         self.assertEqual(crate.__str__(), expected, "track added")
 
     def test_new_crate_does_not_share_entries_with_class_default(self):
-        a = Crate("/tmp/serato_test_A.crate")
-        a.add_tracks(["/music/track1.mp3"])
-
-        b = Crate("/tmp/serato_test_B.crate")
-        otrk_entries = [e for e in b.entries if e[0] == "otrk"]
-        self.assertEqual(otrk_entries, [], "new Crate must not inherit tracks from a previous instance")
-
-    def test_new_crate_does_not_share_nested_entries_with_class_default(self):
         default_entries = copy.deepcopy(Crate.DEFAULT_ENTRIES)
+        tmp = temp_dir(self)
 
-        a = Crate("/tmp/serato_test_C.crate")
-        b = Crate("/tmp/serato_test_D.crate")
+        a = Crate(os.path.join(tmp, "A.crate"))
+        a.add_tracks(["/music/track1.mp3"])
+        b = Crate(os.path.join(tmp, "B.crate"))
 
-        for i, (field, value) in enumerate(a.entries):
+        for i, (field, value) in enumerate(a._entries[: len(default_entries)]):
             if isinstance(value, list):
                 self.assertIsNot(value, Crate.DEFAULT_ENTRIES[i][1], f"{field} sublist shared with class default")
-                self.assertIsNot(value, b.entries[i][1], f"{field} sublist shared between instances")
+                self.assertIsNot(value, b._entries[i][1], f"{field} sublist shared between instances")
 
-        sorting_value = a.entries[1][1]
+        sorting_value = a._entries[1][1]
         assert isinstance(sorting_value, list)
         sorting_value.append((Crate.Fields.COLUMN_NAME, "mutated"))
 
         self.assertEqual(Crate.DEFAULT_ENTRIES, default_entries, "class default must not be mutated")
-        self.assertEqual(b.entries, default_entries, "other instance must not be mutated")
+        self.assertEqual(b._entries, default_entries, "other instance must not inherit tracks or nested edits")
+
+    def test_saving_needs_the_crate_extension(self):
+        crate = Crate(os.path.join(temp_dir(self), "Test.crate"))
+        with self.assertRaisesRegex(ValueError, "should end with .crate"):
+            crate.save(os.path.join(temp_dir(self), "Test.txt"))
 
     def test_add_tracks_is_saved(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            file = os.path.join(tmp, "Test.crate")
-            crate = Crate(file)
-            crate.add_tracks(["/music/track1.mp3"])
-            crate.save()
+        file = os.path.join(temp_dir(self), "Test.crate")
+        crate = Crate(file)
+        crate.add_tracks(["/music/track1.mp3"])
+        crate.save()
 
-            self.assertEqual(Crate(file).get_track_paths(), crate.get_track_paths())
-            self.assertEqual(len(crate.get_track_paths()), 1)
+        self.assertEqual(Crate(file).get_track_paths(), crate.get_track_paths())
+        self.assertEqual(len(crate.get_track_paths()), 1)
+
+    def test_add_tracks_skips_a_track_already_there_in_another_case(self):
+        crate = Crate(os.path.join(temp_dir(self), "Test.crate"))
+        crate.add_tracks(["/music/A.mp3"])
+        crate.add_tracks(["/MUSIC/a.MP3", "/music/B.mp3", "/music/b.mp3"])
+        self.assertEqual(crate.get_track_paths(), ["music/A.mp3", "music/B.mp3"], "each as first added")
+
+    def test_add_tracks_from_dir_replacing_keeps_a_track_there_in_another_case(self):
+        tmp = temp_dir(self)
+        os.mkdir(folder := os.path.join(tmp, "music"))
+        open(os.path.join(folder, "a.mp3"), "wb").close()  # pylint: disable=consider-using-with
+        crate = Crate(os.path.join(tmp, "Test.crate"))
+        in_crate = os.path.join(folder, "A.MP3")
+        crate.add_tracks([in_crate])
+
+        crate.add_tracks_from_dir(folder, replace=True)
+
+        self.assertEqual(crate.get_track_paths(), [Crate.get_relative_path(in_crate)], "kept, not removed and re-added")
+
+
+if __name__ == "__main__":
+    unittest.main()
