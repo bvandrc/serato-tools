@@ -2,6 +2,7 @@
 import unittest
 import copy
 from unittest import mock
+from typing import Iterable
 import os
 import json
 import shutil
@@ -156,6 +157,33 @@ class TestCase(unittest.TestCase):
         )
         track = next(t for t in DatabaseV2(db_file).get_tracks() if t.relpath == target)
         self.assertNotIn(DatabaseV2.Fields.GROUPING, track.fields, "removed in the saved file")
+
+    def test_get_entries_matching_tracks(self):
+        db = DatabaseV2("test/data/database_v2_test.bin")
+
+        def track_paths(entries: Iterable[DatabaseV2.EntryFull]) -> list[str]:
+            return [
+                str(dict((f, v) for f, _, v in value)[DatabaseV2.Fields.FILE_PATH])
+                for field, _, value in entries
+                if field == DatabaseV2.Fields.TRACK and isinstance(value, list)
+            ]
+
+        self.assertEqual(track_paths(db.get_entries()), db.get_track_paths(), "every track by default")
+        self.assertEqual(
+            track_paths(db.get_entries(track_matcher="d'EVILS")),
+            ["Users/bvand/Music/DJ Tracks/SiR - D'Evils.mp3"],
+            "only the tracks the regex matches, ignoring case",
+        )
+        self.assertEqual(
+            [entry for entry in db.get_entries("d'evils") if entry[0] != DatabaseV2.Fields.TRACK],
+            [entry for entry in db.get_entries() if entry[0] != DatabaseV2.Fields.TRACK],
+            "every other entry",
+        )
+
+    def test_get_entries_filtered_is_deprecated_for_get_entries(self):
+        db = DatabaseV2("test/data/database_v2_test.bin")
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(list(db.get_entries_filtered("d'evils")), list(db.get_entries("d'evils")))
 
     def test_find_missing_skips_save_when_nothing_relocated(self):
         tmp = temp_dir(self)

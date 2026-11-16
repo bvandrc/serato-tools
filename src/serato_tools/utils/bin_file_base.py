@@ -726,12 +726,20 @@ class SeratoBinFile:
         drive = os.path.splitdrive(filepath)[0]
         return os.path.normpath(filepath if drive else os.path.join(SERATO_DRIVE, os.sep, filepath))
 
-    def get_entries(self) -> Generator[EntryFull, None, None]:
-        """Get entry fieldnames."""
-        yield from self.__get_entries_internal(track_matcher=None)
+    def get_entries(self, track_matcher: Optional[str | Pattern[str]] = None) -> Generator[EntryFull, None, None]:
+        """Each entry with its field's readable name, as is each entry in a nested entry list.
+
+        Given `track_matcher`, a regex, only the tracks whose path it matches (ignoring case) are included.
+        """
+        yield from self.__get_entries_internal(track_matcher=track_matcher)
 
     def get_entries_filtered(self, track_matcher: str | Pattern[str]) -> Generator[EntryFull, None, None]:
-        """Get entry fieldnames with track matching filter."""
+        """Deprecated, to be removed in the next major version: use get_entries(track_matcher), which this calls."""
+        warnings.warn(
+            "get_entries_filtered is deprecated, use get_entries(track_matcher) instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         yield from self.__get_entries_internal(track_matcher=track_matcher)
 
     def __get_entries_internal(self, track_matcher: Optional[str | Pattern[str]]) -> Generator[EntryFull, None, None]:
