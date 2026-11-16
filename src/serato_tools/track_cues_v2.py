@@ -158,24 +158,12 @@ class TrackCuesV2(SeratoGeobTag):
         """The class for an entry named `entry_name`, such as "CUE", or `UnknownEntry` for a name it doesn't know."""
         return TrackCuesV2._ENTRY_CLASS_BY_NAME.get(entry_name, TrackCuesV2.UnknownEntry)
 
-    class _EntryRepr:
-        """Mixin that provides the old Entry-style __repr__ (FIELDS order)."""
-
-        FIELDS: ClassVar[tuple[str, ...]]
-
-        def __repr__(self) -> str:
-            return "{}({})".format(
-                type(self).__qualname__,
-                ", ".join("{}={!r}".format(f, getattr(self, f)) for f in type(self).FIELDS),
-            )
-
-    @dataclass(repr=False)
-    class UnknownEntry(_EntryRepr):
+    @dataclass
+    class UnknownEntry:
         """Unknown/opaque entry."""
 
         data: bytes
         NAME: ClassVar[str | None] = None
-        FIELDS: ClassVar[tuple[str, ...]] = ("data",)
 
         @classmethod
         def _parse(cls, data: bytes) -> "TrackCuesV2.UnknownEntry":
@@ -184,13 +172,12 @@ class TrackCuesV2(SeratoGeobTag):
         def _serialize(self) -> bytes:
             return self.data
 
-    @dataclass(repr=False)
-    class BpmLockEntry(_EntryRepr):
+    @dataclass
+    class BpmLockEntry:
         """BPM lock state."""
 
         enabled: bool
         NAME: ClassVar[str] = "BPMLOCK"
-        FIELDS: ClassVar[tuple[str, ...]] = ("enabled",)
         _FORMAT: ClassVar[str] = "?"
 
         @classmethod
@@ -201,14 +188,13 @@ class TrackCuesV2(SeratoGeobTag):
         def _serialize(self) -> bytes:
             return struct.pack(self._FORMAT, self.enabled)
 
-    @dataclass(repr=False)
-    class ColorEntry(_EntryRepr):
+    @dataclass
+    class ColorEntry:
         """Track color."""
 
         field1: bytes
         color: bytes
         NAME: ClassVar[str] = "COLOR"
-        FIELDS: ClassVar[tuple[str, ...]] = ("field1", "color")
         _FORMAT: ClassVar[str] = "c3s"
 
         @classmethod
@@ -221,8 +207,8 @@ class TrackCuesV2(SeratoGeobTag):
         def _serialize(self) -> bytes:
             return struct.pack(self._FORMAT, self.field1, self.color)
 
-    @dataclass(repr=False)
-    class CueEntry(_EntryRepr):
+    @dataclass
+    class CueEntry:
         """Cue (hot cue)."""
 
         field1: bytes
@@ -233,15 +219,6 @@ class TrackCuesV2(SeratoGeobTag):
         field6: bytes
         name: str
         NAME: ClassVar[str] = "CUE"
-        FIELDS: ClassVar[tuple[str, ...]] = (
-            "field1",
-            "index",
-            "position",  # in milliseconds
-            "field4",
-            "color",
-            "field6",
-            "name",
-        )
         _FORMAT: ClassVar[str] = ">cBIc3s2s"
 
         @classmethod
@@ -273,8 +250,8 @@ class TrackCuesV2(SeratoGeobTag):
                 )
             )
 
-    @dataclass(repr=False)
-    class LoopEntry(_EntryRepr):
+    @dataclass
+    class LoopEntry:
         """Loop/hot cue loop."""
 
         field1: bytes
@@ -290,17 +267,6 @@ class TrackCuesV2(SeratoGeobTag):
         locked: bool
         name: str
         NAME: ClassVar[str] = "LOOP"
-        FIELDS: ClassVar[tuple[str, ...]] = (
-            "field1",
-            "index",
-            "startposition",
-            "endposition",
-            "field5",
-            "field6",
-            "color",
-            "locked",
-            "name",
-        )
         # the x is a byte that's always 00, so it isn't a field: it's checked on parse and written as 00
         _FORMAT: ClassVar[str] = ">cBII4sc3sx?"
 
@@ -345,13 +311,12 @@ class TrackCuesV2(SeratoGeobTag):
                 )
             )
 
-    @dataclass(repr=False)
-    class FlipEntry(_EntryRepr):
+    @dataclass
+    class FlipEntry:
         """Flip (performance) entry. Flips aren't parsed, so it holds the raw bytes and writes them back unchanged."""
 
         _raw_data: bytes
         NAME: ClassVar[str] = "FLIP"
-        FIELDS: ClassVar[tuple[str, ...]] = ("_raw_data",)
 
         @classmethod
         def _parse(cls, data: bytes) -> "TrackCuesV2.FlipEntry":
