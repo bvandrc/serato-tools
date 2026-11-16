@@ -153,19 +153,23 @@ class SmartCrate(CrateBase):
         It holds the track field it tests (`field`), the `comparison`, and the `value`.
         """
 
-        def __init__(self, entries: "CrateBase.EntryList"):
-            super().__init__(entries)
+        # TODO: check and ensure types
 
-            # TODO: check and ensure types
+        @property
+        def comparison(self) -> "CrateBase.Value":
+            """The rule's comparison, as a `SmartCrate.RuleComparison` value."""
+            return self.get_value(SmartCrate.RuleFields.RULE_COMPARISON)
 
-            self.comparison = self.get_value(SmartCrate.RuleFields.RULE_COMPARISON)
-            self.field = self.get_value(SmartCrate.RuleFields.RULE_FIELD)
+        @property
+        def field(self) -> "CrateBase.Value":
+            """The track field the rule tests, as a `SmartCrate.RuleField` value."""
+            return self.get_value(SmartCrate.RuleFields.RULE_FIELD)
 
+        @property
+        def value(self) -> str | int | None:
+            """The value the rule compares with, or None if it has none."""
             value_field = next((field for field in SmartCrate.RULE_VALUE_FIELDS if field in self.fields), None)
-            self.value = cast(
-                str | int | float,  # float for date or no?
-                self.get_value(value_field) if value_field is not None else None,
-            )
+            return cast(str | int, self.get_value(value_field)) if value_field is not None else None
 
         def set_value(  # pylint: disable=arguments-differ # pyright: ignore[reportIncompatibleMethodOverride]
             self, value: str | int
@@ -187,15 +191,12 @@ class SmartCrate(CrateBase):
                     self.fields[self.fields.index(other)] = field
                 delattr(self, other)
             super().set_value(field, value)
-            self.value = value
 
         def set_field(self, value: "SmartCrate.RuleField"):
             super().set_value(SmartCrate.RuleFields.RULE_FIELD, value.value)
-            self.field = value.value
 
         def set_comparison(self, value: "SmartCrate.RuleComparison"):
             super().set_value(SmartCrate.RuleFields.RULE_COMPARISON, value.value)
-            self.comparison = value.value
 
     def set_rule(self, field: "SmartCrate.RuleField", comparison: "SmartCrate.RuleComparison", value: str | int):
         """Sets the rule on `field` to `comparison` and `value`, adding the rule if the crate has none on `field`.
