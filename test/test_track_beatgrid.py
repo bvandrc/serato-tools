@@ -117,6 +117,9 @@ class TestCase(unittest.TestCase):
                 tags.entries = (*markers, TrackBeatgrid.Footer(0))
                 with self.assertRaises(ValueError, msg="saving"):
                     tags._serialize()
+                # at a position before any bad segment, too
+                with self.assertRaises(ValueError, msg="get_beat_position"):
+                    tags.get_beat_position(0)
 
     def no_beatgrid_mp3(self) -> str:
         path = temp_mp3(self)
@@ -153,13 +156,27 @@ class TestCase(unittest.TestCase):
 
     def test_entries_out_of_order_raise_on_saving(self):
         tags = TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin"))
-        for name, entries in (
-            ("no terminal marker", (TrackBeatgrid.NonTerminalBeatgridMarker(1.0, 4), TrackBeatgrid.Footer(0))),
-            ("the footer first", (TrackBeatgrid.Footer(0), TrackBeatgrid.TerminalBeatgridMarker(2.0, 120.0))),
+        footer = TrackBeatgrid.Footer(0)
+        not_last = "last entry must be its footer"
+        no_terminal = "footer must come right after its terminal marker"
+        not_markers = "entries before its terminal marker must be non-terminal markers"
+        for name, entries, message in (
+            ("no terminal marker", (Marker(1.0, 4), footer), no_terminal),
+            ("only a footer", (footer,), no_terminal),
+            ("the footer first", (footer, Last(2.0, 120.0)), not_last),
+            ("two terminal markers", (Last(1.0, 120.0), Last(2.0, 120.0), footer), not_markers),
+            ("a value that isn't an entry", (Marker(1.0, 4), "not an entry", Last(2.0, 120.0), footer), not_markers),
         ):
-            with self.subTest(name), self.assertRaises(ValueError):
+            with self.subTest(name), self.assertRaisesRegex(ValueError, message):
                 tags.entries = entries  # pyright: ignore[reportAttributeAccessIssue]
                 tags._serialize()
+
+    def test_str_prints_an_invalid_grid(self):
+        # for debugging a grid set in memory, which saving would reject
+        tags = TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin"))
+        markers = (TrackBeatgrid.NonTerminalBeatgridMarkerEnhanced(1.0, 0, 120.0), Last(2.0, 120.0))
+        tags.enhanced_entries = (*markers, TrackBeatgrid.Footer(0))
+        self.assertEqual(str(tags), "\n".join(str(marker) for marker in markers))
 
     def test_analyzing_a_tag_read_from_bytes_raises(self):
         with self.assertRaisesRegex(ValueError, "read from bytes"):
