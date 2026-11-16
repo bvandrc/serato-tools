@@ -1,4 +1,3 @@
-# pylint: disable=protected-access
 import base64
 import dataclasses
 import re

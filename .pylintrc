@@ -1,3 +1,10 @@
+[MAIN]
+load-plugins=pylint_per_file_ignores
+# tests reach into internals to set up and check state the public API doesn't expose
+per-file-ignores=
+    test/**/*.py:protected-access
+
+
 [MESSAGES CONTROL]
 disable=
     C,
