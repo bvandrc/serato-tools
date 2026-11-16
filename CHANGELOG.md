@@ -367,11 +367,10 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Use the new names.
 - **[BREAKING]** `to_entries(track_matcher)` is split into `get_entries()` and `get_entries_filtered(track_matcher)`, a crate's `list_dir()`, which printed the crate files, is replaced by `get_serato_crate_files()`, which returns them, and a track's `set_path` takes a full path.
   - **Upgrading:** Call the new methods, print the crate files yourself, and pass `set_path` the track's full path.
-- **Feature:** The database, crates, and smart crates refuse a file whose version hasn't been tested (their `TESTED_VERSIONS`), raising `ValueError`, so a format this package may misparse can't be written back.
+- **Feature:** The database and crates refuse a file of a version that hasn't been tested, so one this package may misparse can't be written back.
 - **Feature:** `modify` and `modify_and_save` now work on crates and smart crates, `change_track_path(src, dest)` is added, and `DatabaseV2.rename_track_file` also updates the crates.
-- **Feature:** Add `find_missing()` to the database and crates, and `--find_missing` to their CLIs, which ask for the new location of each track whose file is missing.
-- **Feature:** The database and crates can be written to JSON (`to_json_object()` and `write_json(file)`), and loaded back by passing the `.json` file to the constructor.
-- **Feature:** Add `Track.get_full_path()` and `get_track_paths(include_drive=True)`, which give tracks' full paths, and the crate CLIs' `-l` and `-f` now print them.
+- **Feature:** Add `find_missing()` to the database and crates, which asks for the new location of each track whose file is missing.
+- **Feature:** The database and crates can be written to and loaded from JSON.
 
 ### USB Export
 
@@ -385,8 +384,8 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Smart Crates
 
-- **[BREAKING]** Smart crate add rule improvements: `SmartCrate.modify_rules(func)` is replaced by `set_rule(field, comparison, value)` and `delete_rule(field)`.
-  - **Upgrading:** Set or delete each rule through `set_rule` and `delete_rule`, rather than changing rules in a function passed to `modify_rules`.
+- **[BREAKING]** `SmartCrate.modify_rules(func)` is replaced by `set_rule(field, comparison, value)` and `delete_rule(field)`.
+  - **Upgrading:** Call `set_rule` and `delete_rule`.
 
 ## [3.4.3] - 2025-08-19
 
@@ -403,10 +402,6 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Feature:** Add `set_field` and `set_comparison` to a smart crate's `Rule`, and its `set_value` takes the value alone.
 - **Feature (CLI):** `serato_smartcrate --set_rules` sets the value of the rules on each field it's given, e.g. `--set_rules --grouping UNTAGGED`.
 - **Fix:** Fix reading a smart crate rule that doesn't hold every kind of value.
-
-### Track Tags
-
-- **Fix:** Fix `TrackAutotags` of a file without the tag, and a tag's `save()` for a file without the tag and nothing to write.
 
 ## [3.3.0] - 2025-06-11
 
@@ -433,9 +428,6 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Track Tags
 
-- **[BREAKING] (CLI)** `python -m serato_tools.track_beatgrid`'s `-e` is now `-a` (`--analyze`).
-  - **Upgrading:** Pass `-a`.
-- **Fix:** Fix reading a `Serato Markers2` tag with no padding after its data.
 - **Fix (CLI):** Fix the beatgrid analysis command, which failed to start, now named `serato_analyze_beatgrid`.
 
 ## [3.1.0] - 2025-05-14
@@ -444,9 +436,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **[BREAKING]** `DatabaseV2`'s `filepath` argument is renamed `file`, and its `data` is a list rather than a generator that could be read once.
   - **Upgrading:** Pass `file=`, or the path positionally.
-- **Fix:** Fix `DatabaseV2.modify` skipping fields stored before the track's path, such as `ttyp`.
-- **Fix:** Fix saving a smart crate.
-- **Fix:** Fix the default Serato folder on macOS and Linux.
+- **Fix:** Fix saving a smart crate, the default Serato folder on macOS and Linux, and `DatabaseV2.modify` skipping fields stored before the track's path.
 
 ## [3.0.1] - 2025-05-14
 
@@ -609,7 +599,9 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ## [1.5.1] - 2025-04-11
 
-- Initial publish (pyproject.toml added). Serato library and track metadata modification.
+### General
+
+- **Feature:** First release on PyPI, for changing Serato's library database and track metadata.
 
 [6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.7.0...v6.0.0
 [5.7.0]: https://github.com/bvandrc/serato-tools/compare/v5.6.1...v5.7.0
