@@ -56,6 +56,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Feature:** A smart crate rule's `comparison` is typed as `str` and its `field` as `int`, rather than as any value an entry can hold.
 - **Fix:** A database or crate track's `relpath` and `full_path`, and a smart crate rule's `comparison`, `field`, and `value`, read the track's or rule's current entries, so they no longer keep a value set through `set_value` or removed through `remove_field`. In particular, the rules of one `modify()` call after one that changes a track's path are passed its new path, not its old one.
 - **Fix:** `modify_tracks`, and so `modify`, change no track when `func` raises for one, rather than keeping the changes to the tracks before it.
+- **Fix:** A crate's `add_tracks`, and so `add_tracks_from_dir`, skip a track already in the crate in another case, and `remove_duplicates` removes a repeat of a track's path in another case, as `remove_tracks` and `modify` match paths whatever their case. Before, a crate could hold one track twice, under paths differing only in case, and `add_tracks_from_dir` with `replace` removed a track held in another case than its file's name, then added it again.
 
 ### Track Tags
 
