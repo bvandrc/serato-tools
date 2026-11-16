@@ -1,4 +1,5 @@
 import dataclasses
+from typing import Callable
 from unittest import mock
 
 import pytest
@@ -68,6 +69,21 @@ def test_tag_passed_false_isnt_parsed_or_saved(mp3: str):
     with tagfile_saves(track.tagfile) as writes:
         assert track.save() is False, "no tags, nothing to save"
     writes.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        pytest.param(lambda track: track.set_track_color(Colors.RED), id="cues_v2"),
+        pytest.param(lambda track: track.autotags.set(bpm=128), id="autotags"),
+        pytest.param(lambda track: track.gain.set(gain=-2.5), id="gain"),
+        pytest.param(lambda track: track.text_frames.set("TIT2", "New Title"), id="text_frames"),
+    ],
+)
+def test_one_tags_change_is_a_change(mp3: str, edit: Callable[[Track], object]):
+    track = Track(mp3)
+    edit(track)
+    assert track.has_changed
 
 
 def test_save_writes_every_change_at_once(mp3: str):
@@ -168,14 +184,22 @@ def test_snap_cues_to_beats_with_its_own_beatgrid(mp3: str):
     assert cue_positions(Track(mp3).cues_v2) == SNAPPED_CUE_POSITIONS, "saved"
 
 
-def test_snap_cues_to_beats_needs_only_cues_v2_and_beatgrid(mp3: str, no_cues_mp3: str):
+def test_snap_cues_to_beats_needs_only_cues_v2_and_beatgrid(mp3: str):
     track = Track(mp3, cues_v1=False, autotags=False, gain=False, text_frames=False)
     assert track.snap_cues_to_beats(1 / 16)
-    for name in ("cues_v2", "beatgrid"):
-        with pytest.raises(ValueError, match=f"{name}=True"):
-            Track(mp3, **{name: False}).snap_cues_to_beats(1 / 16)
-    with pytest.raises(ValueError, match="beatgrid=True"):
-        Track(no_cues_mp3, beatgrid=False).snap_cues_to_beats(1 / 16)  # even with no cues to move
+
+
+@pytest.mark.parametrize(
+    "file, flag",
+    [
+        pytest.param("mp3", "cues_v2", id="cues_v2"),
+        pytest.param("mp3", "beatgrid", id="beatgrid"),
+        pytest.param("no_cues_mp3", "beatgrid", id="beatgrid, even with no cues to move"),
+    ],
+)
+def test_snap_cues_to_beats_without_cues_v2_or_beatgrid_raises(request: pytest.FixtureRequest, file: str, flag: str):
+    with pytest.raises(ValueError, match=f"{flag}=True"):
+        Track(request.getfixturevalue(file), **{flag: False}).snap_cues_to_beats(1 / 16)
 
 
 def test_snap_cues_to_beats_warns_at_the_caller(mp3: str):
@@ -200,6 +224,7 @@ def test_an_aiff_reads_and_saves_as_an_mp3_does(tmp_dir: str, name: str):
     assert track.waveform.data == mp3.waveform.data
     assert track.text_frames.get("TIT2") == mp3.text_frames.get("TIT2")
 
+    assert has_tags_v1(path), "the mp3's v1 tag copied"
     track.set_track_color(Colors.BLUE1)
     assert track.save() is True
     assert Track(path).get_track_color() == Colors.BLUE1.value

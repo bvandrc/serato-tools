@@ -1,4 +1,5 @@
-"""The test mp3 and the GEOB tag fixtures, copies of the mp3 with tags removed, and reading its tags.
+"""The test mp3 and the GEOB tag fixtures, copies of the mp3 with tags removed, AIFFs with its tags or none, and
+reading its tags.
 
 Needs the track_tags extra (mutagen), so only tests of track tags import it.
 """
