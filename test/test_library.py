@@ -274,7 +274,7 @@ class TestCase(unittest.TestCase):
         saved = self.saved_file_names()
         for name, tracks in batches.items():
             with self.subTest(name):
-                with self.assertRaises((ValueError, AttributeError)):
+                with self.assertRaises((ValueError, DataTypeError)):
                     Library(self.serato_dir).set_db_tracks_tags(tracks)  # type: ignore[arg-type]
                 self.assertEqual(saved, [], "database not saved")
                 self.assertEqual(TrackCuesV2(first).get_track_color(), b"\xbb\xbb\xbb", "first file not changed")

@@ -5,11 +5,12 @@ Needs the `track_tags` extra (mutagen). Only ID3 files (.mp3, .aiff, .aif) are c
 """
 
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, TypedDict
+from typing import Callable, Mapping, TypedDict
 
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.track import Track
 from serato_tools.track_cues_v2 import TrackCuesV2
+from serato_tools.utils import DataTypeError
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
 
@@ -23,21 +24,25 @@ class DbTrackTags(TypedDict, total=False):
 @dataclass(frozen=True)
 class _DbTrackProp[T]:
     db_field: DatabaseV2.Fields
+    # the type DbTrackTags gives the value
+    value_type: type[T]
     to_db_val: Callable[[T], SeratoBinFile.BasicValue]
     # sets the value in the track's tags
     write: Callable[[Track, T], None]
 
 
 # keyed by DbTrackTags' keys
-_DB_TRACK_PROPS: dict[str, _DbTrackProp[Any]] = {
+_DB_TRACK_PROPS: dict[str, _DbTrackProp] = {
     # the database holds the color as 0xRRGGBB, the same bytes as the tags hold, as an int
-    "color": _DbTrackProp[TrackCuesV2.TrackColors](
+    "color": _DbTrackProp(
         DatabaseV2.Fields.COLOR,
+        TrackCuesV2.TrackColors,
         lambda color: int.from_bytes(color.value, "big"),
         Track.set_track_color,
     ),
-    "beatgrid_locked": _DbTrackProp[bool](
+    "beatgrid_locked": _DbTrackProp(
         DatabaseV2.Fields.BEATGRID_LOCKED,
+        bool,
         lambda locked: locked,
         Track.set_beatgrid_locked,
     ),
@@ -75,6 +80,16 @@ def write_db_track_tags_to_files(tracks: Mapping[str, DbTrackTags], delete_tags_
 
 
 def to_db_values(tags: DbTrackTags) -> dict[DatabaseV2.Fields, SeratoBinFile.BasicValue]:
-    """The database fields and values that hold `tags`."""
+    """The database fields and values that hold `tags`.
+
+    Raises DataTypeError for a value of the wrong type for its key, such as a color that isn't a
+    TrackCuesV2.TrackColors.
+    """
     _check_db_track_tags(tags)
-    return {_DB_TRACK_PROPS[key].db_field: _DB_TRACK_PROPS[key].to_db_val(value) for key, value in tags.items()}
+    db_values: dict[DatabaseV2.Fields, SeratoBinFile.BasicValue] = {}
+    for key, value in tags.items():
+        prop = _DB_TRACK_PROPS[key]
+        if not isinstance(value, prop.value_type):
+            raise DataTypeError(value, prop.value_type, key)
+        db_values[prop.db_field] = prop.to_db_val(value)
+    return db_values
