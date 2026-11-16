@@ -503,10 +503,12 @@ class SeratoBinFile:
                 if data not in (b"\x00", b"\x01"):
                     raise ValueError(f"unexpected boolean value for field {field}: {data!r}")
                 value = cast(bool, struct.unpack("?", data)[0])
-            elif type_id == "s":  # unsigned 16-bit int
-                value = cast(int, struct.unpack(">H", data)[0])
-            elif type_id == "u":  # unsigned int
-                value = cast(int, struct.unpack(">I", data)[0])
+            elif type_id in ("s", "u"):  # unsigned 16-bit or 32-bit int
+                size = 2 if type_id == "s" else 4
+                # checked here, rather than left to struct.error, which isn't a ValueError like other malformed data
+                if len(data) != size:
+                    raise ValueError(f"{field} holds a {size}-byte number, not {len(data)} bytes: {data!r}")
+                value = cast(int, struct.unpack(">H" if type_id == "s" else ">I", data)[0])
             else:
                 raise ValueError(f"unexpected type for field: {field}")
 

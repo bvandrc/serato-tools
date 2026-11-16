@@ -1,6 +1,7 @@
 # pylint: disable=protected-access
 import os
 import shutil
+import struct
 import unittest
 from enum import StrEnum, unique
 from unittest import mock
@@ -88,6 +89,22 @@ class ParseTestCase(unittest.TestCase):
                     f.write(data[:cut_at])
                 with self.assertRaisesRegex(ValueError, "file ends partway through"):
                     DatabaseV2(path)
+
+    def test_a_number_of_the_wrong_length_raises(self):
+        tmp = temp_dir(self)
+        version = Crate.DEFAULT_ENTRIES[0][1]
+        assert isinstance(version, str)
+
+        def entry(field: str, data: bytes) -> bytes:
+            return field.encode("ascii") + struct.pack(">I", len(data)) + data
+
+        for field, data in (("stst", b"\x01"), ("utst", b"\x00\x00\x01")):
+            with self.subTest(field):
+                path = os.path.join(tmp, f"{field}.crate")
+                with open(path, "wb") as f:
+                    f.write(entry("vrsn", version.encode("utf-16-be")) + entry(field, data))
+                with self.assertRaisesRegex(ValueError, f"{field} holds a"):
+                    Crate(path)
 
     def test_a_file_without_a_version_raises(self):
         path = os.path.join(temp_dir(self), "empty.crate")
