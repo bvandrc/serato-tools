@@ -69,6 +69,7 @@ class TrackGain(ID3FileTag):
 
 
 if __name__ == "__main__":
+    # ruff: disable[T201]
     import argparse
 
     @dataclass
@@ -81,3 +82,4 @@ if __name__ == "__main__":
 
     tags = TrackGain(args.file)
     print(str(tags))
+    # ruff: enable[T201]

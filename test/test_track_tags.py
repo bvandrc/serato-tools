@@ -96,7 +96,7 @@ def test_geob_tag_has_changed(mp3: str):
 
 
 # TrackCuesV2 has its own save()
-@pytest.mark.parametrize("tag_class", (TrackCuesV2, TrackAutotags), ids=lambda cls: cls.__name__)
+@pytest.mark.parametrize("tag_class", [TrackCuesV2, TrackAutotags], ids=lambda cls: cls.__name__)
 def test_saving_a_change_to_a_tag_read_from_bytes_raises(tag_class):
     tags = tag_class(read_bytes(GEOB_DATA[tag_class]))
     tags.delete()

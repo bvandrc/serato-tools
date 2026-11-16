@@ -27,6 +27,7 @@ class Crate(CrateBase):
 
 def main():
     """The `serato_crate` CLI: prints crates, lists their tracks, or finds tracks whose files are missing."""
+    # ruff: disable[PLC0415, T201]
     import argparse
 
     @dataclass
@@ -61,6 +62,7 @@ def main():
             crate.print_track_paths(filenames_only=args.filenames_only)
         else:
             print(crate)
+    # ruff: enable[PLC0415, T201]
 
 
 if __name__ == "__main__":

@@ -4,13 +4,12 @@ Also the CLIs that print it, or analyze and write one. Analyzing needs the `beat
 numpy).
 """
 
-import collections
 import io
 import math
 import struct
 import sys
 from dataclasses import dataclass
-from typing import cast, overload
+from typing import NamedTuple, cast, overload
 
 from mutagen import FileType
 from mutagen.id3 import ID3
@@ -31,20 +30,29 @@ class TrackBeatgrid(SeratoGeobTag):
     GEOB_KEY = GeobKeys.BEATGRID
     VERSION = (0x01, 0x00)
 
-    NonTerminalBeatgridMarker = collections.namedtuple(
-        "NonTerminalBeatgridMarker",
-        ("position_s", "beats_till_next_marker"),
-    )
-    TerminalBeatgridMarker = collections.namedtuple(
-        "TerminalBeatgridMarker",
-        ("position_s", "bpm"),
-    )
-    Footer = collections.namedtuple("Footer", ("unknown",))
+    class NonTerminalBeatgridMarker(NamedTuple):
+        """A marker the grid continues past: its position in seconds, and how many beats until the next marker."""
 
-    NonTerminalBeatgridMarkerEnhanced = collections.namedtuple(
-        "NonTerminalBeatgridMarkerEnhanced",
-        (*NonTerminalBeatgridMarker._fields, "bpm"),
-    )
+        position_s: float
+        beats_till_next_marker: int
+
+    class TerminalBeatgridMarker(NamedTuple):
+        """The grid's last marker: its position in seconds, and the BPM from there to the end of the track."""
+
+        position_s: float
+        bpm: float
+
+    class Footer(NamedTuple):
+        """The byte after the markers, whose meaning is unknown."""
+
+        unknown: int
+
+    class NonTerminalBeatgridMarkerEnhanced(NamedTuple):
+        """A `NonTerminalBeatgridMarker` with its BPM: its beats over the time until the next marker."""
+
+        position_s: float
+        beats_till_next_marker: int
+        bpm: float
 
     type _EntryList[T] = tuple[*tuple[T, ...], "TrackBeatgrid.TerminalBeatgridMarker", "TrackBeatgrid.Footer"]
     type EntryList = _EntryList[NonTerminalBeatgridMarker]
@@ -225,7 +233,11 @@ class TrackBeatgrid(SeratoGeobTag):
         terminal_interval = 60.0 / terminal_marker.bpm
         return cumulative_beats + (position_s - terminal_marker.position_s) / terminal_interval
 
-    BeatPoint = collections.namedtuple("BeatPoint", ("position_s", "bpm"))
+    class BeatPoint(NamedTuple):
+        """A beat: its position in seconds, and the BPM there."""
+
+        position_s: float
+        bpm: float
 
     def get_beats(self) -> list["TrackBeatgrid.BeatPoint"]:
         """Every beat in the track, as a BeatPoint: its position in seconds, and the BPM there."""
@@ -321,7 +333,7 @@ class TrackBeatgrid(SeratoGeobTag):
         """
         tagfile = self._require_tagfile()
 
-        from serato_tools.utils.beatgrid_analyze import analyze_beatgrid
+        from serato_tools.utils.beatgrid_analyze import analyze_beatgrid  # noqa: PLC0415
 
         bpm = float(str(tagfile["TBPM"]))
         filename = cast(str, tagfile.filename)
@@ -356,6 +368,7 @@ class TrackBeatgrid(SeratoGeobTag):
 
 def main():
     """Prints a track's beatgrid markers, or with `--analyze`, analyzes the track and writes a new grid."""
+    # ruff: disable[PLC0415, T201]
     import argparse
 
     from serato_tools.utils.cli import open_tag_file_or_data
@@ -379,10 +392,12 @@ def main():
             sys.exit(str(NoBeatgridError(tags.filename)))
         for entry in tags.entries:
             print(entry)
+    # ruff: enable[PLC0415, T201]
 
 
 def main_analyze():
     """The `serato_analyze_beatgrid` CLI: analyzes a track's audio and writes a new beatgrid to its tags."""
+    # ruff: disable[PLC0415]
     import argparse
 
     @dataclass
@@ -394,6 +409,7 @@ def main_analyze():
     args = Args(**vars(parser.parse_args()))
     tags = TrackBeatgrid(args.file)
     tags.analyze_and_write()
+    # ruff: enable[PLC0415]
 
 
 if __name__ == "__main__":

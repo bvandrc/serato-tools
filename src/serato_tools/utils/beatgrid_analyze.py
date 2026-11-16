@@ -87,9 +87,11 @@ def analyze_beatgrid(file: str, bpm_helper: float | None = None):
 
 
 if __name__ == "__main__":
+    # ruff: disable[T201, T203]
     from pprint import pprint
 
     print("Analyzing beatgrid:")
     beat_info = analyze_beatgrid(sys.argv[1])
 
     pprint(asdict(beat_info))
+    # ruff: enable[T201, T203]

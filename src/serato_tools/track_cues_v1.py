@@ -186,6 +186,7 @@ class TrackCuesV1(SeratoGeobTag):
 
 
 if __name__ == "__main__":
+    # ruff: disable[T201]
     import argparse
     import math
 
@@ -212,3 +213,4 @@ if __name__ == "__main__":
     width = math.floor(math.log10(len(entries))) + 1
     for entry_index, entry in enumerate(entries):
         print("{:{}d}: {!r}".format(entry_index, width, entry))
+    # ruff: enable[T201]

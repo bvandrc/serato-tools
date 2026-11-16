@@ -361,7 +361,7 @@ class SeratoBinFile:
             f.write(json_content)
 
     def print(self):
-        print(self)
+        print(self)  # noqa: T201
 
     class EntryListCls:
         """A flat entry list, such as a track's, with each field's value as an attribute named for the field.
@@ -505,7 +505,6 @@ class SeratoBinFile:
             if type_id in ("o", "r"):  #  struct
                 value = list(self._parse_item(data))
             elif type_id in ("p", "t"):  # text
-                # value = (data[1:] + b"\00").decode("utf-16") # from imported code
                 value = data.decode("utf-16-be")
             elif type_id == "b":  # single byte, is a boolean
                 # anything but 0x00/0x01 would be rewritten as 0x01 on save, so refuse it like an unknown version
@@ -746,7 +745,7 @@ class SeratoBinFile:
         """`filepath` as Serato stores a track path: without its drive or leading slash, and `/`-separated."""
         filepath = os.path.splitdrive(filepath)[1]
         relpath = os.path.normpath(filepath).replace(os.path.sep, "/").lstrip("/")
-        return relpath
+        return relpath  # noqa: RET504
 
     @staticmethod
     def get_full_path(filepath: str) -> str:
@@ -878,7 +877,7 @@ class SeratoBinFile:
             track_path = track.full_path
             if os.path.isfile(track_path):
                 return track
-            print(f"missing: {track_path}")
+            print(f"missing: {track_path}")  # noqa: T201
             filename = os.path.basename(track_path)
             new_location = None
             if new_dir is not None and os.path.isfile(in_new_dir := os.path.join(new_dir, filename)):
@@ -896,7 +895,7 @@ class SeratoBinFile:
                     answer = os.path.join(new_dir, filename)
                 if os.path.exists(answer):
                     new_location = answer
-            print("   new_location: " + new_location)
+            print("   new_location: " + new_location)  # noqa: T201
             track.set_path(new_location)
             return track
 

@@ -632,6 +632,7 @@ class TrackCuesV2(SeratoGeobTag):
 
 def main():
     """The `serato_snap_cues_v2` CLI: sets the track color, snaps cues to the beatgrid, or prints the entries."""
+    # ruff: disable[PLC0415, T201]
     import argparse
     import math
 
@@ -715,6 +716,7 @@ def main():
     width = math.floor(math.log10(len(tags.entries))) + 1
     for entry_index, entry in enumerate(tags.entries):
         print("{:{}d}: {!r}".format(entry_index, width, entry))
+    # ruff: enable[PLC0415, T201]
 
 
 if __name__ == "__main__":

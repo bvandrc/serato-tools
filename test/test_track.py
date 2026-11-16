@@ -127,7 +127,7 @@ def test_save_deletes_tags_v1_unless_told_not_to(mp3: str, save_kwargs: dict[str
 
 def test_delete_tags_v1_on_an_edit_is_deprecated(mp3: str):
     track = Track(mp3)
-    with pytest.warns(DeprecationWarning) as caught:
+    with pytest.warns(DeprecationWarning, match="passing delete_tags_v1 to an edit is deprecated") as caught:
         track.set_track_color(Colors.RED, delete_tags_v1=False)
     assert caught.pop(DeprecationWarning).filename == __file__, "points at the caller, not at Track"
     track.save()

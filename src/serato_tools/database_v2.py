@@ -43,6 +43,7 @@ class DatabaseV2(SeratoBinFile):
 
 
 if __name__ == "__main__":
+    # ruff: disable[T201]
     import argparse
 
     @dataclass
@@ -67,3 +68,4 @@ if __name__ == "__main__":
             print(f"{path}: {reason}")
     else:
         print(db)
+    # ruff: enable[T201]
