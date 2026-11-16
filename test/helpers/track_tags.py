@@ -6,9 +6,7 @@ Needs the track_tags extra (mutagen), so only tests of track tags import it.
 
 import contextlib
 import os
-import shutil
 import struct
-import unittest
 from typing import Iterator
 from unittest import mock
 
@@ -22,7 +20,7 @@ from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_waveform import TrackWaveform
 from serato_tools.utils.track_tags import ID3File, SeratoGeobTag, del_geob, open_tagfile
 
-from test.helpers.files import copy_into, read_bytes, temp_dir
+from test.helpers.files import copy_into, read_bytes
 
 TEST_MP3 = "test/data/test_mp3.mp3"
 
@@ -135,18 +133,3 @@ def tagfile_saves(tagfile: ID3File | None) -> Iterator[mock.MagicMock]:
     assert tagfile is not None, "a tag read from bytes has no file to save"
     with mock.patch.object(tagfile, "save", wraps=tagfile.save) as save:
         yield save
-
-
-# for the modules still on unittest.TestCase; the pytest ones take the mp3 fixture
-
-
-def temp_mp3(testcase: unittest.TestCase, name: str = "test.mp3", folder: str | None = None) -> str:
-    """A copy of the test mp3, which has every Serato tag, as `name` in `folder` (a new temporary folder by default)."""
-    path = os.path.join(folder or temp_dir(testcase), name)
-    shutil.copy(TEST_MP3, path)
-    return path
-
-
-def untagged_mp3(testcase: unittest.TestCase, name: str = "untagged.mp3", folder: str | None = None) -> str:
-    """A copy of the test mp3 with no Serato Markers2 or Serato Markers_ tag, as for a track Serato hasn't analyzed."""
-    return copy_mp3_without_cues(folder or temp_dir(testcase), name)
