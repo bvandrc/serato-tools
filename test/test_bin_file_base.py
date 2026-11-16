@@ -2,8 +2,8 @@ import copy
 import json
 import os
 import struct
+from collections.abc import Iterable
 from enum import StrEnum, unique
-from typing import Iterable
 from unittest import mock
 
 import pytest
@@ -400,7 +400,7 @@ def test_get_entries_matching_tracks():
 
     def track_paths(entries: Iterable[DatabaseV2.EntryFull]) -> list[str]:
         return [
-            str(dict((f, v) for f, _, v in value)[DatabaseV2.Fields.FILE_PATH])
+            str({f: v for f, _, v in value}[DatabaseV2.Fields.FILE_PATH])
             for field, _, value in entries
             if field == DatabaseV2.Fields.TRACK and isinstance(value, list)
         ]

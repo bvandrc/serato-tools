@@ -7,7 +7,7 @@ Needs the track_tags extra (mutagen), so only tests of track tags import it.
 import contextlib
 import os
 import struct
-from typing import Iterator
+from collections.abc import Iterator
 from unittest import mock
 
 from mutagen.aiff import AIFF

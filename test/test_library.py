@@ -196,10 +196,9 @@ def test_batch_saves_when_the_block_raises(folders: LibraryFolders, bin_file_wri
     bin_file_writes.clear()
 
     library = Library(folders.serato_dir)
-    with pytest.raises(RuntimeError):  # the exception still propagates
-        with library.batch():
-            library.rename_track_file(src, dest)
-            raise RuntimeError("stopped partway")
+    with pytest.raises(RuntimeError), library.batch():  # the exception still propagates
+        library.rename_track_file(src, dest)
+        raise RuntimeError("stopped partway")
 
     assert bin_file_writes == [DatabaseV2.FILENAME]
     assert relpath(dest) in track_paths(library.database), "points at renamed file"

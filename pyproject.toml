@@ -40,7 +40,7 @@ beatgrid_analysis = ["mutagen", "librosa", "numpy"]
 all = ["serato-tools[track_tags,waveform_drawing,beatgrid_analysis]"]
 test = ["pytest"]
 # the test extra too, so pyright can check the tests' pytest imports
-dev = ["serato-tools[test]", "black", "isort", "pylint", "pylint-per-file-ignores", "pyright"]
+dev = ["serato-tools[test]", "ruff", "pylint", "pylint-per-file-ignores", "pyright"]
 
 [project.urls]
 Homepage = "https://pypi.org/project/serato-tools/"
@@ -60,17 +60,31 @@ serato_snap_cues_v2 = "serato_tools.track_cues_v2:main"
 where = ["src"]
 include = ["serato_tools*"]
 
-[tool.black]
+[tool.ruff]
 line-length = 120
+# the README's and docs' examples aren't formatted or linted, since Ruff's formatting of Python in Markdown would
+# reflow them; the target version comes from requires-python
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+# Ruff's defaults, plus: import order (I), newer syntax and the standard library's current names (UP), likely bugs
+# (B), simpler equivalents (SIM, C4, PIE, PERF), and Ruff's own (RUF)
+extend-select = ["I", "UP", "B", "SIM", "C4", "PIE", "PERF", "RUF"]
+ignore = [
+    # takes any UPPER_CASE name for a constant, so it would swap `assert cls.DEFAULT_ENTRIES == default` to put the
+    # expected value first
+    "SIM300",
+    # flags any raise after an isinstance check, but those here are about malformed data or a tag with no audio file,
+    # which raise ValueError, not about a caller passing the wrong type
+    "TRY004",
+]
 
 # Groups the imports into the standard library, third-party packages, and this repo's modules, each sorted.
-[tool.isort]
-profile = "black"
-line_length = 120
-known_first_party = ["serato_tools"]
+[tool.ruff.lint.isort]
+known-first-party = ["serato_tools"]
 # the tests' shared helpers, in their own group after the package's imports
-known_local_folder = ["test"]
-combine_as_imports = true
+known-local-folder = ["test"]
+combine-as-imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["test"]

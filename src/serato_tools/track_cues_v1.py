@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """The legacy `Serato Markers_` tag: a track's first 5 cues, 9 loops, and color, which `Serato Markers2` also holds."""
 
 import enum
@@ -40,7 +38,7 @@ class TrackCuesV1(SeratoGeobTag):
         if self._raw_data is not None:
             self.entries = list(self._parse(self._raw_data))
 
-    class Entry(object):
+    class Entry:
         """A cue or loop slot, with positions in milliseconds, or None where unset, and its color as RGB bytes."""
 
         FORMAT = ">B4sB4s6s4sBB"
@@ -57,14 +55,13 @@ class TrackCuesV1(SeratoGeobTag):
         type: bytes | str
 
         def __init__(self, *args):
-            assert len(args) == len(self.FIELDS)
-            for field, value in zip(self.FIELDS, args):
+            for field, value in zip(self.FIELDS, args, strict=True):
                 setattr(self, field, value)
 
         def __repr__(self) -> str:
             return "{name}({data})".format(
                 name=self.__class__.__name__,
-                data=", ".join("{}={!r}".format(name, getattr(self, name)) for name in self.FIELDS),
+                data=", ".join(f"{name}={getattr(self, name)!r}" for name in self.FIELDS),
             )
 
         @classmethod
@@ -83,7 +80,7 @@ class TrackCuesV1(SeratoGeobTag):
 
             start_position_set = None
             end_position_set = None
-            for field, value in zip(cls.FIELDS, info):
+            for field, value in zip(cls.FIELDS, info, strict=True):
                 if field == "start_position_set":
                     if value not in (0x00, 0x7F):
                         raise ValueError(f"start_position_set is 00 or 7f, not {value:02x}")
@@ -130,19 +127,14 @@ class TrackCuesV1(SeratoGeobTag):
             entry_data = []
             for field in self.FIELDS:
                 value = getattr(self, field)
-                if field == "start_position_set":
-                    value = 0x7F if not value else 0x00
-                elif field == "end_position_set":
+                if field in ("start_position_set", "end_position_set"):
                     value = 0x7F if not value else 0x00
                 elif field == "color":
                     value = _encode_bytes_32(value)
                 elif field in ("start_position", "end_position"):
                     # an unset position is stored as 7f bytes, as Serato writes it; FORMAT packs the field as 4s, so
                     # it has to be bytes, not the int 0x7F7F7F7F
-                    if value is None:
-                        value = b"\x7f\x7f\x7f\x7f"
-                    else:
-                        value = _encode_bytes_32(struct.pack(">I", value)[1:])
+                    value = b"\x7f\x7f\x7f\x7f" if value is None else _encode_bytes_32(struct.pack(">I", value)[1:])
                 elif field == "type":
                     value = int(value)
                 entry_data.append(value)
