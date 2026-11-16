@@ -1,19 +1,21 @@
 # pylint: disable=protected-access
 import struct
-import unittest
 from unittest import mock
 
+import pytest
 from mutagen.mp3 import MP3
 
 from serato_tools.track_beatgrid import TrackBeatgrid, main
 from serato_tools.utils.beatgrid_analyze import BeatGridInfo
 from serato_tools.utils.track_tags import GeobKeys, NoBeatgridError, set_geob
 
+from test.helpers.cli import cli_args
 from test.helpers.files import read_bytes
-from test.helpers.track_tags import TEST_MP3, temp_mp3
+from test.helpers.track_tags import DATA_FILES, FIRST_CUE_POSITION, TEST_MP3
 
 Marker = TrackBeatgrid.NonTerminalBeatgridMarker
 Last = TrackBeatgrid.TerminalBeatgridMarker
+Footer = TrackBeatgrid.Footer
 
 # 4 beats at 60 BPM, 8 at 240, then 120 to the end
 GRID = (Marker(0.0, 4), Marker(4.0, 8), Last(6.0, 120.0))
@@ -28,156 +30,171 @@ def grid_bytes(markers: tuple[Marker | Last, ...]) -> bytes:
     return data + b"\x00"
 
 
-class TestCase(unittest.TestCase):
-    def mp3_with_grid(self, markers: tuple[Marker | Last, ...]) -> str:
-        path = temp_mp3(self)
-        tagfile = MP3(path)
-        set_geob(tagfile, GeobKeys.BEATGRID, grid_bytes(markers))
-        tagfile.save()
-        return path
+def test_parse():
+    tags = TrackBeatgrid(read_bytes(DATA_FILES.BEATGRID))
+    assert tags.entries == (Last(position_s=0.029895611107349396, bpm=75.0), Footer(unknown=0))
 
-    def test_get_beat_position_across_markers(self):
-        beatgrid = TrackBeatgrid(grid_bytes(GRID))
-        for position_ms, beats in ((0, 0), (2000, 2), (4000, 4), (5000, 8), (6000, 12), (7000, 14)):
-            with self.subTest(position_ms):
-                self.assertAlmostEqual(beatgrid.get_beat_position(position_ms), beats)
 
-    def test_get_beats_across_markers(self):
-        beats = TrackBeatgrid(self.mp3_with_grid(GRID)).get_beats()
-        self.assertEqual(
-            [(beat.position_s, beat.bpm) for beat in beats[:14]],
-            [
-                *((float(i), 60.0) for i in range(4)),
-                *((4.0 + i / 4, 240.0) for i in range(8)),
-                (6.0, 120.0),
-                (6.5, 120.0),
-            ],
-        )
-        self.assertLessEqual(beats[-1].position_s, MP3(TEST_MP3).info.length, "to the end of the track")
+@pytest.mark.parametrize("position_ms, beats", [(0, 0), (2000, 2), (4000, 4), (5000, 8), (6000, 12), (7000, 14)])
+def test_get_beat_position_across_markers(position_ms: int, beats: int):
+    assert TrackBeatgrid(grid_bytes(GRID)).get_beat_position(position_ms) == pytest.approx(beats)
 
-    def test_analyze_and_write_replaces_the_beats_found(self):
-        beatgrid = TrackBeatgrid(temp_mp3(self))
-        beatgrid.get_beats()
-        analyzed = BeatGridInfo(100.0, [], 1.0, 0.0, 1.0, downbeats=[0.5, 2.9])
-        with mock.patch("serato_tools.utils.beatgrid_analyze.analyze_beatgrid", return_value=analyzed):
-            beatgrid.analyze_and_write()
-        self.assertEqual(beatgrid.find_nearest_beat(520, 0.1), 500.0, "the new grid's first beat")
 
-    def test_analyze_and_write_giving_an_invalid_grid_keeps_the_old_one(self):
-        beatgrid = TrackBeatgrid(temp_mp3(self))
-        entries, raw_data = beatgrid.entries, beatgrid._raw_data
-        analyzed = BeatGridInfo(100.0, [], 1.0, 0.0, 1.0, downbeats=[2.9, 0.5])  # out of order
-        with (
-            mock.patch("serato_tools.utils.beatgrid_analyze.analyze_beatgrid", return_value=analyzed),
-            self.assertRaises(ValueError),
-        ):
-            beatgrid.analyze_and_write()
-        self.assertEqual((beatgrid.entries, beatgrid._raw_data), (entries, raw_data))
+def test_get_beats_across_markers(mp3: str):
+    tagfile = MP3(mp3)
+    set_geob(tagfile, GeobKeys.BEATGRID, grid_bytes(GRID))
+    tagfile.save()
 
-    def test_parse_and_serialize(self):
-        file_data = read_bytes("test/data/track_beatgrid.bin")
-        tags = TrackBeatgrid(file_data)
-        assert tags.entries is not None
-        self.assertEqual(
-            tags.entries,
-            (
-                TrackBeatgrid.TerminalBeatgridMarker(position_s=0.029895611107349396, bpm=75.0),
-                TrackBeatgrid.Footer(unknown=0),
-            ),
-            "parsed entries",
-        )
+    beats = TrackBeatgrid(mp3).get_beats()
+    assert [(beat.position_s, beat.bpm) for beat in beats[:14]] == [
+        *((float(i), 60.0) for i in range(4)),
+        *((4.0 + i / 4, 240.0) for i in range(8)),
+        (6.0, 120.0),
+        (6.5, 120.0),
+    ]
+    assert beats[-1].position_s <= MP3(TEST_MP3).info.length, "to the end of the track"
+
+
+def test_get_snapped_position_ignores_1ms_by_default():
+    beatgrid = TrackBeatgrid(TEST_MP3)
+    beat = beatgrid.find_nearest_beat(FIRST_CUE_POSITION, 1)
+    assert beat is not None
+    beat_ms = round(beat)
+    assert beatgrid.get_snapped_position(beat_ms + 1, 1 / 8) is None
+    assert beatgrid.get_snapped_position(beat_ms - 1, 1 / 8) is None
+    assert beatgrid.get_snapped_position(beat_ms + 2, 1 / 8) == beat_ms
+    assert beatgrid.get_snapped_position(beat_ms + 1, 1 / 8, min_ms_change=1) == beat_ms
+    assert beatgrid.get_snapped_position(beat_ms + 60, 1 / 1000) is None, "outside tolerance"
+
+
+@pytest.mark.parametrize(
+    "markers, message",
+    [
+        pytest.param((Marker(1.0, 0), Last(2.0, 120.0)), "has 0 beats", id="a marker with 0 beats"),
+        pytest.param(
+            (Marker(1.0, 4), Last(1.0, 120.0)),
+            "doesn't come after",
+            id="a marker at the same position as the one before",
+        ),
+        pytest.param(
+            (Marker(1.0, 4), Marker(3.0, 4), Last(2.0, 120.0)),
+            "doesn't come after",
+            id="a marker before the one before",
+        ),
+        pytest.param((Marker(1.0, 4), Last(2.0, 0.0)), "a BPM of 0", id="a BPM of 0"),
+        pytest.param((Last(2.0, float("nan")),), "a BPM of nan", id="a NaN BPM"),
+    ],
+)
+def test_a_grid_serato_wouldnt_write_raises(markers: tuple[Marker | Last, ...], message: str):
+    with pytest.raises(ValueError, match=message):  # parsing
+        TrackBeatgrid(grid_bytes(markers))
+
+    tags = TrackBeatgrid(read_bytes(DATA_FILES.BEATGRID))
+    tags.entries = (*markers, Footer(0))  # pyright: ignore[reportAttributeAccessIssue]
+    with pytest.raises(ValueError, match=message):  # saving
         tags._serialize()
-        self.assertEqual(tags._raw_data, file_data, "serialize")
+    with pytest.raises(ValueError, match=message):  # at a position before any bad segment, too
+        tags.get_beat_position(0)
 
-    def test_get_snapped_position_ignores_1ms_by_default(self):
-        beatgrid = TrackBeatgrid(TEST_MP3)
-        beat = beatgrid.find_nearest_beat(45104, 1)  # the test mp3's first cue, 42 ms before a beat
-        assert beat is not None
-        beat_ms = round(beat)
-        self.assertIsNone(beatgrid.get_snapped_position(beat_ms + 1, 1 / 8))
-        self.assertIsNone(beatgrid.get_snapped_position(beat_ms - 1, 1 / 8))
-        self.assertEqual(beatgrid.get_snapped_position(beat_ms + 2, 1 / 8), beat_ms)
-        self.assertEqual(beatgrid.get_snapped_position(beat_ms + 1, 1 / 8, min_ms_change=1), beat_ms)
-        self.assertIsNone(beatgrid.get_snapped_position(beat_ms + 60, 1 / 1000), "outside tolerance")
 
-    def test_a_grid_serato_wouldnt_write_raises(self):
-        cases = {
-            "a marker with 0 beats": (Marker(1.0, 0), Last(2.0, 120.0)),
-            "a marker at the same position as the one before": (Marker(1.0, 4), Last(1.0, 120.0)),
-            "a marker before the one before": (Marker(1.0, 4), Marker(3.0, 4), Last(2.0, 120.0)),
-            "a BPM of 0": (Marker(1.0, 4), Last(2.0, 0.0)),
-            "a NaN BPM": (Last(2.0, float("nan")),),
-        }
-        for name, markers in cases.items():
-            with self.subTest(name):
-                with self.assertRaises(ValueError, msg="parsing"):
-                    TrackBeatgrid(grid_bytes(markers))
+NOT_LAST = "last entry must be its footer"
+NO_TERMINAL = "footer must come right after its terminal marker"
+NOT_MARKERS = "entries before its terminal marker must be non-terminal markers"
 
-                tags = TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin"))
-                tags.entries = (*markers, TrackBeatgrid.Footer(0))
-                with self.assertRaises(ValueError, msg="saving"):
-                    tags._serialize()
-                # at a position before any bad segment, too
-                with self.assertRaises(ValueError, msg="get_beat_position"):
-                    tags.get_beat_position(0)
 
-    def no_beatgrid_mp3(self) -> str:
-        path = temp_mp3(self)
-        beatgrid = TrackBeatgrid(path)
-        beatgrid.delete()
-        beatgrid.save()
-        return path
+@pytest.mark.parametrize(
+    "entries, message",
+    [
+        pytest.param((Marker(1.0, 4), Footer(0)), NO_TERMINAL, id="no terminal marker"),
+        pytest.param((Footer(0),), NO_TERMINAL, id="only a footer"),
+        pytest.param((Footer(0), Last(2.0, 120.0)), NOT_LAST, id="the footer first"),
+        pytest.param((Last(1.0, 120.0), Last(2.0, 120.0), Footer(0)), NOT_MARKERS, id="two terminal markers"),
+        pytest.param(
+            (Marker(1.0, 4), "not an entry", Last(2.0, 120.0), Footer(0)), NOT_MARKERS, id="a value that isn't an entry"
+        ),
+    ],
+)
+def test_entries_out_of_order_raise_on_saving(entries: tuple, message: str):
+    tags = TrackBeatgrid(read_bytes(DATA_FILES.BEATGRID))
+    tags.entries = entries  # pyright: ignore[reportAttributeAccessIssue]
+    with pytest.raises(ValueError, match=message):
+        tags._serialize()
 
-    def test_without_a_beatgrid_finding_beats_raises(self):
-        # rather than returning None, which reads as "don't move the cue"
-        path = self.no_beatgrid_mp3()
-        beatgrid = TrackBeatgrid(path)
-        for name, find in (
-            ("get_snapped_position", lambda: beatgrid.get_snapped_position(45104, 1 / 8)),
-            ("find_nearest_beat", lambda: beatgrid.find_nearest_beat(45104, 1 / 8)),
-            ("get_beat_position", lambda: beatgrid.get_beat_position(45104)),
-        ):
-            with self.subTest(name), self.assertRaises(NoBeatgridError) as caught:
-                find()
-            self.assertEqual(caught.exception.filename, path)
 
-    def test_no_beatgrid_error_from_bytes_has_no_filename(self):
-        self.assertEqual(str(NoBeatgridError()), "no Serato BeatGrid tag")
+def test_str_prints_an_invalid_grid():
+    # for debugging a grid set in memory, which saving would reject
+    tags = TrackBeatgrid(read_bytes(DATA_FILES.BEATGRID))
+    markers = (TrackBeatgrid.NonTerminalBeatgridMarkerEnhanced(1.0, 0, 120.0), Last(2.0, 120.0))
+    tags.enhanced_entries = (*markers, Footer(0))
+    assert str(tags) == "\n".join(str(marker) for marker in markers)
 
-    def test_cli_without_a_beatgrid_exits_with_the_error(self):
-        path = self.no_beatgrid_mp3()
-        with mock.patch("sys.argv", ["serato_beatgrid", path]), self.assertRaises(SystemExit) as caught:
-            main()
-        self.assertEqual(caught.exception.code, f"no Serato BeatGrid tag: {path}")
 
-    def test_bytes_after_the_footer_raise(self):
-        with self.assertRaisesRegex(ValueError, "1 bytes after its footer"):
-            TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin") + b"\x00")
+def test_bytes_after_the_footer_raise():
+    with pytest.raises(ValueError, match="1 bytes after its footer"):
+        TrackBeatgrid(read_bytes(DATA_FILES.BEATGRID) + b"\x00")
 
-    def test_entries_out_of_order_raise_on_saving(self):
-        tags = TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin"))
-        footer = TrackBeatgrid.Footer(0)
-        not_last = "last entry must be its footer"
-        no_terminal = "footer must come right after its terminal marker"
-        not_markers = "entries before its terminal marker must be non-terminal markers"
-        for name, entries, message in (
-            ("no terminal marker", (Marker(1.0, 4), footer), no_terminal),
-            ("only a footer", (footer,), no_terminal),
-            ("the footer first", (footer, Last(2.0, 120.0)), not_last),
-            ("two terminal markers", (Last(1.0, 120.0), Last(2.0, 120.0), footer), not_markers),
-            ("a value that isn't an entry", (Marker(1.0, 4), "not an entry", Last(2.0, 120.0), footer), not_markers),
-        ):
-            with self.subTest(name), self.assertRaisesRegex(ValueError, message):
-                tags.entries = entries  # pyright: ignore[reportAttributeAccessIssue]
-                tags._serialize()
 
-    def test_str_prints_an_invalid_grid(self):
-        # for debugging a grid set in memory, which saving would reject
-        tags = TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin"))
-        markers = (TrackBeatgrid.NonTerminalBeatgridMarkerEnhanced(1.0, 0, 120.0), Last(2.0, 120.0))
-        tags.enhanced_entries = (*markers, TrackBeatgrid.Footer(0))
-        self.assertEqual(str(tags), "\n".join(str(marker) for marker in markers))
+@pytest.mark.parametrize(
+    "find",
+    [
+        pytest.param(
+            lambda beatgrid: beatgrid.get_snapped_position(FIRST_CUE_POSITION, 1 / 8), id="get_snapped_position"
+        ),
+        pytest.param(lambda beatgrid: beatgrid.find_nearest_beat(FIRST_CUE_POSITION, 1 / 8), id="find_nearest_beat"),
+        pytest.param(lambda beatgrid: beatgrid.get_beat_position(FIRST_CUE_POSITION), id="get_beat_position"),
+    ],
+)
+def test_without_a_beatgrid_finding_beats_raises(no_beatgrid_mp3: str, find):
+    # rather than returning None, which reads as "don't move the cue"
+    with pytest.raises(NoBeatgridError) as caught:
+        find(TrackBeatgrid(no_beatgrid_mp3))
+    assert caught.value.filename == no_beatgrid_mp3
 
-    def test_analyzing_a_tag_read_from_bytes_raises(self):
-        with self.assertRaisesRegex(ValueError, "read from bytes"):
-            TrackBeatgrid(read_bytes("test/data/track_beatgrid.bin")).analyze_and_write()
+
+def test_no_beatgrid_error_from_bytes_has_no_filename():
+    tags = TrackBeatgrid(read_bytes(DATA_FILES.BEATGRID))
+    tags.delete()
+    with pytest.raises(NoBeatgridError) as caught:
+        tags.find_nearest_beat(FIRST_CUE_POSITION, 1 / 8)
+    assert caught.value.filename is None
+    assert str(caught.value) == "no Serato BeatGrid tag"
+
+
+def test_a_footer_only_tag_has_no_beatgrid():
+    # a version, a marker count of 0, and the footer
+    tags = TrackBeatgrid(b"\x01\x00" + struct.pack(">I", 0) + b"\x00")
+    assert tags.entries is None
+    with pytest.raises(NoBeatgridError):
+        tags.find_nearest_beat(FIRST_CUE_POSITION, 1 / 8)
+
+
+def test_analyzing_a_tag_read_from_bytes_raises():
+    with pytest.raises(ValueError, match="read from bytes"):
+        TrackBeatgrid(read_bytes(DATA_FILES.BEATGRID)).analyze_and_write()
+
+
+def test_analyze_and_write_replaces_the_beats_found(mp3: str):
+    beatgrid = TrackBeatgrid(mp3)
+    beatgrid.get_beats()
+    analyzed = BeatGridInfo(100.0, [], 1.0, 0.0, 1.0, downbeats=[0.5, 2.9])
+    with mock.patch("serato_tools.utils.beatgrid_analyze.analyze_beatgrid", return_value=analyzed):
+        beatgrid.analyze_and_write()
+    assert beatgrid.find_nearest_beat(520, 0.1) == 500.0, "the new grid's first beat"
+
+
+def test_analyze_and_write_giving_an_invalid_grid_keeps_the_old_one(mp3: str):
+    beatgrid = TrackBeatgrid(mp3)
+    entries, raw_data = beatgrid.entries, beatgrid._raw_data
+    analyzed = BeatGridInfo(100.0, [], 1.0, 0.0, 1.0, downbeats=[2.9, 0.5])  # out of order
+    with (
+        mock.patch("serato_tools.utils.beatgrid_analyze.analyze_beatgrid", return_value=analyzed),
+        pytest.raises(ValueError, match="doesn't come after"),
+    ):
+        beatgrid.analyze_and_write()
+    assert (beatgrid.entries, beatgrid._raw_data) == (entries, raw_data)
+
+
+def test_cli_without_a_beatgrid_exits_with_the_error(no_beatgrid_mp3: str):
+    with cli_args("serato_beatgrid", no_beatgrid_mp3), pytest.raises(SystemExit) as caught:
+        main()
+    assert caught.value.code == f"no Serato BeatGrid tag: {no_beatgrid_mp3}"
