@@ -62,45 +62,36 @@ def copy_crates_to_usb(
     if os.path.isdir(dest_serato_dir):
         shutil.rmtree(dest_serato_dir)
 
-    def dest_track_path(track_path: str) -> str:
-        """Where the track at `track_path` goes on the drive, as Serato stores a path."""
-        return Crate.get_relative_path(os.path.join(dest_tracks_dir, os.path.basename(track_path)))
-
     dest_crate_dir = os.path.join(dest_serato_dir, Crate.DIR)
     os.makedirs(dest_crate_dir, exist_ok=True)
     track_paths: list[str] = []
     for crate_file in crate_files:
         if not os.path.isdir(crate_file):
-            track_paths += _export_crate(crate_file, dest_crate_dir, root_crate, dest_track_path)
+            track_paths += _export_crate(crate_file, dest_crate_dir, root_crate, dest_tracks_dir)
     # of tracks that share a filename, the first in the crates is the one copied, so it's the one whose entries are kept
     track_paths = _uniq_by_basename([os.path.normpath(f) for f in track_paths])
     # a set: each library file's tracks are checked against it
     track_paths_set = set(track_paths)
 
-    def reset_played(track: DatabaseV2.Track):
-        track.set_value(DatabaseV2.Fields.PLAYED, False)
-
     dest_db_file = os.path.join(dest_serato_dir, DatabaseV2.FILENAME)
     _export_library_file(
         DatabaseV2(os.path.join(LOCAL_SERATO_DIR, DatabaseV2.FILENAME)),
         dest_db_file,
+        dest_tracks_dir,
         track_paths_set,
-        dest_track_path,
-        edit_track=reset_played,
+        edit_track=lambda track: track.set_value(DatabaseV2.Fields.PLAYED, False),
     )
     logger.info(f"created database file {dest_db_file}")
     _copy_order_file(dest_serato_dir, root_crate)
     if os.path.exists(local_stems_crate := os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)):
         dest_stems_crate = os.path.join(dest_serato_dir, Crate.SERATO_STEMS_CRATE_PATH)
         os.makedirs(os.path.dirname(dest_stems_crate), exist_ok=True)
-        _export_library_file(Crate(local_stems_crate), dest_stems_crate, track_paths_set, dest_track_path)
+        _export_library_file(Crate(local_stems_crate), dest_stems_crate, dest_tracks_dir, track_paths_set)
         logger.info(f"copied crate {dest_stems_crate}")
     _copy_tracks(track_paths, os.path.join(dest_drive_dir, dest_tracks_dir))
 
 
-def _export_crate(
-    crate_file: str, dest_crate_dir: str, root_crate: Optional[str], dest_track_path: Callable[[str], str]
-) -> list[str]:
+def _export_crate(crate_file: str, dest_crate_dir: str, root_crate: Optional[str], dest_tracks_dir: str) -> list[str]:
     """Writes the crate to the drive's crate folder, pointed at its tracks' paths there, and returns the paths it held.
 
     The paths returned are as Serato stores them, without a drive or leading slash, in the crate's order and with
@@ -117,15 +108,7 @@ def _export_crate(
     else:
         raise ValueError(f"not a crate file, should end with {Crate.EXTENSION} or {SmartCrate.EXTENSION}: {crate_file}")
 
-    track_paths: list[str] = []
-
-    def move_track(track: Crate.Track) -> Crate.Track:
-        track_paths.append(track.relpath)
-        track.set_path(dest_track_path(track.relpath))
-        return track
-
-    crate.modify_tracks(move_track)
-    crate.remove_duplicates()
+    track_paths = crate.get_track_paths()
 
     crate_filename = os.path.basename(crate_file)
     if isinstance(crate, SmartCrate):
@@ -136,7 +119,7 @@ def _export_crate(
     dest_crate_file = os.path.join(dest_crate_dir, crate_filename)
     if isinstance(crate, SmartCrate):
         crate = crate.to_regular_crate(dest_crate_file)
-    crate.save(dest_crate_file)
+    _export_library_file(crate, dest_crate_file, dest_tracks_dir)
     logger.info(f"copied crate {dest_crate_file}")
     return track_paths
 
@@ -144,18 +127,20 @@ def _export_crate(
 def _export_library_file(
     file: SeratoBinFile,
     dest_file: str,
-    track_paths: set[str],
-    dest_track_path: Callable[[str], str],
+    dest_tracks_dir: str,
+    track_paths: Optional[set[str]] = None,
     edit_track: Optional[Callable[[SeratoBinFile.Track], None]] = None,
 ):
-    """Writes the database or crate to `dest_file` with only the tracks in `track_paths`, at their drive paths.
+    """Writes the database or crate to `dest_file`, its tracks pointed at their paths in `dest_tracks_dir` on the drive.
 
-    `edit_track` makes any other change to each of those tracks. `dest_file`'s folder must already exist.
+    Given `track_paths`, only those tracks are kept. `edit_track` makes any other change to each track kept.
+    `dest_file`'s folder must already exist.
     """
-    file.filter_tracks(lambda track: os.path.normpath(track.relpath) in track_paths)
+    if track_paths is not None:
+        file.filter_tracks(lambda track: os.path.normpath(track.relpath) in track_paths)
 
     def move_track(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
-        track.set_path(dest_track_path(track.relpath))
+        track.set_path(_dest_track_path(track.relpath, dest_tracks_dir))
         if edit_track is not None:
             edit_track(track)
         return track
@@ -163,6 +148,11 @@ def _export_library_file(
     file.modify_tracks(move_track)
     file.remove_duplicates()
     file.save(dest_file)
+
+
+def _dest_track_path(track_path: str, dest_tracks_dir: str) -> str:
+    """Where the track at `track_path` goes on the drive, in `dest_tracks_dir`, as Serato stores a path."""
+    return Crate.get_relative_path(os.path.join(dest_tracks_dir, os.path.basename(track_path)))
 
 
 def _copy_order_file(dest_serato_dir: str, root_crate: Optional[str]):
