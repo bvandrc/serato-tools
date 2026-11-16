@@ -11,6 +11,8 @@ from test.helpers.cli import cli_args
 from test.helpers.files import copy_into, read_bytes, read_text
 
 SMART_CRATE = os.path.abspath(TEST_SMART_CRATE)
+# the test smart crate parsed, as its __str__ prints it
+TEST_SMART_CRATE_TXT_FILE = "test/data/smart_crate.txt"
 Comparison = SmartCrate.RuleComparison
 Field = SmartCrate.RuleField
 ValueField = SmartCrate.RuleFields
@@ -31,36 +33,21 @@ def make_rule(comparison: Comparison, field: Field, value_field: ValueField, val
     return SmartCrate.Rule(rule_entries(comparison, field, value_field, value))
 
 
-def test_parse_and_add_rule():
+def test_parse():
     crate = SmartCrate(SMART_CRATE)
-    expected = read_text("test/data/smart_crate.txt")
+    assert crate.to_bytes() == read_bytes(SMART_CRATE), "round-trips byte-exact"
+    assert crate.__str__() == read_text(TEST_SMART_CRATE_TXT_FILE)
 
-    assert crate.to_bytes() == read_bytes(SMART_CRATE)
-    assert crate.__str__() == expected
+
+def test_add_rule():
+    crate = SmartCrate(SMART_CRATE)
+    expected = read_text(TEST_SMART_CRATE_TXT_FILE)
 
     crate.set_rule(Field.ALBUM, Comparison.STR_IS_NOT, "albo")
     assert crate.__str__() == (
         expected
         + "\nrurt (SmartCrate Rule): [ trft (Rule Comparison): cond_isn_str (STR_IS_NOT) ], [ urkt (Rule Field): 8 (album) ], [ trpt (Rule Value Text): albo ]"
     )
-
-
-def test_to_regular_crate_keeps_the_tracks_sort_and_columns_but_not_the_rules(tmp_dir: str):
-    smart_crate = SmartCrate(SMART_CRATE)
-    view_fields = {Crate.Fields.SORTING.value, Crate.Fields.COLUMN.value}
-    rule_fields = {field.value for field in ValueField}
-    assert smart_crate.get_track_paths(), "the fixture has tracks"
-    assert any(field in view_fields for field, _ in smart_crate._entries), "and a sort and columns"
-    assert any(field in rule_fields for field, _ in smart_crate._entries), "and rules"
-    file = os.path.join(tmp_dir, "Regular.crate")
-    smart_crate.to_regular_crate(file).save()
-
-    saved = Crate(file)
-    assert saved._version == Crate.DEFAULT_ENTRIES[0][1], "a regular crate's version"
-    assert saved.get_track_paths() == smart_crate.get_track_paths()
-    assert saved._entries[1:] == [
-        entry for entry in smart_crate._entries[1:] if entry[0] not in rule_fields
-    ], "everything but the version and the rules, in order"
 
 
 def test_delete_rule_returns_whether_removed():
@@ -94,11 +81,12 @@ def test_every_comparison_maps_to_a_value_field(comparison: Comparison):
 
 
 def test_rule_value_field_follows_comparison_not_value_type():
+    ARGS = (Comparison.STR_IS, Field.ARTIST, ValueField.RULE_VALUE_TEXT)
     # confirmed against Serato itself: an artist rule set to 100 is stored as the text "100",
     # so the comparison, not the passed value's type, decides the value field
-    rule = make_rule(Comparison.STR_IS, Field.ARTIST, ValueField.RULE_VALUE_TEXT, "some artist")
+    rule = make_rule(*ARGS, "some artist")
     rule.set_value(100)
-    assert rule.to_entries() == rule_entries(Comparison.STR_IS, Field.ARTIST, ValueField.RULE_VALUE_TEXT, "100")
+    assert rule.to_entries() == rule_entries(*ARGS, "100")
 
 
 def test_rule_set_value_replaces_value_field_on_comparison_type_change():
@@ -134,6 +122,24 @@ def test_find_missing_raises():
     # its tracks come from its rules
     with pytest.raises(TypeError):
         SmartCrate(SMART_CRATE).find_missing()
+
+
+def test_to_regular_crate_keeps_the_tracks_sort_and_columns_but_not_the_rules(tmp_dir: str):
+    smart_crate = SmartCrate(SMART_CRATE)
+    view_fields = {Crate.Fields.SORTING.value, Crate.Fields.COLUMN.value}
+    rule_fields = {field.value for field in ValueField}
+    assert smart_crate.get_track_paths(), "the fixture has tracks"
+    assert any(field in view_fields for field, _ in smart_crate._entries), "and a sort and columns"
+    assert any(field in rule_fields for field, _ in smart_crate._entries), "and rules"
+    file = os.path.join(tmp_dir, "Regular.crate")
+    smart_crate.to_regular_crate(file).save()
+
+    saved = Crate(file)
+    assert saved._version == Crate.DEFAULT_ENTRIES[0][1], "a regular crate's version"
+    assert saved.get_track_paths() == smart_crate.get_track_paths()
+    assert saved._entries[1:] == [
+        entry for entry in smart_crate._entries[1:] if entry[0] not in rule_fields
+    ], "everything but the version and the rules, in order"
 
 
 class TestCli:
