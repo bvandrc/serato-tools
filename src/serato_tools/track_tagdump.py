@@ -5,7 +5,7 @@ import os
 import sys
 from dataclasses import dataclass
 
-import mutagen._file
+import mutagen
 import mutagen.aiff
 import mutagen.flac
 import mutagen.mp3
@@ -16,7 +16,7 @@ from serato_tools.utils import logger
 from serato_tools.utils.track_tags import get_geob
 
 
-def get_serato_tagdata(tagfile: mutagen._file.FileType, decode: bool = False):
+def get_serato_tagdata(tagfile: mutagen.FileType, decode: bool = False):
     """Each of the file's Serato tags, as its name and its data.
 
     Reads ID3 (MP3, AIFF), FLAC, MP4, and Ogg Vorbis files. FLAC and MP4 files store each tag base64-encoded, which
@@ -95,8 +95,7 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--decode", action="store_true")
     args = Args(**vars(parser.parse_args()))
 
-    # pylint: disable-next=protected-access
-    tagfile: mutagen._file.FileType | None = mutagen._file.File(args.input_file)
+    tagfile: mutagen.FileType | None = mutagen.File(args.input_file)
 
     # not `if not tagfile`: an audio file with no tags, or ID3 tags with no frames, is falsy
     if tagfile is None:
