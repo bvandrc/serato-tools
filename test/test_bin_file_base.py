@@ -415,14 +415,13 @@ def test_get_entries_matching_tracks():
     assert not_tracks(db.get_entries("d'evils")) == not_tracks(db.get_entries()), "every other entry"
 
 
-def test_change_track_path(tmp_dir: str):
+def test_change_track_path(new_crate: Crate, tmp_dir: str):
     src, other = (os.path.join(tmp_dir, name) for name in ["Old.mp3", "Other.mp3"])
     [dest] = mock_files({tmp_dir: ["New.mp3"]})
-    crate = Crate(os.path.join(tmp_dir, "Test.crate"))
-    crate.add_tracks([src, other])
+    new_crate.add_tracks([src, other])
 
-    assert crate.change_track_path(src, dest) is True, "reports that the file had the track"
-    assert crate.get_track_paths() == [SeratoBinFile.get_relative_path(p) for p in [dest, other]], "in its place"
+    assert new_crate.change_track_path(src, dest) is True, "reports that the file had the track"
+    assert new_crate.get_track_paths() == [SeratoBinFile.get_relative_path(p) for p in [dest, other]], "in its place"
 
 
 def test_change_track_path_of_a_track_the_file_doesnt_have(crate_file: str, tmp_dir: str):
@@ -432,16 +431,15 @@ def test_change_track_path_of_a_track_the_file_doesnt_have(crate_file: str, tmp_
     assert not crate.has_changed
 
 
-def test_change_track_path_to_a_file_that_doesnt_exist_raises(tmp_dir: str):
+def test_change_track_path_to_a_file_that_doesnt_exist_raises(new_crate: Crate, tmp_dir: str):
     src = os.path.join(tmp_dir, "Old.mp3")
-    crate = Crate(os.path.join(tmp_dir, "Test.crate"))
-    crate.add_tracks([src])
-    crate.save()
+    new_crate.add_tracks([src])
+    new_crate.save()
 
     with pytest.raises(FileNotFoundError):
-        crate.change_track_path(src, os.path.join(tmp_dir, "Missing.mp3"))
-    assert not crate.has_changed
-    assert crate.get_track_paths() == [SeratoBinFile.get_relative_path(src)]
+        new_crate.change_track_path(src, os.path.join(tmp_dir, "Missing.mp3"))
+    assert not new_crate.has_changed
+    assert new_crate.get_track_paths() == [SeratoBinFile.get_relative_path(src)]
 
 
 # a track's fields
@@ -678,35 +676,33 @@ def test_saving_before_parsing_finished_raises_and_leaves_the_file(db_file: str)
     assert read_bytes(db_file) == read_bytes(TEST_DATABASE)
 
 
-def test_find_missing_relocates_tracks(tmp_dir: str, bin_file_writes: list[str]):
+def test_find_missing_relocates_tracks(new_crate: Crate, tmp_dir: str, bin_file_writes: list[str]):
     old_dir, new_dir = os.path.join(tmp_dir, "old"), os.path.join(tmp_dir, "new")
     mock_files({new_dir: ["A.mp3", "B.mp3", "C.mp3"]})
-    crate = Crate(os.path.join(tmp_dir, "Test.crate"))
-    crate.add_tracks([os.path.join(old_dir, name) for name in ["A.mp3", "B.mp3", "C.mp3", "Z.mp3"]])
-    crate.save()
+    new_crate.add_tracks([os.path.join(old_dir, name) for name in ["A.mp3", "B.mp3", "C.mp3", "Z.mp3"]])
+    new_crate.save()
     bin_file_writes.clear()
 
     # a folder for the first: the rest that are in it are found there without asking; then "s" skips Z
     with mock.patch("builtins.input", side_effect=[new_dir, "s"]) as answers, mock.patch("builtins.print"):
-        crate.find_missing()
+        new_crate.find_missing()
 
     assert answers.call_count == 2, "asked for A and Z only"
-    assert crate.get_track_paths() == [
+    assert new_crate.get_track_paths() == [
         *(SeratoBinFile.get_relative_path(os.path.join(new_dir, name)) for name in ["A.mp3", "B.mp3", "C.mp3"]),
         SeratoBinFile.get_relative_path(os.path.join(old_dir, "Z.mp3")),
     ]
     assert bin_file_writes == ["Test.crate"], "saved once"
-    assert not crate.has_changed
+    assert not new_crate.has_changed
 
 
 @pytest.fixture
-def crate_of_missing_tracks(tmp_dir: str, bin_file_writes: list[str]) -> Crate:
+def crate_of_missing_tracks(new_crate: Crate, tmp_dir: str, bin_file_writes: list[str]) -> Crate:
     """A saved crate of A.mp3 and B.mp3 in tmp_dir's "old" folder, which doesn't exist."""
-    crate = Crate(os.path.join(tmp_dir, "Test.crate"))
-    crate.add_tracks([os.path.join(tmp_dir, "old", name) for name in ["A.mp3", "B.mp3"]])
-    crate.save()
+    new_crate.add_tracks([os.path.join(tmp_dir, "old", name) for name in ["A.mp3", "B.mp3"]])
+    new_crate.save()
     bin_file_writes.clear()
-    return crate
+    return new_crate
 
 
 def test_find_missing_takes_a_files_new_path(crate_of_missing_tracks: Crate, tmp_dir: str):

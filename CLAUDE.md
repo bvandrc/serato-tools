@@ -187,6 +187,7 @@ Console scripts are declared in `[project.scripts]` in `pyproject.toml` and poin
 - **Test style:** the tests are moving to pytest, run by `python -m pytest`, which runs the modules still on `unittest.TestCase` as they are. A new or converted test is pytest: a plain test function with bare `assert`s (with a message where it says what a check means), fixtures instead of setup methods, and `pytest.mark.parametrize` instead of a loop over cases. A class groups tests only where they share a fixture of their own (`test_smart_crate.py`'s `TestCli`). A module's tests of a console script come last.
 - `test/conftest.py` — the shared fixtures:
   - `tmp_dir`: pytest's `tmp_path` as the `str` path `serato_tools` takes.
+  - `new_crate`: a new, empty, unsaved crate at `Test.crate` in `tmp_dir`.
   - `mp3`: a copy of the test mp3, with every Serato tag. It imports the track_tags helpers inside the fixture, so `conftest.py` doesn't need the track_tags extra.
   - `bin_file_writes`: the names of the database and crate files the test writes, which is how tests check what was saved or that nothing was. A test whose setup writes files clears it first.
 - `test/helpers/` — shared helpers that aren't fixtures, a module for each kind (imported from the module, e.g. `from test.helpers.files import read_bytes`):

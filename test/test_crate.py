@@ -8,14 +8,19 @@ from test.helpers.bin_files import MP3_FILENAMES, TEST_CRATE, TRACKS_DIR
 from test.helpers.cli import cli_args
 from test.helpers.files import copy_into, mock_files, read_bytes, read_text
 
+# the test crate parsed, as its __str__ prints it
+TEST_CRATE_TXT_FILE = "test/data/crate.txt"
 
-def test_parse_and_add_tracks():
-    file = os.path.abspath(TEST_CRATE)
-    crate = Crate(file)
 
-    assert crate.to_bytes() == read_bytes(file)
-    expected = read_text("test/data/crate.txt")
-    assert crate.__str__() == expected, "parse"
+def test_parse():
+    crate = Crate(TEST_CRATE)
+    assert crate.to_bytes() == read_bytes(TEST_CRATE), "round-trips byte-exact"
+    assert crate.__str__() == read_text(TEST_CRATE_TXT_FILE)
+
+
+def test_add_tracks():
+    crate = Crate(os.path.abspath(TEST_CRATE))
+    expected = read_text(TEST_CRATE_TXT_FILE)
 
     # as Serato stores a track's path
     RELPATH = f"{TRACKS_DIR}/{MP3_FILENAMES.SOULACYBIN_ZEU}"
@@ -37,45 +42,41 @@ def test_parse_and_add_tracks():
     assert crate.__str__() == expected, "track added"
 
 
-def test_add_tracks_from_dir(tmp_dir: str):
+def test_add_tracks_skips_a_track_already_there_in_another_case(new_crate: Crate):
+    new_crate.add_tracks(["/music/A.mp3"])
+    new_crate.add_tracks(["/MUSIC/a.MP3", "/music/B.mp3", "/music/b.mp3"])
+    assert new_crate.get_track_paths() == ["music/A.mp3", "music/B.mp3"], "each as first added"
+
+
+def test_add_tracks_from_dir(new_crate: Crate, tmp_dir: str):
     music = os.path.join(tmp_dir, "Music")
     # a hidden file, which isn't a track any more than the subfolder is
     a, b, _ = mock_files({music: ["A.mp3", "B.mp3", ".DS_Store", {"Subfolder": []}]})
     in_music = [Crate.get_relative_path(path) for path in [a, b]]
     elsewhere = Crate.get_relative_path(os.path.join(tmp_dir, "Elsewhere.mp3"))
 
-    crate = Crate(os.path.join(tmp_dir, "Test.crate"))
-    crate.add_tracks([elsewhere, a])
-    crate.add_tracks_from_dir(music)
-    assert sorted(crate.get_track_paths()) == sorted([elsewhere, *in_music]), "the folder's files added, each once"
+    new_crate.add_tracks([elsewhere, a])
+    new_crate.add_tracks_from_dir(music)
+    assert sorted(new_crate.get_track_paths()) == sorted([elsewhere, *in_music]), "the folder's files added, each once"
 
-    crate.add_tracks_from_dir(music, replace=True)
-    assert sorted(crate.get_track_paths()) == sorted(in_music), "replace drops the tracks not in the folder"
-
-
-def test_add_tracks_skips_a_track_already_there_in_another_case(tmp_dir: str):
-    crate = Crate(os.path.join(tmp_dir, "Test.crate"))
-    crate.add_tracks(["/music/A.mp3"])
-    crate.add_tracks(["/MUSIC/a.MP3", "/music/B.mp3", "/music/b.mp3"])
-    assert crate.get_track_paths() == ["music/A.mp3", "music/B.mp3"], "each as first added"
+    new_crate.add_tracks_from_dir(music, replace=True)
+    assert sorted(new_crate.get_track_paths()) == sorted(in_music), "replace drops the tracks not in the folder"
 
 
-def test_saving_needs_the_crate_extension(tmp_dir: str):
-    crate = Crate(os.path.join(tmp_dir, "Test.crate"))
-    with pytest.raises(ValueError, match="should end with .crate"):
-        crate.save(os.path.join(tmp_dir, "Test.txt"))
-
-
-def test_add_tracks_from_dir_replacing_keeps_a_track_there_in_another_case(tmp_dir: str):
+def test_add_tracks_from_dir_replacing_keeps_a_track_there_in_another_case(new_crate: Crate, tmp_dir: str):
     music = os.path.join(tmp_dir, "Music")
     mock_files({music: ["a.mp3"]})
-    crate = Crate(os.path.join(tmp_dir, "Test.crate"))
     in_crate = os.path.join(music, "A.MP3")
-    crate.add_tracks([in_crate])
+    new_crate.add_tracks([in_crate])
 
-    crate.add_tracks_from_dir(music, replace=True)
+    new_crate.add_tracks_from_dir(music, replace=True)
 
-    assert crate.get_track_paths() == [Crate.get_relative_path(in_crate)], "kept, not removed and added again"
+    assert new_crate.get_track_paths() == [Crate.get_relative_path(in_crate)], "kept, not removed and added again"
+
+
+def test_saving_needs_the_crate_extension(new_crate: Crate, tmp_dir: str):
+    with pytest.raises(ValueError, match="should end with .crate"):
+        new_crate.save(os.path.join(tmp_dir, "Test.txt"))
 
 
 def run_cli(*args: str) -> str:

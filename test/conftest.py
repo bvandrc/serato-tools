@@ -5,11 +5,19 @@ from pathlib import Path
 
 import pytest
 
+from serato_tools.crate import Crate
+
 
 @pytest.fixture
 def tmp_dir(tmp_path: Path) -> str:
     """A new temporary folder, removed after the test, as the str path serato_tools takes."""
     return str(tmp_path)
+
+
+@pytest.fixture
+def new_crate(tmp_dir: str) -> Crate:
+    """A new, empty crate at Test.crate in tmp_dir, not yet saved."""
+    return Crate(os.path.join(tmp_dir, "Test.crate"))
 
 
 @pytest.fixture
