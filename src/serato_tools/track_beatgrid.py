@@ -14,7 +14,7 @@ import sys
 from dataclasses import dataclass
 from typing import cast, overload
 
-from mutagen._file import FileType
+from mutagen import FileType
 from mutagen.id3 import ID3
 
 from serato_tools.utils import logger
