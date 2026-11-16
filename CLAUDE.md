@@ -196,7 +196,7 @@ Console scripts are declared in `[project.scripts]` in `pyproject.toml` and poin
   - `track_tags`: the test mp3 and copies of it (`copy_mp3`, `copy_mp3_without_cues`, `copy_mp3_without`, `copy_mp3_without_id3`, `copy_mp3_with_empty_id3`), AIFFs with its tags or none (`aiff_with_the_mp3s_tags`, `untagged_aiff`), the GEOB tag fixtures (`DATA_FILES`, their paths, and `GEOB_DATA`, each GEOB tag class with its fixture's path), reading its tags (`has_tags_v1`, `cue_positions`), and `tagfile_saves`, which counts an audio file's saves: how tests check what was written to one, or that nothing was. It's the only helper module that needs the track_tags extra, so tests that don't touch audio files must not import it.
   - `cli`: `cli_args`, for running a console script's `main()` with a command line.
   - `platforms`: `WINDOWS_ONLY` / `POSIX_ONLY`, marks for tests that only make sense on one OS family.
-  - `temp_dir` (in `files`) and `temp_mp3` / `untagged_mp3` (in `track_tags`) are for the modules still on `unittest.TestCase`, and go once they're converted.
+  - `temp_dir` (in `files`) is for the modules still on `unittest.TestCase`, and goes once they're converted.
 
   Tests of a base class's behaviour go in the base's own module (`test_bin_file_base.py`, `test_track_tags.py`), driven through one subclass or looped over all of them, not repeated per subclass.
 - `test/data/` — fixtures for the test suite. Tests assert **byte-exact** round-trips (parse → serialize must reproduce the input), so regenerate fixtures deliberately, never to make a test pass.
