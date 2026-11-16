@@ -198,4 +198,3 @@ def test_cli_without_a_beatgrid_exits_with_the_error(no_beatgrid_mp3: str):
     with cli_args("serato_beatgrid", no_beatgrid_mp3), pytest.raises(SystemExit) as caught:
         main()
     assert caught.value.code == f"no Serato BeatGrid tag: {no_beatgrid_mp3}"
-
