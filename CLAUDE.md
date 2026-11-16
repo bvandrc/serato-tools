@@ -52,6 +52,7 @@ Publishing a GitHub release then publishes that version to PyPI, through `.githu
 - **Tag:** it must be `v` + the version (e.g. `v6.0.0`), or the workflow fails before building.
 - **Notes:** a release published with empty notes gets the version's `CHANGELOG.md` section as its notes, and the built distributions are attached to it.
 - **Trusted publisher:** PyPI's names that workflow file and its `pypi` environment, so renaming either means updating it on PyPI too.
+- **Rewording past entries:** releases don't follow later changes to their `CHANGELOG.md` section. Running the `Sync Release Notes` workflow (`.github/workflows/sync-release-notes.yml`, script in `.github/scripts/`) rewrites every release's notes as its section, keeping the "Published to PyPI" line of the releases added after the fact.
 
 ## Architecture
 
