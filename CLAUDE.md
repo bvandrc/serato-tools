@@ -132,7 +132,7 @@ Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`
 - **What each tag class implements:**
   - the read-only `has_changed` property;
   - `_write_to_tagfile()`, which puts its unsaved changes into the shared tagfile without saving and returns whether it had any. A `SeratoGeobTag` compares its data (`_raw_data`) with what it read or last saved (`_tagged_raw_data`) rather than with the tagfile, so an unchanged `Serato Markers_` that `TrackCuesV2` deleted isn't put back. `TrackCuesV2._write_to_tagfile` alone takes an argument, `delete_tags_v1`, which `Track.save()` passes it.
-- **Adding a tag class:** implement both (`ID3FileTag`'s raise `NotImplementedError`; it isn't an ABC, so it can still be instantiated), which `save()` is built on, and add it to `Track`: a flag, a property, and an entry in `save()`'s tuple of parsed tags.
+- **Adding a tag class:** implement both (`ID3FileTag`'s raise `NotImplementedError`; it isn't an ABC, so it can still be instantiated), which `save()` is built on, and add it to `Track`: a flag, a property, and an entry in `save()`'s tuple of parsed tags. Also add it to `TAG_CLASSES` in `test_track_tags.py`, whose save test calls both; `test_every_tag_class_is_tested` fails until you do, since no linter checks that a subclass implements them.
 
 **v1/v2 interaction:** current Serato reads `Serato Markers2`, but a stale `Serato Markers_` shadows changes made to it.
 - That's why `TrackCuesV2.save()` and `Track.save()` (and `Library.set_db_tracks_tags`, which passes it on) take `delete_tags_v1=True` by default: writing `Serato Markers2` deletes the v1 tag rather than keeping the two in sync.
