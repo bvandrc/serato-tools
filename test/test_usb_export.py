@@ -163,7 +163,9 @@ def test_copy_crates_to_usb(export: Export):
     with open(export.on_drive("_Serato_", "neworder.pref"), encoding="utf-8") as f:
         assert f.read() == "[begin record]\n[crate]Root%%House\n[crate]Root%%Deep\n[crate]Stems\n[end record]\n"
     assert not os.path.exists(stale), "the drive's old library replaced"
-    for src, name in [(a, "A.mp3"), (b, "B.mp3"), (stems, "B.serato-stems")]:
+    copied = {"A.mp3": a, "B.mp3": b, "B.serato-stems": stems}
+    assert sorted(os.listdir(export.on_drive(DRIVE_TRACKS))) == sorted(copied), "only the exported crates' tracks"
+    for name, src in copied.items():
         assert read_bytes(export.on_drive(DRIVE_TRACKS, name)) == read_bytes(src), f"{name} copied"
 
 
@@ -221,6 +223,8 @@ def test_copy_crates_to_usb_keeps_the_database_entry_of_the_track_it_copies(expo
     usb_export.copy_crates_to_usb([export.crate("House", [m1, m2])], export.drive, DRIVE_TRACKS)
 
     assert read_bytes(export.on_drive(DRIVE_TRACKS, "A.mp3")) == b"m1", "the first in the crates copied"
+    exported_crate = Crate(export.on_drive("_Serato_", Crate.DIR, "House.crate"))
+    assert exported_crate.get_track_paths() == [f"{DRIVE_TRACKS}/A.mp3"], "the crate lists it once"
     tracks = export.exported_database().get_tracks()
     assert [t.get_value(DatabaseV2.Fields.GENRE) for t in tracks] == ["from M1"], "with its own database entry"
 
