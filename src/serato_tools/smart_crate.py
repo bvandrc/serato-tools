@@ -216,7 +216,7 @@ class SmartCrate(CrateBase):
         the file.
         """
         # imported here, since only this method needs regular crates
-        from serato_tools.crate import Crate
+        from serato_tools.crate import Crate  # noqa: PLC0415
 
         crate = Crate(file)
         rule_fields = {field.value for field in SmartCrate.RuleFields}
@@ -234,7 +234,7 @@ class SmartCrate(CrateBase):
 
 def main():
     """The `serato_smartcrate` CLI: prints smart crates, lists their tracks, or sets or deletes their rules."""
-    import argparse
+    import argparse  # noqa: PLC0415
 
     @dataclass
     class Args:

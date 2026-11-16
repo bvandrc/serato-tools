@@ -27,7 +27,7 @@ class Crate(CrateBase):
 
 def main():
     """The `serato_crate` CLI: prints crates, lists their tracks, or finds tracks whose files are missing."""
-    import argparse
+    import argparse  # noqa: PLC0415
 
     @dataclass
     class Args:

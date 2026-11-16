@@ -50,7 +50,7 @@ class TrackWaveform(SeratoGeobTag):
     def draw_image(self):
         """The waveform overview as a 240 x 16 pixel PIL image. Needs the `waveform_drawing` extra (pillow)."""
         try:
-            from PIL import Image, ImageColor
+            from PIL import Image, ImageColor  # noqa: PLC0415
         except ImportError as error:
             raise ImportError(
                 'drawing the waveform needs the waveform_drawing extra: pip install "serato-tools[waveform_drawing]"'

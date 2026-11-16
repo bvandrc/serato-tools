@@ -333,7 +333,7 @@ class TrackBeatgrid(SeratoGeobTag):
         """
         tagfile = self._require_tagfile()
 
-        from serato_tools.utils.beatgrid_analyze import analyze_beatgrid
+        from serato_tools.utils.beatgrid_analyze import analyze_beatgrid  # noqa: PLC0415
 
         bpm = float(str(tagfile["TBPM"]))
         filename = cast(str, tagfile.filename)
@@ -368,9 +368,9 @@ class TrackBeatgrid(SeratoGeobTag):
 
 def main():
     """Prints a track's beatgrid markers, or with `--analyze`, analyzes the track and writes a new grid."""
-    import argparse
+    import argparse  # noqa: PLC0415
 
-    from serato_tools.utils.cli import open_tag_file_or_data
+    from serato_tools.utils.cli import open_tag_file_or_data  # noqa: PLC0415
 
     @dataclass
     class Args:
@@ -395,7 +395,7 @@ def main():
 
 def main_analyze():
     """The `serato_analyze_beatgrid` CLI: analyzes a track's audio and writes a new beatgrid to its tags."""
-    import argparse
+    import argparse  # noqa: PLC0415
 
     @dataclass
     class Args:

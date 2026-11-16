@@ -632,10 +632,10 @@ class TrackCuesV2(SeratoGeobTag):
 
 def main():
     """The `serato_snap_cues_v2` CLI: sets the track color, snaps cues to the beatgrid, or prints the entries."""
-    import argparse
-    import math
+    import argparse  # noqa: PLC0415
+    import math  # noqa: PLC0415
 
-    from serato_tools.utils.cli import open_tag_file_or_data, save_tag_file_or_data
+    from serato_tools.utils.cli import open_tag_file_or_data, save_tag_file_or_data  # noqa: PLC0415
 
     @dataclass
     class Args:
@@ -698,7 +698,7 @@ def main():
         if tags.tagfile is None:
             raise ValueError("--snap_cues needs an audio file, to read its beatgrid")
         # imported here, so that the tag's module needs the beatgrid's only for this option
-        from serato_tools.track_beatgrid import TrackBeatgrid
+        from serato_tools.track_beatgrid import TrackBeatgrid  # noqa: PLC0415
 
         try:
             snapped_cues = tags.snap_cues_to_beats(TrackBeatgrid(tags.tagfile), tolerance_beats)

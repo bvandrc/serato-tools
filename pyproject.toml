@@ -90,7 +90,6 @@ ignore = [
     "E501",  # line length: the formatter wraps code, and what's left is long strings
     "PLR2004",  # magic values: the binary formats' constants
     "PLR09",  # too many branches, arguments, or statements
-    "PLC0415",  # imports inside functions: optional extras and the CLIs' argparse load only when used
     "TC006",  # quoting the type in cast()
     # takes any UPPER_CASE name for a constant, so it would swap `assert cls.DEFAULT_ENTRIES == default` to put the
     # expected value first

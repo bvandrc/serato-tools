@@ -48,7 +48,7 @@ def _db_track_props():  # return type left to pyright, which infers the module a
     without it.
     """
     try:
-        from serato_tools import db_track_props
+        from serato_tools import db_track_props  # noqa: PLC0415
     except ModuleNotFoundError as error:
         if (error.name or "").split(".")[0] != "mutagen":
             raise
