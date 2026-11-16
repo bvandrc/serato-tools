@@ -2,14 +2,13 @@
 import os
 import shutil
 import unittest
-from unittest import mock
 
 from serato_tools.track_autotags import TrackAutotags
 from serato_tools.track_beatgrid import TrackBeatgrid
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_waveform import TrackWaveform
-from serato_tools.utils.cli import get_hex_editor, get_text_editor, open_tag_file_or_data, save_tag_file_or_data
+from serato_tools.utils.cli import open_tag_file_or_data, save_tag_file_or_data
 
 from test.helpers.files import read_bytes, temp_dir
 from test.helpers.track_tags import TEST_MP3, temp_mp3
@@ -47,15 +46,6 @@ class TestCase(unittest.TestCase):
         tags.set(bpm=128)
         self.assertTrue(save_tag_file_or_data(tags, path))
         self.assertEqual(TrackAutotags(path).bpm, 128)
-
-    def test_a_missing_editor_raises(self):
-        for get_editor, env_var in ((get_text_editor, "EDITOR"), (get_hex_editor, "HEXEDITOR")):
-            with (
-                self.subTest(env_var),
-                mock.patch("serato_tools.utils.cli.shutil.which", return_value=None),
-                self.assertRaisesRegex(FileNotFoundError, f"set {env_var}"),
-            ):
-                get_editor()
 
 
 if __name__ == "__main__":

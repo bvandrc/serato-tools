@@ -127,7 +127,7 @@ Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`
 
 `TrackCuesV2` exposes each entry kind (`CueEntry`, `LoopEntry`, `ColorEntry`, `FlipEntry`, `BpmLockEntry`) as a dataclass, aggregated into `TrackCuesInfo`.
 - **Editing:** `modify_entries(callback)` hands the callback the whole `TrackCuesInfo` and expects a new one back (use `dataclasses.replace`) or `None` for no change.
-- **Converting:** each entry class (and `TrackCuesV1.Entry`) converts with `_parse()` / `_serialize()`, which are internal to its module. Callers go through `modify_entries` and `save()`, so the tag class and its CLI are the only users, and pylint's `protected-access` is disabled per function where they're called.
+- **Converting:** each entry class (and `TrackCuesV1.Entry`) converts with `_parse()` / `_serialize()`, which are internal to its module. Callers go through `modify_entries` and `save()`, so the tag class is the only user, and pylint's `protected-access` is disabled per function where it calls them.
 
 ### Version gating
 
