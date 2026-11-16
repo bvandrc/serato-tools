@@ -21,6 +21,11 @@ class DbTrackTags(TypedDict, total=False):
     beatgrid_locked: bool
 
 
+class _AttributeDataTypeError(DataTypeError, AttributeError):
+    """A value of the wrong type for its key: a DataTypeError, and an AttributeError, which 5.7 raised for a color
+    given as text, until 6.0."""
+
+
 @dataclass(frozen=True)
 class _DbTrackProp[T]:
     db_field: DatabaseV2.Fields
@@ -90,6 +95,6 @@ def to_db_values(tags: DbTrackTags) -> dict[DatabaseV2.Fields, SeratoBinFile.Bas
     for key, value in tags.items():
         prop = _DB_TRACK_PROPS[key]
         if not isinstance(value, prop.value_type):
-            raise DataTypeError(value, prop.value_type, key)
+            raise _AttributeDataTypeError(value, prop.value_type, key)
         db_values[prop.db_field] = prop.to_db_val(value)
     return db_values

@@ -23,7 +23,8 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Library
 
-- **Fix:** `Library.set_db_track_tags` / `set_db_tracks_tags` now raise `DataTypeError` for a color that isn't a `TrackCuesV2.TrackColors`, before changing any file, rather than `AttributeError`.
+- **Fix:** `Library.set_db_track_tags` / `set_db_tracks_tags` now raise `DataTypeError` for a color that isn't a `TrackCuesV2.TrackColors`, before changing any file. It's still an `AttributeError` too, as it was.
+- **Deprecated:** Catching that error as `AttributeError` is deprecated, but still works: catch `DataTypeError`, which is all it'll be in 6.0.
 
 ## [5.7.0] - 2026-11-15
 
