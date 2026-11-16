@@ -256,6 +256,22 @@ class TestCase(unittest.TestCase):
         db.modify_tracks(func, files=[target])
         self.assertEqual(seen, [DatabaseV2.get_relative_path(target)], "only the given track is passed to func")
 
+    def test_modify_tracks_changes_nothing_if_func_raises(self):
+        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        calls = 0
+
+        def func(track: DatabaseV2.Track):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise RuntimeError("second track")
+            track.set_value(DatabaseV2.Fields.GENRE, "Changed")
+            return track
+
+        with self.assertRaises(RuntimeError):
+            db.modify_tracks(func)
+        self.assertFalse(db.has_changed, "the first track is left as it was")
+
     def test_dedupe(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_duplicates.bin"))
 

@@ -593,10 +593,10 @@ class SeratoBinFile:
         Replaces each track with what `func` returns for it, and returns whether any track changed.
 
         Given `files`, only those tracks are passed to `func`, and the rest are skipped after reading just their path,
-        which is much faster on a large library.
+        which is much faster on a large library. If `func` raises for any track, no track is changed.
         """
         relpaths = None if files is None else {SeratoBinFile.get_relative_path(f).upper() for f in files}
-        changed = False
+        replaced: list[tuple[int, SeratoBinFile.EntryList]] = []
         for i, (field, value) in enumerate(self.entries):
             if field == SeratoBinFile.Fields.TRACK:
                 if not isinstance(value, list):
@@ -610,9 +610,11 @@ class SeratoBinFile:
                 # Track copies the values out of `value`, so this compares against the untouched original
                 new_entries = func(track).to_entries()
                 if new_entries != value:
-                    self.entries[i] = (field, new_entries)
-                    changed = True
-        return changed
+                    replaced.append((i, new_entries))
+        # replaced only once func has run for every track, so one that raises leaves the file unchanged
+        for i, new_entries in replaced:
+            self.entries[i] = (SeratoBinFile.Fields.TRACK.value, new_entries)
+        return bool(replaced)
 
     def filter_tracks(self, func: Callable[[Track], bool]) -> bool:
         """Keeps only the tracks `func` returns True for, and returns whether any track was removed."""
