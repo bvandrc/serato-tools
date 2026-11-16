@@ -363,11 +363,41 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** Add `get_tracks` to the database and crates.
 
-## 3.6.1 - 2025-10-28
+## [3.6.2] - 2025-12-06
 
-### General
+### Database / Crates
 
-- **Fix:** Misc. bug fixes.
+- **[BREAKING]** A database's or crate's `data` is renamed `entries`, and a subclass's `DEFAULT_DATA` is renamed `DEFAULT_ENTRIES`. The `dir` attribute is removed.
+  - **Upgrading:** Read `entries` where you read `data`, and use `os.path.dirname(x.filepath)` for `dir`.
+- **[BREAKING]** A track's `path` (the `Track` passed to `modify_tracks` and `filter_tracks`) is renamed `relpath`, and `set_path` now takes a full path, storing it without its drive and with forward slashes, as Serato does. `StructCls` is renamed `EntryListCls`, its `to_struct()` is renamed `to_entries()`, and a track's `track_path_key` is renamed `path_key`.
+  - **Upgrading:** Read `track.relpath` where you read `track.path`, call `to_entries()` where you called `to_struct()`, and use `track.get_full_path()` for the track's full path.
+- **[BREAKING]** `to_entries(track_matcher=None)` is split into `get_entries()` and `get_entries_filtered(track_matcher)`, which works where `to_entries`' `track_matcher` raised `TypeError`. Values are now given as stored, rather than as their `repr()` text, so printing a database or crate no longer quotes strings.
+  - **Upgrading:** Call `get_entries()`, or `get_entries_filtered(track_matcher)` to keep only the tracks whose path matches a regex.
+- **[BREAKING]** `format_filepath` is renamed `get_relative_path`.
+  - **Upgrading:** Call `get_relative_path` (e.g. `Crate.get_relative_path(path)`).
+- **[BREAKING]** A crate's or smart crate's `list_dir()`, which printed the crate files, is replaced by `get_serato_crate_files(file_or_dir=None)`, which returns them: the files in its Serato folder, or in the folder given, or the file given.
+  - **Upgrading:** Print them yourself, e.g. `print("\n".join(Crate.get_serato_crate_files()))`.
+- **[BREAKING]** `DeeplyNestedStructError` in `serato_tools.utils` is renamed `DeeplyNestedListError`.
+  - **Upgrading:** Import and catch `DeeplyNestedListError`.
+- **Feature:** The database, crates, and smart crates now refuse a file whose version hasn't been tested (their `TESTED_VERSIONS`), raising `ValueError` when it's loaded, so a format this package may misparse can't be written back.
+- **Feature:** `modify` and `modify_and_save` now work on crates and smart crates too, not only the database.
+- **Feature:** Add `change_track_path(src, dest)` to the database and crates, which changes a track's path without saving.
+- **Feature:** `DatabaseV2.rename_track_file` now also changes the track's path in every crate, so the renamed file isn't missing from them. Smart crates aren't changed.
+- **Feature:** Add `find_missing()` to the database and crates, which goes through the tracks whose file doesn't exist, asks for each one's new location (or a folder to look for it and the rest in, or `s` to skip), and saves.
+- **Feature (CLI):** Add `--find_missing` to `serato_crate` and `python -m serato_tools.database_v2`.
+- **Feature:** The database and crates can be written to JSON with `to_json_object()` and `write_json(file)`, with bytes base64-encoded, and loaded back by passing the `.json` file's path to the constructor.
+- **Feature:** Add `get_track_paths(include_drive=True)`, `Track.get_full_path()`, and `get_full_path(path)`, which give a track's full path, with the drive the Serato folder is on (`SERATO_DRIVE` in `serato_tools.utils`).
+- **Feature:** Add `print_track_paths(filenames_only=False)` to crates and smart crates.
+- **Feature (CLI):** `serato_crate` and `serato_smartcrate`'s `-l` and `-f` now print each track's full path, with its drive.
+- **Feature:** `remove_track` now takes a track's full path too, not only the path as the file stores it.
+
+### USB Export
+
+- **Fix:** USB export now writes each track's path in the crates relative to the drive, as in the database (`Tracks/<file>`), and with forward slashes in the database. Before, on macOS and Linux the crates' paths included the drive's mount point, and on Windows the database's used backslashes.
+
+### Packaging
+
+- **Feature:** `mutagen`, `numpy`, `librosa`, and `pillow` are now installed with the package, rather than only with the `track_tags`, `waveform_drawing`, and `beatgrid_analysis` extras, which are still accepted. On Python 3.14 and later, `audioread` 3.1.0 or later is installed too.
 
 ## [3.5.3] - 2025-08-19
 
@@ -388,7 +418,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **[BREAKING]** Smart crate rule fields and comparisons are now the `SmartCrate.RuleField` and `SmartCrate.RuleComparison` enums, rather than the `RULE_FIELD` and `RULE_COMPARISON` dicts.
   - **Upgrading:** Replace `SmartCrate.RULE_FIELD["genre"]` with `SmartCrate.RuleField.GENRE`, and `SmartCrate.RULE_COMPARISON["STR_IS"]` with `SmartCrate.RuleComparison.STR_IS`.
-- **Feature:** Add `set_value`, `set_field`, and `set_comparison` to a smart crate's `Rule`, to change a rule through `modify_rules`.
+- **Feature:** Add `set_field` and `set_comparison` to a smart crate's `Rule`, and its `set_value` takes the value alone, storing it in the value field for its type.
 - **Feature (CLI):** `serato_smartcrate --set_rules` sets the value of the rules on each field it's given, e.g. `--set_rules --grouping UNTAGGED`.
 - **Fix:** Fix reading a smart crate rule that doesn't hold every kind of value.
 
@@ -400,6 +430,347 @@ Each release groups its changes by the part of the package they're in. Within ea
 ### USB Export
 
 - **Feature (CLI):** `serato_usb_export` takes `-r` as short for `--root_crate`.
+
+## [3.3.0] - 2025-06-11
+
+### Crates
+
+- **Feature:** Add `DIR_PATH` to `Crate` and `SmartCrate`, the full path of the folder Serato keeps them in (e.g. `~/Music/_Serato_/Subcrates`).
+
+### Smart Crates
+
+- **Feature:** Add `SmartCrate.modify_rules(func)`, which passes each of the crate's rules to `func` as a `SmartCrate.Rule` and keeps the rule it returns. A `Rule` gives its `field`, `comparison`, and `value`, and changes through `set_value(field, value)`.
+  - NOTE: In this version, it raises `AttributeError` for a rule without all three rule value fields, which is every rule Serato writes. 3.4.3 fixes it.
+
+## [3.2.10] - 2025-06-11
+
+### USB Export
+
+- **Feature:** Add USB export: the `serato_usb_export` console script (and `copy_crates_to_usb` in `serato_tools.usb_export`) copies the crates and smart crates you choose to a drive, with all their tracks in one `Tracks` folder, deduplicated by filename. It copies only the track files that changed since the last export, along with each track's `.serato-stems` file, unlike Serato's own sync.
+  - `--drive` (`-d`) is the drive, e.g. `E` on Windows.
+  - `--crate_matcher` (`-c`) takes one or more glob or regex patterns for the crate filenames to export, e.g. `"*house*"`. Pass `"*"` for all of them.
+  - `--root_crate` puts every exported crate inside one crate on the drive.
+  - It writes the drive's database and crates with the tracks' new paths, each smart crate as a regular crate, the crate order, and Serato's Stems crate, and clears each track's played flag.
+  - NOTE: It replaces the drive's existing `_Serato_` folder, crates included, though not its track files.
+
+### Database / Crates
+
+- **[BREAKING]** `SERATO_FOLDER` in `serato_tools.utils` is renamed `SERATO_DIR`.
+  - **Upgrading:** Import `SERATO_DIR`.
+- **[BREAKING]** `Crate.FOLDER` and `SmartCrate.FOLDER`, the full path of the crates' folder, are replaced by `DIR`, its name in the Serato folder (`"Subcrates"` and `"SmartCrates"`).
+  - **Upgrading:** Use `os.path.join(SERATO_DIR, Crate.DIR)`.
+- **[BREAKING]** A crate's `tracks()`, `list_folder()`, and `add_tracks_from_folder(folder_path, replace)` are renamed `get_track_paths()`, `list_dir()`, and `add_tracks_from_dir(dir, replace)`.
+  - **Upgrading:** Call the new names.
+- **[BREAKING]** `str()` of a crate or smart crate now gives its entries, as its `print()` printed them, rather than its number of tracks and their paths. `print()` prints the same.
+  - **Upgrading:** Use `get_track_paths()` for the tracks' paths.
+- **[BREAKING]** A crate's `remove_track` no longer raises `ValueError` for a track the crate doesn't have.
+  - **Upgrading:** Check `get_track_paths()` first where you need to know.
+- **[BREAKING] Removed:** A crate's `track_dir`, the folder holding its `_Serato_` folder.
+  - **Upgrading:** Use `os.path.dirname(os.path.dirname(crate.dir))`.
+- **[BREAKING] Removed:** `DatabaseV2.find_missing` and `python -m serato_tools.database_v2 --find_missing`, which only raised `NotImplementedError`.
+  - **Upgrading:** Nothing replaces them, since they never worked.
+- **[BREAKING] Removed (CLI):** `-d` / `--data` on `python -m serato_tools.crate` and `python -m serato_tools.smart_crate`, since printing the crate's entries is now the default.
+  - **Upgrading:** Drop `-d`, and pass `-l` (`--list_tracks`) for the tracks' paths, the old default, or `-l -f` for their filenames.
+- **Feature:** Add `get_track_paths()`, `modify_tracks(func)`, `filter_tracks(func)`, `remove_track(filepath)`, and `remove_duplicates()` to the database, crates, and smart crates. `modify_tracks` passes each track to `func` as a `Track` (with its `path`, `get_value`, `set_value`, and `set_path`) and keeps the one it returns, and `filter_tracks` keeps the tracks `func` returns True for.
+- **Feature:** Add `Fields.HAS_STEMS` (`bstm`) and `Fields.PLAYED` (`bply`).
+- **Fix:** A crate or smart crate whose file doesn't exist yet can now be created and saved. Before, its default entries raised `DataTypeError`.
+
+### Track Tags
+
+- **[BREAKING] (CLI)** `python -m serato_tools.track_beatgrid`'s `-e` (`--analyze`) is now `-a`.
+  - **Upgrading:** Pass `-a` or `--analyze`.
+- **Fix:** `TrackCuesV2` now reads a `Serato Markers2` tag with no null padding after its data, rather than raising `ValueError`.
+- **Fix (CLI):** The beatgrid analysis console script, which failed to start, is now `serato_analyze_beatgrid "track.mp3"`, which analyzes the track and writes its beatgrid.
+
+## [3.1.0] - 2025-05-14
+
+### Database / Crates
+
+- **[BREAKING]** `DatabaseV2`'s constructor argument `filepath` is renamed `file`, as the crates' is.
+  - **Upgrading:** Pass `file=`, or pass the path positionally.
+- **[BREAKING]** A database's `data` is now a list, rather than a generator that could be read only once, and holds each track's entries as a list rather than a tuple, as a crate's does.
+  - **Upgrading:** Check for `list` where you checked for `tuple`.
+- **Fix:** `DatabaseV2.modify` now applies rules to fields stored before the track's path, such as `ttyp` (file type), which it skipped before.
+- **Fix:** Saving a smart crate no longer raises `ValueError`. Before, the crates' writer couldn't write its rule entries.
+- **Fix:** The default Serato folder (`SERATO_FOLDER`), and so the default database file and crate folders, now resolve on macOS and Linux, where the path had a backslash in it (`~/Music\_Serato_`).
+
+## [3.0.1] - 2025-05-14
+
+### Database / Crates
+
+- **[BREAKING]** Field names are now the `Fields` StrEnum on the database and crates (`DatabaseV2.Fields`, `Crate.Fields`, and `SmartCrate.Fields`), e.g. `DatabaseV2.Fields.FILE_PATH` for `"pfil"`, replacing `FIELDNAMES`, `FIELDNAME_KEYS`, and `TRACK_FIELD`. Each is equal to its 4-character key, so a rule giving its field as a string still works. A field's readable name (`get_field_name`, and the printed database and crates) now comes from the enum, so some read differently, e.g. `tsng` is "Title" rather than "Song Title".
+  - **Upgrading:** Use `Fields` (e.g. `Crate.Fields.TRACK` for `TRACK_FIELD`), `FIELDS` for the list of keys, and `get_field_name(field)` for a field's readable name.
+- **[BREAKING]** A database's entries no longer hold each field's length: `data` gives `(field, value)` rather than `(field, length, value)`, and `to_entries()` gives `(field, name, value)` rather than `(field, name, value, length)`. Printing the database no longer shows each field's size.
+  - **Upgrading:** Unpack two values from `data` and three from `to_entries()`.
+- **Feature:** Add `DatabaseV2.remove_duplicates()`, which removes each track whose path repeats an earlier track's.
+
+### Track Cues
+
+- **[BREAKING]** `TrackCuesV2.CUE_COLORS` and `TRACK_COLORS` are now the `CueColors` and `TrackColors` enums, named in uppercase (`TrackColors.PINK` for `TRACK_COLORS["pink"]`), and `get_track_color_name()` gives the uppercase name.
+  - **Upgrading:** Use e.g. `TrackCuesV2.TrackColors.PINK`, and its `.value` for the color's bytes.
+- **[BREAKING]** `TrackCuesV2.set_track_color` takes a `TrackColors` member, and no longer a color's name.
+  - **Upgrading:** Pass e.g. `TrackCuesV2.TrackColors.PINK` for `"pink"`.
+- **[BREAKING]** A `color` rule passed to `TrackCuesV2.modify_entries` is now given the color as a `CueColors` or `TrackColors` member (bytes only for a color neither has), and can return one. `ColorModifyRule` is split into `CueColorModifyRule` and `TrackColorModifyRule`.
+  - **Upgrading:** Compare the color with a member (e.g. `color == TrackCuesV2.CueColors.RED`), and type rules with `CueColorModifyRule` or `TrackColorModifyRule`.
+
+## [2.6.0] - 2025-05-14
+
+### Database / Crates
+
+- **Feature:** Add `Crate.list_folder()` and `SmartCrate.list_folder()`, which print the path of each crate or smart crate in the Serato library's `Subcrates` or `SmartCrates` folder (`Crate.FOLDER` and `SmartCrate.FOLDER`).
+- **Feature:** Add `SERATO_FOLDER` (`serato_tools.utils`), the default `_Serato_` folder, in which `DatabaseV2.DEFAULT_DATABASE_FILE` and the crate folders are found.
+- **Feature (CLI):** `python -m serato_tools.crate` and `python -m serato_tools.smart_crate` without a file now list the crates or smart crates to choose from, rather than failing.
+
+## [2.5.0] - 2025-05-14
+
+### Packaging
+
+- **[BREAKING]** Requires Python 3.12 or later (`requires-python >= 3.12`), since the package's type aliases are now `type` statements.
+  - **Upgrading:** Upgrade to Python 3.12 or later, or stay on 2.4.0.
+
+### Database / Crates / Track Tags
+
+- **[BREAKING]** The type aliases drop their `Type` suffix: `DatabaseV2.ValueType`, `ParsedType`, and `ValueOrNoneType` are now `Value`, `Parsed`, and `ValueOrNone`, `TrackCuesV2.ValueType` is `TrackCuesV2.Value`, and `SeratoTrack.TagfileType` and `FileArgType` and `SeratoTag.FileOrDataType` are `Tagfile`, `FileArg`, and `FileOrData`. A crate's `ValueType`, `StructType`, and `ValueOrNoneType` are now `Value`, `Struct`, and `ValueOrNone`, defined on its new base class, `CrateBase` (`serato_tools.utils.crate_base`).
+  - **Upgrading:** Rename them where you annotate with them.
+
+### Database / Crates
+
+- **[BREAKING]** `to_dicts()` on the database and crates is renamed `to_entries()`, and yields tuples rather than dicts: `(field, field_name, value, size_bytes)` for the database, and `(field, field_name, value)` for a crate, with nested entries in the same form.
+  - **Upgrading:** Call `to_entries()` and unpack each tuple, e.g. `for field, field_name, value in crate.to_entries():`.
+- **[BREAKING]** `Crate.include_tracks_from_folder` is renamed `add_tracks_from_folder`.
+  - **Upgrading:** Call `add_tracks_from_folder`.
+- **[BREAKING]** `SeratoBinDb` (`serato_tools.utils.database`), the base class of the database and crates, is renamed `SeratoBinFile` and moves to `serato_tools.utils.bin_file_base`.
+  - **Upgrading:** Import `SeratoBinFile` from `serato_tools.utils.bin_file_base`.
+
+### Smart Crates
+
+- **Feature:** Add `SmartCrate` (`serato_tools.smart_crate`), which reads a smart crate (`.scrate`): its tracks through `tracks()`, and its entries, rules included, through `print()`, which names each rule's field and comparison (`SmartCrate.RULE_FIELD` and `SmartCrate.RULE_COMPARISON`). Its `save()` writes it back. Changing its rules isn't supported yet.
+- **Feature (CLI):** Add `python -m serato_tools.smart_crate`, which prints a smart crate's tracks, or its entries with `-d` / `--data`.
+
+## [2.4.0] - 2025-05-13
+
+### Packaging
+
+- **Feature:** Declare support for Python 3.9 and later (`requires-python >= 3.9`), and stop using syntax newer than that, such as `X | Y` unions evaluated at runtime. On Python 3.9 and 3.10, it also needs `typing_extensions`, which isn't installed with it.
+- **Fix:** Fix `serato_tools.database_v2` failing to import on Python before 3.13 (`TypeError: Too few arguments for typing.Generator`), and `serato_tools.crate` before 3.12 (`SyntaxError`).
+
+### Database / Crates
+
+- **Fix:** Fix `repr()` of a database or crate raising `TypeError`. It now gives the file's raw bytes.
+
+### Track Gain Tags
+
+- **Feature:** Add `TrackGain.save()`, which saves the track's file, such as after `delete()`.
+
+## [2.3.1] - 2025-05-13
+
+### Database / Crates
+
+- **[BREAKING]** Saving methods are renamed: `DatabaseV2.write_file(out_file)` is now `save(file)`, `DatabaseV2.modify_file(rules, out_file)` is `modify_and_save(rules, file)`, and `Crate.save_to_file(fname)` is `save(file)`, which raises `ValueError` for a path that doesn't end in `.crate`.
+  - **Upgrading:** Call `save` and `modify_and_save`.
+- **[BREAKING] Removed:** `DatabaseV2.parse()` and `Crate.load_from_file()`. Each reads its file when it's constructed.
+  - **Upgrading:** Construct a new `DatabaseV2` or `Crate` to read the file again.
+- **[BREAKING]** A database's or crate's entries are now printed by its `print()` method, rather than given by `repr()`.
+  - **Upgrading:** Call `db.print()` or `crate.print()` in place of `print(repr(...))`.
+- **[BREAKING]** `Crate.add_track` and `include_tracks_from_folder` take a track's full path, and store it as Serato does: from the root of its drive, with `/` separators. Before, `add_track` took a path relative to the folder holding `_Serato_`, and stored it that way, with the OS's separators, and `include_tracks_from_folder` stored only the folder's name and the file's.
+  - **Upgrading:** Pass the track's full path. `remove_track` takes the path as the crate stores it, as `tracks()` gives it.
+- **[BREAKING]** A crate's `path`, `filename`, and `track_path` attributes are replaced by `filepath` (the crate file's full path), `dir` (its folder), and `track_dir`.
+  - **Upgrading:** Read `filepath`, `dir`, or `track_dir`.
+- **[BREAKING]** A crate's boolean entries, such as its sort's `brev` (reverse order), are read as `bool` rather than as raw bytes, and must be a `bool` to save.
+  - **Upgrading:** Compare them with `True` or `False`, and set them to a `bool`.
+- **[BREAKING]** `remove_drive_from_filepath(path)` on the database and crates, which returned `(path, drive)`, is renamed `format_filepath(path)`, and returns the path alone, as Serato stores it.
+  - **Upgrading:** Call `format_filepath`, and `os.path.splitdrive` for the drive.
+- **Fix:** Fix a database rule's `files` never matching a track on macOS and Linux, and a track path set through a rule on `pfil` (as `rename_track_file` does) being stored with a leading `/` there, or with `\` separators on Windows. Paths are now stored as Serato stores them: from the root of the drive, with `/` separators.
+
+## [2.2.1] - 2025-05-13
+
+### Database / Crates / Track Tags
+
+- **[BREAKING] Removed:** The `print_changes` argument of `DatabaseV2.modify`, `modify_file`, and `rename_track_file`, and of `TrackCuesV2.modify_entries` and `set_track_color`. Each change is logged instead, at `INFO` level to the `serato-tools` logger, which Python doesn't show unless logging is configured to.
+  - **Upgrading:** Drop the argument. To see the changes, configure logging, e.g. `logging.basicConfig(level=logging.INFO)`.
+- **Feature:** Messages are logged to the `serato-tools` logger (`serato_tools.utils.logger`) rather than printed, so they can be hidden, e.g. with `logging.getLogger("serato-tools").setLevel(logging.ERROR)`.
+
+### Database / Crates
+
+- **[BREAKING] Removed:** `DatabaseV2.print_data()` and `Crate.print_data()`.
+  - **Upgrading:** `print(repr(db))` or `print(repr(crate))` prints the same.
+
+### Track Tags
+
+- **Feature:** Add `TrackCuesV2.get_track_color()`, the track's color as bytes, or None for a track without one, and `get_track_color_name()`, its key in `TrackCuesV2.TRACK_COLORS`.
+- **Feature:** The tag classes open an `.aiff` file by its path, as they did an `.mp3`, and take any open mutagen ID3 file or bare `ID3` tags, not just an `MP3` or `AIFF`.
+
+## [2.1.0] - 2025-05-08
+
+### Track Tags
+
+- **Feature:** Add `delete()` to each tag class and to `TrackGain`, which removes the tag from the open file without saving it. A tag class's `delete()` returns whether the tag was there. Save the file through its `tagfile` (`tags.tagfile.save()`) to write the deletion.
+
+## [2.0.0] - 2025-05-08
+
+### Database / Crates
+
+- **[BREAKING]** `DatabaseV2.data_bin` is renamed `raw_data`.
+  - **Upgrading:** Read `raw_data`.
+
+### Track Tags
+
+- **[BREAKING]** Each tag module's functions are replaced by a class: `TrackCuesV2`, `TrackCuesV1`, `TrackBeatgrid`, `TrackAutotags`, `TrackWaveform`, and `TrackGain`. Each is constructed from a file path (an `.mp3`), an open mutagen `MP3` or `AIFF`, or, except `TrackGain`, the tag's raw bytes, and reads its tag when constructed. A tag class's `save()` writes the tag back to the file, and its `GEOB_KEY` and `VERSION` are class attributes.
+  - **Upgrading:**
+    - `track_cues_v2`: `modify_file_entries(file, rules)` is now `TrackCuesV2(file).modify_entries(rules)`, and `set_track_color(file, color)` is `TrackCuesV2(file).set_track_color(color)`. Call `save()` after them, since they no longer save. `CUE_COLORS`, `TRACK_COLORS`, the entry classes (`CueEntry`, `ColorEntry`, ...), the rule types, and `parse_entries_file` move onto `TrackCuesV2` (e.g. `TrackCuesV2.TRACK_COLORS`). A tag's parsed entries are its `entries`, in place of `parse(data)`, and `is_beatgrid_locked(entries)` is `TrackCuesV2(file).is_beatgrid_locked()`.
+    - `track_cues_v1`: Read `TrackCuesV1(file).entries` in place of `parse(fp)`. `Entry`, `Color`, and `EntryType` move onto `TrackCuesV1`.
+    - `track_beatgrid`: Read `TrackBeatgrid(file).entries` in place of `parse(fp)`, and call `TrackBeatgrid(file).analyze_and_write()` in place of `analyze_and_write(file)`. The marker types move onto `TrackBeatgrid`.
+    - `track_autotags`: Read `bpm`, `autogain`, and `gaindb` from `TrackAutotags(file)` in place of `parse(fp)`, and change them with `set(bpm=..., autogain=..., gaindb=...)` and then `save()`, in place of `dump(...)`.
+    - `track_waveform`: Call `TrackWaveform(file).draw_image()` in place of `draw_waveform(parse(fp))`.
+    - `track_gain`: Read `gain` and `peak` from `TrackGain(file)`, and set them with `set_and_save(gain, peak)`, in place of the `REPLAY_GAIN_GAIN_KEY` and `REPLAY_GAIN_PEAK_KEY` constants.
+- **[BREAKING] Removed:** `get_geob`, `tag_geob`, `del_geob`, `del_tag`, `check_version`, and `pack_version` in `serato_tools.utils.track_tags`, which the tag classes now handle themselves.
+  - **Upgrading:** Read and write each tag through its class. To delete a frame, delete it through mutagen, e.g. `del tagfile["GEOB:Serato Markers_"]`.
+- **[BREAKING] (CLI)** `python -m serato_tools.track_beatgrid` now prints a track's beatgrid markers, and analyzes and writes a new beatgrid only with `-e` / `--analyze`. Before, it always analyzed an audio file.
+  - **Upgrading:** Pass `--analyze` to analyze the track.
+- **Feature:** `TrackCuesV2.set_track_color` also takes a key of `TrackCuesV2.TRACK_COLORS`, such as `"purple"`, and `TrackCuesV2.save()` writes only when the cues changed, unless passed `force=True`.
+- **Fix:** Fix `is_beatgrid_locked` returning None for every track. It now returns whether the track's beatgrid is locked.
+
+## [1.18.0] - 2025-04-30
+
+### Database / Crates / Track Cues
+
+- **[BREAKING]** `DataTypeError` moves to `serato_tools.utils`, from a class nested in the database and crate classes (`DatabaseV2.DataTypeError` and `Crate.DataTypeError`).
+  - **Upgrading:** Import it with `from serato_tools.utils import DataTypeError`.
+
+### Track Cues
+
+- **Feature:** Add typed rules for `modify_file_entries`: `CueIndexModifyRule`, `ColorModifyRule`, and `CueNameModifyRule`, whose `func` takes and returns an `int`, `bytes`, or `str`.
+- **Feature:** A rule on a cue's or the track's `color`, or on a cue's `index` or `name`, raises `DataTypeError` when its `func` returns a value of the wrong type, rather than writing it.
+
+## [1.17.3] - 2025-04-28
+
+### Packaging
+
+- **[BREAKING]** `mutagen` is no longer installed with the package. It's in the new `track_tags` extra, which anything reading or writing a track's tags needs (cues, beatgrid, autotags, gain, and waveform).
+  - **Upgrading:** Install with `pip install "serato-tools[track_tags]"`.
+- **Docs:** Add the repository and issue tracker links to the project's PyPI page, and an installation section to the README that lists the optional dependencies each feature needs.
+
+### Database / Crates
+
+- **[BREAKING]** `DatabaseV2.to_objects()` and `print_items()` are renamed `to_dicts()` and `print_data()`.
+  - **Upgrading:** Call `to_dicts()` and `print_data()`.
+- **[BREAKING]** `DatabaseV2.modify_file` raises for two rules on one field (`AssertionError`), or for a rule on a field it doesn't know, one not in `DatabaseV2.FIELDNAMES` (`ValueError`). It also prints each change by default.
+  - **Upgrading:** Combine a field's rules into one `func`, and pass `print_changes=False` to keep it quiet.
+- **[BREAKING]** `DatabaseV2.data` yields `(field, length, value)` for each entry, without the entry's raw bytes.
+  - **Upgrading:** Unpack three values rather than four.
+- **Feature:** Add `DatabaseV2.rename_track_file(src, dest)`, which renames a track's file and changes its path in the database to match, so the track isn't left missing in Serato.
+- **Feature:** Add `DatabaseV2.modify(rules)`, which changes the database in memory, and `write_file(out_file=None)`, which saves it. `modify_file` does both.
+- **Feature:** A `modify_file` rule now also sets a field the track doesn't have yet, adding it, with None passed to `func` as the previous value. A rule on the track's path (`pfil`) raises `FileNotFoundError` for a file that doesn't exist, and stores the path without its drive.
+- **Feature:** Writing a database value of the wrong type for its field raises `DataTypeError` naming the field, as crates already did.
+- **Feature:** `Crate.print_data()` prints each entry with its field's name, rather than the raw nested data, and the new `Crate.to_dicts()` gives the entries as dicts with their field names.
+- **Feature (CLI):** `python -m serato_tools.crate` takes `-d` / `--data` to print the crate's entries.
+- **Fix:** Fix the database's text fields reading and writing characters outside Latin-1 (such as Japanese or Cyrillic) as garbled text. They're now read and written as the UTF-16 Serato stores.
+
+### Track Tags
+
+- **[BREAKING]** `serato_tools.utils.tags` is renamed `serato_tools.utils.track_tags`.
+  - **Upgrading:** Import `get_geob`, `tag_geob`, `del_geob`, and `del_tag` from `serato_tools.utils.track_tags`.
+- **[BREAKING]** A tag of an unexpected version raises `ValueError` naming the expected and given versions, rather than `AssertionError`.
+  - **Upgrading:** Catch `ValueError`.
+- **[BREAKING]** Each tag module's `FMT_VERSION` is removed, and the cue entry classes' `FMT` (`FlipEntry`'s `FMT1` to `FMT3`) is renamed `FORMAT` (`FORMAT1` to `FORMAT3`).
+  - **Upgrading:** Use `FORMAT`, `VERSION_FORMAT` in `serato_tools.utils.track_tags`, or the module's `VERSION_BYTES`, its tag's version.
+- **[BREAKING] (CLI)** `python -m serato_tools.track_tagdump` takes the audio file first and the output folder second, and the folder is optional: without it, each tag's value is printed rather than written to a file.
+  - **Upgrading:** Swap the arguments: `python -m serato_tools.track_tagdump <file> <output_dir>`.
+- **Feature:** `del_geob` and `del_tag` return whether the tag was there to delete.
+
+### Track Cues
+
+- **[BREAKING]** `modify_entry`, and so `modify_file_entries`, raises `AssertionError` for two rules on one field, rather than applying both.
+  - **Upgrading:** Combine a field's rules into one `func`.
+- **Fix:** `modify_file_entries` and `set_track_color` no longer save a file when every rule returned the value already there. `modify_entry` prints each change by default, as `modify_file_entries` already did.
+
+## [1.15.0] - 2025-04-22
+
+### Database
+
+- **[BREAKING]** `serato_tools.database_v2`'s functions move onto a new `DatabaseV2` class, which parses the file when it's constructed. `DatabaseV2(filepath)` defaults to the library's `database V2`, and raises `FileNotFoundError` when the file doesn't exist.
+  - **Upgrading:** Replace `modify_file(rules, file)` with `DatabaseV2(file).modify_file(rules)`, and `parse_to_objects(file)` with `DatabaseV2(file).to_objects()`. `FIELDNAMES`, `ModifyRule`, and `DATABASE_FILE` are now `DatabaseV2.FIELDNAMES`, `DatabaseV2.ModifyRule`, and `DatabaseV2.DEFAULT_DATABASE_FILE`.
+- **[BREAKING] Removed:** The module-level `parse` and `modify`, which are now internal to `DatabaseV2`.
+  - **Upgrading:** Read the database through `DatabaseV2.to_objects()`, and change it through `DatabaseV2.modify_file`.
+- **Feature:** `DatabaseV2.modify_file` takes an `out_file`, to write the changed database to another file rather than over its own.
+- **Feature:** Add `DatabaseV2.print_items`, which prints each entry with its field name and size, as the `database_v2` CLI does.
+
+### Crates
+
+- **[BREAKING]** `Crate.track_path()` is now a `track_path` attribute, and `Crate.crate_path` and `Crate.name` are renamed `path` and `filename`.
+  - **Upgrading:** Replace `crate.track_path()` with `crate.track_path`, `crate.crate_path` with `crate.path`, and `crate.name` with `crate.filename`.
+- **[BREAKING]** `Crate.remove_track` raises `ValueError` when the track isn't in the crate, rather than returning False, and `Crate.add_track` returns None rather than whether it added the track.
+  - **Upgrading:** Catch `ValueError` where you checked `remove_track`'s result. To know whether `add_track` will add a track, check whether it's in `crate.tracks()` first.
+- **[BREAKING]** `Crate.include_tracks_from_folder` only adds the folder's tracks, and no longer removes the crate's other tracks unless passed `replace=True`.
+  - **Upgrading:** Pass `replace=True` to make the crate hold only the folder's tracks, as before.
+- **Feature:** Saving a crate with a value of the wrong type for its field raises `Crate.DataTypeError`.
+- **Feature (CLI):** `python -m serato_tools.crate` takes `-o` / `--output`, to save the crate to another file.
+
+## [1.14.2] - 2025-04-19
+
+### Database / Track Tags
+
+- **[BREAKING]** The `database` and `track` subpackages are removed, and their modules move back to the top of the package, as before 1.8.1.
+  - **Upgrading:** Import `serato_tools.database_v2` in place of `serato_tools.database.database_v2`, and `serato_tools.<module>` in place of `serato_tools.track.<module>` (e.g. `serato_tools.track_cues_v2`).
+
+### Database
+
+- **Feature:** `modify_file` and `modify` take `print_changes`, to print each value they change.
+
+### Crates
+
+- **Feature:** Add crates: `serato_tools.crate`'s `Crate` reads a `.crate` file, or starts a new one, and saves it (`save_to_file`). It also lists the crate's tracks (`tracks()`), and adds and removes them (`add_track`, `remove_track`, and `include_tracks_from_folder`).
+- **Feature (CLI):** `python -m serato_tools.crate <file>` prints a crate's tracks, or only their filenames with `-f` / `--filenames_only`.
+
+### Track Tags
+
+- **[BREAKING]** In `track_cues_v2`, `change_entry` is renamed `modify_entry`, and its rules' type `EntryModifyCriteria` is renamed `EntryModifyRule`, with its `value_modify` key renamed `func`. `modify_entry` returns None when no rule changed the entry.
+  - **Upgrading:** Call `modify_entry` with rules of `{"field": ..., "func": ...}`, and keep the original entry when it returns None.
+- **[BREAKING] (CLI)** `python -m serato_tools.track_beatgrid <file>` given an audio file analyzes the track and overwrites its beatgrid, rather than printing it. Given a file that isn't audio, such as a dumped tag, it still prints the markers.
+  - **Upgrading:** To print an audio file's beatgrid, dump its tags with `python -m serato_tools.track_tagdump <output_dir> <file>`, then pass the dumped `Serato BeatGrid` file to `track_beatgrid`.
+- **Feature:** Add `modify_file_entries(file, rules)` to `track_cues_v2`. It changes an MP3 file's `Serato Markers2` cue and track color entries with `EntryModifyRules` (`{"cues": [...], "color": [...]}`), and saves the file when anything changed. The file is a path or an open `MP3`. By default (`delete_tags_v1=True`) it also deletes the file's `Serato Markers_` tag, without which Serato doesn't show the changes. It changes nothing in a file without a `Serato Markers2` tag.
+- **Feature:** Add `set_track_color(file, color)` to `track_cues_v2`, which sets an MP3 file's track color to one of the `TRACK_COLORS`, deleting its `Serato Markers_` tag as `modify_file_entries` does.
+- **Feature:** Add `get_cue_color_key` and `get_track_color_key` to `track_cues_v2`, which give a color's name in `CUE_COLORS` or `TRACK_COLORS`.
+- **Feature:** Add beatgrid analysis. `serato_tools.utils.beatgrid_analyze.analyze_beatgrid` detects a track's BPM, beats, and downbeats. `track_beatgrid.analyze_and_write` writes a beatgrid from them, with a marker every 4 beats and the BPM from the track's `TBPM` tag. Both need the new `beatgrid_analysis` extra (`librosa` and `numpy`). `track_beatgrid` also gains `write`, which serializes beatgrid markers.
+- **Feature (CLI):** Add the `analyze_beatgrid` console script, which analyzes an audio file and writes its beatgrid.
+  - NOTE: It fails to start, since it names the wrong module, until 3.2.10 fixes it as `serato_analyze_beatgrid`. Use `python -m serato_tools.track_beatgrid` until then.
+- **Feature (CLI):** `python -m serato_tools.track_cues_v2 <file> --set_color <name>` sets the track color to the `TRACK_COLORS` entry with that name.
+
+## [1.8.1] - 2025-04-11
+
+### Database / Track Tags
+
+- **[BREAKING]** The modules move into `database` and `track` subpackages, and the track tag modules are renamed after what they hold.
+  - **Upgrading:** Update your imports:
+    - `serato_tools.database_v2` is now `serato_tools.database.database_v2`.
+    - `serato_tools.serato_markers2` is now `serato_tools.track.track_cues_v2`, and `serato_tools.serato_markers_` is now `serato_tools.track.track_cues_v1`.
+    - `serato_tools.serato_beatgrid`, `serato_autotags`, `serato_gain`, and `serato_overview` are now `serato_tools.track.track_beatgrid`, `track_autotags`, `track_gain`, and `track_waveform`.
+    - `serato_tools.tagdump` is now `serato_tools.track.track_tagdump`.
+
+## [1.7.0] - 2025-04-11
+
+### Database
+
+- **[BREAKING]** `modify_file` takes `rules` first and `file` second, and `file` defaults to the library's `database V2` (`DATABASE_FILE`).
+  - **Upgrading:** Pass `rules` first, or pass both by keyword (`modify_file(rules=..., file=...)`).
+- **Feature:** Name the `tcmp` (Composer) and `bcrt` (Corrupt) fields in `FIELDNAMES`, so the `database_v2` CLI shows their names.
+- **Fix:** A rule's `files` match a track given as a full Windows path with its drive (`C:\Music\track.mp3`), since the database stores paths without one.
+
+### Documentation
+
+- **Docs:** Add README examples of modifying the database file and a track's cues.
+
+## [1.6.2] - 2025-04-11
+
+### Database
+
+- **Feature:** A `modify_file` rule (`ModifyRule`) takes an optional `files` list, to change its field only for those tracks. Paths match whatever their case.
+
+## [1.5.2] - 2025-04-11
+
+### Packaging
+
+- **Fix:** Install the package as `serato_tools`, so it can be imported (e.g. `import serato_tools.database_v2`). 1.5.1 installed it as `serato-tools`, which isn't a valid module name.
 
 ## [1.5.1] - 2025-04-11
 
@@ -429,7 +800,27 @@ Each release groups its changes by the part of the package they're in. Within ea
 [4.0.0]: https://github.com/bvandrc/serato-tools/compare/v3.8.2...v4.0.0
 [3.8.2]: https://github.com/bvandrc/serato-tools/compare/v3.7.1...v3.8.2
 [3.7.1]: https://github.com/bvandrc/serato-tools/compare/v3.7.0...v3.7.1
-[3.7.0]: https://github.com/bvandrc/serato-tools/compare/v3.5.3...v3.7.0
+[3.7.0]: https://github.com/bvandrc/serato-tools/compare/v3.6.2...v3.7.0
+[3.6.2]: https://github.com/bvandrc/serato-tools/compare/v3.5.3...v3.6.2
 [3.5.3]: https://github.com/bvandrc/serato-tools/compare/v3.4.3...v3.5.3
-[3.4.3]: https://github.com/bvandrc/serato-tools/compare/v1.5.1...v3.4.3
+[3.4.3]: https://github.com/bvandrc/serato-tools/compare/v3.3.0...v3.4.3
+[3.3.0]: https://github.com/bvandrc/serato-tools/compare/v3.2.10...v3.3.0
+[3.2.10]: https://github.com/bvandrc/serato-tools/compare/v3.1.0...v3.2.10
+[3.1.0]: https://github.com/bvandrc/serato-tools/compare/v3.0.1...v3.1.0
+[3.0.1]: https://github.com/bvandrc/serato-tools/compare/v2.6.0...v3.0.1
+[2.6.0]: https://github.com/bvandrc/serato-tools/compare/v2.5.0...v2.6.0
+[2.5.0]: https://github.com/bvandrc/serato-tools/compare/v2.4.0...v2.5.0
+[2.4.0]: https://github.com/bvandrc/serato-tools/compare/v2.3.1...v2.4.0
+[2.3.1]: https://github.com/bvandrc/serato-tools/compare/v2.2.1...v2.3.1
+[2.2.1]: https://github.com/bvandrc/serato-tools/compare/v2.1.0...v2.2.1
+[2.1.0]: https://github.com/bvandrc/serato-tools/compare/v2.0.0...v2.1.0
+[2.0.0]: https://github.com/bvandrc/serato-tools/compare/v1.18.0...v2.0.0
+[1.18.0]: https://github.com/bvandrc/serato-tools/compare/v1.17.3...v1.18.0
+[1.17.3]: https://github.com/bvandrc/serato-tools/compare/v1.15.0...v1.17.3
+[1.15.0]: https://github.com/bvandrc/serato-tools/compare/v1.14.2...v1.15.0
+[1.14.2]: https://github.com/bvandrc/serato-tools/compare/v1.8.1...v1.14.2
+[1.8.1]: https://github.com/bvandrc/serato-tools/compare/v1.7.0...v1.8.1
+[1.7.0]: https://github.com/bvandrc/serato-tools/compare/v1.6.2...v1.7.0
+[1.6.2]: https://github.com/bvandrc/serato-tools/compare/v1.5.2...v1.6.2
+[1.5.2]: https://github.com/bvandrc/serato-tools/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/bvandrc/serato-tools/releases/tag/v1.5.1
