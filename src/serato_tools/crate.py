@@ -1,15 +1,18 @@
 #!/usr/bin/python
 # This is from this repo: https://github.com/sharst/seratopy
+"""Serato crate files (`.crate`), and the `serato_crate` CLI for listing their tracks and fixing missing ones."""
+
 import os
 import sys
 from dataclasses import dataclass
 
-
-from serato_tools.utils.crate_base import CrateBase
 from serato_tools.utils import SERATO_DIR
+from serato_tools.utils.crate_base import CrateBase
 
 
 class Crate(CrateBase):
+    """A Serato crate file (`.crate`): a list of track paths, along with the crate's column and sort settings."""
+
     TESTED_VERSIONS = frozenset({"1.0/Serato ScratchLive Crate"})
     EXTENSION = ".crate"
     DIR = "Subcrates"
@@ -18,20 +21,12 @@ class Crate(CrateBase):
 
     DEFAULT_ENTRIES = [
         (CrateBase.Fields.VERSION, "1.0/Serato ScratchLive Crate"),
-        (CrateBase.Fields.SORTING, [(CrateBase.Fields.COLUMN_NAME, "key"), (CrateBase.Fields.REVERSE_ORDER, False)]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "song"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "playCount"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "artist"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "bpm"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "key"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "album"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "length"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "comment"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "added"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
+        *CrateBase.DEFAULT_VIEW_ENTRIES,
     ]
 
 
 def main():
+    """The `serato_crate` CLI: prints crates, lists their tracks, or finds tracks whose files are missing."""
     import argparse
 
     @dataclass

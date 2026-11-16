@@ -1,20 +1,98 @@
-import os
-import io
-import re
-import copy
-import struct
-import base64
-import warnings
-from enum import StrEnum
-import json
-from typing import Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
+"""The container format of Serato's library database and crate files.
 
-from serato_tools.utils import logger, HOME_TRACK_PATH_ROOT, DataTypeError, DeeplyNestedListError, get_track_path_root
+A file is a list of entries, each a named, typed value, which may itself be a nested list of entries.
+"""
+
+import base64
+import copy
+import hashlib
+import io
+import json
+import os
+import re
+import struct
+from enum import StrEnum, unique
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Generator,
+    Iterable,
+    NotRequired,
+    Optional,
+    Pattern,
+    TypedDict,
+    cast,
+    overload,
+)
+
+from serato_tools.utils import HOME_TRACK_PATH_ROOT, get_track_path_root, logger
+
+
+class DataTypeError(Exception):
+    """A value whose type doesn't match the one its field holds."""
+
+    def __init__(self, value: Any, expected_type: type, field: str | None):
+        super().__init__(
+            f"value must be {expected_type.__name__} when field is {field} (type: {type(value).__name__}) (value: {str(value)})"
+        )
+
+
+# for `list`, a bare `type[T]` would type the result `list[Unknown]`; this overload keeps the element type of `value`'s
+# list member instead, as an isinstance check would
+@overload
+def expect_type[I](value: object | list[I], expected_type: type[list[Any]], field: str | None) -> list[I]: ...
+
+
+@overload
+def expect_type[T](value: object, expected_type: type[T], field: str | None) -> T: ...
+
+
+def expect_type(value: object, expected_type: type, field: str | None) -> object:
+    """`value`, typed as `expected_type`; raises DataTypeError if it isn't an instance of it."""
+    if not isinstance(value, expected_type):
+        raise DataTypeError(value, expected_type, field)
+    return value
+
+
+class DeeplyNestedListError(Exception):
+    """An entry list nested inside a flat one, such as a track's, which this package can't parse into objects."""
+
+    def __init__(self, field: str, value: Any):
+        super().__init__(f"an entry list nested in another, in field {field}, which isn't supported: {value}")
+
+
+def _field_values(field_enums: tuple[type[StrEnum], ...]) -> frozenset[str]:
+    """Every field name in `field_enums`."""
+    return frozenset(member.value for field_enum in field_enums for member in field_enum)
+
+
+def _field_names(field_enums: tuple[type[StrEnum], ...]) -> dict[str, str]:
+    """A readable name for each field in `field_enums`, from its member's name: "File Path" for `FILE_PATH`."""
+    return {
+        # DATE_ADDED_T and DATE_ADDED_U hold the same time, so both are "Date Added"
+        member.value: member.name.replace("_", " ")
+        .title()
+        .replace("Smartcrate", "SmartCrate")
+        .replace("Added U", "Added")
+        .replace("Added T", "Added")
+        for field_enum in field_enums
+        for member in field_enum
+    }
 
 
 class SeratoBinFile:
+    """A Serato database or crate file, parsed into `entries`, a list of (field name, value) pairs.
 
+    A field name's first letter gives its value's type: a nested entry list, text, a bool, or an int. Subclasses set
+    `TESTED_VERSIONS`, `TRACK_PATH_KEY`, and `DEFAULT_ENTRIES`. Change the file through the methods here, such as
+    `modify_tracks` or `modify`, then call `save()`.
+    """
+
+    @unique
     class Fields(StrEnum):
+        """The field names found in database and crate files, named for what each holds."""
+
         # Database & Crate
         VERSION = "vrsn"
         TRACK = "otrk"
@@ -40,7 +118,9 @@ class SeratoBinFile:
         REMIXER = "trmx"
         TRACK_NUMBER = "utkn"
         DISC_NUMBER = "udsc"
+        # the same time as DATE_ADDED_U, as text
         DATE_ADDED_T = "tadd"
+        # when the track was added, as a Unix timestamp
         DATE_ADDED_U = "uadd"
         PLAY_COUNT = "utpc"
         # the track color, as 0xRRGGBB: the same color as the track's tags, so a TrackCuesV2.TrackColors value as an int
@@ -73,8 +153,11 @@ class SeratoBinFile:
     # rule fields) extends this, which extends what _check_valid_field accepts and get_field_name resolves
     FIELD_ENUMS: tuple[type[StrEnum], ...] = (Fields,)
 
-    # derived from FIELD_ENUMS so the two can't drift; redefine it alongside FIELD_ENUMS in a subclass
-    FIELDS = frozenset(f.value for field_enum in FIELD_ENUMS for f in field_enum)
+    # derived from FIELD_ENUMS, here and for each subclass in __init_subclass__, so they can't drift from it
+    FIELDS: frozenset[str] = _field_values(FIELD_ENUMS)
+    # a readable name for each field in FIELDS, as get_field_name gives it: "File Path" for pfil; built once per
+    # class, since printing or JSON-dumping a large database names every field
+    FIELD_NAMES: dict[str, str] = _field_names(FIELD_ENUMS)
 
     type ParsedField = Fields | str
     type BasicValue = str | bytes | int | bool
@@ -96,13 +179,28 @@ class SeratoBinFile:
     # set once __init__ has parsed the file, so save() can refuse a half-built instance
     _parsed: bool = False
 
+    # a hash of the file's bytes as loaded or last saved to its own path, for has_changed; None if it didn't exist
+    _saved_hash: bytes | None = None
+
+    def __init_subclass__(cls, **kwargs: Any):
+        super().__init_subclass__(**kwargs)
+        cls.FIELDS = _field_values(cls.FIELD_ENUMS)
+        cls.FIELD_NAMES = _field_names(cls.FIELD_ENUMS)
+
     def __init__(self, file: str):
+        """Parses `file`, either Serato's binary format or JSON as `write_json` writes it.
+
+        A file that doesn't exist yet starts from `DEFAULT_ENTRIES`, and `save()` creates it. Raises ValueError for a
+        version not in `TESTED_VERSIONS`.
+        """
         self.filepath = os.path.abspath(file)
         # the folder this file's track paths are relative to
         self.track_path_root = get_track_path_root(self.filepath)
 
-        self.entries: SeratoBinFile.EntryList
-        self.version: str
+        # every value's type matches its field's, as checked wherever one comes in (parsing, JSON, set_value), so
+        # code reading a value can rely on its field's type rather than check it
+        self._entries: SeratoBinFile.EntryList
+        self._version: str
 
         for key in ["TESTED_VERSIONS", "TRACK_PATH_KEY", "DEFAULT_ENTRIES"]:
             if not hasattr(self, key):
@@ -112,24 +210,25 @@ class SeratoBinFile:
             if file.lower().endswith(".json"):
                 with open(file, "r", encoding="utf-8") as f:
                     self.from_json_object(json.load(f))
+                # what saving the entries as loaded would write
+                self._saved_hash = self._hash(self.to_bytes())
             else:
                 with open(file, "rb") as f:
-                    self.entries = list(self._parse_item(f.read()))
+                    data = f.read()
+                self._entries = list(self._parse_item(data))
+                # hashes the bytes already read rather than copying the entries, so a load that only reads pays
+                # next to nothing for has_changed
+                self._saved_hash = self._hash(data)
         else:
             logger.warning(f"File does not exist: {file}. Using default data to create an empty item.")
-            # deep copy: nested values (osrt, ovct, ...) are lists too, and a shallow copy would leave every
-            # instance sharing — and able to mutate — the class-level DEFAULT_ENTRIES sublists.
-            self.entries = copy.deepcopy(self.DEFAULT_ENTRIES)
-            version_entry = self.entries[0]
-            default_version = version_entry[1]
-            if not isinstance(default_version, str):
-                raise DataTypeError(default_version, str, version_entry[0])
-            if default_version not in self.TESTED_VERSIONS:
-                raise ValueError("version in DEFAULT_ENTRIES is not in TESTED_VERSIONS")
-            self.version = default_version
+            # copied down to the nested lists (osrt, ovct, ...): a shallow copy would leave every instance sharing —
+            # and able to mutate — the class-level DEFAULT_ENTRIES sublists.
+            self._entries = copy.deepcopy(self.DEFAULT_ENTRIES)
+            self._version = self._check_version(self._entries[0][1])
 
-        if not hasattr(self, "version"):
-            raise AttributeError("version not set after parsing file")
+        # a file with no version entry, such as an empty one, would otherwise load with no version checked
+        if not hasattr(self, "_version"):
+            raise ValueError(f"no version entry ({SeratoBinFile.Fields.VERSION.value}) in {file}")
 
         self._parsed = True
 
@@ -149,9 +248,9 @@ class SeratoBinFile:
 
         return "\n".join(lines)
 
-    def _check_version(self, value: Value, set_version: bool = False):
-        if not isinstance(value, str):
-            raise DataTypeError(value, str, SeratoBinFile.Fields.VERSION)
+    def _check_version(self, value: Value) -> str:
+        """`value`, typed as text; raises unless it's one of `TESTED_VERSIONS`."""
+        value = expect_type(value, str, SeratoBinFile.Fields.VERSION)
         if value not in self.TESTED_VERSIONS:
             raise ValueError(f"""
                 ERROR: Untested version Serato bin file version: {value}
@@ -162,16 +261,19 @@ class SeratoBinFile:
                 Possible versions:
                 {'\n'.join(sorted(self.TESTED_VERSIONS))}
                 """)
-        if set_version:
-            self.version = value
+        return value
 
     class EntryJson(TypedDict):
+        """An entry as `to_json_object` gives it, with its field's readable name and its value's Python type."""
+
         field: "SeratoBinFile.ParsedField"
         fieldname: str
         type: str
         value: str | int | bool | list["SeratoBinFile.EntryJson"]
 
     def to_json_object(self) -> list[EntryJson]:
+        """The entries as JSON-compatible objects, with bytes base64-encoded; `from_json_object` reads them back."""
+
         def entries_to_json(entries: SeratoBinFile.EntryList) -> list[SeratoBinFile.EntryJson]:
             result = []
 
@@ -192,9 +294,14 @@ class SeratoBinFile:
 
             return result
 
-        return entries_to_json(self.entries)
+        return entries_to_json(self._entries)
 
     def from_json_object(self, json_data: list[EntryJson]):
+        """Replaces the entries with those in `json_data`, as `to_json_object` gives them.
+
+        Raises, leaving the entries as they were, if they wouldn't serialize or have an untested version.
+        """
+
         def json_to_entries(json_list: list[SeratoBinFile.EntryJson]) -> SeratoBinFile.EntryList:
             result: SeratoBinFile.EntryList = []
             version_set = False
@@ -217,7 +324,7 @@ class SeratoBinFile:
                     raise ValueError(f"unexpected type: {value_type}")
 
                 if not version_set and field == SeratoBinFile.Fields.VERSION:
-                    self._check_version(value, set_version=True)
+                    self._version = self._check_version(value)
                     version_set = True
 
                 result.append((field, value))
@@ -228,9 +335,11 @@ class SeratoBinFile:
         # JSON types aren't tied to field prefixes the way the binary format is, so check now that it serializes,
         # rather than failing on the first save. Checked before assigning, so a bad file leaves entries as they were.
         self._serialize_entries(entries)
-        self.entries = entries
+        self._entries = entries
 
     def write_json(self, filepath: str) -> None:
+        """Writes the entries to `filepath` as JSON, one entry per line, which loading that path reads back."""
+
         def write_json_array(json_entries: list[SeratoBinFile.EntryJson], indent: int = 0) -> str:
             indent_str = "  " * indent
             lines = ["[\n"]
@@ -260,12 +369,19 @@ class SeratoBinFile:
         print(self)
 
     class EntryListCls:
+        """A flat entry list, such as a track's, with each field's value as an attribute named for the field.
+
+        Holds copies of the values, so changes reach the file only through `to_entries()`. Set values through
+        `set_value`, which checks them, not by assigning the attributes. Raises DeeplyNestedListError for a nested entry
+        list, and ValueError for a repeated field.
+        """
+
         def __init__(self, entries: "SeratoBinFile.EntryList"):
             self.fields: list[str] = []
 
             for field, value in entries:
                 if isinstance(value, list):
-                    raise DeeplyNestedListError
+                    raise DeeplyNestedListError(field, value)
                 setattr(self, field, value)
                 self.fields.append(field)
 
@@ -280,36 +396,86 @@ class SeratoBinFile:
         def __repr__(self) -> str:
             return str(self.to_entries())
 
-        def get_value(self, field: str) -> "SeratoBinFile.Value":
+        @overload
+        def get_value(self, field: str) -> "SeratoBinFile.Value": ...
+
+        @overload
+        def get_value[T](self, field: str, value_type: type[T]) -> T: ...
+
+        def get_value(self, field: str, value_type: type | None = None) -> object:
+            """`field`'s value; given `value_type`, the type `field` holds, typed as it.
+
+            `value_type` isn't checked against the value: values are checked when they're set or loaded, so a value
+            already has the type its field holds.
+            """
+            # value_type only types the result for the overload above
+            del value_type
             return getattr(self, field)
 
         def set_value(self, field: str, value: "SeratoBinFile.Value"):
+            """Sets `field`'s value, adding the field after the others if it isn't set yet.
+
+            Raises DataTypeError if `value` isn't the type `field` holds, and ValueError as `check_value` does.
+            """
+            SeratoBinFile.check_value(field, value)
             if field not in self.fields:
                 self.fields.append(field)
             setattr(self, field, value)
+
+        def remove_field(self, field: str) -> bool:
+            """Removes `field`, and returns whether it was there to remove."""
+            if field not in self.fields:
+                return False
+            self.fields.remove(field)
+            delattr(self, field)
+            return True
 
         def to_entries(self) -> "SeratoBinFile.EntryList":
             return [(f, self.get_value(f)) for f in self.fields]
 
     class Track(EntryListCls):
+        """A track's entry, with its path as stored (`relpath`: no drive, `/`-separated) read from `path_key`."""
+
         def __init__(self, entries: "SeratoBinFile.EntryList", path_key: str, root: str = HOME_TRACK_PATH_ROOT):
             """`root` is the folder the track's path is relative to, the home library's drive root if not given."""
             super().__init__(entries)
 
             self.path_key = path_key
             self.root = root
-            relative_path = self.get_value(path_key)
-            if not isinstance(relative_path, str):
-                raise DataTypeError(relative_path, str, path_key)
-            self.relpath: str = relative_path
+
+        @property
+        def relpath(self) -> str:
+            """The track's path as stored: without its drive, `/`-separated."""
+            return self.get_value(self.path_key, str)
+
+        @property
+        def full_path(self) -> str:
+            """The track's absolute path, which is its `relpath` resolved from `root`."""
+            return SeratoBinFile.get_full_path(self.relpath, self.root)
+
+        def set_value(self, field: str, value: "SeratoBinFile.Value"):
+            """Sets `field` to `value`.
+
+            An empty string removes the field instead, as Serato does when a tag is cleared, so a track never stores
+            one empty. Raises as `EntryListCls.set_value` does.
+            """
+            if value == "":
+                self.remove_field(field)
+            else:
+                super().set_value(field, value)
+
+        def remove_field(self, field: str) -> bool:
+            """Removes `field`, and returns whether it was there to remove.
+
+            Raises ValueError for the track's path, since a track can't be without one.
+            """
+            if field == self.path_key:
+                raise ValueError(f"can't remove a track's path ({field})")
+            return super().remove_field(field)
 
         def set_path(self, path: str):
-            relpath = SeratoBinFile.get_relative_path(path, self.root)
-            self.set_value(self.path_key, relpath)
-            self.relpath = relpath
-
-        def get_full_path(self):
-            return SeratoBinFile.get_full_path(self.relpath, self.root)
+            """Points the track at `path`, stored relative to `root`, as Serato stores paths."""
+            self.set_value(self.path_key, SeratoBinFile.get_relative_path(path, self.root))
 
     def _get_track(self, entries: "SeratoBinFile.EntryList"):
         return SeratoBinFile.Track(entries, path_key=self.TRACK_PATH_KEY, root=self.track_path_root)
@@ -329,14 +495,17 @@ class SeratoBinFile:
 
     @staticmethod
     def _get_type(field: str) -> str:
+        """The letter that gives `field`'s value type: its first, except for `vrsn`, which holds text."""
         # vrsn field has no type_id, but contains text ("t")
         return "t" if field == SeratoBinFile.Fields.VERSION else field[0]
 
     def _parse_item(self, item_data: bytes) -> Generator["SeratoBinFile.Entry", None, None]:
+        """Each entry in `item_data`, with nested entry lists parsed too; checks and records the first version."""
         fp = io.BytesIO(item_data)
         version_set = False
         for header in iter(lambda: fp.read(8), b""):
-            assert len(header) == 8
+            if len(header) != 8:
+                raise ValueError(f"file ends partway through an entry's header: {header!r}")
             field_ascii: bytes
             length: int
             field_ascii, length = struct.unpack(">4sI", header)
@@ -344,7 +513,8 @@ class SeratoBinFile:
             type_id: str = SeratoBinFile._get_type(field)
 
             data = fp.read(length)
-            assert len(data) == length
+            if len(data) != length:
+                raise ValueError(f"file ends partway through a {field} entry: {len(data)} of its {length} bytes")
 
             value: SeratoBinFile.Value
             if type_id in ("o", "r"):  #  struct
@@ -357,53 +527,68 @@ class SeratoBinFile:
                 if data not in (b"\x00", b"\x01"):
                     raise ValueError(f"unexpected boolean value for field {field}: {data!r}")
                 value = cast(bool, struct.unpack("?", data)[0])
-            elif type_id == "s":  # unsigned 16-bit int
-                value = cast(int, struct.unpack(">H", data)[0])
-            elif type_id == "u":  # unsigned int
-                value = cast(int, struct.unpack(">I", data)[0])
+            elif type_id in ("s", "u"):  # unsigned 16-bit or 32-bit int
+                size, fmt = (2, ">H") if type_id == "s" else (4, ">I")
+                # checked here, rather than left to struct.error, which isn't a ValueError like other malformed data
+                if len(data) != size:
+                    raise ValueError(f"{field} holds a {size}-byte number, not {len(data)} bytes: {data!r}")
+                value = cast(int, struct.unpack(fmt, data)[0])
             else:
                 raise ValueError(f"unexpected type for field: {field}")
 
             if not version_set and field == SeratoBinFile.Fields.VERSION:
-                self._check_version(value, set_version=True)
+                self._version = self._check_version(value)
                 version_set = True
 
             yield field, value
 
+    @staticmethod
+    def check_value(field: str, value: Value):
+        """Raises unless `field` can hold `value`, as saving it would.
+
+        Raises DataTypeError for the wrong type, and ValueError for a number too big or negative, or a field of no known
+        type. Check a value with it before changing anything that a failed save would leave half done.
+        """
+        if SeratoBinFile._get_type(field) in ("o", "r"):
+            expect_type(value, list, field)
+        else:
+            SeratoBinFile._pack_value(field, value)
+
+    @staticmethod
+    def _pack_value(field: str, value: Value) -> bytes:
+        """The bytes `field` holds `value` as, for any field but a nested entry list; raises as `check_value`."""
+        type_id = SeratoBinFile._get_type(field)
+        if type_id in ("p", "t"):  # text
+            value = expect_type(value, str, field)
+            return value.encode("utf-16-be")
+        if type_id == "b":  # single byte, is a boolean
+            value = expect_type(value, bool, field)
+            return struct.pack("?", value)
+        if type_id in ("s", "u"):  # unsigned 16-bit or 32-bit int
+            value = expect_type(value, int, field)
+            bits, fmt = (16, ">H") if type_id == "s" else (32, ">I")
+            # checked here, rather than left to struct.error, so the message names the field
+            if not 0 <= value < 2**bits:
+                raise ValueError(f"{field} holds a number from 0 to {2**bits - 1}, not {value}")
+            return struct.pack(fmt, value)
+        raise ValueError(f"unexpected type for field: {field}")
+
     def _serialize_item(self, entry: Entry) -> bytes:
+        """An entry's bytes: its header, then its value encoded as its field's type requires."""
         field, value = entry
         field_bytes = field.encode("ascii")
-        assert len(field_bytes) == 4
+        if len(field_bytes) != 4:
+            raise ValueError(f"field names are 4 characters: {field!r}")
 
         if field == SeratoBinFile.Fields.VERSION:
             self._check_version(value)
-            if value != self.version:
-                raise ValueError(f"version field value {value} does not match parsed value {self.version}")
+            if value != self._version:
+                raise ValueError(f"version field value {value} does not match parsed value {self._version}")
 
-        type_id: str = SeratoBinFile._get_type(field)
-
-        if type_id in ("o", "r"):  #  struct (list)
-            if not isinstance(value, list):
-                raise DataTypeError(value, list, field)
-            data = self._serialize_entries(value)
-        elif type_id in ("p", "t"):  # text
-            if not isinstance(value, str):
-                raise DataTypeError(value, str, field)
-            data = value.encode("utf-16-be")
-        elif type_id == "b":  # single byte, is a boolean
-            if not isinstance(value, bool):
-                raise DataTypeError(value, bool, field)
-            data = struct.pack("?", value)
-        elif type_id == "s":  # unsigned 16-bit int
-            if not isinstance(value, int):
-                raise DataTypeError(value, int, field)
-            data = struct.pack(">H", value)
-        elif type_id == "u":  # unsigned int
-            if not isinstance(value, int):
-                raise DataTypeError(value, int, field)
-            data = struct.pack(">I", value)
+        if SeratoBinFile._get_type(field) in ("o", "r"):  #  struct (list)
+            data = self._serialize_entries(expect_type(value, list, field))
         else:
-            raise ValueError(f"unexpected type for field: {field}")
+            data = SeratoBinFile._pack_value(field, value)
 
         length = len(data)
         header = struct.pack(">4sI", field_bytes, length)
@@ -418,87 +603,128 @@ class SeratoBinFile:
 
         Each call re-serializes the whole file, so call it once rather than in a loop.
         """
-        return self._serialize_entries(self.entries)
+        return self._serialize_entries(self._entries)
+
+    @staticmethod
+    def _hash(data: bytes) -> bytes:
+        return hashlib.sha256(data).digest()
+
+    @property
+    def has_changed(self) -> bool:
+        """Whether saving would change the file's bytes from those loaded or last saved, however `entries` was edited.
+
+        Sees edits made to `entries` directly, in place or by assignment, as well as through this class's methods.
+        Each call serializes the whole file, as `to_bytes()` does, and raises as it does for an invalid entry. Compared
+        with the file as loaded or saved, not with the file on disk now, which this doesn't reread. A file that didn't
+        exist when loaded counts as changed, since saving creates it.
+        """
+        return self._differs_from_saved(self.to_bytes())
+
+    def _differs_from_saved(self, data: bytes) -> bool:
+        """Whether `data` differs from the bytes loaded or last saved, or there were none, as for a new file."""
+        return self._saved_hash is None or self._hash(data) != self._saved_hash
+
+    def _is_own_path(self, file: str) -> bool:
+        """Whether `file` is the file this was loaded from, by any path to it."""
+        if os.path.normcase(os.path.abspath(file)) == os.path.normcase(self.filepath):
+            return True
+        # the same file by another name: a symlink or hard link, or another case on a case-insensitive filesystem
+        try:
+            return os.path.samefile(file, self.filepath)
+        except OSError:  # either doesn't exist, so they can't be the same file
+            return False
+
+    def _entry_lists(self, field: str) -> Generator[tuple[int, EntryList], None, None]:
+        """The index in `_entries` and the value of each top-level entry named `field`, which holds an entry list."""
+        for i, (entry_field, value) in enumerate(self._entries):
+            if entry_field == field:
+                # a field named for an entry list holds one, which loading checks
+                yield i, cast(SeratoBinFile.EntryList, value)
+
+    def _filter_entry_lists(self, field: str, keep: Callable[[EntryList], bool]) -> bool:
+        """Removes each top-level entry named `field` whose entry list `keep` returns False for; returns if any were."""
+        removed_indices = {i for i, value in self._entry_lists(field) if not keep(value)}
+        if removed_indices:
+            self._entries = [entry for i, entry in enumerate(self._entries) if i not in removed_indices]
+        return bool(removed_indices)
 
     def get_tracks(self) -> Generator[Track, None, None]:
-        for field, value in self.entries:
-            if field == SeratoBinFile.Fields.TRACK:
-                if not isinstance(value, list):
-                    raise DataTypeError(value, list, field)
-                track = self._get_track(value)
-                yield track
+        """Each track entry, as a `Track`.
+
+        A `Track` holds copies of the entry's values, so changing one doesn't change the file: use `modify_tracks`.
+        """
+        for _, value in self._entry_lists(SeratoBinFile.Fields.TRACK):
+            yield self._get_track(value)
 
     def get_track_paths(self, include_drive: bool = False) -> list[str]:
-        return [t.get_full_path() if include_drive else t.relpath for t in self.get_tracks()]
+        """Each track's path: as stored, with no drive, or with `include_drive`, as an absolute path."""
+        return [t.full_path if include_drive else t.relpath for t in self.get_tracks()]
 
-    def modify_tracks(self, func: Callable[[Track], Track], files: Optional[list[str]] = None) -> bool:
+    def modify_tracks(self, func: Callable[[Track], Track], files: Optional[Iterable[str]] = None) -> bool:
         """
         Replaces each track with what `func` returns for it, and returns whether any track changed.
 
         Given `files`, only those tracks are passed to `func`, and the rest are skipped after reading just their path,
-        which is much faster on a large library.
+        which is much faster on a large library. Raises as `check_value` does for a value a changed track's field can't
+        hold. If this or `func` raises for any track, no track is changed.
         """
         relpaths = None if files is None else {self._relative_path(f).upper() for f in files}
-        changed = False
-        for i, (field, value) in enumerate(self.entries):
-            if field == SeratoBinFile.Fields.TRACK:
-                if not isinstance(value, list):
-                    raise DataTypeError(value, list, field)
-                if relpaths is not None:
-                    # check the path first: building a Track, running func, and comparing the result costs far more
-                    relpath = self._get_entry_value(value, self.TRACK_PATH_KEY)
-                    if isinstance(relpath, str) and relpath.upper() not in relpaths:
-                        continue
-                track = self._get_track(value)
-                # Track copies the values out of `value`, so this compares against the untouched original
-                new_entries = func(track).to_entries()
-                if new_entries != value:
-                    self.entries[i] = (field, new_entries)
-                    changed = True
-        return changed
+        replaced: list[tuple[int, SeratoBinFile.EntryList]] = []
+        for i, value in self._entry_lists(SeratoBinFile.Fields.TRACK):
+            if relpaths is not None:
+                # check the path first: building a Track, running func, and comparing the result costs far more
+                relpath = self._get_entry_value(value, self.TRACK_PATH_KEY)
+                if isinstance(relpath, str) and relpath.upper() not in relpaths:
+                    continue
+            track = self._get_track(value)
+            # Track copies the values out of `value`, so this compares against the untouched original
+            new_entries = func(track).to_entries()
+            if new_entries != value:
+                # set_value checks each value, but one assigned straight to an attribute, or a Track built by hand,
+                # skips it; checking only changed tracks keeps a whole-library pass from re-checking values loaded
+                for field, new_value in new_entries:
+                    SeratoBinFile.check_value(field, new_value)
+                replaced.append((i, new_entries))
+        # replaced only once func has run for every track, so one that raises leaves the file unchanged
+        for i, new_entries in replaced:
+            self._entries[i] = (SeratoBinFile.Fields.TRACK.value, new_entries)
+        return bool(replaced)
 
     def filter_tracks(self, func: Callable[[Track], bool]) -> bool:
         """Keeps only the tracks `func` returns True for, and returns whether any track was removed."""
-        new_entries: "SeratoBinFile.EntryList" = []
-        for field, value in self.entries:
-            if field == SeratoBinFile.Fields.TRACK:
-                if not isinstance(value, list):
-                    raise DataTypeError(value, list, field)
-                track = self._get_track(value)
-                if not func(track):
-                    continue
-            new_entries.append((field, value))
-        removed = len(new_entries) != len(self.entries)
-        self.entries = new_entries
-        return removed
-
-    def remove_track(self, filepath: str) -> bool:
-        """Deprecated, to be removed in the next major version: use remove_tracks(), which this calls."""
-        warnings.warn("remove_track is deprecated, use remove_tracks instead", DeprecationWarning, stacklevel=2)
-        return self.remove_tracks([filepath])
+        return self._filter_entry_lists(SeratoBinFile.Fields.TRACK, lambda value: func(self._get_track(value)))
 
     def remove_tracks(self, filepaths: Iterable[str]) -> bool:
-        """Removes every track whose path is in `filepaths`, in one pass, and returns whether any was removed."""
-        relpaths = {self._relative_path(f) for f in filepaths}
-        return self.filter_tracks(lambda track: track.relpath not in relpaths)
+        """Removes every track whose path is in `filepaths`, in one pass, and returns whether any was removed.
+
+        Paths match whatever their case, as `modify_tracks` matches its `files`.
+        """
+        relpaths = {self._relative_path(f).upper() for f in filepaths}
+        return self.filter_tracks(lambda track: track.relpath.upper() not in relpaths)
 
     def remove_duplicates(self) -> bool:
-        """Removes every repeat of an earlier track's path, and returns whether any were removed."""
+        """Removes every repeat of an earlier track's path, and returns whether any were removed.
+
+        A path repeats one in another case too, as `remove_tracks` matches paths whatever their case.
+        """
         seen_track_paths: set[str] = set()
 
         def filter_track(track: "SeratoBinFile.Track") -> bool:
-            is_new = track.relpath not in seen_track_paths
-            seen_track_paths.add(track.relpath)
+            relpath = track.relpath.upper()
+            is_new = relpath not in seen_track_paths
+            seen_track_paths.add(relpath)
             return is_new
 
         return self.filter_tracks(filter_track)
 
-    def save(self, file: Optional[str] = None):
-        """
-        Writes the file's bytes to `file`, or to the path it was loaded from.
+    def save(self, file: Optional[str] = None, force: bool = False) -> bool:
+        """Writes the file's bytes to `file`, or to the path it was loaded from, and returns whether it wrote them.
+
+        Saving to its own path writes only if the file changed since it was loaded or last saved (`has_changed`), unless
+        `force`; saving to any other path always writes. Serializes the file once, to check it and to write it.
 
         Raises RuntimeError if called before the initial parse has finished, e.g. from a subclass's __init__ before
-        it calls super().__init__().
+        it calls super().__init__(), and ValueError for a path the class can't save to, such as a `.json` file.
         """
         if not self._parsed:
             raise RuntimeError(f"cannot save a {type(self).__name__} before it has finished parsing")
@@ -508,29 +734,20 @@ class SeratoBinFile:
             raise ValueError("cannot save raw data to .json")
         # serialize before opening, since opening truncates and a serialization error would leave the file empty
         data = self.to_bytes()
+        own_path = self._is_own_path(file)
+        if own_path and not force and not self._differs_from_saved(data):
+            return False
         with open(file, "wb") as f:
             f.write(data)
+        # saving a copy elsewhere leaves this file's own changes unsaved
+        if own_path:
+            self._saved_hash = self._hash(data)
+        return True
 
     @classmethod
     def get_field_name(cls, field: str) -> str:
-        # look up in a map built once per class (vars(cls), so a subclass with its own FIELD_ENUMS doesn't
-        # inherit the base's map): scanning the enums and re-deriving the name costs too much when printing
-        # or JSON-dumping every field of a large database
-        names: dict[str, str] | None = vars(cls).get("_field_names")
-        if names is None:
-            names = {}
-            for field_enum in cls.FIELD_ENUMS:
-                for member in field_enum:
-                    if member.value not in names:
-                        names[member.value] = (
-                            member.name.replace("_", " ")
-                            .title()
-                            .replace("Smartcrate", "SmartCrate")
-                            .replace("Added U", "Added")
-                            .replace("Added T", "Added")
-                        )
-            cls._field_names = names
-        return names.get(field, "Unknown Field")
+        """A readable name for `field`, such as "File Path" for `pfil`, or "Unknown Field" if it isn't known."""
+        return cls.FIELD_NAMES.get(field, "Unknown Field")
 
     @classmethod
     def _check_valid_field(cls, field: str):
@@ -541,7 +758,7 @@ class SeratoBinFile:
 
     @staticmethod
     def get_relative_path(filepath: str, root: str = HOME_TRACK_PATH_ROOT) -> str:
-        """The form Serato stores a track path in: relative to `root`, with forward slashes.
+        """`filepath` as Serato stores a track path: relative to `root`, and `/`-separated.
 
         `root` is the folder the library's track paths are relative to, which is an instance's `track_path_root`, and
         defaults to the home library's drive root. A path outside `root` just has its drive dropped.
@@ -568,51 +785,49 @@ class SeratoBinFile:
         drive = os.path.splitdrive(filepath)[0]
         return os.path.normpath(filepath if drive else os.path.join(root, filepath))
 
-    def get_entries(self) -> Generator[EntryFull, None, None]:
-        """Get entry fieldnames."""
-        yield from self.__get_entries_internal(track_matcher=None)
+    def get_entries(self, track_matcher: Optional[str | Pattern[str]] = None) -> Generator[EntryFull, None, None]:
+        """Each entry with its field's readable name, as is each entry in a nested entry list.
 
-    def get_entries_filtered(self, track_matcher: str | Pattern[str]) -> Generator[EntryFull, None, None]:
-        """Get entry fieldnames with track matching filter."""
-        yield from self.__get_entries_internal(track_matcher=track_matcher)
-
-    def __get_entries_internal(self, track_matcher: Optional[str | Pattern[str]]) -> Generator[EntryFull, None, None]:
-        """Internal implementation for getting entry fieldnames."""
-        for field, value in self.entries:
+        Given `track_matcher`, a regex, only the tracks whose path it matches (ignoring case) are included. Raises
+        DeeplyNestedListError for an entry list nested in a nested one.
+        """
+        for field, value in self._entries:
             if isinstance(value, list):
-                if track_matcher and field == SeratoBinFile.Fields.TRACK:
-                    if not isinstance(value, list):
-                        raise DataTypeError(value, list, field)
-                    track = self._get_track(value)
-                    if not bool(re.search(track_matcher, track.relpath, re.IGNORECASE)):
-                        continue
-
-                try:
-                    new_entries: list[SeratoBinFile.EntryFull] = []
-                    for f, v in value:
-                        if isinstance(v, list):
-                            raise DeeplyNestedListError
-                        new_entries.append((f, self.get_field_name(f), v))
-                except:
-                    logger.error(f"error on field: {field} value: {value}")
-                    raise
-                value = new_entries
+                if (
+                    track_matcher
+                    and field == SeratoBinFile.Fields.TRACK
+                    and not re.search(track_matcher, self._get_track(value).relpath, re.IGNORECASE)
+                ):
+                    continue
+                named: list[SeratoBinFile.EntryFull] = []
+                for nested_field, nested_value in value:
+                    if isinstance(nested_value, list):
+                        raise DeeplyNestedListError(field, value)
+                    named.append((nested_field, self.get_field_name(nested_field), nested_value))
+                value = named
 
             yield field, self.get_field_name(field), value
 
-    class ModifyRule(TypedDict):
-        field: "SeratoBinFile.Fields"
-        func: Callable[[str, "SeratoBinFile.ValueOrNone"], "SeratoBinFile.ValueOrNone"]
-        """ (filename: str, prev_value: ValueType | None) -> new_value: ValueType | None """
-        files: NotRequired[list[str]]
+    type ModifyFunc = Callable[[str, "SeratoBinFile.ValueOrNone"], "SeratoBinFile.ValueOrNone"]
+    """ (filename: str, prev_value: ValueType | None) -> new_value: ValueType | None """
 
-    def modify(self, rules: list[ModifyRule]) -> bool:
-        """Applies `rules` to every track, and returns whether any track changed."""
+    class ModifyRule(TypedDict):
+        """A change for `modify`: `func` gives `field`'s new value for each track, or for only those in `files`."""
+
+        field: "SeratoBinFile.Fields"
+        func: "SeratoBinFile.ModifyFunc"
+        files: NotRequired[Collection[str]]
+
+    def modify(self, rules: Collection[ModifyRule]) -> bool:
+        """Applies `rules` to every track, and returns whether any track changed.
+
+        A rule whose `func` returns `""` removes the field from the track, as Serato does when a tag is cleared. A rule
+        for the track path can't remove it, and raises ValueError.
+        """
         # check rule fields
         all_field_names = [rule["field"] for rule in rules]
-        assert len(list(rules)) == len(
-            list(set(all_field_names))
-        ), f"must only have 1 function per field. fields passed: {str(sorted(all_field_names))}"
+        if len(all_field_names) != len(set(all_field_names)):
+            raise ValueError(f"must only have 1 rule per field. fields passed: {sorted(all_field_names)}")
         for field in all_field_names:
             self._check_valid_field(field)
 
@@ -629,25 +844,6 @@ class SeratoBinFile:
         # as sets, since each track is checked against them
         rule_files = [set(rule["files"]) if "files" in rule else None for rule in rules]
 
-        def _maybe_perform_rule(
-            rule: "SeratoBinFile.ModifyRule", prev_val: "SeratoBinFile.ValueOrNone", track_relpath: str
-        ):
-            field = rule["field"]
-            maybe_new_value = rule["func"](track_relpath, prev_val)
-            if maybe_new_value is None or maybe_new_value == prev_val:
-                return None
-
-            if field == self.TRACK_PATH_KEY:
-                if not isinstance(maybe_new_value, str):
-                    raise DataTypeError(maybe_new_value, str, field)
-                if not os.path.exists(self._full_path(maybe_new_value)):
-                    raise FileNotFoundError(f"set track location to {maybe_new_value}, but doesn't exist")
-                maybe_new_value = self._relative_path(maybe_new_value)
-
-            field_name = self.get_field_name(field)
-            logger.info(f"Set {field}({field_name})={str(maybe_new_value)} in library for {track_relpath}")
-            return maybe_new_value
-
         def modify_track(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
             # loop over the rules rather than the track's fields, since a track has far more fields than there are rules
             relpath_upper = track.relpath.upper()
@@ -656,22 +852,37 @@ class SeratoBinFile:
                     continue
                 field = rule["field"]
                 prev_val = track.get_value(field) if field in track.fields else None
-                maybe_new_value = _maybe_perform_rule(rule, prev_val, track.relpath)
-                if maybe_new_value is not None:
-                    track.set_value(field, maybe_new_value)
+                maybe_new_val = rule["func"](track.relpath, prev_val)
+                if maybe_new_val == "":
+                    # set_value would remove it too, but this logs it as a removal rather than a set
+                    if track.remove_field(field):
+                        logger.info(f"Removed {field}({self.get_field_name(field)}) in library for {track.relpath}")
+                    continue
+                if maybe_new_val is None or maybe_new_val == prev_val:
+                    continue
+
+                if field == self.TRACK_PATH_KEY:
+                    maybe_new_val = expect_type(maybe_new_val, str, field)
+                    if not os.path.exists(self._full_path(maybe_new_val)):
+                        raise FileNotFoundError(f"set track location to {maybe_new_val}, but doesn't exist")
+                    maybe_new_val = self._relative_path(maybe_new_val)
+
+                logger.info(
+                    f"Set {field}({self.get_field_name(field)})={str(maybe_new_val)} in library for {track.relpath}"
+                )
+                track.set_value(field, maybe_new_val)
             return track
 
         return self.modify_tracks(modify_track, files=only_files)
 
-    def modify_and_save(self, rules: list[ModifyRule], file: Optional[str] = None):
+    def modify_and_save(self, rules: Collection[ModifyRule], file: Optional[str] = None):
         """
         Applies `rules` to every track, then saves.
 
         Skips the save when nothing changed, unless `file` names somewhere other than this file's own path.
         """
         changed = self.modify(rules)
-        same_file = file is None or os.path.normcase(os.path.abspath(file)) == os.path.normcase(self.filepath)
-        if changed or not same_file:
+        if changed or (file is not None and not self._is_own_path(file)):
             self.save(file)
 
     def change_track_path(self, src: str, dest: str) -> bool:
@@ -679,45 +890,39 @@ class SeratoBinFile:
         return self.modify([{"field": self.TRACK_PATH_KEY, "files": [src], "func": lambda *args: dest}])
 
     def find_missing(self):
-        new_entries: SeratoBinFile.EntryList = []
+        """Prompts for a new location for each track whose file doesn't exist, then saves if any was given.
+
+        Each answer can be the file's new path; a folder, where it and later missing tracks are looked for by name; or
+        "s" to skip it. Interrupting a prompt (Ctrl-C, or input running out) leaves every track as it was.
+        """
         new_dir: str | None = None
-        changed = False
-        for field, value in self.entries:
-            if field == SeratoBinFile.Fields.TRACK:
-                if not isinstance(value, list):
-                    raise DataTypeError(value, list, field)
-                track = self._get_track(value)
-                track_path = track.get_full_path()
-                if not os.path.isfile(track_path):
-                    print(f"missing: {track_path}")
-                    new_location = None
-                    if new_dir is not None:
-                        possible_new_loc = os.path.join(new_dir, os.path.basename(track_path))
-                        if os.path.isfile(possible_new_loc):
-                            new_location = possible_new_loc
-                    if not new_location:
-                        while True:
-                            new_location = os.path.normpath(
-                                input(
-                                    'enter new location of file, or directory to look for missing files, or "s" to skip:'
-                                )
-                                .strip()
-                                .strip('"')
-                            )
-                            if new_location == "s":
-                                new_location = None
-                                break
-                            if os.path.isdir(new_location):
-                                new_dir = new_location
-                                new_location = os.path.join(new_dir, os.path.basename(track_path))
-                            if os.path.exists(new_location):
-                                break
-                    if new_location:
-                        print("   new_location: " + new_location)
-                        track.set_path(new_location)
-                        changed = True
-                value = track.to_entries()
-            new_entries.append((field, value))
-        self.entries = new_entries
-        if changed:
+
+        def relocate(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
+            nonlocal new_dir
+            track_path = track.full_path
+            if os.path.isfile(track_path):
+                return track
+            print(f"missing: {track_path}")
+            filename = os.path.basename(track_path)
+            new_location = None
+            if new_dir is not None and os.path.isfile(in_new_dir := os.path.join(new_dir, filename)):
+                new_location = in_new_dir
+            while not new_location:
+                answer = os.path.normpath(
+                    input('enter new location of file, or directory to look for missing files, or "s" to skip:')
+                    .strip()
+                    .strip('"')
+                )
+                if answer == "s":
+                    return track
+                if os.path.isdir(answer):
+                    new_dir = answer
+                    answer = os.path.join(new_dir, filename)
+                if os.path.exists(answer):
+                    new_location = answer
+            print("   new_location: " + new_location)
+            track.set_path(new_location)
+            return track
+
+        if self.modify_tracks(relocate):
             self.save()

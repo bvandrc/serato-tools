@@ -1,20 +1,27 @@
+"""Serato smart crate files (`.scrate`), and the `serato_smartcrate` CLI for listing their tracks and setting rules."""
+
 import os
 import sys
-from typing import cast
-from enum import StrEnum, IntEnum
 from dataclasses import dataclass
+from enum import IntEnum, StrEnum, unique
+from typing import TYPE_CHECKING, cast
 
-
+from serato_tools.utils import SERATO_DIR
 from serato_tools.utils.crate_base import CrateBase
-from serato_tools.utils import get_enum_key_from_value, parse_cli_keys_and_values, SERATO_DIR, DataTypeError
+
+if TYPE_CHECKING:
+    from serato_tools.crate import Crate
 
 
 class SmartCrate(CrateBase):
+    """A Serato smart crate file (`.scrate`): its rules, and the paths of the tracks they matched when last saved."""
+
     TESTED_VERSIONS = frozenset({"1.0/Serato ScratchLive Smart Crate"})
     EXTENSION = ".scrate"
     DIR = "SmartCrates"
     DIR_PATH = os.path.join(SERATO_DIR, DIR)
 
+    @unique
     class RuleFields(StrEnum):
         """The fields only a smart crate holds, which extend the common `Fields` of the other bin files."""
 
@@ -30,7 +37,6 @@ class SmartCrate(CrateBase):
         RULE_FIELD = "urkt"
 
     FIELD_ENUMS = (CrateBase.Fields, RuleFields)
-    FIELDS = frozenset(f.value for field_enum in FIELD_ENUMS for f in field_enum)
 
     # the fields a rule can hold its value in, one per value type; a rule has exactly one of them
     RULE_VALUE_FIELDS = frozenset(
@@ -48,7 +54,10 @@ class SmartCrate(CrateBase):
         "uint": RuleFields.RULE_VALUE_INTEGER,
     }
 
+    @unique
     class RuleField(IntEnum):
+        """The track field a rule tests, such as artist or BPM, as the number Serato stores in `RULE_FIELD`."""
+
         ADDED = 25
         ALBUM = 8
         ARTIST = 7
@@ -65,7 +74,10 @@ class SmartCrate(CrateBase):
         SONG = 6
         YEAR = 23
 
+    @unique
     class RuleComparison(StrEnum):
+        """How a rule compares its value with the track's; the suffix gives the type of value it compares."""
+
         STR_CONTAINS = "cond_con_str"
         STR_DOES_NOT_CONTAIN = "cond_dnc_str"
         STR_IS = "cond_is_str"
@@ -81,43 +93,8 @@ class SmartCrate(CrateBase):
         (CrateBase.Fields.VERSION, "1.0/Serato ScratchLive Smart Crate"),
         (RuleFields.SMARTCRATE_MATCH_ALL, [(RuleFields.SETTING_VALUE, False)]),
         (RuleFields.SMARTCRATE_LIVE_UPDATE, [(RuleFields.SETTING_VALUE, False)]),
-        (CrateBase.Fields.SORTING, [(CrateBase.Fields.COLUMN_NAME, "key"), (CrateBase.Fields.REVERSE_ORDER, False)]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "song"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "playCount"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "artist"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "bpm"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "key"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "album"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "length"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "comment"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
-        (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "added"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),
+        *CrateBase.DEFAULT_VIEW_ENTRIES,
     ]
-
-    @staticmethod
-    def _get_rule_field_from_val(value: int) -> str:
-        return get_enum_key_from_value(value, SmartCrate.RuleField)
-
-    @staticmethod
-    def _get_rule_comparison_from_val(value: str) -> str:
-        return get_enum_key_from_value(value, SmartCrate.RuleComparison)
-
-    @staticmethod
-    def _get_rule_field_from_key(key: str):
-        try:
-            return SmartCrate.RuleField[key.upper()]
-        except KeyError as exc:
-            raise KeyError(
-                f"bad field {key.upper()} , must be one of {[c.name for c in SmartCrate.RuleField]}"
-            ) from exc
-
-    @staticmethod
-    def _get_rule_comparison_from_key(key: str):
-        try:
-            return SmartCrate.RuleComparison[key.upper()]
-        except KeyError as exc:
-            raise KeyError(
-                f"bad comparison {key.upper()} , must be one of {[c.name for c in SmartCrate.RuleComparison]}"
-            ) from exc
 
     @staticmethod
     def _get_rule_value_field(comparison: str) -> "SmartCrate.RuleFields":
@@ -140,42 +117,42 @@ class SmartCrate(CrateBase):
         return str(value)
 
     def _stringify_entry(self, entry: CrateBase.EntryFull, indent: int = 0) -> str:
-        field, fieldname, value = entry  # pylint: disable=unused-variable
+        field, _fieldname, value = entry
         if isinstance(value, list):
             return self._stringify_entries(value, indent)
 
         ret_val = str(value)
+        # an entry's value has its field's type, which loading and set_value check
         if field == SmartCrate.RuleFields.RULE_FIELD:
-            if not isinstance(value, int):
-                raise DataTypeError(value, int, field)
-            ret_val += f" ({self._get_rule_field_from_val(value).lower()})"
+            ret_val += f" ({SmartCrate.RuleField(cast(int, value)).name.lower()})"
         elif field == SmartCrate.RuleFields.RULE_COMPARISON:
-            if not isinstance(value, str):
-                raise DataTypeError(value, str, field)
-            ret_val += f" ({self._get_rule_comparison_from_val(value)})"
+            ret_val += f" ({SmartCrate.RuleComparison(cast(str, value)).name})"
 
         return ret_val
 
     class Rule(CrateBase.EntryListCls):
-        def __init__(self, entries: "CrateBase.EntryList"):
-            super().__init__(entries)
+        """One of a smart crate's rules: the track field it tests (`field`), the `comparison`, and the `value`."""
 
-            # TODO: check and ensure types
+        @property
+        def comparison(self) -> str:
+            """The rule's comparison, as a `SmartCrate.RuleComparison` value."""
+            return self.get_value(SmartCrate.RuleFields.RULE_COMPARISON, str)
 
-            self.comparison = self.get_value(SmartCrate.RuleFields.RULE_COMPARISON)
-            self.field = self.get_value(SmartCrate.RuleFields.RULE_FIELD)
+        @property
+        def field(self) -> int:
+            """The track field the rule tests, as a `SmartCrate.RuleField` value."""
+            return self.get_value(SmartCrate.RuleFields.RULE_FIELD, int)
 
+        @property
+        def value(self) -> str | int | None:
+            """The value the rule compares with, or None if it has none."""
             value_field = next((field for field in SmartCrate.RULE_VALUE_FIELDS if field in self.fields), None)
-            self.value = cast(
-                str | int | float,  # float for date or no?
-                self.get_value(value_field) if value_field is not None else None,
-            )
+            return cast(str | int, self.get_value(value_field)) if value_field is not None else None
 
         def set_value(  # pylint: disable=arguments-differ # pyright: ignore[reportIncompatibleMethodOverride]
             self, value: str | int
         ):
-            if not isinstance(self.comparison, str):
-                raise DataTypeError(self.comparison, str, SmartCrate.RuleFields.RULE_COMPARISON)
+            """Sets the rule's value, converted to the type its comparison stores, in the field that type goes in."""
             # pylint: disable=protected-access
             field = SmartCrate._get_rule_value_field(self.comparison)
             value = SmartCrate._coerce_rule_value(self.comparison, value)
@@ -190,64 +167,75 @@ class SmartCrate(CrateBase):
                     self.fields[self.fields.index(other)] = field
                 delattr(self, other)
             super().set_value(field, value)
-            self.value = value
 
         def set_field(self, value: "SmartCrate.RuleField"):
             super().set_value(SmartCrate.RuleFields.RULE_FIELD, value.value)
-            self.field = value.value
 
         def set_comparison(self, value: "SmartCrate.RuleComparison"):
             super().set_value(SmartCrate.RuleFields.RULE_COMPARISON, value.value)
-            self.comparison = value.value
 
     def set_rule(self, field: "SmartCrate.RuleField", comparison: "SmartCrate.RuleComparison", value: str | int):
-        rule_field_id = field.value
-        rule_exists: bool = False
-        new_entries: SmartCrate.EntryList = []
-        for f, v in self.entries:
-            if f == SmartCrate.RuleFields.SMARTCRATE_RULE:
-                if not isinstance(v, list):
-                    raise DataTypeError(v, list, f)
-                rule = SmartCrate.Rule(v)
-                if rule.field == rule_field_id:
-                    # the comparison first: it decides which value field set_value stores into
-                    rule.set_comparison(comparison)
-                    rule.set_value(value)
-                    rule_exists = True
-                v = rule.to_entries()
-            new_entries.append((f, v))
+        """Sets the rule on `field` to `comparison` and `value`, adding the rule if the crate has none on `field`.
 
-        if not rule_exists:
+        `value` is converted to the type `comparison` compares, e.g. `100` to `"100"` for a text comparison; raises
+        ValueError if a comparison of numbers is given text that isn't one.
+        """
+        updated_rules: list[tuple[int, SmartCrate.EntryList]] = []
+        for i, rule_entries in self._entry_lists(SmartCrate.RuleFields.SMARTCRATE_RULE):
+            rule = SmartCrate.Rule(rule_entries)
+            if rule.field == field.value:
+                # the comparison first: it decides which value field set_value stores into
+                rule.set_comparison(comparison)
+                rule.set_value(value)
+                updated_rules.append((i, rule.to_entries()))
+        # replaced only once every rule has been read, so one that raises leaves the crate unchanged
+        for i, rule_entries in updated_rules:
+            self._entries[i] = (SmartCrate.RuleFields.SMARTCRATE_RULE.value, rule_entries)
+
+        if not updated_rules:
             new_rule = SmartCrate.Rule(
                 [
                     (SmartCrate.RuleFields.RULE_COMPARISON.value, comparison.value),
-                    (SmartCrate.RuleFields.RULE_FIELD.value, rule_field_id),
+                    (SmartCrate.RuleFields.RULE_FIELD.value, field.value),
                 ]
             )
             new_rule.set_value(value)
-            new_entries.append((SmartCrate.RuleFields.SMARTCRATE_RULE.value, new_rule.to_entries()))
+            self._entries.append((SmartCrate.RuleFields.SMARTCRATE_RULE.value, new_rule.to_entries()))
 
-        self.entries = new_entries
+    def delete_rule(self, field: "SmartCrate.RuleField") -> bool:
+        """Removes every rule on `field`, and returns whether there was one to remove."""
+        return self._filter_entry_lists(
+            SmartCrate.RuleFields.SMARTCRATE_RULE,
+            lambda rule_entries: SmartCrate.Rule(rule_entries).field != field.value,
+        )
 
-    def delete_rule(self, field: "SmartCrate.RuleField"):
-        rule_field_id = field.value
-        new_entries: SmartCrate.EntryList = []
-        for f, v in self.entries:
-            if f == SmartCrate.RuleFields.SMARTCRATE_RULE:
-                if not isinstance(v, list):
-                    raise DataTypeError(v, list, f)
-                rule = SmartCrate.Rule(v)
-                if rule.field == rule_field_id:
-                    continue
-            new_entries.append((f, v))
+    def to_regular_crate(self, file: str) -> "Crate":
+        """A regular crate for `file`, holding this smart crate's tracks and view settings (its sort and columns), but
+        not its rules.
 
-        self.entries = new_entries
+        Serato can't use a smart crate on a drive, so USB export writes each one as this. Call its `save()` to write
+        the file.
+        """
+        # imported here, since only this method needs regular crates
+        from serato_tools.crate import Crate
+
+        crate = Crate(file)
+        rule_fields = {field.value for field in SmartCrate.RuleFields}
+        # pylint: disable=protected-access
+        crate._entries = [
+            # a regular crate's version, then this smart crate's entries but its own version and its rules
+            *(entry for entry in crate._entries if entry[0] == Crate.Fields.VERSION),
+            *(entry for entry in self._entries if entry[0] != Crate.Fields.VERSION and entry[0] not in rule_fields),
+        ]
+        return crate
 
     def find_missing(self):
-        raise Exception("cannot be done on smart crate")
+        """Always raises, since a smart crate's tracks come from its rules."""
+        raise TypeError("a smart crate's tracks come from its rules, so it can't have missing tracks to find")
 
 
 def main():
+    """The `serato_smartcrate` CLI: prints smart crates, lists their tracks, or sets or deletes their rules."""
     import argparse
 
     @dataclass
@@ -256,19 +244,65 @@ def main():
         all: bool
         list_tracks: bool
         filenames_only: bool
-        set_rules: list[str] | None
+        # each rule option given, in the order given: its field, and the arguments after it
+        rule_args: list[tuple[SmartCrate.RuleField, list[str]]]
+
+    class AppendRule(argparse.Action):
+        """Adds the option's field, its `const`, and its arguments to `rule_args`."""
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            namespace.rule_args.append((self.const, values))
+
+    comparisons = ", ".join(comparison.name.lower() for comparison in SmartCrate.RuleComparison)
+    option_by_field = {field: f"--{field.name.lower()}" for field in SmartCrate.RuleField}
 
     parser = argparse.ArgumentParser()
     parser.add_argument("file_or_dir", nargs="?", help="Set the crate file, or a directory to do all files in it")
     parser.add_argument("--all", action="store_true", help="Perform actions on all crates.")
     parser.add_argument("-l", "--list_tracks", action="store_true", help="Only list tracks")
     parser.add_argument("-f", "--filenames_only", action="store_true", help="Only list track filenames")
-    parser.add_argument(
-        "--set_rules",
-        nargs=argparse.REMAINDER,
-        help="Set rules for all crates using key-value pairs like --grouping str_contains NEW --title str_does_not_contain NEW_TITLE\nCan also do --key DELETE",
+    rule_options = parser.add_argument_group(
+        "rules",
+        "Set a rule on every crate given with --FIELD COMPARISON VALUE, such as --grouping str_is UNTAGGED, or delete "
+        f"it with --FIELD DELETE. COMPARISON is one of: {comparisons}",
     )
-    args = Args(**vars(parser.parse_args()))
+    # one option per rule field, so argparse lists the fields in --help and rejects one that isn't a field; they all
+    # append to one list, so the rules are set in the order given, as the crate then lists them
+    for field, option in option_by_field.items():
+        rule_options.add_argument(
+            option,
+            nargs="+",
+            metavar="ARG",
+            dest="rule_args",
+            action=AppendRule,
+            const=field,
+            help=f"COMPARISON VALUE for the {field.name.lower()} rule, or DELETE",
+        )
+    parser.set_defaults(rule_args=[])
+    # argparse matches options by case, so lowercase a rule field option given in another case (--GROUPING); only
+    # exact field names are touched, so a value is never changed
+    option_by_upper = {option.upper(): option for option in option_by_field.values()}
+    args = Args(**vars(parser.parse_args([option_by_upper.get(arg.upper(), arg) for arg in sys.argv[1:]])))
+
+    # each rule's field, and its comparison and value, or None to delete it; checked before any crate is changed
+    rules: list[tuple[SmartCrate.RuleField, tuple[SmartCrate.RuleComparison, str] | None]] = []
+    for field, rule_arg in args.rule_args:
+        option = option_by_field[field]
+        if len(rule_arg) == 1 and rule_arg[0].upper() == "DELETE":
+            rules.append((field, None))
+        elif len(rule_arg) == 2:
+            comparison_name, value = rule_arg
+            try:
+                comparison = SmartCrate.RuleComparison[comparison_name.upper()]
+            except KeyError:
+                parser.error(f"{option}: unknown comparison {comparison_name}, must be one of: {comparisons}")
+            try:
+                SmartCrate._coerce_rule_value(comparison, value)  # pylint: disable=protected-access
+            except ValueError:
+                parser.error(f"{option}: {comparison_name} compares whole numbers, got {value}")
+            rules.append((field, (comparison, value)))
+        else:
+            parser.error(f"{option} takes a comparison and a value, or DELETE")
 
     if args.all:
         args.file_or_dir = SmartCrate.DIR_PATH
@@ -278,30 +312,19 @@ def main():
         print("\n".join(SmartCrate.get_crate_files()))
         sys.exit()
 
-    set_rules = parse_cli_keys_and_values(args.set_rules) if args.set_rules else {}
-
     for crate_path in SmartCrate.get_crate_files(args.file_or_dir):
         crate = SmartCrate(crate_path)
 
-        if args.set_rules:
-            for key, value in set_rules.items():
-                field = SmartCrate._get_rule_field_from_key(key)  # pylint: disable=protected-access
-                if not value:
-                    raise ValueError(f"no value given for --{key}, must specify a comparison and a value, or DELETE")
-                comparison_key, *rule_values = value
-                if str(comparison_key).upper() == "DELETE":
+        if rules:
+            for field, rule in rules:
+                if rule is None:
                     crate.delete_rule(field)
                 else:
-                    comparison = SmartCrate._get_rule_comparison_from_key(  # pylint: disable=protected-access
-                        str(comparison_key)
-                    )
-                    assert len(rule_values) == 1, "must specify 2 values: a comparison and a value"
                     # set_rule stores the value in the field the comparison expects, parsing it as needed
-                    crate.set_rule(field, comparison, rule_values[0])
+                    crate.set_rule(field, *rule)
+            # skipped if the rules are as they were, as when a rule is set to the value it already has
             crate.save()
-            continue
-
-        if args.list_tracks or args.filenames_only:
+        elif args.list_tracks or args.filenames_only:
             crate.print_track_paths(filenames_only=args.filenames_only)
         else:
             print(crate)

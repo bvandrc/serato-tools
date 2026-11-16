@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Dumps every Serato tag in an audio file, of any container mutagen reads, for inspecting or capturing raw tag data."""
 
 import base64
 import os
+import sys
 from dataclasses import dataclass
 
 import mutagen._file
@@ -12,23 +14,24 @@ import mutagen.mp3
 import mutagen.mp4
 import mutagen.oggvorbis
 
-
-from serato_tools.utils.track_tags import SeratoTrack
 from serato_tools.utils import logger
+from serato_tools.utils.track_tags import get_geob
 
 
 def get_serato_tagdata(tagfile: mutagen._file.FileType, decode: bool = False):
-    if not tagfile:
-        raise Exception("tagfile is None")
+    """Each of the file's Serato tags, as its name and its data.
+
+    Reads ID3 (MP3, AIFF), FLAC, MP4, and Ogg Vorbis files. FLAC and MP4 files store each tag base64-encoded, which
+    `decode` decodes; otherwise, and for Ogg Vorbis, the data is given as stored.
+    """
     if not tagfile.tags:
-        raise Exception("no tags")
+        raise ValueError(f"file has no tags: {tagfile.filename}")
 
     if isinstance(tagfile, (mutagen.mp3.MP3, mutagen.aiff.AIFF)):
-        tf = SeratoTrack(tagfile)
         for tagname in tagfile.tags.keys():
             tagname = str(tagname)
             if tagname.startswith("GEOB:Serato"):
-                tagvalue = tf._get_geob(tagname[len("GEOB:") :])  # pylint: disable=protected-access
+                tagvalue = get_geob(tagfile, tagname[len("GEOB:") :])
                 if not tagvalue:
                     raise ValueError(f"no value for {tagname}")
                 yield tagname[5:], tagvalue
@@ -97,8 +100,11 @@ if __name__ == "__main__":
     # pylint: disable-next=protected-access
     tagfile: mutagen._file.FileType | None = mutagen._file.File(args.input_file)
 
-    if not tagfile:
-        raise Exception("couldn't parse file")
+    # not `if not tagfile`: an audio file with no tags, or ID3 tags with no frames, is falsy
+    if tagfile is None:
+        sys.exit(f"not an audio file mutagen can read: {args.input_file}")
+    if not tagfile.tags:
+        sys.exit(f"file has no tags: {args.input_file}")
 
     for field, value in get_serato_tagdata(tagfile, decode=args.decode):
         log_str = f'field {field} { "decoded " if args.decode else "" }value: {value}'
