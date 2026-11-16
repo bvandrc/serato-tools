@@ -10,7 +10,6 @@ from test.helpers.bin_files import TEST_SMART_CRATE
 from test.helpers.cli import cli_args
 from test.helpers.files import copy_into, read_bytes, read_text
 
-SMART_CRATE = os.path.abspath(TEST_SMART_CRATE)
 # the test smart crate parsed, as its __str__ prints it
 TEST_SMART_CRATE_TXT_FILE = "test/data/smart_crate.txt"
 Comparison = SmartCrate.RuleComparison
@@ -34,13 +33,13 @@ def make_rule(comparison: Comparison, field: Field, value_field: ValueField, val
 
 
 def test_parse():
-    crate = SmartCrate(SMART_CRATE)
-    assert crate.to_bytes() == read_bytes(SMART_CRATE), "round-trips byte-exact"
+    crate = SmartCrate(TEST_SMART_CRATE)
+    assert crate.to_bytes() == read_bytes(TEST_SMART_CRATE), "round-trips byte-exact"
     assert crate.__str__() == read_text(TEST_SMART_CRATE_TXT_FILE)
 
 
 def test_add_rule():
-    crate = SmartCrate(SMART_CRATE)
+    crate = SmartCrate(TEST_SMART_CRATE)
     expected = read_text(TEST_SMART_CRATE_TXT_FILE)
 
     crate.set_rule(Field.ALBUM, Comparison.STR_IS_NOT, "albo")
@@ -51,7 +50,7 @@ def test_add_rule():
 
 
 def test_delete_rule_returns_whether_removed():
-    crate = SmartCrate(SMART_CRATE)
+    crate = SmartCrate(TEST_SMART_CRATE)
 
     assert crate.delete_rule(Field.ALBUM) is False, "the crate has no album rule"
     assert not crate.has_changed
@@ -121,11 +120,11 @@ def test_rule_properties_follow_its_entries():
 def test_find_missing_raises():
     # its tracks come from its rules
     with pytest.raises(TypeError):
-        SmartCrate(SMART_CRATE).find_missing()
+        SmartCrate(TEST_SMART_CRATE).find_missing()
 
 
 def test_to_regular_crate_keeps_the_tracks_sort_and_columns_but_not_the_rules(tmp_dir: str):
-    smart_crate = SmartCrate(SMART_CRATE)
+    smart_crate = SmartCrate(TEST_SMART_CRATE)
     view_fields = {Crate.Fields.SORTING.value, Crate.Fields.COLUMN.value}
     rule_fields = {field.value for field in ValueField}
     assert smart_crate.get_track_paths(), "the fixture has tracks"

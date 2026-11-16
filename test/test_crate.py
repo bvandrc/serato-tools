@@ -19,7 +19,7 @@ def test_parse():
 
 
 def test_add_tracks():
-    crate = Crate(os.path.abspath(TEST_CRATE))
+    crate = Crate(TEST_CRATE)
     expected = read_text(TEST_CRATE_TXT_FILE)
 
     # as Serato stores a track's path

@@ -105,7 +105,7 @@ def test_a_subclass_extending_field_enums_gets_its_fields_and_names():
     [pytest.param(3, id="partway through a header"), pytest.param(-1, id="partway through an entry")],
 )
 def test_a_file_cut_off_raises(tmp_dir: str, cut_at: int):
-    path = os.path.join(tmp_dir, "Cut.crate")
+    path = os.path.join(tmp_dir, "database V2")
     with open(path, "wb") as f:
         f.write(read_bytes(TEST_DATABASE)[:cut_at])
     with pytest.raises(ValueError, match="file ends partway through"):
@@ -182,7 +182,7 @@ def test_json_round_trip():
     db_from_bin = DatabaseV2(TEST_DATABASE)
     assert db_from_bin.to_json_object() == json.loads(read_text("test/data/database_v2_json.json"))
 
-    db_from_json = DatabaseV2(os.path.abspath("test/data/database_v2_json.json"))
+    db_from_json = DatabaseV2("test/data/database_v2_json.json")
     assert db_from_json.__str__() == db_from_bin.__str__(), "loaded from a JSON file"
 
     db_from_json._entries = []
@@ -522,8 +522,8 @@ def test_remove_field():
 
 @pytest.fixture
 def crate_file(tmp_dir: str) -> str:
-    """A copy of the test crate, as Test.crate."""
-    return copy_into(tmp_dir, TEST_CRATE, "Test.crate")
+    """A copy of the test crate, under its own name, so a test can also take `new_crate`."""
+    return copy_into(tmp_dir, TEST_CRATE)
 
 
 def test_save_writes_its_own_file_only_when_changed(tmp_dir: str, crate_file: str, bin_file_writes: list[str]):
@@ -532,7 +532,7 @@ def test_save_writes_its_own_file_only_when_changed(tmp_dir: str, crate_file: st
     assert crate.save() is False, "unchanged"
     assert bin_file_writes == [], "unchanged, so not written"
     assert crate.save(force=True) is True, "forced"
-    assert bin_file_writes == ["Test.crate"], "forced, so written"
+    assert bin_file_writes == [os.path.basename(crate_file)], "forced, so written"
     copy_file = os.path.join(tmp_dir, "Copy.crate")
     assert crate.save(copy_file) is True, "saving elsewhere always writes"
     assert read_bytes(copy_file) == read_bytes(crate_file), "as it was"
@@ -569,14 +569,12 @@ def test_saving_through_a_symlink_is_saving_its_own_file(tmp_dir: str, crate_fil
     assert not crate.has_changed
 
 
-def test_new_file_has_changed_until_saved(tmp_dir: str):
-    file = os.path.join(tmp_dir, "New.crate")
-    crate = Crate(file)
-    assert crate.has_changed, "saving creates the file"
-    crate.add_tracks(["/music/track1.mp3"])
-    crate.save()
-    assert not crate.has_changed
-    assert Crate(file).get_track_paths() == crate.get_track_paths(), "created with its tracks"
+def test_new_file_has_changed_until_saved(new_crate: Crate):
+    assert new_crate.has_changed, "saving creates the file"
+    new_crate.add_tracks(["/music/track1.mp3"])
+    new_crate.save()
+    assert not new_crate.has_changed
+    assert Crate(new_crate.filepath).get_track_paths() == new_crate.get_track_paths(), "created with its tracks"
 
 
 def test_file_loaded_from_json_hasnt_changed(tmp_dir: str, crate_file: str):

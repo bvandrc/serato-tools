@@ -32,6 +32,9 @@ def mock_files(tree: dict[str, MockTree]) -> list[str]:
     """
     paths: list[str] = []
     for folder, contents in tree.items():
+        if isinstance(contents, str):
+            # a bare string would otherwise be read as a list of names, one file per character
+            raise TypeError(f"{folder!r} holds {contents!r}: a folder's contents are a list or dict, not a name")
         os.makedirs(folder, exist_ok=True)
         for entry in [contents] if isinstance(contents, dict) else contents:
             if isinstance(entry, dict):
