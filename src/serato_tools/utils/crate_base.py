@@ -83,7 +83,7 @@ class CrateBase(SeratoBinFile):
                 self._entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, relpath)]))
                 existing.add(relpath.upper())
 
-    def add_tracks_from_dir(self, dir: str, replace: bool = False):
+    def add_tracks_from_dir(self, dir: str, replace: bool = False):  # noqa: A002
         """Adds every file directly in `dir` but hidden ones, such as `.DS_Store`; with `replace`, first removes every
         track that isn't one of them."""
         dir_tracks = [

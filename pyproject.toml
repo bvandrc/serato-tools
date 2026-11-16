@@ -80,7 +80,6 @@ ignore = [
     "FIX",  # TODO comments
     "C90",  # complexity limits
     "N",  # naming: the test helpers use classes as namespaces of constants, and parsers use local constants
-    "A",  # shadowing builtins
     "COM",  # trailing commas: the formatter adds them, and COM812 conflicts with it
     "ISC001",  # implicitly concatenated strings on one line: conflicts with the formatter
     # single rules, in families that are otherwise on
