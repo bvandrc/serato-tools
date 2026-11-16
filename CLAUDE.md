@@ -19,7 +19,7 @@ Work in the repo's `.venv` (gitignored), with the package installed editable so 
 ```bash
 python -m venv .venv
 source .venv/Scripts/activate                                     # Git Bash on Windows; .venv/bin/activate elsewhere
-pip install -e ".[all,dev]"                                  # all optional deps + pytest, black, isort, pylint, pyright
+pip install -e ".[all,dev]"                                  # all optional deps + pytest, ruff, pylint, pyright
 ```
 
 ```bash
@@ -28,15 +28,15 @@ python -m pytest test/test_crate.py                               # one module
 python -m pytest test/test_crate.py::test_saving_needs_the_crate_extension  # one test
 pylint $(git ls-files '*.py')                                     # lint (config in .pylintrc, most C/R checks disabled); protected-access is off in test/, through the pylint-per-file-ignores plugin, whose globs are relative to the cwd, so run it from the repo root
 pyright                                                           # type check (config in pyproject.toml)
-isort .                                                           # sort imports (config in pyproject.toml)
-black .                                                           # format, line-length 120
+ruff check --fix .                                                # lint, and sort imports (config in pyproject.toml)
+ruff format .                                                     # format, line-length 120
 ```
 
-This is a Python repo with no package manager scripts, so `isort .` then `black .` is the "format script" the conventions require before every commit; CI checks both.
+This is a Python repo with no package manager scripts, so `ruff check --fix .` then `ruff format .` is the "format script" the conventions require before every commit; CI checks both. `ruff check` lists its rules explicitly in `pyproject.toml` (`select`), so a Ruff release that changes its defaults doesn't change what CI checks.
 
 Tests import the installed `serato_tools` (editable locally, a regular install in CI) and open fixtures by paths relative to the repo root, so `python -m pytest` only works from there.
 
-CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pylint and pyright, plus isort and black once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15.
+CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pylint and pyright, plus Ruff's lint and format checks once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15.
 - **Lint on every version:** neither tool pins one, and both check against the running interpreter, so 3.12 catches use of anything newer and later versions catch deprecations and removals.
 - **Required checks:** the `main` ruleset requires these checks by name, so renaming a job or matrix entry means updating the ruleset too.
 - **OS-specific tests:** tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `pytest.mark.skipif`, with a matching test for the other OS family. A parametrized test marks just its OS-specific cases, with `WINDOWS_ONLY` / `POSIX_ONLY` from `test.helpers.platforms`.
