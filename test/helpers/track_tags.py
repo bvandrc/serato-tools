@@ -91,7 +91,8 @@ def aiff_with_the_mp3s_tags(folder: str, name: str = "test.aif") -> str:
     aiff = AIFF(path)
     aiff.add_tags()
     mp3_tags = MP3(TEST_MP3).tags
-    assert aiff.tags is not None and mp3_tags is not None
+    assert aiff.tags is not None
+    assert mp3_tags is not None
     for frame in mp3_tags.values():
         aiff.tags.add(frame)
     aiff.save()

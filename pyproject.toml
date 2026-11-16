@@ -65,11 +65,37 @@ include = ["serato_tools*"]
 line-length = 120
 
 [tool.ruff.lint]
-# Ruff's defaults, plus: import order (I), newer syntax and the standard library's current names (UP), likely bugs
-# (B), simpler equivalents (SIM, C4, PIE, PERF), and Ruff's own (RUF); and what pylint checked: access to another
-# class's private members (SLF), unused arguments (ARG), catching any exception (BLE), pylint's errors and warnings
-# (PLE, PLW), and exec and eval (S102, S307)
-extend-select = ["I", "UP", "B", "SIM", "C4", "PIE", "PERF", "RUF", "SLF", "ARG", "BLE", "PLE", "PLW", "S102", "S307"]
+# Ruff's defaults, plus:
+extend-select = [
+    "I",  # import order
+    "UP",  # newer syntax and the standard library's current names
+    "B",  # likely bugs
+    "SIM",  # simpler equivalents
+    "C4",  # simpler comprehensions
+    "PIE",  # unnecessary code
+    "PERF",  # slow loops
+    "FURB",  # modernizations
+    "FLY",  # joins that should be f-strings
+    "RSE",  # unnecessary parentheses on raise
+    "RET",  # needless assignments and branches around return
+    "ERA",  # commented-out code
+    "W",  # pycodestyle's warnings
+    "LOG",  # logging misuse
+    "G",  # logging calls that format their message
+    "SLOT",  # subclasses of str, tuple, and namedtuple without __slots__
+    "PYI",  # type hints, such as typing.NamedTuple for collections.namedtuple
+    "PGH",  # type: ignore and noqa without a rule code
+    "PT",  # pytest style, such as pytest.raises without match
+    "RUF",  # Ruff's own
+    # what pylint checked
+    "SLF",  # access to another class's private members
+    "ARG",  # unused arguments
+    "BLE",  # catching any exception
+    "PLE",  # pylint's errors
+    "PLW",  # pylint's warnings
+    "S102",  # exec
+    "S307",  # eval
+]
 ignore = [
     # takes any UPPER_CASE name for a constant, so it would swap `assert cls.DEFAULT_ENTRIES == default` to put the
     # expected value first
@@ -85,6 +111,10 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # tests reach into internals to set up and check state the public API doesn't expose
 "test/**" = ["SLF001"]
+
+[tool.ruff.lint.flake8-pytest-style]
+# the tests name their parametrize arguments in one string, "a, b, c"
+parametrize-names-type = "csv"
 
 [tool.ruff.lint.flake8-unused-arguments]
 # a lambda or callback taking `*args` it doesn't use is matching the signature its caller passes

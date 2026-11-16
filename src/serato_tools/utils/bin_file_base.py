@@ -505,7 +505,6 @@ class SeratoBinFile:
             if type_id in ("o", "r"):  #  struct
                 value = list(self._parse_item(data))
             elif type_id in ("p", "t"):  # text
-                # value = (data[1:] + b"\00").decode("utf-16") # from imported code
                 value = data.decode("utf-16-be")
             elif type_id == "b":  # single byte, is a boolean
                 # anything but 0x00/0x01 would be rewritten as 0x01 on save, so refuse it like an unknown version
@@ -745,8 +744,7 @@ class SeratoBinFile:
     def get_relative_path(filepath: str) -> str:
         """`filepath` as Serato stores a track path: without its drive or leading slash, and `/`-separated."""
         filepath = os.path.splitdrive(filepath)[1]
-        relpath = os.path.normpath(filepath).replace(os.path.sep, "/").lstrip("/")
-        return relpath
+        return os.path.normpath(filepath).replace(os.path.sep, "/").lstrip("/")
 
     @staticmethod
     def get_full_path(filepath: str) -> str:

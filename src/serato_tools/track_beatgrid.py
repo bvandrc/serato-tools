@@ -4,13 +4,12 @@ Also the CLIs that print it, or analyze and write one. Analyzing needs the `beat
 numpy).
 """
 
-import collections
 import io
 import math
 import struct
 import sys
 from dataclasses import dataclass
-from typing import cast, overload
+from typing import NamedTuple, cast, overload
 
 from mutagen import FileType
 from mutagen.id3 import ID3
@@ -31,20 +30,29 @@ class TrackBeatgrid(SeratoGeobTag):
     GEOB_KEY = GeobKeys.BEATGRID
     VERSION = (0x01, 0x00)
 
-    NonTerminalBeatgridMarker = collections.namedtuple(
-        "NonTerminalBeatgridMarker",
-        ("position_s", "beats_till_next_marker"),
-    )
-    TerminalBeatgridMarker = collections.namedtuple(
-        "TerminalBeatgridMarker",
-        ("position_s", "bpm"),
-    )
-    Footer = collections.namedtuple("Footer", ("unknown",))
+    class NonTerminalBeatgridMarker(NamedTuple):
+        """A marker the grid continues past: its position in seconds, and how many beats until the next marker."""
 
-    NonTerminalBeatgridMarkerEnhanced = collections.namedtuple(
-        "NonTerminalBeatgridMarkerEnhanced",
-        (*NonTerminalBeatgridMarker._fields, "bpm"),
-    )
+        position_s: float
+        beats_till_next_marker: int
+
+    class TerminalBeatgridMarker(NamedTuple):
+        """The grid's last marker: its position in seconds, and the BPM from there to the end of the track."""
+
+        position_s: float
+        bpm: float
+
+    class Footer(NamedTuple):
+        """The byte after the markers, whose meaning is unknown."""
+
+        unknown: int
+
+    class NonTerminalBeatgridMarkerEnhanced(NamedTuple):
+        """A `NonTerminalBeatgridMarker` with its BPM: its beats over the time until the next marker."""
+
+        position_s: float
+        beats_till_next_marker: int
+        bpm: float
 
     type _EntryList[T] = tuple[*tuple[T, ...], "TrackBeatgrid.TerminalBeatgridMarker", "TrackBeatgrid.Footer"]
     type EntryList = _EntryList[NonTerminalBeatgridMarker]
@@ -225,7 +233,11 @@ class TrackBeatgrid(SeratoGeobTag):
         terminal_interval = 60.0 / terminal_marker.bpm
         return cumulative_beats + (position_s - terminal_marker.position_s) / terminal_interval
 
-    BeatPoint = collections.namedtuple("BeatPoint", ("position_s", "bpm"))
+    class BeatPoint(NamedTuple):
+        """A beat: its position in seconds, and the BPM there."""
+
+        position_s: float
+        bpm: float
 
     def get_beats(self) -> list["TrackBeatgrid.BeatPoint"]:
         """Every beat in the track, as a BeatPoint: its position in seconds, and the BPM there."""

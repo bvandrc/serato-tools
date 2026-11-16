@@ -35,7 +35,7 @@ def get_serato_tagdata(tagfile: mutagen.FileType, decode: bool = False):
                 yield tagname[5:], tagvalue
 
     elif isinstance(tagfile, (mutagen.flac.FLAC, mutagen.mp4.MP4)):
-        for tagname, tagvalue in tagfile.tags.items():  # type: ignore
+        for tagname, tagvalue in tagfile.tags.items():  # pyright: ignore[reportAttributeAccessIssue]
             tagname = str(tagname)
             if not (tagname.startswith(("serato_", "----:com.serato.dj:"))):
                 continue
@@ -69,7 +69,7 @@ def get_serato_tagdata(tagfile: mutagen.FileType, decode: bool = False):
             yield fieldname, fielddata if decode else encoded_data
 
     elif isinstance(tagfile, mutagen.oggvorbis.OggVorbis):
-        for tagname, tagvalue in tagfile.tags.items():  # type: ignore
+        for tagname, tagvalue in tagfile.tags.items():  # pyright: ignore[reportGeneralTypeIssues]
             tagname = str(tagname)
             tagvalue = tagvalue[0]
             if not tagname.startswith("serato_"):
