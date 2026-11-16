@@ -59,7 +59,7 @@ def bin_file_writes(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     def record_write(file, *args, **kwargs):
         if "w" in (args[0] if args else kwargs.get("mode", "r")):
             written.append(os.path.basename(file))
-        return open(file, *args, **kwargs)  # pylint: disable=unspecified-encoding
+        return open(file, *args, **kwargs)
 
     # every way of saving a bin file opens it for writing in its module, which has no open of its own to replace
     monkeypatch.setattr("serato_tools.utils.bin_file_base.open", record_write, raising=False)

@@ -332,7 +332,6 @@ class TrackCuesV2(SeratoGeobTag):
 
     def _parse(self, data: bytes):
         # the entry classes' _parse() / _serialize() are internal to this module
-        # pylint: disable=protected-access
         self._check_version(data[: self.VERSION_LEN])
         data = data[self.VERSION_LEN :]  # b64data
         try:
@@ -350,7 +349,7 @@ class TrackCuesV2(SeratoGeobTag):
         while True:
             if num_entries >= MAX_PARSE_ENTRIES:
                 raise ValueError(f"cue payload has more than {MAX_PARSE_ENTRIES} entries; malformed or unsupported")
-            entry_name = SeratoGeobTag._readbytes(fp).decode("utf-8")
+            entry_name = SeratoGeobTag._readbytes(fp).decode("utf-8")  # noqa: SLF001
             if not entry_name:
                 break
             entry_len = struct.unpack(">I", fp.read(4))[0]
@@ -358,17 +357,16 @@ class TrackCuesV2(SeratoGeobTag):
                 raise ValueError(f"{entry_name} entry has no data")
 
             entry_class = TrackCuesV2._get_entry_class(entry_name)
-            yield entry_class._parse(fp.read(entry_len))
+            yield entry_class._parse(fp.read(entry_len))  # noqa: SLF001
             num_entries += 1
 
     def _serialize(self):
         # the entry classes' _parse() / _serialize() are internal to this module
-        # pylint: disable=protected-access
         version = self._pack_version()
 
         contents: list[bytes] = [version]
         for entry in self.entries:
-            data = entry._serialize()
+            data = entry._serialize()  # noqa: SLF001
             if entry.NAME is not None:
                 data = b"".join(
                     (

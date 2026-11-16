@@ -423,13 +423,13 @@ def _then_a_track_with(tags: dict[str, object]):
     "tracks, error, message",
     [
         pytest.param(
-            lambda folders, first: {first: {"color": Colors.RED, "rating": 5}},
+            lambda _folders, first: {first: {"color": Colors.RED, "rating": 5}},
             ValueError,
             "unknown track tags",
             id="an unknown key",
         ),
         pytest.param(
-            lambda folders, first: {first: {"color": Colors.RED}, "Second.flac": {"beatgrid_locked": True}},
+            lambda _folders, first: {first: {"color": Colors.RED}, "Second.flac": {"beatgrid_locked": True}},
             ValueError,
             "unsupported file type",
             id="a later track's file unreadable",

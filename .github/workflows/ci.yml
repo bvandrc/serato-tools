@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  # on every Python version, since pylint and pyright check against the running one (3.12 catches use of anything newer,
-  # later versions catch deprecations and removals), but on one OS, since the results don't depend on it
+  # on every Python version, since pyright checks against the running one (3.12 catches use of anything newer, later
+  # versions catch deprecations and removals), but on one OS, since the results don't depend on it
   lint:
     name: "Lint (${{ matrix.python-version }})"
     runs-on: ubuntu-latest
@@ -31,10 +31,7 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install ".[all,dev]"
 
-    - name: Lint (Pylint)
-      run: pylint $(git ls-files '*.py')
-
-    - name: Lint (PyRight)
+    - name: Type Check
       uses: jakebailey/pyright-action@v1
       with:
         working-directory: .

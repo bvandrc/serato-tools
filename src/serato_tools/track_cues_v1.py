@@ -148,7 +148,6 @@ class TrackCuesV1(SeratoGeobTag):
 
     def _parse(self, data: bytes):
         # the entry classes' _parse() / _serialize() are internal to this module
-        # pylint: disable=protected-access
         fp = io.BytesIO(data)
         self._check_version(fp.read(self.VERSION_LEN))
 
@@ -158,10 +157,10 @@ class TrackCuesV1(SeratoGeobTag):
             if len(entry_data) != 0x16:
                 raise ValueError(f"tag ends partway through an entry: {len(entry_data)} of its 22 bytes")
 
-            entry = TrackCuesV1.Entry._parse(entry_data)
+            entry = TrackCuesV1.Entry._parse(entry_data)  # noqa: SLF001
             yield entry
 
-        yield TrackCuesV1.Color._parse(fp.read())
+        yield TrackCuesV1.Color._parse(fp.read())  # noqa: SLF001
 
     def delete(self):
         """Deletes the tag in memory, returning whether the file had it; call `save()` to write the deletion."""
@@ -171,7 +170,6 @@ class TrackCuesV1(SeratoGeobTag):
 
     def _serialize(self):
         # the entry classes' _parse() / _serialize() are internal to this module
-        # pylint: disable=protected-access
         entries = self.entries
         # the trailing Color entry doubles as the format's footer: it is not counted in num_entries,
         # so serializing without it (or with it anywhere else) would write a tag Serato cannot parse
@@ -183,7 +181,7 @@ class TrackCuesV1(SeratoGeobTag):
         num_entries = len(entries) - 1
         data += struct.pack(">I", num_entries)
         for entry_data in entries:
-            data += entry_data._serialize()
+            data += entry_data._serialize()  # noqa: SLF001
         self._raw_data = data
 
 

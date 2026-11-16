@@ -25,7 +25,7 @@ def test_parse():
 @pytest.mark.parametrize(
     "keep",
     [
-        pytest.param(lambda entry: False, id="no entries"),
+        pytest.param(lambda _entry: False, id="no entries"),
         pytest.param(lambda entry: not isinstance(entry, TrackCuesV1.Color), id="no trailing Color"),
     ],
 )

@@ -32,7 +32,7 @@ def mock_files(tree: dict[str, MockTree]) -> list[str]:
                 paths += mock_files({os.path.join(folder, name): subtree for name, subtree in entry.items()})
             else:
                 path = os.path.join(folder, entry)
-                open(path, "wb").close()  # pylint: disable=consider-using-with
+                open(path, "wb").close()
                 paths.append(path)
     return paths
 
