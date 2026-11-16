@@ -40,7 +40,7 @@ beatgrid_analysis = ["mutagen", "librosa", "numpy"]
 all = ["serato-tools[track_tags,waveform_drawing,beatgrid_analysis]"]
 test = ["pytest"]
 # the test extra too, so pyright can check the tests' pytest imports
-dev = ["serato-tools[test]", "black", "isort", "pylint", "pyright"]
+dev = ["serato-tools[test]", "black", "isort", "pylint", "pylint-per-file-ignores", "pyright"]
 
 [project.urls]
 Homepage = "https://pypi.org/project/serato-tools/"

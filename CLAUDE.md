@@ -26,7 +26,7 @@ pip install -e ".[all,dev]"                                  # all optional deps
 python -m pytest                                                  # full suite
 python -m pytest test/test_crate.py                               # one module
 python -m pytest test/test_crate.py::test_saving_needs_the_crate_extension  # one test
-pylint $(git ls-files '*.py')                                     # lint (config in .pylintrc, most C/R checks disabled)
+pylint $(git ls-files '*.py')                                     # lint (config in .pylintrc, most C/R checks disabled); protected-access is off in test/, through the pylint-per-file-ignores plugin, whose globs are relative to the cwd, so run it from the repo root
 pyright                                                           # type check (config in pyproject.toml)
 isort .                                                           # sort imports (config in pyproject.toml)
 black .                                                           # format, line-length 120

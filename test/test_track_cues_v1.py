@@ -1,4 +1,3 @@
-# pylint: disable=protected-access
 import pytest
 
 from serato_tools.track_cues_v1 import TrackCuesV1
