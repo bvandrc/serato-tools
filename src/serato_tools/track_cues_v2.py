@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """The `Serato Markers2` tag, which holds a track's hot cues, loops, flips, color, and beatgrid lock.
 
 Also the `serato_snap_cues_v2` CLI, which sets the color, snaps cues to the beatgrid, or prints the tag's entries.
@@ -12,9 +10,10 @@ import os
 import struct
 import sys
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, unique
-from typing import TYPE_CHECKING, Callable, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils.track_tags import (

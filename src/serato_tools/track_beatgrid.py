@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """The `Serato BeatGrid` tag, which holds a track's beatgrid as markers.
 
 Also the CLIs that print it, or analyze and write one. Analyzing needs the `beatgrid_analysis` extra (librosa and
@@ -45,7 +43,7 @@ class TrackBeatgrid(SeratoGeobTag):
 
     NonTerminalBeatgridMarkerEnhanced = collections.namedtuple(
         "NonTerminalBeatgridMarkerEnhanced",
-        NonTerminalBeatgridMarker._fields + ("bpm",),
+        (*NonTerminalBeatgridMarker._fields, "bpm"),
     )
 
     type _EntryList[T] = tuple[*tuple[T, ...], "TrackBeatgrid.TerminalBeatgridMarker", "TrackBeatgrid.Footer"]
@@ -188,7 +186,8 @@ class TrackBeatgrid(SeratoGeobTag):
         A marker's beats end at the next marker, which for the last non-terminal marker is the terminal marker.
         """
         ends_s = [marker.position_s for marker in nonterminal_markers[1:]] + [terminal_marker.position_s]
-        return list(zip(nonterminal_markers, ends_s))
+        # not strict: with no non-terminal markers there's still the terminal marker's end, and no spans
+        return list(zip(nonterminal_markers, ends_s, strict=False))
 
     @staticmethod
     def _enhance_entries(raw_entries: "TrackBeatgrid.EntryList") -> "TrackBeatgrid.EntryListEnhanced":
@@ -310,7 +309,7 @@ class TrackBeatgrid(SeratoGeobTag):
         snapped_ms = self.find_nearest_beat(position_ms, tolerance_beats)
         if snapped_ms is None:  # NOTE: don't do `if not`, 0.0 is valid
             return None
-        snapped_ms = int(round(snapped_ms))
+        snapped_ms = round(snapped_ms)
         return snapped_ms if abs(snapped_ms - position_ms) >= min_ms_change else None
 
     def analyze_and_write(self):
