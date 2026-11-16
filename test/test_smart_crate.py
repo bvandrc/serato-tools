@@ -159,17 +159,17 @@ class TestCase(unittest.TestCase):
     def test_to_regular_crate_keeps_the_tracks_sort_and_columns_but_not_the_rules(self):
         smart_crate = SmartCrate("test/data/TestSmartCrate.scrate")
         rule_fields = {field.value for field in SmartCrate.RuleFields}
-        self.assertTrue(any(field in rule_fields for field, _ in smart_crate.entries), "the fixture has rules")
+        self.assertTrue(any(field in rule_fields for field, _ in smart_crate._entries), "the fixture has rules")
 
         path = os.path.join(temp_dir(self), "TestSmartCrate.crate")
         smart_crate.to_regular_crate(path).save()
 
         saved = Crate(path)
-        self.assertEqual(saved.version, Crate.DEFAULT_ENTRIES[0][1])
+        self.assertEqual(saved._version, Crate.DEFAULT_ENTRIES[0][1])
         self.assertEqual(saved.get_track_paths(), smart_crate.get_track_paths())
         self.assertEqual(
-            saved.entries[1:],
-            [entry for entry in smart_crate.entries[1:] if entry[0] not in rule_fields],
+            saved._entries[1:],
+            [entry for entry in smart_crate._entries[1:] if entry[0] not in rule_fields],
             "everything but the version and the rules, in order",
         )
 
