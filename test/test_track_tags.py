@@ -1,9 +1,13 @@
+import importlib
 import os
+import pkgutil
 import runpy
+from collections.abc import Iterator
 
 import pytest
 from mutagen.mp3 import MP3
 
+import serato_tools
 from serato_tools.track_autotags import TrackAutotags
 from serato_tools.track_beatgrid import TrackBeatgrid
 from serato_tools.track_cues_v1 import TrackCuesV1
@@ -40,6 +44,22 @@ def test_save_writes_only_a_changed_tag_unless_forced(mp3: str, tag_class):
         saves.assert_not_called()
         assert tags.save(force=True) is True, "forced"
         saves.assert_called_once()
+
+
+def test_every_tag_class_is_tested():
+    # ID3FileTag isn't an ABC: a subclass that doesn't implement has_changed or _write_to_tagfile only raises
+    # NotImplementedError when they're called, as the test above does for each of TAG_CLASSES
+    for module in pkgutil.iter_modules(serato_tools.__path__):
+        importlib.import_module(f"serato_tools.{module.name}")
+
+    def subclasses(cls: type) -> Iterator[type]:
+        for subclass in cls.__subclasses__():
+            yield subclass
+            yield from subclasses(subclass)
+
+    # the concrete ones: nothing subclasses them, as SeratoGeobTag is subclassed
+    tag_classes = {cls for cls in subclasses(ID3FileTag) if not cls.__subclasses__()}
+    assert tag_classes == set(TAG_CLASSES), "a tag class missing from TAG_CLASSES skips the tests run over it"
 
 
 @pytest.mark.parametrize("tag_class", GEOB_TAG_CLASSES, ids=lambda cls: cls.__name__)

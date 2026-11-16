@@ -39,8 +39,9 @@ waveform_drawing = [
 beatgrid_analysis = ["mutagen", "librosa", "numpy"]
 all = ["serato-tools[track_tags,waveform_drawing,beatgrid_analysis]"]
 test = ["pytest"]
-# the test extra too, so pyright can check the tests' pytest imports
-dev = ["serato-tools[test]", "ruff", "pylint", "pylint-per-file-ignores", "pyright"]
+# the test extra too, so pyright can check the tests' pytest imports; Ruff up to its next minor version, since a minor
+# release can change its default rules and its formatting
+dev = ["serato-tools[test]", "ruff>=0.17,<0.18", "pyright"]
 
 [project.urls]
 Homepage = "https://pypi.org/project/serato-tools/"
@@ -65,8 +66,10 @@ line-length = 120
 
 [tool.ruff.lint]
 # Ruff's defaults, plus: import order (I), newer syntax and the standard library's current names (UP), likely bugs
-# (B), simpler equivalents (SIM, C4, PIE, PERF), and Ruff's own (RUF)
-extend-select = ["I", "UP", "B", "SIM", "C4", "PIE", "PERF", "RUF"]
+# (B), simpler equivalents (SIM, C4, PIE, PERF), and Ruff's own (RUF); and what pylint checked: access to another
+# class's private members (SLF), unused arguments (ARG), catching any exception (BLE), pylint's errors and warnings
+# (PLE, PLW), and exec and eval (S102, S307)
+extend-select = ["I", "UP", "B", "SIM", "C4", "PIE", "PERF", "RUF", "SLF", "ARG", "BLE", "PLE", "PLW", "S102", "S307"]
 ignore = [
     # takes any UPPER_CASE name for a constant, so it would swap `assert cls.DEFAULT_ENTRIES == default` to put the
     # expected value first
@@ -74,7 +77,18 @@ ignore = [
     # flags any raise after an isinstance check, but those here are about malformed data or a tag with no audio file,
     # which raise ValueError, not about a caller passing the wrong type
     "TRY004",
+    # the parsers convert each field's value in place as they read it, reassigning the loop variable; pylint only
+    # checks this in an optional extension
+    "PLW2901",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# tests reach into internals to set up and check state the public API doesn't expose
+"test/**" = ["SLF001"]
+
+[tool.ruff.lint.flake8-unused-arguments]
+# a lambda or callback taking `*args` it doesn't use is matching the signature its caller passes
+ignore-variadic-names = true
 
 # Groups the imports into the standard library, third-party packages, and this repo's modules, each sorted.
 [tool.ruff.lint.isort]

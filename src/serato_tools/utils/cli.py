@@ -14,7 +14,7 @@ def open_tag_file_or_data[T: SeratoGeobTag](tag_class: type[T], path: str) -> T:
     Write it back with `save_tag_file_or_data`.
     """
     # imported here, not at the top, so the module imports without the track_tags extra (mutagen)
-    from serato_tools.utils.track_tags import TAGFILE_EXTENSIONS  # pylint: disable=import-outside-toplevel
+    from serato_tools.utils.track_tags import TAGFILE_EXTENSIONS
 
     if path.lower().endswith(TAGFILE_EXTENSIONS):
         return tag_class(path)
@@ -32,5 +32,5 @@ def save_tag_file_or_data(tag: "SeratoGeobTag", path: str) -> bool:
     if not tag.has_changed:
         return False
     with open(path, "wb") as f:
-        f.write(tag._raw_data or b"")  # pylint: disable=protected-access
+        f.write(tag._raw_data or b"")  # noqa: SLF001
     return True
