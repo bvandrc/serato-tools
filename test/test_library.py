@@ -63,6 +63,10 @@ class Folders:
         crate.add_tracks(tracks)
         crate.save()
 
+    def db_track(self, track: str) -> SeratoBinFile.Track:
+        """`track`'s entry in the saved database."""
+        return next(t for t in DatabaseV2(self.db_file).get_tracks() if t.relpath == relpath(track))
+
     def db_values(self, field: DatabaseV2.Fields) -> dict[str, SeratoBinFile.Value]:
         """Each saved database track's value of `field`, by path, for the tracks that have it."""
         return {t.relpath: t.get_value(field) for t in DatabaseV2(self.db_file).get_tracks() if field in t.fields}
@@ -120,9 +124,9 @@ def test_rename_track_file(folders: Folders, bin_file_writes: list[str]):
     db_paths = track_paths(library.database)
     assert new_path in db_paths, "db path updated"
     assert old_path not in db_paths, "db old path gone"
-    for crate in [*library.crates, *library.smart_crates]:
-        if os.path.basename(crate.filepath) != "Without.crate":
-            assert track_paths(crate) == [new_path], f"{crate.filepath} path updated"
+    crates = {os.path.basename(c.filepath): c for c in [*library.crates, *library.smart_crates]}
+    assert track_paths(crates["With.crate"]) == [new_path], "crate path updated"
+    assert track_paths(crates["Smart.scrate"]) == [new_path], "smart crate path updated"
 
 
 def test_rename_track_file_in_a_given_database(folders: Folders, bin_file_writes: list[str]):
@@ -360,7 +364,8 @@ def test_set_db_track_tags_text_frames(folders: Folders):
     assert {key: frames.get(frame_id) for key, (_, frame_id, _) in TEXT_FRAMES.items()} == {
         key: str(value) for key, (value, _, _) in TEXT_FRAMES.items()
     }, "file"
-    assert {key: folders.db_values(field)[relpath(track)] for key, (_, _, field) in TEXT_FRAMES.items()} == {
+    saved = folders.db_track(track)
+    assert {key: saved.get_value(field) for key, (_, _, field) in TEXT_FRAMES.items()} == {
         key: value for key, (value, _, _) in TEXT_FRAMES.items()
     }, "database"
 
@@ -473,10 +478,7 @@ def _then_a_track_with(tags: dict[str, object]):
             id="a later track's file unreadable",
         ),
         pytest.param(
-            lambda folders, first: {
-                first: {"color": Colors.RED},
-                folders.copy_analyzed_track("Second.mp3"): {"track_number": -1},
-            },
+            _then_a_track_with({"track_number": -1}),
             ValueError,
             "holds a number from 0 to 4294967295, not -1",
             id="a later track's number the database can't hold",
