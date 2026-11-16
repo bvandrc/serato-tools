@@ -29,3 +29,8 @@ class DeeplyNestedListError(Exception):
 
 class _AssertionValueError(ValueError, AssertionError):
     """A malformed file or value, raised where 5.6 asserted: a ValueError, and an AssertionError until 6.0."""
+
+
+class _AttributeDataTypeError(DataTypeError, AttributeError):
+    """A value of the wrong type, raised where 5.7 raised AttributeError: a DataTypeError, and an AttributeError until
+    6.0."""

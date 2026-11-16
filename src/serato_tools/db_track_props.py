@@ -10,7 +10,7 @@ from typing import Callable, Mapping, TypedDict
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.track import Track
 from serato_tools.track_cues_v2 import TrackCuesV2
-from serato_tools.utils import DataTypeError
+from serato_tools.utils import _AttributeDataTypeError
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
 
@@ -19,11 +19,6 @@ class DbTrackTags(TypedDict, total=False):
 
     color: TrackCuesV2.TrackColors
     beatgrid_locked: bool
-
-
-class _AttributeDataTypeError(DataTypeError, AttributeError):
-    """A value of the wrong type for its key: a DataTypeError, and an AttributeError, which 5.7 raised for a color
-    given as text, until 6.0."""
 
 
 @dataclass(frozen=True)
