@@ -378,16 +378,28 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ## [3.4.3] - 2025-08-19
 
+### Database / Crates
+
+- **[BREAKING] Removed (CLI):** The `-o` / `--output` option of `python -m serato_tools.crate` and `python -m serato_tools.smart_crate`, which saved the crate to another file.
+  - **Upgrading:** Call the crate's `save(file)`.
+- **Feature (CLI):** Add the `serato_crate` and `serato_smartcrate` commands, which take a crate file, a folder of crates, or `--all` for every crate or smart crate in the Serato library.
+
 ### Smart Crates
 
-- **[BREAKING]** Convert smart crate rules from objects to enums.
+- **[BREAKING]** Smart crate rule fields and comparisons are now the `SmartCrate.RuleField` and `SmartCrate.RuleComparison` enums, rather than the `RULE_FIELD` and `RULE_COMPARISON` dicts.
+  - **Upgrading:** Replace `SmartCrate.RULE_FIELD["genre"]` with `SmartCrate.RuleField.GENRE`, and `SmartCrate.RULE_COMPARISON["STR_IS"]` with `SmartCrate.RuleComparison.STR_IS`.
+- **Feature:** Add `set_value`, `set_field`, and `set_comparison` to a smart crate's `Rule`, to change a rule through `modify_rules`.
+- **Feature (CLI):** `serato_smartcrate --set_rules` sets the value of the rules on each field it's given, e.g. `--set_rules --grouping UNTAGGED`.
+- **Fix:** Fix reading a smart crate rule that doesn't hold every kind of value.
 
-## 3.4.0 - 2025-06-11
+### Track Tags
 
-### Crates
+- **Fix:** A `TrackAutotags` of a file without the tag gives None for `bpm`, `autogain`, and `gaindb`, rather than raising `AttributeError`.
+- **Fix:** A tag's `save()` no longer raises for a file that has no such tag and no data to write for it.
 
-- **Feature:** Modify smart crate rules.
-- **Feature:** Add `serato_smartcrate` and `serato_crate` entry points.
+### USB Export
+
+- **Feature (CLI):** `serato_usb_export` takes `-r` as short for `--root_crate`.
 
 ## [1.5.1] - 2025-04-11
 
