@@ -12,7 +12,7 @@ import platform
 import re
 import shutil
 from dataclasses import dataclass
-from typing import Iterable, Optional
+from typing import Callable, Iterable, Optional
 
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
@@ -62,47 +62,16 @@ def copy_crates_to_usb(
     if os.path.isdir(DEST_SERATO_DIR):
         shutil.rmtree(DEST_SERATO_DIR)
 
-    # copy the crate files, and get the filenames from them
-    tracks_to_copy: list[str] = []
-
-    crate_dir = os.path.join(DEST_SERATO_DIR, Crate.DIR)
-    os.makedirs(crate_dir, exist_ok=True)
-
-    def change_track_path(track_path: str):
+    def dest_track_path(track_path: str) -> str:
+        """Where the track at `track_path` goes on the drive, as Serato stores a path."""
         return Crate.get_relative_path(os.path.join(dest_tracks_dir, os.path.basename(track_path)))
 
-    def modify_crate_track(track: Crate.Track) -> Crate.Track:
-        tracks_to_copy.append(track.relpath)
-        track.set_path(change_track_path(track.relpath))
-        return track
-
+    dest_crate_dir = os.path.join(DEST_SERATO_DIR, Crate.DIR)
+    os.makedirs(dest_crate_dir, exist_ok=True)
+    tracks_to_copy: list[str] = []
     for crate_file in crate_files:
-        if os.path.isdir(crate_file):
-            continue
-        elif crate_file.endswith(Crate.EXTENSION):
-            crate = Crate(crate_file)
-        elif crate_file.endswith(SmartCrate.EXTENSION):
-            crate = SmartCrate(crate_file)
-        else:
-            raise ValueError(
-                f"not a crate file, should end with {Crate.EXTENSION} or {SmartCrate.EXTENSION}: {crate_file}"
-            )
-
-        crate.modify_tracks(modify_crate_track)
-        crate.remove_duplicates()
-
-        crate_filename = os.path.basename(crate_file)
-        if isinstance(crate, SmartCrate):
-            # a smart crate's subcrate separator in its filename is ≫≫, a regular crate's %%
-            crate_filename = os.path.splitext(crate_filename.replace("≫≫", "%%"))[0] + Crate.EXTENSION
-        if root_crate is not None:
-            crate_filename = root_crate + "%%" + crate_filename
-        new_crate_file = os.path.join(crate_dir, crate_filename)
-        if isinstance(crate, SmartCrate):
-            # Serato can't use a smart crate on a drive
-            crate = crate.to_regular_crate(new_crate_file)
-        crate.save(new_crate_file)
-        logger.info(f"copied crate {new_crate_file}")
+        if not os.path.isdir(crate_file):
+            tracks_to_copy += _export_crate(crate_file, dest_crate_dir, root_crate, dest_track_path)
 
     # create the db file
     db = DatabaseV2()
@@ -135,7 +104,7 @@ def copy_crates_to_usb(
         stems_crate = Crate(LOCAL_STEMS_CRATE)
 
         def modify_stems_crate_track(track: Crate.Track) -> Crate.Track:
-            track.set_path(change_track_path(track.relpath))
+            track.set_path(dest_track_path(track.relpath))
             return track
 
         stems_crate.filter_tracks(lambda track: os.path.normpath(track.relpath) in tracks_to_copy_set)
@@ -145,6 +114,49 @@ def copy_crates_to_usb(
         logger.info(f"copied crate {DEST_STEMS_CRATE}")
 
     _copy_tracks(tracks_to_copy, os.path.join(dest_drive_dir, dest_tracks_dir))
+
+
+def _export_crate(
+    crate_file: str, dest_crate_dir: str, root_crate: Optional[str], dest_track_path: Callable[[str], str]
+) -> list[str]:
+    """Writes the crate to the drive's crate folder, pointed at its tracks' paths there, and returns the paths it held.
+
+    The paths returned are as Serato stores them, without a drive or leading slash, in the crate's order and with
+    any duplicates.
+
+    A smart crate is written as a regular crate of the tracks it holds, keeping its sort and columns but not its
+    rules, since Serato can't use one on a drive.
+    """
+    crate: Crate | SmartCrate
+    if crate_file.endswith(Crate.EXTENSION):
+        crate = Crate(crate_file)
+    elif crate_file.endswith(SmartCrate.EXTENSION):
+        crate = SmartCrate(crate_file)
+    else:
+        raise ValueError(f"not a crate file, should end with {Crate.EXTENSION} or {SmartCrate.EXTENSION}: {crate_file}")
+
+    track_paths: list[str] = []
+
+    def move_track(track: Crate.Track) -> Crate.Track:
+        track_paths.append(track.relpath)
+        track.set_path(dest_track_path(track.relpath))
+        return track
+
+    crate.modify_tracks(move_track)
+    crate.remove_duplicates()
+
+    crate_filename = os.path.basename(crate_file)
+    if isinstance(crate, SmartCrate):
+        # a smart crate's subcrate separator in its filename is ≫≫, a regular crate's %%
+        crate_filename = os.path.splitext(crate_filename.replace("≫≫", "%%"))[0] + Crate.EXTENSION
+    if root_crate is not None:
+        crate_filename = root_crate + "%%" + crate_filename
+    dest_crate_file = os.path.join(dest_crate_dir, crate_filename)
+    if isinstance(crate, SmartCrate):
+        crate = crate.to_regular_crate(dest_crate_file)
+    crate.save(dest_crate_file)
+    logger.info(f"copied crate {dest_crate_file}")
+    return track_paths
 
 
 def _copy_order_file(dest_serato_dir: str, root_crate: Optional[str]):
