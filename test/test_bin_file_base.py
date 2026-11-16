@@ -89,6 +89,12 @@ class ParseTestCase(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "file ends partway through"):
                     DatabaseV2(path)
 
+    def test_version_is_read_only(self):
+        database = DatabaseV2(TEST_DATABASE)
+        self.assertIn(database.version, DatabaseV2.TESTED_VERSIONS)
+        with self.assertRaises(AttributeError):
+            database.version = "other"  # pyright: ignore[reportAttributeAccessIssue]
+
     def test_modify_with_two_rules_for_a_field_raises(self):
         db = DatabaseV2(TEST_DATABASE)
         rule: SeratoBinFile.ModifyRule = {"field": DatabaseV2.Fields.GENRE, "func": lambda *args: None}

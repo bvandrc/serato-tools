@@ -39,7 +39,7 @@ Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Breaking: a database or crate track's `get_full_path()` is now its `full_path` property.
 - A database or crate track's `relpath` and `full_path`, and a smart crate rule's `comparison`, `field`, and `value`, read the track's or rule's current entries, so they no longer keep a value set through `set_value` or removed through `remove_field`. In particular, the rules of one `modify()` call after one that changes a track's path are passed its new path, not its old one.
 - A database or crate track's, or a smart crate rule's, `set_value` raises `DataTypeError` for a value that isn't the type its field holds, and `ValueError` for a number too big or negative for it, when it's set rather than only when the file is saved.
-- Breaking: a database's or crate's `entries` is now internal. Change a file through its methods (`modify_tracks`, `modify`, `add_tracks`, `set_rule`, ...), and read it through `get_entries`, `get_tracks`, or `to_json_object`.
+- Breaking: a database's or crate's `entries` is now internal, and its `version` is read-only. Change a file through its methods (`modify_tracks`, `modify`, `add_tracks`, `set_rule`, ...), and read it through `get_entries`, `get_tracks`, or `to_json_object`.
 - `modify_tracks`, and so `modify`, change no track when `func` raises for one, rather than keeping the changes to the tracks before it.
 - A smart crate rule's `comparison` is typed as `str` and its `field` as `int`, rather than as any value an entry can hold.
 - Breaking: `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`, next to the database and crate code that raises them.

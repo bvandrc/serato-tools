@@ -198,7 +198,7 @@ class SeratoBinFile:
         # every value's type matches its field's, as checked wherever one comes in (parsing, JSON, set_value), so
         # code reading a value can rely on its field's type rather than check it
         self._entries: SeratoBinFile.EntryList
-        self.version: str
+        self._version: str
 
         for key in ["TESTED_VERSIONS", "TRACK_PATH_KEY", "DEFAULT_ENTRIES"]:
             if not hasattr(self, key):
@@ -222,9 +222,9 @@ class SeratoBinFile:
             # copied down to the nested lists (osrt, ovct, ...): a shallow copy would leave every instance sharing —
             # and able to mutate — the class-level DEFAULT_ENTRIES sublists.
             self._entries = copy.deepcopy(self.DEFAULT_ENTRIES)
-            self.version = self._check_version(self._entries[0][1])
+            self._version = self._check_version(self._entries[0][1])
 
-        if not hasattr(self, "version"):
+        if not hasattr(self, "_version"):
             raise AttributeError("version not set after parsing file")
 
         self._parsed = True
@@ -244,6 +244,11 @@ class SeratoBinFile:
                 lines.append(f"{indent_str}{field} ({fieldname}): {str(value)}")
 
         return "\n".join(lines)
+
+    @property
+    def version(self) -> str:
+        """The file's format version, from its `vrsn` entry: one of `TESTED_VERSIONS`."""
+        return self._version
 
     def _check_version(self, value: Value) -> str:
         """`value`, typed as text; raises unless it's one of `TESTED_VERSIONS`."""
@@ -321,7 +326,7 @@ class SeratoBinFile:
                     raise ValueError(f"unexpected type: {value_type}")
 
                 if not version_set and field == SeratoBinFile.Fields.VERSION:
-                    self.version = self._check_version(value)
+                    self._version = self._check_version(value)
                     version_set = True
 
                 result.append((field, value))
@@ -510,7 +515,7 @@ class SeratoBinFile:
                 raise ValueError(f"unexpected type for field: {field}")
 
             if not version_set and field == SeratoBinFile.Fields.VERSION:
-                self.version = self._check_version(value)
+                self._version = self._check_version(value)
                 version_set = True
 
             yield field, value
