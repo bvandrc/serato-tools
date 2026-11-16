@@ -73,6 +73,8 @@ Each release groups its changes by the part of the package they're in. Within ea
     - For `snap_positions_to_beat` and `snap_positions_to_beat_rule`, use `Track.snap_cues_to_beats`, or `TrackCuesV2.snap_cues_to_beats(beatgrid, ...)` with a beatgrid you pass it. Both return the moves rather than printing them. There's no rule to pass to `modify_entries`: snap, then make any other edits, before saving.
     - For `get_snapped_beat_ms`, use `TrackBeatgrid.get_snapped_position` (e.g. `track.beatgrid.get_snapped_position`).
     - For `get_beat_position(entry)`, use `beatgrid.get_beat_position(entry.position)`.
+- **[BREAKING] Removed:** The `FIELDS` tuple on `TrackCuesV2`'s entry classes (`CueEntry`, `LoopEntry`, `ColorEntry`, `BpmLockEntry`, `FlipEntry`, and `UnknownEntry`), which listed each one's dataclass fields. Their repr is unchanged.
+  - **Upgrading:** Use `dataclasses.fields`, which gives the same names in the same order: `[f.name for f in dataclasses.fields(TrackCuesV2.CueEntry)]`.
 - **[BREAKING] Removed (CLI):** The CLIs' edit modes: `-e` / `--edit` on `serato_snap_cues_v2`, `python -m serato_tools.track_cues_v1`, and `python -m serato_tools.track_autotags`. Each still prints the tag's entries or values. `TrackCuesV2.parse_entries_file`, which read the text the edit mode wrote, is removed with them.
   - **Upgrading:** Change a tag through its class's methods instead, such as `TrackCuesV2.modify_entries`, `set_track_color`, and `snap_cues_to_beats`, or `TrackAutotags.set`.
 - **Feature:** Add `TrackTextFrames` (`serato_tools.track_text_frames`), which reads and sets a track file's ID3 text frames, and `Track.text_frames`. Setting a frame to `""` removes it, as Serato does when a tag is cleared.
