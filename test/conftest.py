@@ -24,7 +24,7 @@ def new_crate(tmp_dir: str) -> Crate:
 def mp3(tmp_dir: str) -> str:
     """A copy of the test mp3, which has every Serato tag, in a new temporary folder."""
     # imported here so the tests that don't touch track tags don't need the track_tags extra (mutagen)
-    from test.helpers.track_tags import copy_mp3  # noqa: PLC0415
+    from test.helpers.track_tags import copy_mp3
 
     return copy_mp3(tmp_dir)
 
@@ -32,7 +32,7 @@ def mp3(tmp_dir: str) -> str:
 @pytest.fixture
 def no_cues_mp3(tmp_dir: str) -> str:
     """A copy of the test mp3 without its Serato Markers2 and Serato Markers_ tags, in a new temporary folder."""
-    from test.helpers.track_tags import copy_mp3_without_cues  # noqa: PLC0415
+    from test.helpers.track_tags import copy_mp3_without_cues
 
     return copy_mp3_without_cues(tmp_dir)
 
@@ -41,9 +41,9 @@ def no_cues_mp3(tmp_dir: str) -> str:
 def no_beatgrid_mp3(tmp_dir: str) -> str:
     """A copy of the test mp3 without its Serato BeatGrid tag, as for a track with cues from Mixed In Key that Serato
     hasn't analyzed, in a new temporary folder."""
-    from serato_tools.track_beatgrid import TrackBeatgrid  # noqa: PLC0415
+    from serato_tools.track_beatgrid import TrackBeatgrid
 
-    from test.helpers.track_tags import copy_mp3_without  # noqa: PLC0415
+    from test.helpers.track_tags import copy_mp3_without
 
     return copy_mp3_without(tmp_dir, TrackBeatgrid.GEOB_KEY, name="no_beatgrid.mp3")
 

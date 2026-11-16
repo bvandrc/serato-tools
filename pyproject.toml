@@ -110,8 +110,9 @@ extend-select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# tests reach into internals to set up and check state the public API doesn't expose
-"test/**" = ["SLF001"]
+# tests reach into internals to set up and check state the public API doesn't expose, and import what only some of
+# them need (the track_tags extra) inside the fixtures that need it
+"test/**" = ["SLF001", "PLC0415"]
 # a standalone script, not part of a package, which runs the gh CLI found on PATH and prints what it does
 ".github/scripts/**" = ["INP001", "S607", "T20"]
 
