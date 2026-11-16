@@ -702,22 +702,122 @@ class TrackCuesV2(SeratoGeobTag):
         return any((isinstance(entry, TrackCuesV2.BpmLockEntry) and entry.enabled) for entry in self.entries)
 
 
+# answers to the edit mode's prompts after the editor fails or gives invalid content
+_RETRY_CHOICES = {"y": "edit again", "n": "leave unchanged"}
+
+
+def _edit_entries(entries: "Sequence[TrackCuesV2.Entry]", editors: dict[str, str]) -> "list[TrackCuesV2.Entry]":
+    """The CLI's edit mode: asks about each entry in turn, opening an editor to change it, and returns the entries after.
+
+    `editors` holds the paths of the `text` and `hex` editors.
+    """
+    from serato_tools.utils.cli import ui_ask
+
+    width = len(str(len(entries)))
+    new_entries: list[TrackCuesV2.Entry] = []
+    action = None
+    for index, entry in enumerate(entries):
+        if action not in ("q", "_"):
+            print(f"{index:{width}d}: {entry!r}")
+            action = ui_ask(
+                "Edit this entry",
+                {
+                    "y": "edit this entry",
+                    "n": "do not edit this entry",
+                    "q": "quit; do not edit this entry or any of the remaining ones",
+                    "a": "edit this entry and all later entries in the file",
+                    "b": "edit raw bytes",
+                    "r": "remove this entry",
+                },
+                default="n",
+            )
+
+        if action in ("y", "a", "b"):
+            to_edit = entries[index:] if action == "a" else entries[index : index + 1]
+            results = _edit_in_editor(to_edit, index, width, action, editors)
+            if results is None:
+                new_entries.append(entry)
+                if action == "a":
+                    action = "q"  # the rest are left as they are
+            else:
+                new_entries.extend(results)
+                if action == "a":
+                    action = "_"  # the rest were edited along with this one
+        elif action not in ("r", "_"):
+            new_entries.append(entry)
+    return new_entries
+
+
+def _edit_in_editor(
+    entries: "Sequence[TrackCuesV2.Entry]", start: int, width: int, action: str, editors: dict[str, str]
+) -> "list[TrackCuesV2.Entry] | None":
+    """The entries after editing them, until they're valid and confirmed, or None to leave them as they were.
+
+    `action` is the edit mode's answer: `b` edits the first entry's bytes in the hex editor, `y` the first entry and
+    `a` all of them as text.
+    """
+    # this is the module's own CLI, so it uses its entries' internal _parse() / _serialize()
+    # pylint: disable=protected-access
+    import subprocess
+    import tempfile
+
+    from serato_tools.utils.cli import ui_ask
+
+    while True:
+        # closed before the editor opens it, which Windows needs, and deleted when the block ends
+        with tempfile.NamedTemporaryFile(delete_on_close=False) as f:
+            if action == "b":
+                f.write(entries[0]._serialize())
+            else:
+                for index, entry in enumerate(entries, start=start):
+                    name = entry.NAME if entry.NAME is not None else "Unknown"
+                    # numbered for "a", since configparser needs each section's name to be unique
+                    number = f"{index:{width}d}: " if action == "a" else ""
+                    f.write(f"[{number}{name}]\n".encode())
+                    for field_name in entry.FIELDS:
+                        f.write(f"{field_name}: {getattr(entry, field_name)!r}\n".encode())
+                    f.write(b"\n")
+            f.close()
+            status = subprocess.call((editors["hex" if action == "b" else "text"], f.name))
+            # read by name, since an editor may write its changes to a new file in this one's place
+            with open(f.name, "rb") as edited:
+                output = edited.read()
+
+        if status != 0:
+            if ui_ask("Command failed, retry", _RETRY_CHOICES) == "n":
+                return None
+            continue
+        try:
+            if action == "b":
+                results = [type(entries[0])._parse(output)]
+            else:
+                results = TrackCuesV2.parse_entries_file(output.decode(), assert_len_1=action != "a")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            print(str(e))
+            if ui_ask("Content seems to be invalid, retry", _RETRY_CHOICES) == "n":
+                return None
+            continue
+
+        for index, result in enumerate(results, start=start):
+            print(f"{index:{width}d}: {result!r}")
+        answer = ui_ask(
+            "Above content is valid, save changes",
+            {"y": "save current changes", "n": "discard changes", "e": "edit again"},
+            default="y",
+        )
+        if answer == "y":
+            return results
+        if answer == "n":
+            return None
+
+
 def main():
     """The `serato_snap_cues_v2` CLI: sets the track color, snaps cues to the beatgrid, or prints or edits entries."""
     # this script is part of the module, so it uses the tag's and its entries' internal _parse() / _serialize()
     # pylint: disable=protected-access
     import argparse
-    import math
-    import subprocess
-    import tempfile
 
-    from serato_tools.utils.cli import (
-        get_hex_editor,
-        get_text_editor,
-        open_tag_file_or_data,
-        save_tag_file_or_data,
-        ui_ask,
-    )
+    from serato_tools.utils.cli import get_hex_editor, get_text_editor, open_tag_file_or_data, save_tag_file_or_data
 
     @dataclass
     class Args:
@@ -793,137 +893,26 @@ def main():
         tags.save(delete_tags_v1=True)
         sys.exit()
 
-    if args.edit:
-        text_editor = get_text_editor()
-        hex_editor = get_hex_editor()
+    # found first, so a missing editor fails even for a file without entries
+    editors = {"text": get_text_editor(), "hex": get_hex_editor()} if args.edit else {}
 
     if not tags.entries:
         print(f'File has no "{TrackCuesV2.GEOB_KEY}" entries.')
         sys.exit()
-    new_entries: list[TrackCuesV2.Entry] = []
-    width = math.floor(math.log10(len(tags.entries))) + 1
-    action = None
-    for entry_index, entry in enumerate(tags.entries):
-        if args.edit:
-            if action not in ("q", "_"):
-                print("{:{}d}: {!r}".format(entry_index, width, entry))
-                action = ui_ask(
-                    "Edit this entry",
-                    {
-                        "y": "edit this entry",
-                        "n": "do not edit this entry",
-                        "q": "quit; do not edit this entry or any of the remaining ones",
-                        "a": "edit this entry and all later entries in the file",
-                        "b": "edit raw bytes",
-                        "r": "remove this entry",
-                    },
-                    default="n",
-                )
 
-            if action in ("y", "a", "b"):
-                while True:
-                    # closed before the editor opens it, which Windows needs, and deleted when the block ends
-                    with tempfile.NamedTemporaryFile(delete_on_close=False) as f:
-                        if action == "b":
-                            f.write(entry._serialize())
-                            editor = hex_editor  # pyright: ignore[reportPossiblyUnboundVariable]
-                        else:
-                            if action == "a":
-                                entries_to_edit = (
-                                    (
-                                        "{:{}d}: {}".format(i, width, e.NAME if e.NAME is not None else "Unknown"),
-                                        e,
-                                    )
-                                    for i, e in enumerate(tags.entries[entry_index:], start=entry_index)
-                                )
-                            else:
-                                entries_to_edit = ((entry.NAME if entry.NAME is not None else "Unknown", entry),)
+    if not args.edit:
+        width = len(str(len(tags.entries)))
+        for index, entry in enumerate(tags.entries):
+            print(f"{index:{width}d}: {entry!r}")
+        return
 
-                            for section, e in entries_to_edit:
-                                f.write("[{}]\n".format(section).encode())
-                                for field_name in e.FIELDS:
-                                    f.write("{}: {!r}\n".format(field_name, getattr(e, field_name)).encode())
-                                f.write(b"\n")
-                            editor = text_editor  # pyright: ignore[reportPossiblyUnboundVariable]
-                        f.close()
-                        status = subprocess.call((editor, f.name))
-                        # read by name, since an editor may write its changes to a new file in this one's place
-                        with open(f.name, "rb") as edited:
-                            output = edited.read()
-
-                    if status != 0:
-                        if (
-                            ui_ask(
-                                "Command failed, retry",
-                                {
-                                    "y": "edit again",
-                                    "n": "leave unchanged",
-                                },
-                            )
-                            == "n"
-                        ):
-                            new_entries.append(entry)
-                            if action == "a":
-                                action = "q"
-                            break
-                    else:
-                        try:
-                            if action != "b":
-                                results = TrackCuesV2.parse_entries_file(output.decode(), assert_len_1=action != "a")
-                            else:
-                                results = [type(entry)._parse(output)]
-                        except Exception as e:  # pylint: disable=broad-exception-caught
-                            print(str(e))
-                            if (
-                                ui_ask(
-                                    "Content seems to be invalid, retry",
-                                    {
-                                        "y": "edit again",
-                                        "n": "leave unchanged",
-                                    },
-                                )
-                                == "n"
-                            ):
-                                new_entries.append(entry)
-                                if action == "a":
-                                    action = "q"
-                                break
-                        else:
-                            for i, e in enumerate(results, start=entry_index):
-                                print("{:{}d}: {!r}".format(i, width, e))
-                            subaction = ui_ask(
-                                "Above content is valid, save changes",
-                                {
-                                    "y": "save current changes",
-                                    "n": "discard changes",
-                                    "e": "edit again",
-                                },
-                                default="y",
-                            )
-                            if subaction == "y":
-                                new_entries.extend(results)
-                                if action == "a":
-                                    action = "_"
-                                break
-                            elif subaction == "n":
-                                if action == "a":
-                                    action = "q"
-                                new_entries.append(entry)
-                                break
-            elif action in ("r", "_"):
-                continue
-            else:
-                new_entries.append(entry)
-        else:
-            print("{:{}d}: {!r}".format(entry_index, width, entry))
-
-    if args.edit:
-        if new_entries == tags.entries:
-            print("No changes made.")
-        else:
-            tags.entries = new_entries
-            tags._serialize()
-            save_tag_file_or_data(tags, args.file)
+    new_entries = _edit_entries(tags.entries, editors)
+    if new_entries == tags.entries:
+        print("No changes made.")
+    else:
+        tags.entries = new_entries
+        tags._serialize()
+        save_tag_file_or_data(tags, args.file)
 
 
 if __name__ == "__main__":
