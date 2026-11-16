@@ -390,7 +390,7 @@ def main():
         if not tags.entries:
             sys.exit(str(NoBeatgridError(tags.filename)))
         for entry in tags.entries:
-            print(entry)
+            print(entry)  # noqa: T201
 
 
 def main_analyze():

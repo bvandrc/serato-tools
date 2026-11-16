@@ -705,16 +705,16 @@ def main():
         except MissingTagError as error:
             sys.exit(f"Can't snap the cues: {error}")
         for snapped in snapped_cues:
-            print(f"Snapped cue {snapped.index + 1} by {snapped.new_position - snapped.old_position} ms")
+            print(f"Snapped cue {snapped.index + 1} by {snapped.new_position - snapped.old_position} ms")  # noqa: T201
         tags.save(delete_tags_v1=True)
         sys.exit()
 
     if not tags.entries:
-        print(f'File has no "{TrackCuesV2.GEOB_KEY}" entries.')
+        print(f'File has no "{TrackCuesV2.GEOB_KEY}" entries.')  # noqa: T201
         sys.exit()
     width = math.floor(math.log10(len(tags.entries))) + 1
     for entry_index, entry in enumerate(tags.entries):
-        print("{:{}d}: {!r}".format(entry_index, width, entry))
+        print("{:{}d}: {!r}".format(entry_index, width, entry))  # noqa: T201
 
 
 if __name__ == "__main__":

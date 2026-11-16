@@ -89,7 +89,7 @@ def analyze_beatgrid(file: str, bpm_helper: float | None = None):
 if __name__ == "__main__":
     from pprint import pprint
 
-    print("Analyzing beatgrid:")
+    print("Analyzing beatgrid:")  # noqa: T201
     beat_info = analyze_beatgrid(sys.argv[1])
 
-    pprint(asdict(beat_info))
+    pprint(asdict(beat_info))  # noqa: T203

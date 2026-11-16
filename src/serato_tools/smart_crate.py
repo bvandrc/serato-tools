@@ -307,8 +307,8 @@ def main():
         args.file_or_dir = SmartCrate.DIR_PATH
 
     if not args.file_or_dir:
-        print(f"must pass a file or dir, or --all!\nfiles in {SmartCrate.DIR_PATH}:")
-        print("\n".join(SmartCrate.get_crate_files()))
+        print(f"must pass a file or dir, or --all!\nfiles in {SmartCrate.DIR_PATH}:")  # noqa: T201
+        print("\n".join(SmartCrate.get_crate_files()))  # noqa: T201
         sys.exit()
 
     for crate_path in SmartCrate.get_crate_files(args.file_or_dir):
@@ -326,7 +326,7 @@ def main():
         elif args.list_tracks or args.filenames_only:
             crate.print_track_paths(filenames_only=args.filenames_only)
         else:
-            print(crate)
+            print(crate)  # noqa: T201
 
 
 if __name__ == "__main__":

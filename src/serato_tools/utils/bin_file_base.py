@@ -361,7 +361,7 @@ class SeratoBinFile:
             f.write(json_content)
 
     def print(self):
-        print(self)
+        print(self)  # noqa: T201
 
     class EntryListCls:
         """A flat entry list, such as a track's, with each field's value as an attribute named for the field.
@@ -877,7 +877,7 @@ class SeratoBinFile:
             track_path = track.full_path
             if os.path.isfile(track_path):
                 return track
-            print(f"missing: {track_path}")
+            print(f"missing: {track_path}")  # noqa: T201
             filename = os.path.basename(track_path)
             new_location = None
             if new_dir is not None and os.path.isfile(in_new_dir := os.path.join(new_dir, filename)):
@@ -895,7 +895,7 @@ class SeratoBinFile:
                     answer = os.path.join(new_dir, filename)
                 if os.path.exists(answer):
                     new_location = answer
-            print("   new_location: " + new_location)
+            print("   new_location: " + new_location)  # noqa: T201
             track.set_path(new_location)
             return track
 

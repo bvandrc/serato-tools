@@ -74,7 +74,6 @@ ignore = [
     "D",  # docstring style: the repo's docstrings follow its own conventions
     "PTH",  # pathlib: the API takes and returns str paths
     "FBT",  # boolean positional arguments: changing them would change the public API, e.g. save(file, force)
-    "T20",  # print: the CLIs print
     "EM",  # exception messages assigned to a variable before raising
     "CPY",  # copyright notices
     "TD",  # TODO comment format
@@ -114,8 +113,8 @@ extend-select = [
 [tool.ruff.lint.per-file-ignores]
 # tests reach into internals to set up and check state the public API doesn't expose
 "test/**" = ["SLF001"]
-# a standalone script, not part of a package, which runs the gh CLI found on PATH
-".github/scripts/**" = ["INP001", "S607"]
+# a standalone script, not part of a package, which runs the gh CLI found on PATH and prints what it does
+".github/scripts/**" = ["INP001", "S607", "T20"]
 
 [tool.ruff.lint.flake8-pytest-style]
 # the tests name their parametrize arguments in one string, "a, b, c"

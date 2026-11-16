@@ -87,4 +87,4 @@ if __name__ == "__main__":
     args = Args(**vars(parser.parse_args()))
 
     tags = open_tag_file_or_data(TrackAutotags, args.file)
-    print(str(tags))
+    print(str(tags))  # noqa: T201

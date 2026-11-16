@@ -80,4 +80,4 @@ if __name__ == "__main__":
     args = Args(**vars(parser.parse_args()))
 
     tags = TrackGain(args.file)
-    print(str(tags))
+    print(str(tags))  # noqa: T201

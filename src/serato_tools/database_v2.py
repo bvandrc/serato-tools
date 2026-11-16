@@ -64,6 +64,6 @@ if __name__ == "__main__":
         db.find_missing()
     elif args.list_corrupt:
         for path, reason in db.get_corrupt_tracks().items():
-            print(f"{path}: {reason}")
+            print(f"{path}: {reason}")  # noqa: T201
     else:
-        print(db)
+        print(db)  # noqa: T201

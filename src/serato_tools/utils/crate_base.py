@@ -56,7 +56,7 @@ class CrateBase(SeratoBinFile):
         track_paths = self.get_track_paths(include_drive=True)
         if filenames_only:
             track_paths = [os.path.splitext(os.path.basename(t))[0] for t in track_paths]
-        print("\n".join(track_paths))
+        print("\n".join(track_paths))  # noqa: T201
 
     def save(self, file: str | None = None, force: bool = False) -> bool:
         """As `SeratoBinFile.save`, but raises ValueError if `file` doesn't end with this class's `EXTENSION`."""
