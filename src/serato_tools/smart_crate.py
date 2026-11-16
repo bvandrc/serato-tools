@@ -7,7 +7,6 @@ from enum import IntEnum, StrEnum, unique
 from typing import TYPE_CHECKING, cast
 
 from serato_tools.utils import SERATO_DIR
-from serato_tools.utils.bin_file_base import expect_type
 from serato_tools.utils.crate_base import CrateBase
 
 if TYPE_CHECKING:
@@ -123,27 +122,26 @@ class SmartCrate(CrateBase):
             return self._stringify_entries(value, indent)
 
         ret_val = str(value)
+        # an entry's value has its field's type, which loading and set_value check
         if field == SmartCrate.RuleFields.RULE_FIELD:
-            ret_val += f" ({SmartCrate.RuleField(expect_type(value, int, field)).name.lower()})"
+            ret_val += f" ({SmartCrate.RuleField(cast(int, value)).name.lower()})"
         elif field == SmartCrate.RuleFields.RULE_COMPARISON:
-            ret_val += f" ({SmartCrate.RuleComparison(expect_type(value, str, field)).name})"
+            ret_val += f" ({SmartCrate.RuleComparison(cast(str, value)).name})"
 
         return ret_val
 
     class Rule(CrateBase.EntryListCls):
         """One of a smart crate's rules: the track field it tests (`field`), the `comparison`, and the `value`."""
 
-        # TODO: check and ensure types
-
         @property
-        def comparison(self) -> "CrateBase.Value":
+        def comparison(self) -> str:
             """The rule's comparison, as a `SmartCrate.RuleComparison` value."""
-            return self.get_value(SmartCrate.RuleFields.RULE_COMPARISON)
+            return self.get_value(SmartCrate.RuleFields.RULE_COMPARISON, str)
 
         @property
-        def field(self) -> "CrateBase.Value":
+        def field(self) -> int:
             """The track field the rule tests, as a `SmartCrate.RuleField` value."""
-            return self.get_value(SmartCrate.RuleFields.RULE_FIELD)
+            return self.get_value(SmartCrate.RuleFields.RULE_FIELD, int)
 
         @property
         def value(self) -> str | int | None:
@@ -155,10 +153,9 @@ class SmartCrate(CrateBase):
             self, value: str | int
         ):
             """Sets the rule's value, converted to the type its comparison stores, in the field that type goes in."""
-            comparison = expect_type(self.comparison, str, SmartCrate.RuleFields.RULE_COMPARISON)
             # pylint: disable=protected-access
-            field = SmartCrate._get_rule_value_field(comparison)
-            value = SmartCrate._coerce_rule_value(comparison, value)
+            field = SmartCrate._get_rule_value_field(self.comparison)
+            value = SmartCrate._coerce_rule_value(self.comparison, value)
             # when the comparison's type differs from the old value's (e.g. text -> integer), replace
             # the old value field in place instead of leaving both in the rule
             for other in SmartCrate.RULE_VALUE_FIELDS - {field}:
@@ -193,7 +190,7 @@ class SmartCrate(CrateBase):
                 updated_rules.append((i, rule.to_entries()))
         # replaced only once every rule has been read, so one that raises leaves the crate unchanged
         for i, rule_entries in updated_rules:
-            self.entries[i] = (SmartCrate.RuleFields.SMARTCRATE_RULE.value, rule_entries)
+            self._entries[i] = (SmartCrate.RuleFields.SMARTCRATE_RULE.value, rule_entries)
 
         if not updated_rules:
             new_rule = SmartCrate.Rule(
@@ -203,7 +200,7 @@ class SmartCrate(CrateBase):
                 ]
             )
             new_rule.set_value(value)
-            self.entries.append((SmartCrate.RuleFields.SMARTCRATE_RULE.value, new_rule.to_entries()))
+            self._entries.append((SmartCrate.RuleFields.SMARTCRATE_RULE.value, new_rule.to_entries()))
 
     def delete_rule(self, field: "SmartCrate.RuleField") -> bool:
         """Removes every rule on `field`, and returns whether there was one to remove."""
@@ -224,10 +221,11 @@ class SmartCrate(CrateBase):
 
         crate = Crate(file)
         rule_fields = {field.value for field in SmartCrate.RuleFields}
-        crate.entries = [
+        # pylint: disable=protected-access
+        crate._entries = [
             # a regular crate's version, then this smart crate's entries but its own version and its rules
-            *(entry for entry in crate.entries if entry[0] == Crate.Fields.VERSION),
-            *(entry for entry in self.entries if entry[0] != Crate.Fields.VERSION and entry[0] not in rule_fields),
+            *(entry for entry in crate._entries if entry[0] == Crate.Fields.VERSION),
+            *(entry for entry in self._entries if entry[0] != Crate.Fields.VERSION and entry[0] not in rule_fields),
         ]
         return crate
 

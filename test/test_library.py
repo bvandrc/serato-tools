@@ -1,3 +1,4 @@
+# pylint: disable=protected-access
 import os
 import shutil
 import subprocess
@@ -39,7 +40,7 @@ class TestCase(unittest.TestCase):
     def add_to_database(self, *tracks: str):
         db = DatabaseV2(self.db_file)
         for track in tracks:
-            db.entries.append(
+            db._entries.append(
                 (DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, DatabaseV2.get_relative_path(track))])
             )
         db.save()
@@ -114,7 +115,7 @@ class TestCase(unittest.TestCase):
         src, dest = self.make_track("Old.mp3"), os.path.join(self.music_dir, "New.mp3")
         self.add_to_database(src)
         db = DatabaseV2(self.db_file)
-        db.entries.append((DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, "Unsaved.mp3")]))
+        db._entries.append((DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, "Unsaved.mp3")]))
 
         saved = self.saved_file_names()
         Library(self.serato_dir, database=db).rename_track_file(src, dest)

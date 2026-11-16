@@ -1,3 +1,4 @@
+# pylint: disable=protected-access
 import copy
 import os
 import unittest
@@ -57,17 +58,17 @@ class TestCase(unittest.TestCase):
         a.add_tracks(["/music/track1.mp3"])
         b = Crate(os.path.join(tmp, "B.crate"))
 
-        for i, (field, value) in enumerate(a.entries[: len(default_entries)]):
+        for i, (field, value) in enumerate(a._entries[: len(default_entries)]):
             if isinstance(value, list):
                 self.assertIsNot(value, Crate.DEFAULT_ENTRIES[i][1], f"{field} sublist shared with class default")
-                self.assertIsNot(value, b.entries[i][1], f"{field} sublist shared between instances")
+                self.assertIsNot(value, b._entries[i][1], f"{field} sublist shared between instances")
 
-        sorting_value = a.entries[1][1]
+        sorting_value = a._entries[1][1]
         assert isinstance(sorting_value, list)
         sorting_value.append((Crate.Fields.COLUMN_NAME, "mutated"))
 
         self.assertEqual(Crate.DEFAULT_ENTRIES, default_entries, "class default must not be mutated")
-        self.assertEqual(b.entries, default_entries, "other instance must not inherit tracks or nested edits")
+        self.assertEqual(b._entries, default_entries, "other instance must not inherit tracks or nested edits")
 
     def test_saving_needs_the_crate_extension(self):
         crate = Crate(os.path.join(temp_dir(self), "Test.crate"))

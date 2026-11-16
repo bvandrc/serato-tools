@@ -75,7 +75,7 @@ class CrateBase(SeratoBinFile):
         existing = set(self.get_track_paths())
         for filepath in filepaths:
             if (relpath := self.get_relative_path(filepath)) not in existing:
-                self.entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, relpath)]))
+                self._entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, relpath)]))
                 existing.add(relpath)
 
     def add_tracks_from_dir(self, dir: str, replace: bool = False):

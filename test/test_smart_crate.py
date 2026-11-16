@@ -1,16 +1,13 @@
 # pylint: disable=protected-access
 import contextlib
-import copy
 import io
 import os
 import shutil
 import unittest
-from typing import cast
 from unittest import mock
 
 from serato_tools.crate import Crate
 from serato_tools.smart_crate import SmartCrate, main
-from serato_tools.utils.bin_file_base import DataTypeError
 
 from test.helpers.bin_files import TEST_SMART_CRATE
 from test.helpers.files import read_bytes, read_text, temp_dir
@@ -62,16 +59,6 @@ class TestCase(unittest.TestCase):
             expected
             + "\nrurt (SmartCrate Rule): [ trft (Rule Comparison): cond_isn_str (STR_IS_NOT) ], [ urkt (Rule Field): 8 (album) ], [ trpt (Rule Value Text): albo ]",
         )
-
-    def test_set_rule_on_malformed_crate_changes_nothing(self):
-        crate = SmartCrate(os.path.abspath(TEST_SMART_CRATE))
-        # a rule entry after the GROUPING rule that holds text rather than an entry list
-        crate.entries.append((SmartCrate.RuleFields.SMARTCRATE_RULE.value, "not a rule"))
-        entries_before = copy.deepcopy(crate.entries)
-
-        with self.assertRaises(DataTypeError):
-            crate.set_rule(SmartCrate.RuleField.GROUPING, SmartCrate.RuleComparison.STR_IS, "changed")
-        self.assertEqual(crate.entries, entries_before, "a rule before the malformed one must not be replaced")
 
     def test_delete_rule_returns_whether_removed(self):
         crate = SmartCrate(os.path.abspath(TEST_SMART_CRATE))
@@ -172,17 +159,17 @@ class TestCase(unittest.TestCase):
     def test_to_regular_crate_keeps_the_tracks_sort_and_columns_but_not_the_rules(self):
         smart_crate = SmartCrate("test/data/TestSmartCrate.scrate")
         rule_fields = {field.value for field in SmartCrate.RuleFields}
-        self.assertTrue(any(field in rule_fields for field, _ in smart_crate.entries), "the fixture has rules")
+        self.assertTrue(any(field in rule_fields for field, _ in smart_crate._entries), "the fixture has rules")
 
         path = os.path.join(temp_dir(self), "TestSmartCrate.crate")
         smart_crate.to_regular_crate(path).save()
 
         saved = Crate(path)
-        self.assertEqual(saved.version, Crate.DEFAULT_ENTRIES[0][1])
+        self.assertEqual(saved._version, Crate.DEFAULT_ENTRIES[0][1])
         self.assertEqual(saved.get_track_paths(), smart_crate.get_track_paths())
         self.assertEqual(
-            saved.entries[1:],
-            [entry for entry in smart_crate.entries[1:] if entry[0] not in rule_fields],
+            saved._entries[1:],
+            [entry for entry in smart_crate._entries[1:] if entry[0] not in rule_fields],
             "everything but the version and the rules, in order",
         )
 
@@ -208,10 +195,10 @@ class CliTestCase(unittest.TestCase):
         crate = SmartCrate(self.path)
         rules = [
             SmartCrate.Rule(v)
-            for f, v in crate.entries
+            for f, v in crate._entries
             if f == SmartCrate.RuleFields.SMARTCRATE_RULE and isinstance(v, list)
         ]
-        return {SmartCrate.RuleField(cast(int, r.field)): (str(r.comparison), r.value) for r in rules}
+        return {SmartCrate.RuleField(r.field): (r.comparison, r.value) for r in rules}
 
     def test_sets_and_deletes_rules(self):
         self.assertIn(SmartCrate.RuleField.YEAR, self.saved_rules())
