@@ -69,14 +69,19 @@ class CrateBase(SeratoBinFile):
         return super().save(file, force)
 
     def add_tracks(self, filepaths: Iterable[str]):
-        """Adds the tracks not already in the crate. Filepaths must include the containing dir."""
+        """Adds the tracks not already in the crate. Filepaths must include the containing dir.
+
+        A track already in the crate in another case isn't added again, as `remove_tracks` matches paths whatever
+        their case.
+        """
         # build the existing-path set once: checking get_track_paths() per added file costs a pass over
         # the whole crate per file
-        existing = set(self.get_track_paths())
+        existing = {path.upper() for path in self.get_track_paths()}
         for filepath in filepaths:
-            if (relpath := self.get_relative_path(filepath)) not in existing:
+            relpath = self.get_relative_path(filepath)
+            if relpath.upper() not in existing:
                 self._entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, relpath)]))
-                existing.add(relpath)
+                existing.add(relpath.upper())
 
     def add_tracks_from_dir(self, dir: str, replace: bool = False):
         """Adds every file directly in `dir` but hidden ones, such as `.DS_Store`; with `replace`, first removes every
@@ -89,9 +94,10 @@ class CrateBase(SeratoBinFile):
         ]
 
         if replace:
-            # one filter pass instead of a full scan per removed track
-            dir_track_set = set(dir_tracks)
-            self.filter_tracks(lambda track: track.relpath in dir_track_set)
+            # one filter pass instead of a full scan per removed track; matched whatever their case, as add_tracks
+            # matches them, so a track in the crate in another case is kept rather than removed and added again
+            dir_track_set = {track.upper() for track in dir_tracks}
+            self.filter_tracks(lambda track: track.relpath.upper() in dir_track_set)
 
         self.add_tracks(dir_tracks)
 
