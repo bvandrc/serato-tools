@@ -80,6 +80,7 @@ def get_serato_tagdata(tagfile: mutagen.FileType, decode: bool = False):
 
 
 if __name__ == "__main__":
+    # ruff: disable[T201]
     import argparse
 
     @dataclass
@@ -107,8 +108,9 @@ if __name__ == "__main__":
         log_str = f"field {field} {'decoded ' if args.decode else ''}value: {value}"
         if args.output_dir:
             filepath = os.path.join(args.output_dir, f"{field}.octet-stream")
-            print(log_str + f" (written to file {filepath})")  # noqa: T201
+            print(log_str + f" (written to file {filepath})")
             with open(filepath, mode="wb") as fp:
                 fp.write(value)
         else:
-            print(log_str)  # noqa: T201
+            print(log_str)
+    # ruff: enable[T201]

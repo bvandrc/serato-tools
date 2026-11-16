@@ -27,7 +27,8 @@ class Crate(CrateBase):
 
 def main():
     """The `serato_crate` CLI: prints crates, lists their tracks, or finds tracks whose files are missing."""
-    import argparse  # noqa: PLC0415
+    # ruff: disable[PLC0415, T201]
+    import argparse
 
     @dataclass
     class Args:
@@ -49,8 +50,8 @@ def main():
         args.file_or_dir = Crate.DIR_PATH
 
     if not args.file_or_dir:
-        print(f"must pass a file or dir, or --all!\nfiles in {Crate.DIR_PATH}:")  # noqa: T201
-        print("\n".join(Crate.get_crate_files()))  # noqa: T201
+        print(f"must pass a file or dir, or --all!\nfiles in {Crate.DIR_PATH}:")
+        print("\n".join(Crate.get_crate_files()))
         sys.exit()
 
     for crate_path in Crate.get_crate_files(args.file_or_dir):
@@ -60,7 +61,8 @@ def main():
         elif args.list_tracks or args.filenames_only:
             crate.print_track_paths(filenames_only=args.filenames_only)
         else:
-            print(crate)  # noqa: T201
+            print(crate)
+    # ruff: enable[PLC0415, T201]
 
 
 if __name__ == "__main__":

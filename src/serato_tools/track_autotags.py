@@ -74,6 +74,7 @@ class TrackAutotags(SeratoGeobTag):
 
 
 if __name__ == "__main__":
+    # ruff: disable[T201]
     import argparse
 
     from serato_tools.utils.cli import open_tag_file_or_data
@@ -87,4 +88,5 @@ if __name__ == "__main__":
     args = Args(**vars(parser.parse_args()))
 
     tags = open_tag_file_or_data(TrackAutotags, args.file)
-    print(str(tags))  # noqa: T201
+    print(str(tags))
+    # ruff: enable[T201]

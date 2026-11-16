@@ -368,9 +368,10 @@ class TrackBeatgrid(SeratoGeobTag):
 
 def main():
     """Prints a track's beatgrid markers, or with `--analyze`, analyzes the track and writes a new grid."""
-    import argparse  # noqa: PLC0415
+    # ruff: disable[PLC0415, T201]
+    import argparse
 
-    from serato_tools.utils.cli import open_tag_file_or_data  # noqa: PLC0415
+    from serato_tools.utils.cli import open_tag_file_or_data
 
     @dataclass
     class Args:
@@ -390,12 +391,14 @@ def main():
         if not tags.entries:
             sys.exit(str(NoBeatgridError(tags.filename)))
         for entry in tags.entries:
-            print(entry)  # noqa: T201
+            print(entry)
+    # ruff: enable[PLC0415, T201]
 
 
 def main_analyze():
     """The `serato_analyze_beatgrid` CLI: analyzes a track's audio and writes a new beatgrid to its tags."""
-    import argparse  # noqa: PLC0415
+    # ruff: disable[PLC0415]
+    import argparse
 
     @dataclass
     class Args:
@@ -406,6 +409,7 @@ def main_analyze():
     args = Args(**vars(parser.parse_args()))
     tags = TrackBeatgrid(args.file)
     tags.analyze_and_write()
+    # ruff: enable[PLC0415]
 
 
 if __name__ == "__main__":

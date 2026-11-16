@@ -632,10 +632,11 @@ class TrackCuesV2(SeratoGeobTag):
 
 def main():
     """The `serato_snap_cues_v2` CLI: sets the track color, snaps cues to the beatgrid, or prints the entries."""
-    import argparse  # noqa: PLC0415
-    import math  # noqa: PLC0415
+    # ruff: disable[PLC0415, T201]
+    import argparse
+    import math
 
-    from serato_tools.utils.cli import open_tag_file_or_data, save_tag_file_or_data  # noqa: PLC0415
+    from serato_tools.utils.cli import open_tag_file_or_data, save_tag_file_or_data
 
     @dataclass
     class Args:
@@ -698,23 +699,24 @@ def main():
         if tags.tagfile is None:
             raise ValueError("--snap_cues needs an audio file, to read its beatgrid")
         # imported here, so that the tag's module needs the beatgrid's only for this option
-        from serato_tools.track_beatgrid import TrackBeatgrid  # noqa: PLC0415
+        from serato_tools.track_beatgrid import TrackBeatgrid
 
         try:
             snapped_cues = tags.snap_cues_to_beats(TrackBeatgrid(tags.tagfile), tolerance_beats)
         except MissingTagError as error:
             sys.exit(f"Can't snap the cues: {error}")
         for snapped in snapped_cues:
-            print(f"Snapped cue {snapped.index + 1} by {snapped.new_position - snapped.old_position} ms")  # noqa: T201
+            print(f"Snapped cue {snapped.index + 1} by {snapped.new_position - snapped.old_position} ms")
         tags.save(delete_tags_v1=True)
         sys.exit()
 
     if not tags.entries:
-        print(f'File has no "{TrackCuesV2.GEOB_KEY}" entries.')  # noqa: T201
+        print(f'File has no "{TrackCuesV2.GEOB_KEY}" entries.')
         sys.exit()
     width = math.floor(math.log10(len(tags.entries))) + 1
     for entry_index, entry in enumerate(tags.entries):
-        print("{:{}d}: {!r}".format(entry_index, width, entry))  # noqa: T201
+        print("{:{}d}: {!r}".format(entry_index, width, entry))
+    # ruff: enable[PLC0415, T201]
 
 
 if __name__ == "__main__":

@@ -186,6 +186,7 @@ class TrackCuesV1(SeratoGeobTag):
 
 
 if __name__ == "__main__":
+    # ruff: disable[T201]
     import argparse
     import math
 
@@ -207,8 +208,9 @@ if __name__ == "__main__":
     entries: list[TrackCuesV1.Entry] = tags.entries
     if not entries:
         # a parsed tag always has at least the trailing Color entry, so empty means the tag is not set
-        print(f'File has no "{TrackCuesV1.GEOB_KEY}" tag.')  # noqa: T201
+        print(f'File has no "{TrackCuesV1.GEOB_KEY}" tag.')
         sys.exit()
     width = math.floor(math.log10(len(entries))) + 1
     for entry_index, entry in enumerate(entries):
-        print("{:{}d}: {!r}".format(entry_index, width, entry))  # noqa: T201
+        print("{:{}d}: {!r}".format(entry_index, width, entry))
+    # ruff: enable[T201]

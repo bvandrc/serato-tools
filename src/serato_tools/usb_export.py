@@ -261,7 +261,8 @@ def get_crate_files(pattern: str):
 
 def main():
     """The `serato_usb_export` CLI: exports the crates matching the patterns given to a drive, under `Tracks`."""
-    import argparse  # noqa: PLC0415
+    # ruff: disable[PLC0415]
+    import argparse
 
     @dataclass
     class Args:
@@ -312,6 +313,7 @@ def main():
         dest_tracks_dir="Tracks",
         root_crate=args.root_crate,
     )
+    # ruff: enable[PLC0415]
 
 
 if __name__ == "__main__":

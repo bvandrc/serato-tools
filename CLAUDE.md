@@ -181,7 +181,7 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
 
 ### CLI conventions
 
-Console scripts are declared in `[project.scripts]` in `pyproject.toml` and point at `main()` / `main_analyze()` in the module. Each entry point defines a local `@dataclass Args` and constructs it with `Args(**vars(parser.parse_args()))` to get a typed view of argparse output — follow that pattern when adding a CLI. To run a module directly, use `python -m serato_tools.<module>`.
+Console scripts are declared in `[project.scripts]` in `pyproject.toml` and point at `main()` / `main_analyze()` in the module. Each entry point defines a local `@dataclass Args` and constructs it with `Args(**vars(parser.parse_args()))` to get a typed view of argparse output — follow that pattern when adding a CLI. Its `main()` (or `__main__` block) is wrapped in `# ruff: disable[...]` / `# ruff: enable[...]` for the rules a CLI breaks on purpose (`T201` for `print`, `PLC0415` for its imports, which load only when it runs), listing only the codes it uses, since Ruff flags an unused one; library code that prints or imports inside a function marks each line `# noqa` instead. To run a module directly, use `python -m serato_tools.<module>`.
 
 ## Repository layout notes
 

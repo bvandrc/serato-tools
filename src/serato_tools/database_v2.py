@@ -43,6 +43,7 @@ class DatabaseV2(SeratoBinFile):
 
 
 if __name__ == "__main__":
+    # ruff: disable[T201]
     import argparse
 
     @dataclass
@@ -64,6 +65,7 @@ if __name__ == "__main__":
         db.find_missing()
     elif args.list_corrupt:
         for path, reason in db.get_corrupt_tracks().items():
-            print(f"{path}: {reason}")  # noqa: T201
+            print(f"{path}: {reason}")
     else:
-        print(db)  # noqa: T201
+        print(db)
+    # ruff: enable[T201]
