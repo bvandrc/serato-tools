@@ -62,9 +62,6 @@ include = ["serato_tools*"]
 
 [tool.ruff]
 line-length = 120
-# the README's and docs' examples aren't formatted or linted, since Ruff's formatting of Python in Markdown would
-# reflow them; the target version comes from requires-python
-extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 # Ruff's defaults, plus: import order (I), newer syntax and the standard library's current names (UP), likely bugs
