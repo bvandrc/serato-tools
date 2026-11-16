@@ -45,7 +45,7 @@ def no_beatgrid_mp3(tmp_dir: str) -> str:
 
     from test.helpers.track_tags import copy_mp3_without
 
-    return copy_mp3_without(tmp_dir, TrackBeatgrid.GEOB_KEY)
+    return copy_mp3_without(tmp_dir, TrackBeatgrid.GEOB_KEY, name="no_beatgrid.mp3")
 
 
 @pytest.fixture

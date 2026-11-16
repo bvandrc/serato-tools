@@ -61,28 +61,31 @@ def copy_mp3(folder: str, name: str = "test.mp3") -> str:
 
 def copy_mp3_without_cues(folder: str, name: str = "no_cues.mp3") -> str:
     """A copy of the test mp3 without its Serato Markers2 and Serato Markers_ tags, as `name` in `folder`."""
+    return copy_mp3_without(folder, TrackCuesV2.GEOB_KEY, TrackCuesV1.GEOB_KEY, name=name)
+
+
+def copy_mp3_without_id3(folder: str, name: str = "no_id3.mp3") -> str:
+    """A copy of the test mp3 without an ID3 tag, as `name` in `folder`."""
     path = copy_mp3(folder, name)
-    tags = TrackCuesV2(path)
-    tags.delete()
-    tags.save()  # which deletes Serato Markers_ too
+    MP3(path).delete()
     return path
 
 
 def copy_mp3_with_empty_id3(folder: str, name: str = "empty.mp3") -> str:
     """A copy of the test mp3 whose ID3 tag has no frames, as for one whose tags were cleared, as `name` in `folder`."""
-    path = copy_mp3(folder, name)
-    MP3(path).delete()
+    path = copy_mp3_without_id3(folder, name)
     mp3 = MP3(path)
     mp3.add_tags()
     mp3.save()
     return path
 
 
-def copy_mp3_without(folder: str, geob_key: str, name: str = "test.mp3") -> str:
-    """A copy of the test mp3 without its `geob_key` GEOB tag, and with every other, as `name` in `folder`."""
+def copy_mp3_without(folder: str, *geob_keys: str, name: str = "stripped.mp3") -> str:
+    """A copy of the test mp3 without its `geob_keys` GEOB tags, and with every other, as `name` in `folder`."""
     path = copy_mp3(folder, name)
     tagfile = open_tagfile(path)
-    del_geob(tagfile, geob_key)
+    for geob_key in geob_keys:
+        del_geob(tagfile, geob_key)
     tagfile.save()
     return path
 
@@ -116,9 +119,5 @@ def temp_mp3(testcase: unittest.TestCase, name: str = "test.mp3", folder: str | 
 
 
 def untagged_mp3(testcase: unittest.TestCase, name: str = "untagged.mp3", folder: str | None = None) -> str:
-    """A copy of the test mp3 with no Serato Markers2 tag, as for a track Serato hasn't analyzed."""
-    path = temp_mp3(testcase, name, folder)
-    tags = TrackCuesV2(path)
-    tags.delete()
-    tags.save()
-    return path
+    """A copy of the test mp3 with no Serato Markers2 or Serato Markers_ tag, as for a track Serato hasn't analyzed."""
+    return copy_mp3_without_cues(folder or temp_dir(testcase), name)

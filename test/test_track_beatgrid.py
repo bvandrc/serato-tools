@@ -188,7 +188,7 @@ def test_analyze_and_write_giving_an_invalid_grid_keeps_the_old_one(mp3: str):
     analyzed = BeatGridInfo(100.0, [], 1.0, 0.0, 1.0, downbeats=[2.9, 0.5])  # out of order
     with (
         mock.patch("serato_tools.utils.beatgrid_analyze.analyze_beatgrid", return_value=analyzed),
-        pytest.raises(ValueError),
+        pytest.raises(ValueError, match="doesn't come after"),
     ):
         beatgrid.analyze_and_write()
     assert (beatgrid.entries, beatgrid._raw_data) == (entries, raw_data)
@@ -198,3 +198,4 @@ def test_cli_without_a_beatgrid_exits_with_the_error(no_beatgrid_mp3: str):
     with cli_args("serato_beatgrid", no_beatgrid_mp3), pytest.raises(SystemExit) as caught:
         main()
     assert caught.value.code == f"no Serato BeatGrid tag: {no_beatgrid_mp3}"
+

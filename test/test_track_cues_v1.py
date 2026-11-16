@@ -33,7 +33,7 @@ def test_parse():
 def test_serialize_without_trailing_color_raises(keep):
     tags = TrackCuesV1(DATA)
     tags.entries = [e for e in tags.entries if keep(e)]
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="last entry must be a Color entry"):
         tags._serialize()
 
 

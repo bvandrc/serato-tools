@@ -33,7 +33,7 @@ def test_delete(mp3: str):
     saved = TrackGain(mp3)
     assert saved.gain is None, "no frame reads as no gain"
     assert saved.peak is None, "no frame reads as no peak"
-    with pytest.raises(ValueError):  # needs both values to create the frame
+    with pytest.raises(ValueError, match="both gain and peak must be set"):  # to create the frame
         saved.set_and_save(gain=-3.5)
 
 

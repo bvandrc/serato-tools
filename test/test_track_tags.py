@@ -16,9 +16,11 @@ from serato_tools.utils.track_tags import ID3FileTag, get_geob
 
 from test.helpers.cli import cli_args
 from test.helpers.files import read_bytes
-from test.helpers.track_tags import GEOB_DATA, TEST_MP3, copy_mp3, copy_mp3_with_empty_id3, tagfile_saves
+from test.helpers.track_tags import GEOB_DATA, TEST_MP3, copy_mp3_with_empty_id3, copy_mp3_without_id3, tagfile_saves
 
 GEOB_TAG_CLASSES = tuple(GEOB_DATA)
+# all but TrackWaveform, which is read-only
+WRITABLE_GEOB_TAG_CLASSES = (TrackCuesV2, TrackCuesV1, TrackBeatgrid, TrackAutotags)
 TAG_CLASSES = (*GEOB_TAG_CLASSES, TrackGain, TrackTextFrames)
 
 
@@ -54,7 +56,7 @@ def test_tagdump_reads_each_geob(tag_class):
 
 
 def test_unsupported_file_type_raises():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="unsupported file type"):
         ID3FileTag("some_file.flac")
 
 
@@ -74,9 +76,8 @@ def test_geob_tag_has_changed(mp3: str):
     assert tags.has_changed, "differs from the bytes given"
 
 
-@pytest.mark.parametrize(
-    "tag_class", (TrackCuesV2, TrackAutotags), ids=lambda cls: cls.__name__
-)  # TrackCuesV2 has its own save()
+# TrackCuesV2 has its own save()
+@pytest.mark.parametrize("tag_class", (TrackCuesV2, TrackAutotags), ids=lambda cls: cls.__name__)
 def test_saving_a_change_to_a_tag_read_from_bytes_raises(tag_class):
     tags = tag_class(read_bytes(GEOB_DATA[tag_class]))
     tags.delete()
@@ -84,10 +85,7 @@ def test_saving_a_change_to_a_tag_read_from_bytes_raises(tag_class):
         tags.save()
 
 
-# TrackWaveform is read-only
-@pytest.mark.parametrize(
-    "tag_class", (TrackCuesV2, TrackCuesV1, TrackBeatgrid, TrackAutotags), ids=lambda cls: cls.__name__
-)
+@pytest.mark.parametrize("tag_class", WRITABLE_GEOB_TAG_CLASSES, ids=lambda cls: cls.__name__)
 def test_serialize_reproduces_the_bytes_parsed(tag_class):
     data = read_bytes(GEOB_DATA[tag_class])
     tags = tag_class(data)
@@ -97,9 +95,7 @@ def test_serialize_reproduces_the_bytes_parsed(tag_class):
 
 
 # a file whose ID3 tags have no frames is falsy to mutagen, which once read as "no file"
-@pytest.mark.parametrize(
-    "tag_class", (TrackCuesV2, TrackCuesV1, TrackBeatgrid, TrackAutotags), ids=lambda cls: cls.__name__
-)
+@pytest.mark.parametrize("tag_class", WRITABLE_GEOB_TAG_CLASSES, ids=lambda cls: cls.__name__)
 def test_a_tag_in_a_file_with_no_frames_has_the_file(tmp_dir: str, tag_class):
     path = copy_mp3_with_empty_id3(tmp_dir)
     tags = tag_class(path)
@@ -107,16 +103,10 @@ def test_a_tag_in_a_file_with_no_frames_has_the_file(tmp_dir: str, tag_class):
     assert tags.filename == path
 
 
-def _copy_mp3_without_id3(folder: str) -> str:
-    path = copy_mp3(folder)
-    MP3(path).delete()
-    return path
-
-
 @pytest.mark.parametrize(
     "make_file",
     [
-        pytest.param(_copy_mp3_without_id3, id="no ID3 tag"),
+        pytest.param(copy_mp3_without_id3, id="no ID3 tag"),
         pytest.param(copy_mp3_with_empty_id3, id="an ID3 tag with no frames"),
     ],
 )
@@ -137,7 +127,7 @@ def _not_audio_file(folder: str) -> str:
 @pytest.mark.parametrize(
     "make_file, message",
     [
-        pytest.param(_copy_mp3_without_id3, "file has no tags", id="no ID3 tag"),
+        pytest.param(copy_mp3_without_id3, "file has no tags", id="no ID3 tag"),
         pytest.param(copy_mp3_with_empty_id3, "file has no tags", id="an ID3 tag with no frames"),
         pytest.param(_not_audio_file, "not an audio file mutagen can read", id="not audio"),
     ],
