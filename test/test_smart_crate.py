@@ -8,6 +8,7 @@ import unittest
 from typing import cast
 from unittest import mock
 
+from serato_tools.crate import Crate
 from serato_tools.smart_crate import SmartCrate, main
 from serato_tools.utils.bin_file_base import DataTypeError
 
@@ -167,6 +168,23 @@ class TestCase(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "requires an integer value"):
             rule.set_value("abc")
+
+    def test_to_regular_crate_keeps_the_tracks_sort_and_columns_but_not_the_rules(self):
+        smart_crate = SmartCrate("test/data/TestSmartCrate.scrate")
+        rule_fields = {field.value for field in SmartCrate.RuleFields}
+        self.assertTrue(any(field in rule_fields for field, _ in smart_crate.entries), "the fixture has rules")
+
+        path = os.path.join(temp_dir(self), "TestSmartCrate.crate")
+        smart_crate.to_regular_crate(path).save()
+
+        saved = Crate(path)
+        self.assertEqual(saved.version, Crate.DEFAULT_ENTRIES[0][1])
+        self.assertEqual(saved.get_track_paths(), smart_crate.get_track_paths())
+        self.assertEqual(
+            saved.entries[1:],
+            [entry for entry in smart_crate.entries[1:] if entry[0] not in rule_fields],
+            "everything but the version and the rules, in order",
+        )
 
 
 class CliTestCase(unittest.TestCase):
