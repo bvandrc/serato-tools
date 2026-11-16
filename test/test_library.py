@@ -261,6 +261,17 @@ class TestCase(unittest.TestCase):
         self.assertEqual(saved, [], "database not saved")
         self.assertFalse(TrackCuesV2(track).is_beatgrid_locked(), "file not changed")
 
+    def test_set_db_track_tags_color_of_the_wrong_type_raises(self):
+        track = self.copy_analyzed_track("Track.mp3")
+        self.add_to_database(track)
+
+        saved = self.saved_file_names()
+        with self.assertRaises(DataTypeError) as caught:
+            Library(self.serato_dir).set_db_track_tags(track, color="red")  # type: ignore[arg-type]
+        self.assertIsInstance(caught.exception, AttributeError, "still caught as the AttributeError it was")
+        self.assertEqual(saved, [], "database not saved")
+        self.assertEqual(TrackCuesV2(track).get_track_color(), b"\xbb\xbb\xbb", "file not changed")
+
     def test_set_db_tracks_tags_failing_later_track_changes_nothing(self):
         first = self.copy_analyzed_track("First.mp3")
         self.add_to_database(first)
@@ -274,7 +285,7 @@ class TestCase(unittest.TestCase):
         saved = self.saved_file_names()
         for name, tracks in batches.items():
             with self.subTest(name):
-                with self.assertRaises((ValueError, AttributeError)):
+                with self.assertRaises((ValueError, DataTypeError)):
                     Library(self.serato_dir).set_db_tracks_tags(tracks)  # type: ignore[arg-type]
                 self.assertEqual(saved, [], "database not saved")
                 self.assertEqual(TrackCuesV2(first).get_track_color(), b"\xbb\xbb\xbb", "first file not changed")

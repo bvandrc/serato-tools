@@ -2,6 +2,7 @@
 import unittest
 import copy
 from unittest import mock
+from typing import Iterable
 import os
 import json
 import shutil
@@ -157,6 +158,33 @@ class TestCase(unittest.TestCase):
         track = next(t for t in DatabaseV2(db_file).get_tracks() if t.relpath == target)
         self.assertNotIn(DatabaseV2.Fields.GROUPING, track.fields, "removed in the saved file")
 
+    def test_get_entries_matching_tracks(self):
+        db = DatabaseV2("test/data/database_v2_test.bin")
+
+        def track_paths(entries: Iterable[DatabaseV2.EntryFull]) -> list[str]:
+            return [
+                str(dict((f, v) for f, _, v in value)[DatabaseV2.Fields.FILE_PATH])
+                for field, _, value in entries
+                if field == DatabaseV2.Fields.TRACK and isinstance(value, list)
+            ]
+
+        self.assertEqual(track_paths(db.get_entries()), db.get_track_paths(), "every track by default")
+        self.assertEqual(
+            track_paths(db.get_entries(track_matcher="d'EVILS")),
+            ["Users/bvand/Music/DJ Tracks/SiR - D'Evils.mp3"],
+            "only the tracks the regex matches, ignoring case",
+        )
+        self.assertEqual(
+            [entry for entry in db.get_entries("d'evils") if entry[0] != DatabaseV2.Fields.TRACK],
+            [entry for entry in db.get_entries() if entry[0] != DatabaseV2.Fields.TRACK],
+            "every other entry",
+        )
+
+    def test_get_entries_filtered_is_deprecated_for_get_entries(self):
+        db = DatabaseV2("test/data/database_v2_test.bin")
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(list(db.get_entries_filtered("d'evils")), list(db.get_entries("d'evils")))
+
     def test_find_missing_skips_save_when_nothing_relocated(self):
         tmp = temp_dir(self)
         db_file = os.path.join(tmp, "database V2")
@@ -228,6 +256,22 @@ class TestCase(unittest.TestCase):
         db.modify_tracks(func, files=[target])
         self.assertEqual(seen, [DatabaseV2.get_relative_path(target)], "only the given track is passed to func")
 
+    def test_modify_tracks_changes_nothing_if_func_raises(self):
+        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        calls = 0
+
+        def func(track: DatabaseV2.Track):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise RuntimeError("second track")
+            track.set_value(DatabaseV2.Fields.GENRE, "Changed")
+            return track
+
+        with self.assertRaises(RuntimeError):
+            db.modify_tracks(func)
+        self.assertFalse(db.has_changed, "the first track is left as it was")
+
     def test_dedupe(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_duplicates.bin"))
 
@@ -240,6 +284,14 @@ class TestCase(unittest.TestCase):
             self.assertEqual(db.__str__(), f.read(), "deduped")
 
         self.assertFalse(db.remove_duplicates(), "nothing left to remove")
+
+    def test_dedupe_removes_a_repeat_in_another_case(self):
+        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        paths = db.get_track_paths()
+        db.entries.append((DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, paths[0].upper())]))
+
+        self.assertTrue(db.remove_duplicates())
+        self.assertEqual(db.get_track_paths(), paths, "the first kept")
 
     def test_get_corrupt_tracks(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))

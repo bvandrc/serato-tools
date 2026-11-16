@@ -78,6 +78,24 @@ class TestCase(unittest.TestCase):
         self.assertEqual(Crate(file).get_track_paths(), crate.get_track_paths())
         self.assertEqual(len(crate.get_track_paths()), 1)
 
+    def test_add_tracks_skips_a_track_already_there_in_another_case(self):
+        crate = Crate(os.path.join(temp_dir(self), "Test.crate"))
+        crate.add_tracks(["/music/A.mp3"])
+        crate.add_tracks(["/MUSIC/a.MP3", "/music/B.mp3", "/music/b.mp3"])
+        self.assertEqual(crate.get_track_paths(), ["music/A.mp3", "music/B.mp3"], "each as first added")
+
+    def test_add_tracks_from_dir_replacing_keeps_a_track_there_in_another_case(self):
+        tmp = temp_dir(self)
+        os.mkdir(folder := os.path.join(tmp, "music"))
+        open(os.path.join(folder, "a.mp3"), "wb").close()  # pylint: disable=consider-using-with
+        crate = Crate(os.path.join(tmp, "Test.crate"))
+        in_crate = os.path.join(folder, "A.MP3")
+        crate.add_tracks([in_crate])
+
+        crate.add_tracks_from_dir(folder, replace=True)
+
+        self.assertEqual(crate.get_track_paths(), [Crate.get_relative_path(in_crate)], "kept, not removed and re-added")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -361,17 +361,30 @@ class SeratoBinFile:
             super().__init__(entries)
 
             self.path_key = path_key
-            relative_path = self.get_value(path_key)
+            # relpath raises for a path that isn't text: read it now, so a bad one raises when the file is loaded
+            _ = self.relpath
+
+        @property
+        def relpath(self) -> str:
+            """The track's path as stored: without its drive, `/`-separated."""
+            relative_path = self.get_value(self.path_key)
             if not isinstance(relative_path, str):
-                raise DataTypeError(relative_path, str, path_key)
-            self.relpath: str = relative_path
+                raise DataTypeError(relative_path, str, self.path_key)
+            return relative_path
+
+        @property
+        def full_path(self) -> str:
+            """The track's absolute path, which is its `relpath` on `SERATO_DRIVE`."""
+            return SeratoBinFile.get_full_path(self.relpath)
 
         def set_value(self, field: str, value: "SeratoBinFile.Value"):
             """Sets `field` to `value`.
 
             An empty string removes the field instead, as Serato does when a tag is cleared, so a track never stores
-            one empty.
+            one empty. Raises DataTypeError for a path that isn't text.
             """
+            if field == self.path_key and not isinstance(value, str):
+                raise DataTypeError(value, str, field)
             if value == "":
                 self.remove_field(field)
             else:
@@ -388,13 +401,16 @@ class SeratoBinFile:
 
         def set_path(self, path: str):
             """Points the track at `path`, stored without its drive, as Serato stores paths."""
-            relpath = SeratoBinFile.get_relative_path(path)
-            self.set_value(self.path_key, relpath)
-            self.relpath = relpath
+            self.set_value(self.path_key, SeratoBinFile.get_relative_path(path))
 
-        def get_full_path(self):
-            """The track's absolute path, which is its `relpath` on `SERATO_DRIVE`."""
-            return SeratoBinFile.get_full_path(self.relpath)
+        def get_full_path(self) -> str:
+            """Deprecated, to be removed in the next major version: use the `full_path` property, which this returns."""
+            warnings.warn(
+                "Track.get_full_path() is deprecated, use the full_path property instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return self.full_path
 
     def _get_track(self, entries: "SeratoBinFile.EntryList"):
         return SeratoBinFile.Track(entries, path_key=self.TRACK_PATH_KEY)
@@ -570,17 +586,17 @@ class SeratoBinFile:
 
         Paths are as stored, with no drive, or with `include_drive`, absolute.
         """
-        return [t.get_full_path() if include_drive else t.relpath for t in self.get_tracks()]
+        return [t.full_path if include_drive else t.relpath for t in self.get_tracks()]
 
     def modify_tracks(self, func: Callable[[Track], Track], files: Optional[Iterable[str]] = None) -> bool:
         """
         Replaces each track with what `func` returns for it, and returns whether any track changed.
 
         Given `files`, only those tracks are passed to `func`, and the rest are skipped after reading just their path,
-        which is much faster on a large library.
+        which is much faster on a large library. If `func` raises for any track, no track is changed.
         """
         relpaths = None if files is None else {SeratoBinFile.get_relative_path(f).upper() for f in files}
-        changed = False
+        replaced: list[tuple[int, SeratoBinFile.EntryList]] = []
         for i, (field, value) in enumerate(self.entries):
             if field == SeratoBinFile.Fields.TRACK:
                 if not isinstance(value, list):
@@ -594,9 +610,11 @@ class SeratoBinFile:
                 # Track copies the values out of `value`, so this compares against the untouched original
                 new_entries = func(track).to_entries()
                 if new_entries != value:
-                    self.entries[i] = (field, new_entries)
-                    changed = True
-        return changed
+                    replaced.append((i, new_entries))
+        # replaced only once func has run for every track, so one that raises leaves the file unchanged
+        for i, new_entries in replaced:
+            self.entries[i] = (SeratoBinFile.Fields.TRACK.value, new_entries)
+        return bool(replaced)
 
     def filter_tracks(self, func: Callable[[Track], bool]) -> bool:
         """Keeps only the tracks `func` returns True for, and returns whether any track was removed."""
@@ -627,12 +645,16 @@ class SeratoBinFile:
         return self.filter_tracks(lambda track: track.relpath.upper() not in relpaths)
 
     def remove_duplicates(self) -> bool:
-        """Removes every repeat of an earlier track's path, and returns whether any were removed."""
+        """Removes every repeat of an earlier track's path, and returns whether any were removed.
+
+        A path repeats one in another case too, as `remove_tracks` matches paths whatever their case.
+        """
         seen_track_paths: set[str] = set()
 
         def filter_track(track: "SeratoBinFile.Track") -> bool:
-            is_new = track.relpath not in seen_track_paths
-            seen_track_paths.add(track.relpath)
+            relpath = track.relpath.upper()
+            is_new = relpath not in seen_track_paths
+            seen_track_paths.add(relpath)
             return is_new
 
         return self.filter_tracks(filter_track)
@@ -706,12 +728,20 @@ class SeratoBinFile:
         drive = os.path.splitdrive(filepath)[0]
         return os.path.normpath(filepath if drive else os.path.join(SERATO_DRIVE, os.sep, filepath))
 
-    def get_entries(self) -> Generator[EntryFull, None, None]:
-        """Get entry fieldnames."""
-        yield from self.__get_entries_internal(track_matcher=None)
+    def get_entries(self, track_matcher: Optional[str | Pattern[str]] = None) -> Generator[EntryFull, None, None]:
+        """Each entry with its field's readable name, as is each entry in a nested entry list.
+
+        Given `track_matcher`, a regex, only the tracks whose path it matches (ignoring case) are included.
+        """
+        yield from self.__get_entries_internal(track_matcher=track_matcher)
 
     def get_entries_filtered(self, track_matcher: str | Pattern[str]) -> Generator[EntryFull, None, None]:
-        """Get entry fieldnames with track matching filter."""
+        """Deprecated, to be removed in the next major version: use get_entries(track_matcher), which this calls."""
+        warnings.warn(
+            "get_entries_filtered is deprecated, use get_entries(track_matcher) instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         yield from self.__get_entries_internal(track_matcher=track_matcher)
 
     def __get_entries_internal(self, track_matcher: Optional[str | Pattern[str]]) -> Generator[EntryFull, None, None]:
@@ -837,7 +867,7 @@ class SeratoBinFile:
                 if not isinstance(value, list):
                     raise DataTypeError(value, list, field)
                 track = self._get_track(value)
-                track_path = track.get_full_path()
+                track_path = track.full_path
                 if not os.path.isfile(track_path):
                     print(f"missing: {track_path}")
                     new_location = None
