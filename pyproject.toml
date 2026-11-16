@@ -113,6 +113,8 @@ extend-select = [
 # tests reach into internals to set up and check state the public API doesn't expose, and import what only some of
 # them need (the track_tags extra) inside the fixtures that need it
 "test/**" = ["SLF001", "PLC0415"]
+# USB export prints its progress as it copies tracks
+"src/serato_tools/usb_export.py" = ["T201"]
 # a standalone script, not part of a package, which runs the gh CLI found on PATH and prints what it does
 ".github/scripts/**" = ["INP001", "S607", "T20"]
 

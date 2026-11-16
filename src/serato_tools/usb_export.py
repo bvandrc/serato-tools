@@ -215,7 +215,7 @@ def _copy_tracks(track_paths: list[str], dest_dir: str):
             shutil.copy2(src_path, dst_path)
 
     for index, src_path in enumerate(src_paths):
-        print(f"{index / len(src_paths) * 100:.1f}%", end="\r", flush=True)  # noqa: T201
+        print(f"{index / len(src_paths) * 100:.1f}%", end="\r", flush=True)
         maybe_copy(src_path)
 
         stem_files = find_stem_files(src_path)
@@ -223,7 +223,7 @@ def _copy_tracks(track_paths: list[str], dest_dir: str):
             raise ValueError(f"more than 1 stems file for {src_path}: {', '.join(stem_files)}")
         if stem_files:
             maybe_copy(stem_files[0])
-    print("\n")  # noqa: T201
+    print("\n")
 
     if src_paths and len(not_found) == len(src_paths):
         logger.error("No source files found.")
