@@ -188,12 +188,12 @@ Console scripts are declared in `[project.scripts]` in `pyproject.toml` and poin
 - `test/conftest.py` — the shared fixtures:
   - `tmp_dir`: pytest's `tmp_path` as the `str` path `serato_tools` takes.
   - `new_crate`: a new, empty, unsaved crate at `Test.crate` in `tmp_dir`.
-  - `mp3`: a copy of the test mp3, with every Serato tag. It imports the track_tags helpers inside the fixture, so `conftest.py` doesn't need the track_tags extra.
+  - `mp3` / `no_cues_mp3` / `no_beatgrid_mp3`: a copy of the test mp3, with every Serato tag, without its Serato Markers2 and Serato Markers_ tags, or without its Serato BeatGrid tag. They import the track_tags helpers inside the fixture, so `conftest.py` doesn't need the track_tags extra.
   - `bin_file_writes`: the names of the database and crate files the test writes, which is how tests check what was saved or that nothing was. A test whose setup writes files clears it first.
 - `test/helpers/` — shared helpers that aren't fixtures, a module for each kind (imported from the module, e.g. `from test.helpers.files import read_bytes`):
   - `files`: `copy_into` a folder, `mock_files` (empty files and folders, from a tree of their names), and `read_bytes` / `read_text`.
   - `bin_files`: the database and crate fixture paths (`TEST_DATABASE`, `TEST_CRATE`, `TEST_SMART_CRATE`), and the tracks' paths: `TRACKS_DIR`, the folder they're in, and `MP3_FILENAMES`, the track filenames the tests use.
-  - `track_tags`: the test mp3 and copies of it (`copy_mp3`), and the GEOB tag fixtures (`DATA_FILES`, their paths, and `GEOB_DATA`, each GEOB tag class with its fixture's path). It's the only helper module that needs the track_tags extra, so tests that don't touch audio files must not import it.
+  - `track_tags`: the test mp3 and copies of it (`copy_mp3`, `copy_mp3_without_cues`, `copy_mp3_without`, `copy_mp3_with_empty_id3`), the GEOB tag fixtures (`DATA_FILES`, their paths, and `GEOB_DATA`, each GEOB tag class with its fixture's path), reading its tags (`has_tags_v1`, `cue_positions`), and `tagfile_saves`, which counts an audio file's saves: how tests check what was written to one, or that nothing was. It's the only helper module that needs the track_tags extra, so tests that don't touch audio files must not import it.
   - `cli`: `cli_args`, for running a console script's `main()` with a command line.
   - `platforms`: `WINDOWS_ONLY` / `POSIX_ONLY`, marks for tests that only make sense on one OS family.
   - `temp_dir` (in `files`) and `temp_mp3` / `untagged_mp3` (in `track_tags`) are for the modules still on `unittest.TestCase`, and go once they're converted.

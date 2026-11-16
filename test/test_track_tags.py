@@ -1,9 +1,8 @@
 # pylint: disable=protected-access
 import os
 import runpy
-import unittest
-from unittest import mock
 
+import pytest
 from mutagen.mp3 import MP3
 
 from serato_tools.track_autotags import TrackAutotags
@@ -13,118 +12,139 @@ from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_gain import TrackGain
 from serato_tools.track_tagdump import get_serato_tagdata
 from serato_tools.track_text_frames import TrackTextFrames
-from serato_tools.track_waveform import TrackWaveform
 from serato_tools.utils.track_tags import ID3FileTag, get_geob
 
-from test.helpers.track_tags import TEST_MP3, temp_mp3
+from test.helpers.cli import cli_args
+from test.helpers.files import read_bytes
+from test.helpers.track_tags import GEOB_DATA, TEST_MP3, copy_mp3, copy_mp3_with_empty_id3, tagfile_saves
+
+GEOB_TAG_CLASSES = tuple(GEOB_DATA)
+TAG_CLASSES = (*GEOB_TAG_CLASSES, TrackGain, TrackTextFrames)
 
 
-class TestCase(unittest.TestCase):
-    def test_delete_then_save_persists_deletion(self):
-        for tag_class in (TrackCuesV2, TrackCuesV1, TrackBeatgrid, TrackAutotags, TrackWaveform):
-            with self.subTest(tag_class.__name__):
-                path = temp_mp3(self)
-                self.assertIsNotNone(get_geob(MP3(path), tag_class.GEOB_KEY), "fixture has the tag")
-                tags = tag_class(path)
-                tags.delete()
-                self.assertTrue(tags.save(), "returns that it wrote")
-                self.assertIsNone(get_geob(MP3(path), tag_class.GEOB_KEY), "deletion saved")
+@pytest.mark.parametrize("tag_class", GEOB_TAG_CLASSES, ids=lambda cls: cls.__name__)
+def test_delete_then_save_persists_deletion(mp3: str, tag_class):
+    assert get_geob(MP3(mp3), tag_class.GEOB_KEY) is not None, "fixture has the tag"
+    tags = tag_class(mp3)
+    tags.delete()
+    assert tags.save() is True, "returns that it wrote"
+    assert get_geob(MP3(mp3), tag_class.GEOB_KEY) is None, "deletion saved"
 
-    def test_save_writes_only_a_changed_tag_unless_forced(self):
-        for tag_class in (TrackCuesV2, TrackCuesV1, TrackBeatgrid, TrackAutotags, TrackWaveform):
-            with self.subTest(tag_class.__name__):
-                tags = tag_class(temp_mp3(self))
-                assert tags.tagfile is not None
-                with mock.patch.object(tags.tagfile, "save") as save:
-                    tags.save()
-                    save.assert_not_called()
-                    tags.save(force=True)
-                    save.assert_called_once()
 
-    def test_save_returns_whether_it_wrote(self):
-        for tag_class in (
-            TrackCuesV2,
-            TrackCuesV1,
-            TrackBeatgrid,
-            TrackAutotags,
-            TrackWaveform,
-            TrackGain,
-            TrackTextFrames,
-        ):
-            with self.subTest(tag_class.__name__):
-                tags = tag_class(temp_mp3(self))
-                assert tags.tagfile is not None
-                with mock.patch.object(tags.tagfile, "save"):
-                    self.assertIs(tags.save(), False, "unchanged")
-                    self.assertIs(tags.save(force=True), True, "forced")
+@pytest.mark.parametrize("tag_class", TAG_CLASSES, ids=lambda cls: cls.__name__)
+def test_save_writes_only_a_changed_tag_unless_forced(mp3: str, tag_class):
+    tags = tag_class(mp3)
+    with tagfile_saves(tags.tagfile) as saves:
+        assert tags.save() is False, "unchanged"
+        saves.assert_not_called()
+        assert tags.save(force=True) is True, "forced"
+        saves.assert_called_once()
 
-    def test_untested_version_raises_at_construction(self):
-        for tag_class in (TrackCuesV2, TrackCuesV1, TrackBeatgrid, TrackAutotags, TrackWaveform):
-            with self.subTest(tag_class.__name__), self.assertRaisesRegex(ValueError, "Untested Serato tag version"):
-                tag_class(bytes([0x99, 0x99]))
 
-    def test_tagdump_reads_each_geob(self):
-        dumped = dict(get_serato_tagdata(MP3(TEST_MP3)))
-        self.assertEqual(dumped["Serato Autotags"], TrackAutotags(TEST_MP3)._raw_data)
-        self.assertEqual(dumped["Serato Markers2"], TrackCuesV2(TEST_MP3)._raw_data)
+@pytest.mark.parametrize("tag_class", GEOB_TAG_CLASSES, ids=lambda cls: cls.__name__)
+def test_untested_version_raises_at_construction(tag_class):
+    with pytest.raises(ValueError, match="Untested Serato tag version"):
+        tag_class(bytes([0x99, 0x99]))
 
-    def test_unsupported_file_type_raises(self):
-        with self.assertRaises(ValueError):
-            ID3FileTag("some_file.flac")
 
-    def test_has_changed(self):
-        tags = TrackAutotags(temp_mp3(self))
-        self.assertFalse(tags.has_changed, "as read")
-        tags.set(bpm=128)
-        self.assertTrue(tags.has_changed, "set")
+@pytest.mark.parametrize("tag_class", GEOB_TAG_CLASSES, ids=lambda cls: cls.__name__)
+def test_tagdump_reads_each_geob(tag_class):
+    dumped = dict(get_serato_tagdata(MP3(TEST_MP3)))
+    assert dumped[tag_class.GEOB_KEY] == tag_class(TEST_MP3)._raw_data
+
+
+def test_unsupported_file_type_raises():
+    with pytest.raises(ValueError):
+        ID3FileTag("some_file.flac")
+
+
+def test_geob_tag_has_changed(mp3: str):
+    tags = TrackAutotags(mp3)
+    assert not tags.has_changed, "as read"
+    tags.set(bpm=128)
+    assert tags.has_changed, "set"
+    tags.save()
+    assert not tags.has_changed, "saved"
+    tags.delete()
+    assert tags.has_changed, "deleted"
+
+    tags = TrackAutotags(read_bytes(GEOB_DATA[TrackAutotags]))
+    assert not tags.has_changed, "as given in bytes"
+    tags.set(bpm=128)
+    assert tags.has_changed, "differs from the bytes given"
+
+
+@pytest.mark.parametrize(
+    "tag_class", (TrackCuesV2, TrackAutotags), ids=lambda cls: cls.__name__
+)  # TrackCuesV2 has its own save()
+def test_saving_a_change_to_a_tag_read_from_bytes_raises(tag_class):
+    tags = tag_class(read_bytes(GEOB_DATA[tag_class]))
+    tags.delete()
+    with pytest.raises(ValueError, match="read from bytes"):
         tags.save()
-        self.assertFalse(tags.has_changed, "saved")
-        tags.delete()
-        self.assertTrue(tags.has_changed, "deleted")
-
-    def test_has_changed_from_bytes(self):
-        tags = TrackAutotags(TrackAutotags(TEST_MP3)._raw_data or b"")
-        self.assertFalse(tags.has_changed, "as given")
-        tags.set(bpm=128)
-        self.assertTrue(tags.has_changed, "differs from the bytes given")
-
-    def test_saving_a_change_to_a_tag_read_from_bytes_raises(self):
-        for tag_class in (TrackCuesV2, TrackAutotags):  # TrackCuesV2 has its own save()
-            with self.subTest(tag_class.__name__):
-                tags = tag_class(tag_class(TEST_MP3)._raw_data or b"")
-                tags.delete()
-                with self.assertRaisesRegex(ValueError, "read from bytes"):
-                    tags.save()
-
-    def test_tagdump_of_a_file_without_tags_raises(self):
-        path = temp_mp3(self)
-        MP3(path).delete()
-        with self.assertRaisesRegex(ValueError, "no tags"):
-            list(get_serato_tagdata(MP3(path)))
-
-    def test_tagdump_cli_says_why_it_cant_dump_a_file(self):
-        no_frames, no_tags, not_audio = (
-            temp_mp3(self, "no_frames.mp3"),
-            temp_mp3(self, "no_tags.mp3"),
-            temp_mp3(self, "notes.txt"),
-        )
-        tagfile = MP3(no_frames)
-        assert tagfile.tags is not None
-        tagfile.tags.clear()
-        tagfile.save()
-        MP3(no_tags).delete()
-        with open(not_audio, "wb") as f:
-            f.write(b"not audio")
-        for path, message in (
-            (no_frames, f"file has no tags: {no_frames}"),
-            (no_tags, f"file has no tags: {no_tags}"),
-            (not_audio, f"not an audio file mutagen can read: {not_audio}"),
-        ):
-            with self.subTest(os.path.basename(path)):
-                with mock.patch("sys.argv", ["serato_tagdump", path]), self.assertRaises(SystemExit) as caught:
-                    runpy.run_module("serato_tools.track_tagdump", run_name="__main__")
-                self.assertEqual(caught.exception.code, message)
 
 
-if __name__ == "__main__":
-    unittest.main()
+# TrackWaveform is read-only
+@pytest.mark.parametrize(
+    "tag_class", (TrackCuesV2, TrackCuesV1, TrackBeatgrid, TrackAutotags), ids=lambda cls: cls.__name__
+)
+def test_serialize_reproduces_the_bytes_parsed(tag_class):
+    data = read_bytes(GEOB_DATA[tag_class])
+    tags = tag_class(data)
+    tags._raw_data = None  # so only _serialize can put the bytes back
+    tags._serialize()
+    assert tags._raw_data == data
+
+
+# a file whose ID3 tags have no frames is falsy to mutagen, which once read as "no file"
+@pytest.mark.parametrize(
+    "tag_class", (TrackCuesV2, TrackCuesV1, TrackBeatgrid, TrackAutotags), ids=lambda cls: cls.__name__
+)
+def test_a_tag_in_a_file_with_no_frames_has_the_file(tmp_dir: str, tag_class):
+    path = copy_mp3_with_empty_id3(tmp_dir)
+    tags = tag_class(path)
+    assert tags.tagfile is not None
+    assert tags.filename == path
+
+
+def _copy_mp3_without_id3(folder: str) -> str:
+    path = copy_mp3(folder)
+    MP3(path).delete()
+    return path
+
+
+@pytest.mark.parametrize(
+    "make_file",
+    [
+        pytest.param(_copy_mp3_without_id3, id="no ID3 tag"),
+        pytest.param(copy_mp3_with_empty_id3, id="an ID3 tag with no frames"),
+    ],
+)
+def test_tagdump_of_a_file_without_tags_says_so(tmp_dir: str, make_file):
+    with pytest.raises(ValueError, match="no tags"):
+        list(get_serato_tagdata(MP3(make_file(tmp_dir))))
+
+
+def _not_audio_file(folder: str) -> str:
+    path = os.path.join(folder, "notes.txt")
+    with open(path, "wb") as f:
+        f.write(b"not audio")
+    return path
+
+
+# this module imports serato_tools.track_tagdump, which run_module warns of, though it runs a fresh copy
+@pytest.mark.filterwarnings("ignore:'serato_tools.track_tagdump' found in sys.modules:RuntimeWarning")
+@pytest.mark.parametrize(
+    "make_file, message",
+    [
+        pytest.param(_copy_mp3_without_id3, "file has no tags", id="no ID3 tag"),
+        pytest.param(copy_mp3_with_empty_id3, "file has no tags", id="an ID3 tag with no frames"),
+        pytest.param(_not_audio_file, "not an audio file mutagen can read", id="not audio"),
+    ],
+)
+def test_tagdump_cli_says_why_it_cant_dump_a_file(tmp_dir: str, make_file, message: str):
+    path = make_file(tmp_dir)
+    # serato_tagdump isn't a console script, so it runs as python -m runs it
+    with cli_args("serato_tagdump", path), pytest.raises(SystemExit) as caught:
+        runpy.run_module("serato_tools.track_tagdump", run_name="__main__")
+    assert caught.value.code == f"{message}: {path}"
