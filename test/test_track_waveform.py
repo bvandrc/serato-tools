@@ -1,40 +1,32 @@
-import unittest
 from unittest import mock
 
+import pytest
+
 from serato_tools.track_waveform import TrackWaveform
-from serato_tools.utils.track_tags import NoWaveformError, del_geob, open_tagfile
+from serato_tools.utils.track_tags import NoWaveformError
 
 from test.helpers.files import read_bytes
-from test.helpers.track_tags import temp_mp3
+from test.helpers.track_tags import DATA_FILES, copy_mp3_without
 
 
-class TestCase(unittest.TestCase):
-    def test_parse(self):
-        tags = TrackWaveform(read_bytes("test/data/track_waveform.bin"))
-        self.assertEqual(
-            b"".join(bytes(x) for x in list(tags.data)),
-            read_bytes("test/data/track_waveform_parsed.bin"),
-            "parsed data",
-        )
-
-    def test_without_a_waveform_raises(self):
-        path = temp_mp3(self)
-        tagfile = open_tagfile(path)
-        del_geob(tagfile, TrackWaveform.GEOB_KEY)
-        tagfile.save()
-        with self.assertRaises(NoWaveformError) as caught:
-            TrackWaveform(path)
-        self.assertEqual(caught.exception.filename, path)
-
-    def test_a_partial_row_raises(self):
-        with self.assertRaisesRegex(ValueError, "row of 5 bytes"):
-            TrackWaveform(read_bytes("test/data/track_waveform.bin") + b"\x00" * 5)
-
-    def test_drawing_without_pillow_says_how_to_install_it(self):
-        tags = TrackWaveform(read_bytes("test/data/track_waveform.bin"))
-        with mock.patch.dict("sys.modules", {"PIL": None}), self.assertRaisesRegex(ImportError, "waveform_drawing"):
-            tags.draw_image()
+def test_parse():
+    tags = TrackWaveform(read_bytes(DATA_FILES.WAVEFORM))
+    assert b"".join(bytes(x) for x in tags.data) == read_bytes("test/data/track_waveform_parsed.bin")
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_without_a_waveform_raises(tmp_dir: str):
+    path = copy_mp3_without(tmp_dir, TrackWaveform.GEOB_KEY)
+    with pytest.raises(NoWaveformError) as caught:
+        TrackWaveform(path)
+    assert caught.value.filename == path
+
+
+def test_a_partial_row_raises():
+    with pytest.raises(ValueError, match="row of 5 bytes"):
+        TrackWaveform(read_bytes(DATA_FILES.WAVEFORM) + b"\x00" * 5)
+
+
+def test_drawing_without_pillow_says_how_to_install_it():
+    tags = TrackWaveform(read_bytes(DATA_FILES.WAVEFORM))
+    with mock.patch.dict("sys.modules", {"PIL": None}), pytest.raises(ImportError, match="waveform_drawing"):
+        tags.draw_image()
