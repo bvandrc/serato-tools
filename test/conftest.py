@@ -1,8 +1,11 @@
 """The fixtures every test module can ask for. Helpers that aren't fixtures are in test/helpers/."""
 
+import os
 from pathlib import Path
 
 import pytest
+
+from serato_tools.crate import Crate
 
 
 @pytest.fixture
@@ -12,9 +15,33 @@ def tmp_dir(tmp_path: Path) -> str:
 
 
 @pytest.fixture
+def new_crate(tmp_dir: str) -> Crate:
+    """A new, empty crate at Test.crate in tmp_dir, not yet saved."""
+    return Crate(os.path.join(tmp_dir, "Test.crate"))
+
+
+@pytest.fixture
 def mp3(tmp_dir: str) -> str:
     """A copy of the test mp3, which has every Serato tag, in a new temporary folder."""
     # imported here so the tests that don't touch track tags don't need the track_tags extra (mutagen)
     from test.helpers.track_tags import copy_mp3
 
     return copy_mp3(tmp_dir)
+
+
+@pytest.fixture
+def bin_file_writes(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """The name of each Serato bin file (database or crate) the test writes, in order, filled in as they're written.
+
+    Clear it once the test's setup is done to record only what the test itself writes.
+    """
+    written: list[str] = []
+
+    def record_write(file, *args, **kwargs):
+        if "w" in (args[0] if args else kwargs.get("mode", "r")):
+            written.append(os.path.basename(file))
+        return open(file, *args, **kwargs)  # pylint: disable=unspecified-encoding
+
+    # every way of saving a bin file opens it for writing in its module, which has no open of its own to replace
+    monkeypatch.setattr("serato_tools.utils.bin_file_base.open", record_write, raising=False)
+    return written
