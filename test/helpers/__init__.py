@@ -1,6 +1,6 @@
-"""Helpers shared by the test modules, a module for each kind.
+"""Helpers shared by the test modules that aren't fixtures (those are in test/conftest.py), a module for each kind.
 
-- `files`: temporary folders, and reading files back.
+- `files`: temporary folders, copies of fixtures, and reading files back.
 - `bin_files`: the database and crate fixtures.
-- `track_tags`: the test mp3 and copies of it. Needs the track_tags extra.
+- `track_tags`: the test mp3 and the GEOB tag fixtures, and copies of the mp3. Needs the track_tags extra.
 """

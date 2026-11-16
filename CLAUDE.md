@@ -185,10 +185,14 @@ Console scripts are declared in `[project.scripts]` in `pyproject.toml` and poin
 ## Repository layout notes
 
 - **Test style:** the tests are moving to pytest, run by `python -m pytest`, which runs the modules still on `unittest.TestCase` as they are. A new or converted test is pytest: a plain test function with bare `assert`s (with a message where it says what a check means), fixtures instead of setup methods, and `pytest.mark.parametrize` instead of a loop over cases.
-- `test/helpers/` — shared test setup, a module for each kind (imported from the module, e.g. `from test.helpers.files import read_bytes`):
-  - `files`: `temp_dir` (cleaned up with the test), and `read_bytes` / `read_text`.
+- `test/conftest.py` — the shared fixtures:
+  - `tmp_dir`: pytest's `tmp_path` as the `str` path `serato_tools` takes.
+  - `mp3`: a copy of the test mp3, with every Serato tag. It imports the track_tags helpers inside the fixture, so `conftest.py` doesn't need the track_tags extra.
+- `test/helpers/` — shared helpers that aren't fixtures, a module for each kind (imported from the module, e.g. `from test.helpers.files import read_bytes`):
+  - `files`: `copy_into` a folder, and `read_bytes` / `read_text`.
   - `bin_files`: the database and crate fixture paths (`TEST_DATABASE`, `TEST_CRATE`, `TEST_SMART_CRATE`).
-  - `track_tags`: the test mp3 and temp copies of it (`temp_mp3`, `untagged_mp3`). It's the only helper module that needs the track_tags extra, so tests that don't touch audio files must not import it.
+  - `track_tags`: the test mp3 and copies of it (`copy_mp3`), and the GEOB tag fixtures (`DATA_FILES`, their paths, and `GEOB_DATA`, each GEOB tag class with its fixture's path). It's the only helper module that needs the track_tags extra, so tests that don't touch audio files must not import it.
+  - `temp_dir` (in `files`) and `temp_mp3` / `untagged_mp3` (in `track_tags`) are for the modules still on `unittest.TestCase`, and go once they're converted.
 
   Tests of a base class's behaviour go in the base's own module (`test_bin_file_base.py`, `test_track_tags.py`), driven through one subclass or looped over all of them, not repeated per subclass.
 - `test/data/` — fixtures for the test suite. Tests assert **byte-exact** round-trips (parse → serialize must reproduce the input), so regenerate fixtures deliberately, never to make a test pass.
