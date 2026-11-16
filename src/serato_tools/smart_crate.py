@@ -136,13 +136,12 @@ class SmartCrate(CrateBase):
         @property
         def comparison(self) -> str:
             """The rule's comparison, as a `SmartCrate.RuleComparison` value."""
-            # each of these fields holds its type, which loading and set_value check
-            return cast(str, self.get_value(SmartCrate.RuleFields.RULE_COMPARISON))
+            return self.get_value(SmartCrate.RuleFields.RULE_COMPARISON, str)
 
         @property
         def field(self) -> int:
             """The track field the rule tests, as a `SmartCrate.RuleField` value."""
-            return cast(int, self.get_value(SmartCrate.RuleFields.RULE_FIELD))
+            return self.get_value(SmartCrate.RuleFields.RULE_FIELD, int)
 
         @property
         def value(self) -> str | int | None:

@@ -394,7 +394,20 @@ class SeratoBinFile:
         def __repr__(self) -> str:
             return str(self.to_entries())
 
-        def get_value(self, field: str) -> "SeratoBinFile.Value":
+        @overload
+        def get_value(self, field: str) -> "SeratoBinFile.Value": ...
+
+        @overload
+        def get_value[T](self, field: str, value_type: type[T]) -> T: ...
+
+        def get_value(self, field: str, value_type: type | None = None) -> object:
+            """`field`'s value; given `value_type`, the type `field` holds, typed as it.
+
+            `value_type` isn't checked against the value: values are checked when they're set or loaded, so a value
+            already has the type its field holds.
+            """
+            # value_type only types the result for the overload above
+            del value_type
             return getattr(self, field)
 
         def set_value(self, field: str, value: "SeratoBinFile.Value"):
@@ -429,8 +442,7 @@ class SeratoBinFile:
         @property
         def relpath(self) -> str:
             """The track's path as stored: without its drive, `/`-separated."""
-            # a path field holds text, which set_value and loading check
-            return cast(str, self.get_value(self.path_key))
+            return self.get_value(self.path_key, str)
 
         @property
         def full_path(self) -> str:
