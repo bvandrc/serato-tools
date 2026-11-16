@@ -224,8 +224,9 @@ class SeratoBinFile:
             self._entries = copy.deepcopy(self.DEFAULT_ENTRIES)
             self._version = self._check_version(self._entries[0][1])
 
+        # a file with no version entry, such as an empty one, would otherwise load with no version checked
         if not hasattr(self, "_version"):
-            raise AttributeError("version not set after parsing file")
+            raise ValueError(f"no version entry ({SeratoBinFile.Fields.VERSION.value}) in {file}")
 
         self._parsed = True
 
@@ -244,11 +245,6 @@ class SeratoBinFile:
                 lines.append(f"{indent_str}{field} ({fieldname}): {str(value)}")
 
         return "\n".join(lines)
-
-    @property
-    def version(self) -> str:
-        """The file's format version, from its `vrsn` entry: one of `TESTED_VERSIONS`."""
-        return self._version
 
     def _check_version(self, value: Value) -> str:
         """`value`, typed as text; raises unless it's one of `TESTED_VERSIONS`."""
@@ -560,8 +556,8 @@ class SeratoBinFile:
 
         if field == SeratoBinFile.Fields.VERSION:
             self._check_version(value)
-            if value != self.version:
-                raise ValueError(f"version field value {value} does not match parsed value {self.version}")
+            if value != self._version:
+                raise ValueError(f"version field value {value} does not match parsed value {self._version}")
 
         if SeratoBinFile._get_type(field) in ("o", "r"):  #  struct (list)
             data = self._serialize_entries(expect_type(value, list, field))

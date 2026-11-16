@@ -89,11 +89,11 @@ class ParseTestCase(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "file ends partway through"):
                     DatabaseV2(path)
 
-    def test_version_is_read_only(self):
-        database = DatabaseV2(TEST_DATABASE)
-        self.assertIn(database.version, DatabaseV2.TESTED_VERSIONS)
-        with self.assertRaises(AttributeError):
-            database.version = "other"  # pyright: ignore[reportAttributeAccessIssue]
+    def test_a_file_without_a_version_raises(self):
+        path = os.path.join(temp_dir(self), "empty.crate")
+        open(path, "wb").close()  # pylint: disable=consider-using-with
+        with self.assertRaisesRegex(ValueError, "no version entry"):
+            Crate(path)
 
     def test_modify_with_two_rules_for_a_field_raises(self):
         db = DatabaseV2(TEST_DATABASE)
