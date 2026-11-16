@@ -39,7 +39,7 @@ Tests import the installed `serato_tools` (editable locally, a regular install i
 CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pylint and pyright, plus isort and black once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15.
 - **Lint on every version:** neither tool pins one, and both check against the running interpreter, so 3.12 catches use of anything newer and later versions catch deprecations and removals.
 - **Required checks:** the `main` ruleset requires these checks by name, so renaming a job or matrix entry means updating the ruleset too.
-- **OS-specific tests:** tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `pytest.mark.skipif` (`unittest.skipUnless` / `skipIf` in the modules still on `unittest.TestCase`), with a matching test for the other OS family. A parametrized test marks just its OS-specific cases, with `WINDOWS_ONLY` / `POSIX_ONLY` from `test.helpers.platforms`.
+- **OS-specific tests:** tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `pytest.mark.skipif`, with a matching test for the other OS family. A parametrized test marks just its OS-specific cases, with `WINDOWS_ONLY` / `POSIX_ONLY` from `test.helpers.platforms`.
 
 Bump `version` in `pyproject.toml` and add a `CHANGELOG.md` entry for user-visible changes. A version's entries are grouped by the part of the package they're in, so a reader can skip the parts they don't use. Follow these guidelines in a PR's entries; the maintainer may make exceptions in review, as some past versions' entries are:
 - **Sections:** a version's entries are grouped under `###` headings, in title case, for the part of the package they're in (`Library`, `Database / Crates`, `Track Tags`, `USB Export`, ...). Every version has sections, however few its entries. There's no section for CLIs: a CLI change goes in the section for what it works on. A change spanning several parts goes in one section naming them all (`Database / Crates / Track Tags`), placed before the sections of each, rather than repeated in each.
@@ -184,7 +184,7 @@ Console scripts are declared in `[project.scripts]` in `pyproject.toml` and poin
 
 ## Repository layout notes
 
-- **Test style:** the tests are moving to pytest, run by `python -m pytest`, which runs the modules still on `unittest.TestCase` as they are. A new or converted test is pytest: a plain test function with bare `assert`s (with a message where it says what a check means), fixtures instead of setup methods, and `pytest.mark.parametrize` instead of a loop over cases. A class groups tests only where they share a fixture of their own (`test_smart_crate.py`'s `TestCli`). A module's tests of a console script come last.
+- **Test style:** the tests are pytest: plain test functions with bare `assert`s (with a message where it says what a check means), fixtures instead of setup methods, and `pytest.mark.parametrize` instead of loops over cases. A class groups tests only where they share a fixture of their own (`test_smart_crate.py`'s `TestCli`). A module's tests of a console script come last.
 - `test/conftest.py` — the shared fixtures:
   - `tmp_dir`: pytest's `tmp_path` as the `str` path `serato_tools` takes.
   - `new_crate`: a new, empty, unsaved crate at `Test.crate` in `tmp_dir`.
@@ -196,7 +196,6 @@ Console scripts are declared in `[project.scripts]` in `pyproject.toml` and poin
   - `track_tags`: the test mp3 and copies of it (`copy_mp3`, `copy_mp3_without_cues`, `copy_mp3_without`, `copy_mp3_without_id3`, `copy_mp3_with_empty_id3`), AIFFs with its tags or none (`aiff_with_the_mp3s_tags`, `untagged_aiff`), the GEOB tag fixtures (`DATA_FILES`, their paths, and `GEOB_DATA`, each GEOB tag class with its fixture's path), reading its tags (`has_tags_v1`, `cue_positions`), and `tagfile_saves`, which counts an audio file's saves: how tests check what was written to one, or that nothing was. It's the only helper module that needs the track_tags extra, so tests that don't touch audio files must not import it.
   - `cli`: `cli_args`, for running a console script's `main()` with a command line.
   - `platforms`: `WINDOWS_ONLY` / `POSIX_ONLY`, marks for tests that only make sense on one OS family.
-  - `temp_dir` (in `files`) is for the modules still on `unittest.TestCase`, and goes once they're converted.
 
   Tests of a base class's behaviour go in the base's own module (`test_bin_file_base.py`, `test_track_tags.py`), driven through one subclass or looped over all of them, not repeated per subclass.
 - `test/data/` — fixtures for the test suite. Tests assert **byte-exact** round-trips (parse → serialize must reproduce the input), so regenerate fixtures deliberately, never to make a test pass.

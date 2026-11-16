@@ -1,16 +1,7 @@
-"""Temporary folders, copies of fixtures, mock files, and reading files back."""
+"""Copies of fixtures, mock files, and reading files back."""
 
 import os
 import shutil
-import tempfile
-import unittest
-
-
-def temp_dir(testcase: unittest.TestCase) -> str:
-    """A new temporary folder, removed when `testcase`'s test ends."""
-    tmp = tempfile.TemporaryDirectory()
-    testcase.addCleanup(tmp.cleanup)
-    return tmp.name
 
 
 def copy_into(folder: str, src: str, name: str | None = None) -> str:
