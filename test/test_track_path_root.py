@@ -1,21 +1,21 @@
-import unittest
-from unittest import mock
 import os
 import shutil
-import tempfile
+import unittest
+from unittest import mock
 
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.library import Library
 from serato_tools.utils import HOME_TRACK_PATH_ROOT, get_track_path_root
 
+from test.helpers.bin_files import TEST_DATABASE
+from test.helpers.files import temp_dir
+
 
 class TestCase(unittest.TestCase):
     def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self._tmp.cleanup)
         # stands in for an external drive's root, e.g. E:\ or /Volumes/USB
-        self.drive = os.path.join(os.path.realpath(self._tmp.name), "USB")
+        self.drive = os.path.join(os.path.realpath(temp_dir(self)), "USB")
         self.serato_dir = os.path.join(self.drive, "_Serato_")
         os.makedirs(os.path.join(self.serato_dir, Crate.DIR))
         os.makedirs(os.path.join(self.drive, "Music"))
@@ -91,7 +91,7 @@ class TestCase(unittest.TestCase):
 
     def test_external_drive_library_tracks(self):
         self.as_mount(self.drive)
-        shutil.copy("test/data/database_v2_test.bin", os.path.join(self.serato_dir, DatabaseV2.FILENAME))
+        shutil.copy(TEST_DATABASE, os.path.join(self.serato_dir, DatabaseV2.FILENAME))
         old, kept = self.make_track("Old.mp3"), self.make_track("Kept.mp3")
         new = os.path.join(self.drive, "Music", "New.mp3")
 

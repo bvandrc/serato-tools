@@ -1,89 +1,234 @@
-import struct
-import io
-import warnings
+"""The base classes for Serato's tags in a track file, and functions that read and write its ID3 frames."""
 
-from mutagen.mp3 import MP3
-from mutagen.id3 import ID3FileType, ID3
+import io
+import struct
+from enum import StrEnum, unique
+from typing import ClassVar
+
 from mutagen.aiff import AIFF
+from mutagen.id3 import ID3, ID3FileType
 from mutagen.id3._frames import GEOB
+from mutagen.mp3 import MP3
 
 from serato_tools.utils import logger
 
+# an open track file whose tags can be read and written: an ID3 file (.mp3), an AIFF file, or a file's bare ID3 tags
+type ID3File = ID3FileType | ID3 | AIFF
+type ID3FileOrPath = str | ID3File
 
-class SeratoTrack:
-    type Tagfile = ID3FileType | ID3 | AIFF
-    type FileArg = str | Tagfile
 
-    def __init__(self, file: FileArg):
-        self.tagfile: SeratoTrack.Tagfile
+@unique
+class GeobKeys(StrEnum):
+    """The GEOB frame key of each Serato tag in a track file, each tag class's `GEOB_KEY`.
 
-        if isinstance(file, str):
-            try:
-                if file.lower().endswith(".mp3"):
-                    self.tagfile = MP3(file)
-                elif file.lower().endswith((".aiff", ".aif")):
-                    self.tagfile = AIFF(file)
-                else:
-                    raise ValueError(f"unsupported file type (only .mp3, .aiff, and .aif are supported): {file}")
-            except ValueError:
-                raise
-            except:
-                logger.error(f"Mutagen error for file {file}")
-                raise
-        else:
-            self.tagfile = file
+    `ANALYSIS` and `OFFSETS` have no tag class yet. They're listed so every key Serato writes is here.
+    """
 
-    def _get_geob(self, geob_key: str) -> bytes | None:
-        geob_key = f"GEOB:{geob_key}"
-        try:
-            return self.tagfile[geob_key].data
-        except KeyError:
-            logger.debug(f'File is missing "{geob_key}" tag, not yet set: {self.tagfile.filename}')
-            return None
+    ANALYSIS = "Serato Analysis"
+    AUTOTAGS = "Serato Autotags"
+    BEATGRID = "Serato BeatGrid"
+    CUES_V1 = "Serato Markers_"
+    CUES_V2 = "Serato Markers2"
+    OFFSETS = "Serato Offsets_"
+    WAVEFORM = "Serato Overview"
 
-    def _tag_geob(self, geob_key: str, data: bytes):
-        self.tagfile[f"GEOB:{geob_key}"] = GEOB(
-            encoding=0,
-            mime="application/octet-stream",
-            desc=geob_key,
-            data=data,
-        )
 
-    def _del_tag(self, key: str):
+class MissingTagError(ValueError):
+    """A track file without the Serato tag that was needed, such as one Serato hasn't analyzed yet.
+
+    Catch a subclass to handle one tag's absence, without also catching other ValueErrors, such as a corrupt tag.
+    """
+
+    GEOB_KEY: ClassVar[GeobKeys]
+
+    def __init__(self, filename: str | None = None):
+        """`filename` is the track's, or None for a tag read from bytes."""
+        self.filename = filename
+        super().__init__(f"no {self.GEOB_KEY} tag" + (f": {filename}" if filename else ""))
+
+
+class NoCuesError(MissingTagError):
+    """A track without a `Serato Markers2` tag, so no cues, such as one that hasn't been analyzed or given any."""
+
+    GEOB_KEY = GeobKeys.CUES_V2
+
+
+class NoBeatgridError(MissingTagError):
+    """A track without a `Serato BeatGrid` tag, such as one Serato hasn't analyzed yet."""
+
+    GEOB_KEY = GeobKeys.BEATGRID
+
+
+class NoWaveformError(MissingTagError):
+    """A track without a `Serato Overview` tag, the waveform, such as one Serato hasn't analyzed yet."""
+
+    GEOB_KEY = GeobKeys.WAVEFORM
+
+
+# the track file types open_tagfile opens, by extension
+_MP3_EXTENSIONS = (".mp3",)
+_AIFF_EXTENSIONS = (".aiff", ".aif")
+TAGFILE_EXTENSIONS = _MP3_EXTENSIONS + _AIFF_EXTENSIONS
+
+
+def open_tagfile(file: ID3FileOrPath) -> ID3File:
+    """Opens the track file at `file` with mutagen, or returns `file` if it's already open.
+
+    Raises ValueError for a file type other than .mp3, .aiff, or .aif.
+    """
+    if not isinstance(file, str):
+        return file
+    try:
+        if file.lower().endswith(_MP3_EXTENSIONS):
+            return MP3(file)
+        if file.lower().endswith(_AIFF_EXTENSIONS):
+            return AIFF(file)
+    except Exception:
+        logger.error(f"Mutagen error for file {file}")
+        raise
+    raise ValueError(f"unsupported file type (only .mp3, .aiff, and .aif are supported): {file}")
+
+
+def del_tag(tagfile: ID3File, key: str) -> bool:
+    """Deletes the file's frame `key` (e.g. `GEOB:Serato Markers_`), in memory; returns whether it had one."""
+    if key in tagfile:
+        del tagfile[key]
+        return True
+    return False
+
+
+def get_geob(tagfile: ID3File, geob_key: str) -> bytes | None:
+    """The data of the file's GEOB frame named `geob_key`, or None if it has none."""
+    # matched exactly, as mutagen keys frames; whether Serato ever writes a name in another case, or two frames with
+    # the same name, isn't known
+    try:
+        return tagfile[f"GEOB:{geob_key}"].data
+    except KeyError:
+        logger.debug(f'File is missing "GEOB:{geob_key}" tag, not yet set: {tagfile.filename}')
+        return None
+
+
+def set_geob(tagfile: ID3File, geob_key: str, data: bytes):
+    """Sets the file's GEOB frame named `geob_key` to `data`, in memory."""
+    tagfile[f"GEOB:{geob_key}"] = GEOB(
+        encoding=0,
+        mime="application/octet-stream",
+        desc=geob_key,
+        data=data,
+    )
+
+
+def del_geob(tagfile: ID3File, geob_key: str) -> bool:
+    """Deletes the file's GEOB frame named `geob_key`, in memory; returns whether it had one."""
+    return del_tag(tagfile, f"GEOB:{geob_key}")
+
+
+class ID3FileTag:
+    """A value stored in an ID3 file's tags, read from and written to `tagfile`, which tags can share."""
+
+    def __init__(self, file: ID3FileOrPath):
+        """Opens the track file at `file`, or uses `file` if it's an already open mutagen file."""
+        self.tagfile: ID3File = open_tagfile(file)
+
+    @property
+    def has_changed(self) -> bool:
+        """Whether the tag has changes that saving would write to the file."""
+        # raises rather than returning False, as _write_to_tagfile does
+        raise NotImplementedError(f"{type(self).__name__} doesn't implement has_changed")
+
+    def _require_tagfile(self) -> ID3File:
+        """The tag's open file; raises if it has none, as a `SeratoGeobTag` read from bytes doesn't."""
+        if self.tagfile is None:
+            raise ValueError(f"{type(self).__name__} was read from bytes, so has no file to read or write")
+        return self.tagfile
+
+    def _write_to_tagfile(self) -> bool:
+        """Puts this tag's unsaved changes into `tagfile` without saving the file; returns whether it had any."""
+        # raises rather than returning False, so a tag class that doesn't implement it fails loudly instead of having
+        # its changes silently dropped
+        raise NotImplementedError(f"{type(self).__name__} doesn't implement _write_to_tagfile")
+
+    def save(self, force: bool = False) -> bool:
+        """Writes the tag to the file, if it changed since it was read or last saved, or if `force`.
+
+        Returns whether it wrote. Raises ValueError if it has a change to write but no file, as a tag read from bytes.
+
+        Writes only when this tag has a change, so other unsaved changes to a tagfile passed in (frames set on it
+        directly, or by another tag object sharing it) are only written then: otherwise save the tagfile yourself, or
+        pass `force`.
         """
-        Returns True if was deleted, False if no change
-        """
-        if key in self.tagfile:
-            del self.tagfile[key]
-            return True
-        return False
+        if not (self.has_changed or force):
+            return False
+        tagfile = self._require_tagfile()
+        # a forced save of an unchanged tag puts nothing in the tagfile, so it can't restore a frame another tag
+        # sharing it deleted (TrackCuesV2 deleting a stale Serato Markers_)
+        self._write_to_tagfile()
+        tagfile.save()
+        return True
 
-    def _del_geob(self, geob_key: str):
-        """
-        Returns True if was deleted, False if no change
-        """
-        return self._del_tag(f"GEOB:{geob_key}")
+
+class SeratoGeobTag(ID3FileTag):
+    """One of Serato's GEOB tags, such as `Serato Markers2`: parsed from, and serialized back to, its frame's bytes."""
+
+    GEOB_KEY: GeobKeys
 
     VERSION_FORMAT = "BB"
     VERSION_LEN = struct.calcsize(VERSION_FORMAT)
     type Version = tuple[int, int]
+    VERSION: Version
 
-    @staticmethod
-    def _check_version(given: bytes, expected: Version):
-        given_version: SeratoTrack.Version = struct.unpack(SeratoTrack.VERSION_FORMAT, given)
-        if given_version != expected:
+    type FileOrData = ID3FileOrPath | bytes
+
+    def __init__(self, file_or_data: FileOrData):
+        """Reads the tag from a track file, as a path or an open mutagen file, or from the tag's own bytes.
+
+        Read from bytes, the tag has no file, so `save()` raises. A file without the tag leaves its data None.
+        """
+        self.tagfile: ID3File | None = None  # pyright: ignore[reportIncompatibleVariableOverride]
+        self._raw_data: bytes | None = None
+
+        if isinstance(file_or_data, (bytes, bytearray, memoryview)):
+            self._raw_data = file_or_data
+        else:
+            super().__init__(file=file_or_data)
+            self._raw_data = self._get_geob()
+        # the data the tagfile holds, saved to disk or not, so _write_to_tagfile can tell if there's anything to write
+        self._tagged_raw_data = self._raw_data
+
+    def __repr__(self) -> str:
+        return str(self._raw_data)
+
+    @property
+    def filename(self) -> str | None:
+        """The track file's path, or None for a tag read from bytes."""
+        return self.tagfile.filename if self.tagfile is not None else None
+
+    def _get_geob(self):
+        return get_geob(self._require_tagfile(), self.GEOB_KEY)
+
+    def _set_geob(self):
+        if self._raw_data is None:
+            return
+        set_geob(self._require_tagfile(), self.GEOB_KEY, self._raw_data)
+
+    def _del_geob(self):
+        return del_geob(self._require_tagfile(), self.GEOB_KEY)
+
+    def _check_version(self, given: bytes):
+        """Raises ValueError unless `given`, the tag's packed version bytes, is this class's `VERSION`."""
+        given_version: SeratoGeobTag.Version = struct.unpack(SeratoGeobTag.VERSION_FORMAT, given)
+        if given_version != self.VERSION:
             raise ValueError(f"""
                 ERROR: Untested Serato tag version: {str(given_version)}
                 Please contact the developer so we can get it tested and supported!
                 We will have you send the file you are trying to parse so we can add support and tests for it.
                 We do not want to risk damaging users' library database or crate files!
 
-                Expected version: {str(expected)}
+                Expected version: {str(self.VERSION)}
                 """)
 
-    @staticmethod
-    def _pack_version(version: Version):
-        return struct.pack(SeratoTrack.VERSION_FORMAT, *version)
+    def _pack_version(self):
+        return struct.pack(SeratoGeobTag.VERSION_FORMAT, *self.VERSION)
 
     @staticmethod
     def _readbytes_gen(fp: io.BytesIO):
@@ -94,68 +239,36 @@ class SeratoTrack:
 
     @staticmethod
     def _readbytes(fp: io.BytesIO):
-        return b"".join(SeratoTrack._readbytes_gen(fp))
-
-
-class SeratoTag(SeratoTrack):
-    GEOB_KEY: str
-    VERSION: SeratoTrack.Version
-
-    type FileOrData = SeratoTrack.FileArg | bytes
-
-    def __init__(self, file_or_data: FileOrData):
-        self.tagfile: SeratoTrack.Tagfile | None = None  # pyright: ignore[reportIncompatibleVariableOverride]
-        self._raw_data: bytes | None = None
-
-        if isinstance(file_or_data, (bytes, bytearray, memoryview)):
-            self._raw_data = file_or_data
-        else:
-            super().__init__(file=file_or_data)
-            self._raw_data = self._get_geob()
-
-    def __repr__(self) -> str:
-        return str(self._raw_data)
-
-    @property
-    def raw_data(self) -> bytes | None:
-        """Deprecated, to be removed in the next major version: read-only. Use the tag's own parse, modify, and serialize methods instead of the stored bytes."""
-        warnings.warn(
-            "raw_data is deprecated and will be removed in version 6, use the tag's own parse, modify, and serialize methods instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._raw_data
-
-    def _get_geob(self):  # pylint: disable=arguments-differ  # pyright: ignore[reportIncompatibleMethodOverride]
-        return super()._get_geob(self.GEOB_KEY)
-
-    def _tag_geob(self):  # pylint: disable=arguments-differ  # pyright: ignore[reportIncompatibleMethodOverride]
-        if self._raw_data is None:
-            return
-        return super()._tag_geob(self.GEOB_KEY, self._raw_data)
-
-    def _del_geob(self):  # pylint: disable=arguments-differ  # pyright: ignore[reportIncompatibleMethodOverride]
-        return super()._del_geob(self.GEOB_KEY)
-
-    def _check_version(  # pylint: disable=arguments-renamed  # pyright: ignore[reportIncompatibleMethodOverride]
-        self, given: bytes
-    ):
-        return super()._check_version(given, self.VERSION)
-
-    def _pack_version(self):  # pylint: disable=arguments-renamed  # pyright: ignore[reportIncompatibleMethodOverride]
-        return super()._pack_version(self.VERSION)
+        """Reads past the next null byte, or to the end, and returns what came before it: a null-terminated string."""
+        return b"".join(SeratoGeobTag._readbytes_gen(fp))
 
     def delete(self):
-        was_deleted = self._del_geob() if self.tagfile else False
+        """Deletes the tag in memory, returning whether the file had it; call `save()` to write the deletion."""
+        was_deleted = self._del_geob() if self.tagfile is not None else False
         # clear _raw_data so a later save() persists the deletion instead of re-tagging the old bytes
         self._raw_data = None
         return was_deleted
 
-    def save(self):
-        if not self.tagfile:
-            raise Exception("no tagfile, no saving")
+    def _put_in_tagfile(self):
+        """Sets the tag's frame in `tagfile` to its data, or deletes the frame if it has none, without saving."""
         if self._raw_data:
-            self._tag_geob()
+            self._set_geob()
         else:
             self._del_geob()
-        self.tagfile.save()
+        self._tagged_raw_data = self._raw_data
+
+    @property
+    def has_changed(self) -> bool:
+        """Whether the tag's bytes differ from the file's as read or last saved, so that saving would change them.
+
+        For a tag read from bytes, whether they differ from those bytes.
+        """
+        # compared with what was read rather than with the tagfile, so an unchanged tag doesn't count, or restore, a
+        # frame that another tag sharing the tagfile deleted (TrackCuesV2 deleting a stale Serato Markers_)
+        return self._raw_data != self._tagged_raw_data
+
+    def _write_to_tagfile(self) -> bool:
+        if not self.has_changed:
+            return False
+        self._put_in_tagfile()
+        return True

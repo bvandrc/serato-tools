@@ -17,6 +17,7 @@
   - [Listing corrupt tracks](#listing-corrupt-tracks)
   - [Exporting crates to USB](#exporting-crates-to-usb)
   - [Analyzing and setting a dynamic beatgrid](#analyzing-and-setting-a-dynamic-beatgrid)
+  - [Changing several of a track's tags at once](#changing-several-of-a-tracks-tags-at-once)
   - [Setting track color](#setting-track-color)
   - [Snapping cue positions to the beatgrid](#snapping-cue-positions-to-the-beatgrid)
   - [Modifying track metadata / hot cues](#modifying-track-metadata--hot-cues)
@@ -37,13 +38,14 @@
 **Tracks:**
 - Change hot cue's text (i.e. change to all caps; change "c" to "CHORUS", etc.)
 - Set a hot cue's text based on its color (i.e. if RED, set to "EXIT")
-- Set a track's color (i.e. if has hot cues, change to BLUE)
+- Set a track's color (i.e. if has hot cues, change to BLUE); see [Setting track color](#setting-track-color) to set it in the database too
 - Set a piece of metadata due to a track's color (i.e. if track is green, set "grouping" to "TAGGED") (this is useful since can't create smart crates by track color in Serato)
 - Analyze a track's Dynamic Beatgrid and save it to the beatgrid Serato tag.
  - Snap cue points to the nearest beat with a configurable tolerance (e.g. 1/16, 1/8, 1/4 of a beat).
 
 **Library:**
 - Rename or delete a track file while updating the database, crates, and smart crates as well, so that it doesn't go missing.
+- Set a track's color, beatgrid lock, or metadata (title, artist, grouping, ...) in its tags and the database at once, so Serato shows it right away.
 
 **Database:**
 - After changing a track's metadata, modify database values for a specific track so that you don't have to "Reload Id3 Tags" in Serato, the change appears in Serato instantly.
@@ -97,6 +99,16 @@ library.rename_track_file(
 )
 library.remove_track_files(["/Users/Username/Music/Dubstep/Raaket - ILL (Radio Edit).mp3"])  # deletes the files too
 ```
+
+Each of those writes the library files that contain the track. `rename_track_file` returns their paths, and raises `FileExistsError` if a different file is already at `dest`. `remove_track_files` returns them as `library_files_changed`, along with the track files it deleted, as `files_deleted`. For many changes, put them in a `batch()`, which writes each changed file once, when the block ends. The track files themselves still change right away, so the library is saved even if the block raises:
+
+```python
+with library.batch():
+    for src, dest in renames:
+        library.rename_track_file(src, dest)
+```
+
+To save changes made through `library.database`'s or the crates' own methods, such as `modify`, call `library.save()`, which writes each file that changed, once, and returns their paths.
 
 ### Modifying the database file
 
@@ -162,19 +174,64 @@ _NOTE: This feature has only been tested on a couple of tracks. Recommend review
 >>> serato_analyze_beatgrid "/Users/Username/Music/Dubstep/Raaket - ILL.mp3"
 ```
 
-### Setting track color
+### Changing several of a track's tags at once
+
+`Track` opens the file once and parses its Serato tags; `save()` then writes all of your changes in a single write, instead of rewriting the whole file once per tag:
 
 ```python
+from serato_tools.track import Track
 from serato_tools.track_cues_v2 import TrackCuesV2
 
-tags = TrackCuesV2('/Users/Username/Music/Dubstep/Raaket - ILL.mp3')
-tags.set_track_color(
-    TrackCuesV2.TrackColors.PURPLE,
-    delete_tags_v1=True
-    # delete_tags_v1 (the default) deletes the legacy "Serato Markers_" tag, since a stale one stops the new color from appearing in Serato. No issues have been found from deleting it, but use caution with versions of Serato before 3, which may still read it.
-)
-tags.save()
+track = Track('/Users/Username/Music/Dubstep/Raaket - ILL.mp3')
+track.set_track_color(TrackCuesV2.TrackColors.PURPLE)  # Serato stores it in cues_v2
+track.autotags.set(bpm=128)
+track.gain.set(gain=-2.5)
+track.save()  # one write; returns False, without writing, if nothing changed
 ```
+
+Its tags are `cues_v2`, `cues_v1`, `beatgrid`, `autotags`, `waveform`, and `gain`: the same classes as below, so use their own methods to change them, and `Track.save()` rather than theirs. Each is parsed unless you pass it `False`, except `waveform`, which you pass `True` to parse; a tag that isn't parsed isn't saved either:
+
+```python
+track = Track('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', cues_v1=False, beatgrid=False, waveform=True)
+```
+
+### Setting track color
+
+Set a track's color, or lock its beatgrid, with `Library`, which sets it in both the track file's tags and the library database. Serato shows the database, and only reads a file's tags again when the track is loaded or on "Rescan File Tags", so changing only one of the two leaves Serato showing a stale value, or the file losing the change. Close Serato first.
+
+```python
+from serato_tools.library import Library
+from serato_tools.track_cues_v2 import TrackCuesV2
+
+library = Library()
+library.set_db_track_tags(
+    '/Users/Username/Music/Dubstep/Raaket - ILL.mp3',
+    color=TrackCuesV2.TrackColors.PURPLE,
+    beatgrid_locked=True,
+    # delete_tags_v1 (the default) deletes the legacy "Serato Markers_" tag, since a stale one stops the new color from appearing in Serato. No issues have been found from deleting it, but use caution with versions of Serato before 3, which may still read it.
+    delete_tags_v1=True,
+)
+# many tracks at once, saving the database only once
+library.set_db_tracks_tags({
+    '/Users/Username/Music/Dubstep/Raaket - ILL.mp3': {'color': TrackCuesV2.TrackColors.PURPLE},
+    '/Users/Username/Music/Dubstep/Other.mp3': {'color': TrackCuesV2.TrackColors.BLUE1, 'beatgrid_locked': False},
+})
+# both return whether the database changed, and which track files were written
+result = library.set_db_track_tags('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', color=TrackCuesV2.TrackColors.PURPLE)
+result.database_changed, result.files_written
+```
+
+The same goes for a track's metadata, which Serato keeps both in the file's ID3 text frames and in the database: `title`, `artist`, `album`, `genre`, `key`, `grouping`, `publisher`, `composer`, `year`, `remixer`, `track_number`, `disc_number`, and `comment`. An empty value removes it, as clearing it in Serato does.
+
+```python
+library.set_db_track_tags('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', grouping='TAGGED', genre='Dubstep')
+```
+
+Only ID3 files (.mp3, .aiff, .aif) are currently supported. A track Serato hasn't analyzed yet gets the color or lock added to its tags, as Serato writes them.
+
+Inside a `library.batch()` (see [above](#renaming-or-removing-track-files-across-the-library)), the database is written when the batch ends, along with any renames or removals in it, rather than once per call.
+
+Avoid `Track.set_track_color` / `set_beatgrid_locked` (or `TrackCuesV2`'s), or `DatabaseV2.modify` on the `COLOR` / `BEATGRID_LOCKED` fields, on their own, since each changes only one of the two.
 
 ### Snapping cue positions to the beatgrid
 
@@ -188,6 +245,19 @@ serato_snap_cues_v2 "/Users/Username/Music/Dubstep/Raaket - ILL.mp3" --snap_cues
 - `--snap_tolerance` is a fraction of a beat (e.g. `1/16`, `1/8`, `1/4`) that a cue point can come within a beat in order to "snap" to it.
 
 Only cue points within the tolerance window of some beat are moved; others are left unchanged.
+
+In Python, use `Track.snap_cues_to_beats`, which reads the track's `Serato Markers2` and `Serato BeatGrid` tags, so needs `cues_v2` and `beatgrid` parsed (the default):
+
+```python
+from serato_tools.track import Track
+
+track = Track('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', cues_v1=False, autotags=False, gain=False)
+for snapped in track.snap_cues_to_beats(tolerance_beats=1 / 16):
+    print(f"cue {snapped.index + 1}: {snapped.old_position} ms -> {snapped.new_position} ms")
+track.save()
+```
+
+`Track.snap_cues_to_beats` is `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)` with the track's own beatgrid, which you can also call directly with a `TrackBeatgrid` read from the same file. `track.beatgrid.get_snapped_position` (`TrackBeatgrid.get_snapped_position`) gives the position a single cue would snap to.
 
 ### Modifying track metadata / hot cues
 
@@ -222,8 +292,11 @@ def track_rule(track: TrackCuesV2.TrackCuesInfo) -> TrackCuesV2.TrackCuesInfo | 
     new_track = dataclasses.replace(track, cues=new_cues)
     return new_track if new_track != track else None
 
-tags.modify_entries(track_rule, delete_tags_v1=True)
-tags.save()
+tags.modify_entries(track_rule)
+# delete_tags_v1 (the default) deletes the legacy "Serato Markers_" tag, since a stale one stops changes from appearing in Serato.
+# save() writes only when the cues changed, so the Grouping set on tags.tagfile above is saved here otherwise
+if not tags.save(delete_tags_v1=True):
+    tags.tagfile.save()
 ```
 
 ### Listing available crates or smart crates
@@ -240,16 +313,16 @@ print('\n'.join(SmartCrate.get_crate_files()))
 
 __via command line__
 
-Each rule takes a comparison and a value (or `DELETE` to remove the rule). The available comparisons are the `SmartCrate.RuleComparison` names, lowercase: `str_contains`, `str_is`, `int_is_ge`, etc.
+Each rule field is its own option, such as `--grouping` or `--bpm`, which takes a comparison and a value, or `DELETE` to remove the rule. The available comparisons are the `SmartCrate.RuleComparison` names, lowercase: `str_contains`, `str_is`, `int_is_ge`, etc. `serato_smartcrate --help` lists the fields and comparisons.
 
 _one crate_
 ```cmd
->>> serato_smartcrate '/Users/Username/Music/_Serato_/SmartCrates/Dubstep.scrate' --set_rules --grouping str_is UNTAGGED
+>>> serato_smartcrate '/Users/Username/Music/_Serato_/SmartCrates/Dubstep.scrate' --grouping str_is UNTAGGED --year DELETE
 ```
 
 _all crates_
 ```cmd
->>> serato_smartcrate --all --set_rules --grouping str_is UNTAGGED
+>>> serato_smartcrate --all --grouping str_is UNTAGGED
 ```
 
 __via code__

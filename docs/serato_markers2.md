@@ -4,9 +4,19 @@ This tag stores various kinds of track "markers" like Cue Points, Saved Loops, F
 
 Note that some of this information is also stored in [`Serato Markers_`](serato_markers_.md), and Serato will prefer that data over the information stored in `Serato Markers2` if it is present.
 
-The tag contains a two-byte tag header, followed by base64-encoded binary data. If the content is very long, a linefeed character (`0a`) is inserted into the base64 string every 72 bytes. For some unknown reason, Serato may produce a base64 string that is 1 byte longer than a multiple of 4 (i.e. an invalid base64 string). In that case, you can just append an `A` (of `A==` if you use padding) before decoding it.
+The tag contains a two-byte tag header, followed by base64-encoded binary data. If the content is very long, a linefeed character (`0a`) is inserted into the base64 string every 72 bytes, including after the last line if it's a full 72 bytes. Serato may produce a base64 string that is 1 byte longer than a multiple of 4 (i.e. an invalid base64 string). In that case, you can just append an `A` (of `A==` if you use padding) before decoding it.
+This happens because Serato appends a null byte to the data before encoding it, then drops the base64 padding along with the character before it, which only ever holds bits of that null byte. [Mixxx's `markers2.cpp`](https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp) writes it the same way, except that it doesn't add the newline after a full last line.
 
 The minimum length of this tag seems to be 470 bytes, and shorter contents are padded with null bytes.
+When Serato rewrites the tag, it seems to keep the length the tag already had, padding shorter contents with null bytes. The evidence is in `data/id3`: `very-long-names` is a 93142-byte tag that its contents nearly fill, and `bpmlock-enabled`, apparently the same track later, is still 93142 bytes, although its contents take up only 42 of them. [Mixxx's `markers2.cpp`](https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers2.cpp) keeps the length too, saying Serato does it "to reduce disk fragmentation".
+
+In an ID3 file, Serato sizes the tag in 512-byte steps past 470 bytes: 470, 982, 1494, ... When the contents no longer fit, it grows the tag to the smallest step that fits them with at least one null byte after them. Mixxx doesn't know this ("TODO: Find out how Serato chooses the allocation sizes"), and grows the tag to one null byte past the contents. The evidence:
+
+- Serato grew a 470-byte tag whose contents grew to 618 bytes to 982 bytes (`test/data/track_cues_v2_982_bytes.bin`).
+- Every tag larger than 470 bytes in `data/id3` is on a step: `flips` at 2006 bytes, and `very-long-names` at 93142.
+- Serato puts a tag that isn't on a step back on one. It rewrote tags that serato-tools had grown the way Mixxx does: 1314 and 1351 bytes up to 1494 (`test/data/track_cues_v2_1494_bytes.bin` is the first), and 1025 bytes, whose contents had shrunk to 956, down to 982. serato-tools keeps such a size instead, since the tag in other containers isn't on the steps (752 bytes in `data/flac` and `data/mp4`, and 514 in `data/mp4-decoded`).
+
+Whether Serato takes the next step when the contents fill a step exactly, leaving no null byte, isn't known.
 
 | Offset   |            Length | Raw Value                 | Decoded Value | Type                    | Description
 | -------- | ----------------- | ------------------------- | ------------- | ----------------------- | -----------
@@ -80,9 +90,11 @@ Each `CUE` entry contains information about a [cue point](https://support.serato
 | `06`     |                `04` | `00 00 08 26`             | 2086          | `uint32_t`              | End Position in milliseconds
 | `0a`     |                `04` | `ff ff ff ff`             |               |                         |
 | `0e`     |                `04` | `00 27 aa e1`             | `#27aae1`     | 4-byte ARGB value       | Color
-| `12`     |                `03` | `00`                      |               |                         |
+| `12`     |                `01` | `00`                      |               |                         |
 | `13`     |                `01` | `00`                      | False         | `uint8_t` (boolean)     | Locked
 | `14`     | `01` <= X <= `7fec` | `00`                      | ``            | UTF-8 (null-terminated) | Name
+
+Tags that Mixxx wrote can hold two kinds of entry Serato doesn't write, likely from a Mixxx bug ([mixxxdj/mixxx#11283](https://github.com/mixxxdj/mixxx/issues/11283)): a `LOOP` that ends at position 0, and a black (`00 00 00`) `CUE` at position 0.
 
 
 ### `FLIP` entries

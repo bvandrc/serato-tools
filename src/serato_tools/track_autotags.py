@@ -1,23 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""The `Serato Autotags` tag, which holds the BPM and gain values Serato's analysis found for a track."""
+
 import io
-import sys
-from typing import Optional
 from dataclasses import dataclass
+from typing import Optional
 
-from mutagen.mp3 import HeaderNotFoundError
-
-
-from serato_tools.utils.track_tags import SeratoTag
-from serato_tools.utils import logger
+from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag
 
 
-class TrackAutotags(SeratoTag):
-    GEOB_KEY = "Serato Autotags"
+class TrackAutotags(SeratoGeobTag):
+    """The `Serato Autotags` tag: the track's `bpm`, `autogain`, and `gaindb`, each None if the tag isn't set."""
+
+    GEOB_KEY = GeobKeys.AUTOTAGS
     VERSION = (0x01, 0x01)
 
-    def __init__(self, file_or_data: SeratoTag.FileOrData):
-        self._raw_data: bytes | None = None
+    def __init__(self, file_or_data: SeratoGeobTag.FileOrData):
         super().__init__(file_or_data)
 
         self.bpm: float | None = None
@@ -65,6 +63,10 @@ class TrackAutotags(SeratoTag):
         autogain: Optional[float] = None,
         gaindb: Optional[float] = None,
     ):
+        """Sets the values given, leaving the rest, in memory; call `save()` to write them to the file.
+
+        Raises ValueError if that leaves any unset, which happens when the file had no `Serato Autotags` tag.
+        """
         if bpm is not None:
             self.bpm = bpm
         if autogain is not None:
@@ -76,63 +78,16 @@ class TrackAutotags(SeratoTag):
 
 if __name__ == "__main__":
     import argparse
-    import configparser
-    import subprocess
-    import tempfile
 
-    from serato_tools.utils.ui import get_text_editor
+    from serato_tools.utils.cli import open_tag_file_or_data
 
     @dataclass
     class Args:
         file: str
-        edit: bool
 
     parser = argparse.ArgumentParser()
     parser.add_argument("file")
-    parser.add_argument("-e", "--edit", action="store_true")
     args = Args(**vars(parser.parse_args()))
 
-    try:
-        tags = TrackAutotags(args.file)
-    except HeaderNotFoundError:
-        with open(args.file, mode="rb") as fp:
-            data = fp.read()
-        tags = TrackAutotags(data)
-
-    if args.edit:
-        editor = get_text_editor()
-
-        with tempfile.NamedTemporaryFile() as f:
-            f.write(str(tags).encode("ascii"))
-            f.flush()
-            status = subprocess.call((editor, f.name))
-            f.seek(0)
-            output = f.read()
-
-        if status != 0:
-            ERROR_STR = f"Command executation failed with status: {status}"
-            print(ERROR_STR, file=sys.stderr)
-            logger.error(ERROR_STR)
-            raise Exception(ERROR_STR)
-
-        cp = configparser.ConfigParser()
-        try:
-            SECTION = "Autotags"
-            cp.read_string(f"[{SECTION}]\n" + output.decode())
-            bpm = cp.getfloat(SECTION, "bpm")
-            autogain = cp.getfloat(SECTION, "autogain")
-            gaindb = cp.getfloat(SECTION, "gaindb")
-        except Exception:
-            ERROR_STR = "Invalid input, no changes made"
-            print(ERROR_STR, file=sys.stderr)
-            logger.error(ERROR_STR)
-            raise
-
-        tags.set(bpm=bpm, autogain=autogain, gaindb=gaindb)
-        if tags.tagfile:
-            tags.save()
-        else:
-            with open(args.file, mode="wb") as fp:
-                fp.write(tags._raw_data or b"")  # pylint: disable=protected-access
-    else:
-        print(str(tags))
+    tags = open_tag_file_or_data(TrackAutotags, args.file)
+    print(str(tags))
