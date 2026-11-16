@@ -744,7 +744,8 @@ class SeratoBinFile:
     def get_relative_path(filepath: str) -> str:
         """`filepath` as Serato stores a track path: without its drive or leading slash, and `/`-separated."""
         filepath = os.path.splitdrive(filepath)[1]
-        return os.path.normpath(filepath).replace(os.path.sep, "/").lstrip("/")
+        relpath = os.path.normpath(filepath).replace(os.path.sep, "/").lstrip("/")
+        return relpath  # noqa: RET504
 
     @staticmethod
     def get_full_path(filepath: str) -> str:
