@@ -3,7 +3,6 @@
 """The `Serato Autotags` tag, which holds the BPM and gain values Serato's analysis found for a track."""
 
 import io
-import sys
 from dataclasses import dataclass
 from typing import Optional
 
@@ -79,48 +78,16 @@ class TrackAutotags(SeratoGeobTag):
 
 if __name__ == "__main__":
     import argparse
-    import configparser
-    import subprocess
-    import tempfile
 
-    from serato_tools.utils.cli import get_text_editor, open_tag_file_or_data, save_tag_file_or_data
+    from serato_tools.utils.cli import open_tag_file_or_data
 
     @dataclass
     class Args:
         file: str
-        edit: bool
 
     parser = argparse.ArgumentParser()
     parser.add_argument("file")
-    parser.add_argument("-e", "--edit", action="store_true")
     args = Args(**vars(parser.parse_args()))
 
     tags = open_tag_file_or_data(TrackAutotags, args.file)
-
-    if args.edit:
-        editor = get_text_editor()
-
-        with tempfile.NamedTemporaryFile() as f:
-            f.write(str(tags).encode("ascii"))
-            f.flush()
-            status = subprocess.call((editor, f.name))
-            f.seek(0)
-            output = f.read()
-
-        if status != 0:
-            sys.exit(f"the editor exited with status {status}, so no changes were made")
-
-        cp = configparser.ConfigParser()
-        try:
-            SECTION = "Autotags"
-            cp.read_string(f"[{SECTION}]\n" + output.decode())
-            bpm = cp.getfloat(SECTION, "bpm")
-            autogain = cp.getfloat(SECTION, "autogain")
-            gaindb = cp.getfloat(SECTION, "gaindb")
-        except (configparser.Error, ValueError) as error:
-            sys.exit(f"invalid input, so no changes were made: {error}")
-
-        tags.set(bpm=bpm, autogain=autogain, gaindb=gaindb)
-        save_tag_file_or_data(tags, args.file)
-    else:
-        print(str(tags))
+    print(str(tags))
