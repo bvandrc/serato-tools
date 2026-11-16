@@ -241,6 +241,14 @@ class TestCase(unittest.TestCase):
 
         self.assertFalse(db.remove_duplicates(), "nothing left to remove")
 
+    def test_dedupe_removes_a_repeat_in_another_case(self):
+        db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
+        paths = db.get_track_paths()
+        db.entries.append((DatabaseV2.Fields.TRACK, [(DatabaseV2.Fields.FILE_PATH, paths[0].upper())]))
+
+        self.assertTrue(db.remove_duplicates())
+        self.assertEqual(db.get_track_paths(), paths, "the first kept")
+
     def test_get_corrupt_tracks(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
         self.assertEqual(db.get_corrupt_tracks(), {}, "no corrupt tracks in the test database")
