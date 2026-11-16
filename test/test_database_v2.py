@@ -1,18 +1,18 @@
 """What only the database has. What every bin file has is tested in test_bin_file_base, through DatabaseV2."""
 
-import os
-
 from serato_tools.database_v2 import DatabaseV2
 
 from test.helpers.bin_files import TEST_DATABASE
 from test.helpers.files import read_bytes, read_text
 
+# the test database parsed, as its __str__ prints it
+TEST_DATABASE_TXT_FILE = "test/data/database_v2_test_output.txt"
 
-def test_parse_and_serialize():
-    file = os.path.abspath(TEST_DATABASE)
-    db = DatabaseV2(file)
-    assert db.to_bytes() == read_bytes(file)
-    assert db.__str__() == read_text("test/data/database_v2_test_output.txt")
+
+def test_parse():
+    db = DatabaseV2(TEST_DATABASE)
+    assert db.to_bytes() == read_bytes(TEST_DATABASE), "round-trips byte-exact"
+    assert db.__str__() == read_text(TEST_DATABASE_TXT_FILE)
 
 
 def test_get_corrupt_tracks():
