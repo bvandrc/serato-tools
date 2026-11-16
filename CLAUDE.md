@@ -32,7 +32,7 @@ ruff check --fix .                                                # lint, and so
 ruff format .                                                     # format, line-length 120
 ```
 
-This is a Python repo with no package manager scripts, so `ruff check --fix .` then `ruff format .` is the "format script" the conventions require before every commit; CI checks both. `ruff check` lists its rules explicitly in `pyproject.toml` (`select`), so a Ruff release that changes its defaults doesn't change what CI checks.
+This is a Python repo with no package manager scripts, so `ruff check --fix .` then `ruff format .` is the "format script" the conventions require before every commit; CI checks both.
 
 Tests import the installed `serato_tools` (editable locally, a regular install in CI) and open fixtures by paths relative to the repo root, so `python -m pytest` only works from there.
 

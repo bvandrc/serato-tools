@@ -24,7 +24,7 @@ class BeatGridInfo:
     downbeats: list[float]
 
 
-def analyze_beatgrid(file: str, bpm_helper: int | float | None = None):
+def analyze_beatgrid(file: str, bpm_helper: float | None = None):
     """Decodes the audio file at `file` and finds its beats and downbeats.
 
     `bpm_helper`, such as the BPM already in the track's tags, is the tempo the beat tracker starts from. Decoding and

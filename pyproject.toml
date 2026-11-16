@@ -67,13 +67,17 @@ line-length = 120
 extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
-# Listed in full, rather than extending Ruff's defaults, so a Ruff release that changes them doesn't change what CI
-# checks: pyflakes (F) and pycodestyle's errors (E4, E7, E9); import order (I); newer syntax and the standard library's
-# current names (UP); likely bugs (B); simpler equivalents (SIM, C4, PIE, PERF); shebangs (EXE); and Ruff's own (RUF)
-select = ["F", "E4", "E7", "E9", "I", "UP", "B", "SIM", "C4", "PIE", "PERF", "EXE", "RUF"]
-# SIM300 (Yoda conditions) takes any UPPER_CASE name for a constant, so it would swap `assert cls.DEFAULT_ENTRIES ==
-# default` to put the expected value first
-ignore = ["SIM300"]
+# Ruff's defaults, plus: import order (I), newer syntax and the standard library's current names (UP), likely bugs
+# (B), simpler equivalents (SIM, C4, PIE, PERF), and Ruff's own (RUF)
+extend-select = ["I", "UP", "B", "SIM", "C4", "PIE", "PERF", "RUF"]
+ignore = [
+    # takes any UPPER_CASE name for a constant, so it would swap `assert cls.DEFAULT_ENTRIES == default` to put the
+    # expected value first
+    "SIM300",
+    # flags any raise after an isinstance check, but those here are about malformed data or a tag with no audio file,
+    # which raise ValueError, not about a caller passing the wrong type
+    "TRY004",
+]
 
 # Groups the imports into the standard library, third-party packages, and this repo's modules, each sorted.
 [tool.ruff.lint.isort]
