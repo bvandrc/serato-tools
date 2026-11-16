@@ -23,6 +23,7 @@ from serato_tools.utils import (
     SERATO_DRIVE as LOCAL_SERATO_DRIVE,
     logger,
 )
+from serato_tools.utils.bin_file_base import SeratoBinFile
 
 # TODO: put in folders if there are different locations locally for the same basename
 
@@ -56,64 +57,45 @@ def copy_crates_to_usb(
     if not os.path.isdir(dest_drive_dir):
         raise FileNotFoundError(f"destination drive directory does not exist: {dest_drive_dir}")
 
-    DEST_SERATO_DIR = os.path.join(dest_drive_dir, SERATO_DIR_NAME)
-
+    dest_serato_dir = os.path.join(dest_drive_dir, SERATO_DIR_NAME)
     # TODO: merge with existing, instead of replacing
-    if os.path.isdir(DEST_SERATO_DIR):
-        shutil.rmtree(DEST_SERATO_DIR)
+    if os.path.isdir(dest_serato_dir):
+        shutil.rmtree(dest_serato_dir)
 
     def dest_track_path(track_path: str) -> str:
         """Where the track at `track_path` goes on the drive, as Serato stores a path."""
         return Crate.get_relative_path(os.path.join(dest_tracks_dir, os.path.basename(track_path)))
 
-    dest_crate_dir = os.path.join(DEST_SERATO_DIR, Crate.DIR)
-    os.makedirs(dest_crate_dir, exist_ok=True)
-    tracks_to_copy: list[str] = []
+    dest_crate_dir = os.path.join(dest_serato_dir, Crate.DIR)
+    os.makedirs(dest_crate_dir)
+    track_paths: list[str] = []
     for crate_file in crate_files:
         if not os.path.isdir(crate_file):
-            tracks_to_copy += _export_crate(crate_file, dest_crate_dir, root_crate, dest_track_path)
-
-    # create the db file
-    db = DatabaseV2()
-    tracks_to_copy = [os.path.normpath(f) for f in tracks_to_copy]
+            track_paths += _export_crate(crate_file, dest_crate_dir, root_crate, dest_track_path)
     # of tracks that share a filename, the first in the crates is the one copied, so it's the one whose entries are kept
-    tracks_to_copy = _uniq_by_basename(tracks_to_copy)
-    # a set: both filters below test against it per track
-    tracks_to_copy_set = set(tracks_to_copy)
+    track_paths = _uniq_by_basename([os.path.normpath(f) for f in track_paths])
+    # a set: each library file's tracks are checked against it
+    track_paths_set = set(track_paths)
 
-    def modify_db_track(track: DatabaseV2.Track) -> DatabaseV2.Track:
-        track.set_path(os.path.join(dest_tracks_dir, os.path.basename(track.relpath)))
+    def reset_played(track: DatabaseV2.Track):
         track.set_value(DatabaseV2.Fields.PLAYED, False)
-        return track
 
-    db.filter_tracks(lambda track: os.path.normpath(track.relpath) in tracks_to_copy_set)
-    db.modify_tracks(modify_db_track)
-    db.remove_duplicates()
-
-    new_db_file = os.path.join(DEST_SERATO_DIR, DatabaseV2.FILENAME)
-    db.save(new_db_file)
-    logger.info(f"created database file {new_db_file}")
-
-    _copy_order_file(DEST_SERATO_DIR, root_crate)
-
-    # copy stems crate
-    LOCAL_STEMS_CRATE = os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
-    if os.path.exists(LOCAL_STEMS_CRATE):
-        DEST_STEMS_CRATE = os.path.join(DEST_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
-        os.makedirs(os.path.dirname(DEST_STEMS_CRATE), exist_ok=True)
-        stems_crate = Crate(LOCAL_STEMS_CRATE)
-
-        def modify_stems_crate_track(track: Crate.Track) -> Crate.Track:
-            track.set_path(dest_track_path(track.relpath))
-            return track
-
-        stems_crate.filter_tracks(lambda track: os.path.normpath(track.relpath) in tracks_to_copy_set)
-        stems_crate.modify_tracks(modify_stems_crate_track)
-        stems_crate.remove_duplicates()
-        stems_crate.save(DEST_STEMS_CRATE)
-        logger.info(f"copied crate {DEST_STEMS_CRATE}")
-
-    _copy_tracks(tracks_to_copy, os.path.join(dest_drive_dir, dest_tracks_dir))
+    _export_library_file(
+        DatabaseV2(os.path.join(LOCAL_SERATO_DIR, DatabaseV2.FILENAME)),
+        os.path.join(dest_serato_dir, DatabaseV2.FILENAME),
+        track_paths_set,
+        dest_track_path,
+        edit_track=reset_played,
+    )
+    _copy_order_file(dest_serato_dir, root_crate)
+    if os.path.exists(local_stems_crate := os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)):
+        _export_library_file(
+            Crate(local_stems_crate),
+            os.path.join(dest_serato_dir, Crate.SERATO_STEMS_CRATE_PATH),
+            track_paths_set,
+            dest_track_path,
+        )
+    _copy_tracks(track_paths, os.path.join(dest_drive_dir, dest_tracks_dir))
 
 
 def _export_crate(
@@ -157,6 +139,32 @@ def _export_crate(
     crate.save(dest_crate_file)
     logger.info(f"copied crate {dest_crate_file}")
     return track_paths
+
+
+def _export_library_file(
+    file: SeratoBinFile,
+    dest_file: str,
+    track_paths: set[str],
+    dest_track_path: Callable[[str], str],
+    edit_track: Optional[Callable[[SeratoBinFile.Track], None]] = None,
+):
+    """Writes the database or crate to `dest_file` with only the tracks in `track_paths`, at their drive paths.
+
+    `edit_track` makes any other change to each of those tracks.
+    """
+    file.filter_tracks(lambda track: os.path.normpath(track.relpath) in track_paths)
+
+    def move_track(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
+        track.set_path(dest_track_path(track.relpath))
+        if edit_track is not None:
+            edit_track(track)
+        return track
+
+    file.modify_tracks(move_track)
+    file.remove_duplicates()
+    os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+    file.save(dest_file)
+    logger.info(f"copied {dest_file}")
 
 
 def _copy_order_file(dest_serato_dir: str, root_crate: Optional[str]):

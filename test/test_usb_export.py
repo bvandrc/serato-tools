@@ -102,11 +102,6 @@ class CopyCratesToUsbTestCase(unittest.TestCase):
             mock.patch.object(usb_export, "LOCAL_SERATO_DIR", self.serato_dir),
             mock.patch.object(usb_export, "LOCAL_SERATO_DRIVE", os.path.splitdrive(tmp)[0]),
             mock.patch.object(usb_export, "print"),
-            # DatabaseV2() opens the database at its default path, which is bound when the module loads, so patching
-            # LOCAL_SERATO_DIR doesn't reach it
-            mock.patch.object(
-                DatabaseV2.__init__, "__defaults__", (os.path.join(self.serato_dir, DatabaseV2.FILENAME),)
-            ),
         ):
             patch.start()
             self.addCleanup(patch.stop)
