@@ -14,11 +14,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.build.outputs.version }}
+      artifact-name: ${{ steps.build.outputs.artifact-name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # checks the tag matches the version, builds, and uploads the dist artifact
+      # builds and checks the distributions, uploads them, and checks the tag matches their version
       - name: Build
         id: build
         uses: bvandrc/bvandrc-conventions/.github/actions/pypi-build@main
@@ -49,7 +50,7 @@ jobs:
       - name: Download dist
         uses: actions/download-artifact@v4
         with:
-          name: dist
+          name: ${{ needs.build.outputs.artifact-name }}
           path: dist/
 
       # checks the distributions' metadata (twine check) before uploading
