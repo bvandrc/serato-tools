@@ -40,7 +40,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # only for a release published with empty notes, so notes written for it are kept
+      # replaces any notes written on the release, so the changelog is the one source
       - name: Fill in the release notes from the changelog
         uses: bvandrc/bvandrc-conventions/.github/actions/release-notes-from-changelog@main
         with:
