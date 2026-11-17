@@ -44,9 +44,7 @@ A version's `CHANGELOG.md` entries are grouped by the part of the package they'r
 - **Prefixes:** every top-level bullet opens with a bold prefix, and a section lists them in this order: `**Feature:**`, `**Performance:**`, `**Fix:**`, `**Deprecated:**`, and `**Docs:**`. A CLI change adds `(CLI)` to it (`**Fix (CLI):**`). Only when one section gets long, split it with `####` subheadings for the prefixes, in the same order, and drop the prefixes under them.
 - **Breaking changes:** these come first in their section, and the prefix can name the kind (`**[BREAKING] Removed:**`, ...).
 
-Releasing follows `pypi-publishing.md`. Specific to this repo:
-- **Trusted publisher:** PyPI's names `release.yml` and its `pypi` environment, so renaming either means updating it on PyPI too.
-- **Sync Release Notes:** it keeps the "Published to PyPI" line that the early releases had added after the fact.
+Releasing follows `pypi-publishing.md`.
 
 ## Architecture
 
