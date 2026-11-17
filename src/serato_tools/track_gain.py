@@ -1,6 +1,5 @@
 """The gain Serato sets for a track, which it stores in an ID3 `RVA2:SeratoGain` frame."""
 
-from typing import Optional
 from dataclasses import dataclass
 
 from mutagen.id3._frames import RVA2
@@ -32,7 +31,7 @@ class TrackGain(ID3FileTag):
     def __str__(self) -> str:
         return f"gain: {self.gain}\npeak: {self.peak}"
 
-    def set(self, gain: Optional[float] = None, peak: Optional[float] = None):
+    def set(self, gain: float | None = None, peak: float | None = None):
         """Sets the gain and/or peak in memory; call `save()` to write them to the file.
 
         Raises ValueError if that leaves either unset, which happens when the file had no SeratoGain frame.
@@ -44,7 +43,7 @@ class TrackGain(ID3FileTag):
         if self.gain is None or self.peak is None:
             raise ValueError("both gain and peak must be set (file had no existing SeratoGain tag)")
 
-    def set_and_save(self, gain: Optional[float] = None, peak: Optional[float] = None):
+    def set_and_save(self, gain: float | None = None, peak: float | None = None):
         """Sets the gain and/or peak, as `set` does, then saves the file."""
         self.set(gain, peak)
         self.save()

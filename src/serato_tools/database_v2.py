@@ -5,6 +5,7 @@
 import os
 import warnings
 from dataclasses import dataclass
+from typing import ClassVar
 
 
 from serato_tools.utils.bin_file_base import SeratoBinFile
@@ -24,7 +25,7 @@ class DatabaseV2(SeratoBinFile):
     DEFAULT_DATABASE_FILE = os.path.join(SERATO_DIR, FILENAME)
     TRACK_PATH_KEY = SeratoBinFile.Fields.FILE_PATH
 
-    DEFAULT_ENTRIES = [
+    DEFAULT_ENTRIES: ClassVar[SeratoBinFile.EntryList] = [
         (SeratoBinFile.Fields.VERSION, "2.0/Serato Scratch LIVE Database"),
     ]
 

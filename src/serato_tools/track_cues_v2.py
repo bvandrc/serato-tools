@@ -13,7 +13,8 @@ import os
 import struct
 import sys
 import warnings
-from typing import Callable, ClassVar, Sequence
+from typing import ClassVar
+from collections.abc import Callable, Sequence
 from enum import Enum, unique
 import dataclasses
 from dataclasses import dataclass, field

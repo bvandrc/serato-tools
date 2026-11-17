@@ -6,14 +6,15 @@ from its audio file or from a file of its own bytes.
 
 import os
 import shutil
-from typing import TYPE_CHECKING, Mapping, Optional
+from typing import TYPE_CHECKING
+from collections.abc import Mapping
 
 if TYPE_CHECKING:
     # only for annotations, so this module doesn't need the track_tags extra (mutagen) to import
     from serato_tools.utils.track_tags import SeratoGeobTag
 
 
-def ui_ask(question: str, choices: Mapping[str, str], default: Optional[str] = None):
+def ui_ask(question: str, choices: Mapping[str, str], default: str | None = None):
     """Asks `question` until the answer is one of `choices`' keys, then returns that answer.
 
     `choices` maps each answer to a description, which answering "?" (or anything not in `choices`) prints. An empty

@@ -7,7 +7,7 @@ import struct
 import unittest
 from unittest import mock
 import io
-from typing import Callable
+from collections.abc import Callable
 from contextlib import redirect_stdout
 
 from serato_tools.track_beatgrid import TrackBeatgrid
