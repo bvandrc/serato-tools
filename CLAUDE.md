@@ -53,7 +53,7 @@ Publishing a GitHub release then publishes that version to PyPI, through `.githu
 - **Shared steps:** its build and release-notes steps are shared actions from [bvandrc-conventions](https://github.com/bvandrc/bvandrc-conventions) (`.github/actions/`), used from `main`, so change them there; only the publish step stays in this file, since PyPI's trusted publishing matches the workflow file that runs it.
 - **Notes:** the release's notes are set to the version's `CHANGELOG.md` section, replacing any written on it, and the built distributions are attached to it.
 - **Trusted publisher:** PyPI's names that workflow file and its `pypi` environment, so renaming either means updating it on PyPI too.
-- **Rewording past entries:** releases don't follow later changes to their `CHANGELOG.md` section. Running the `Sync Release Notes` workflow (`.github/workflows/sync-release-notes.yml`, script in `.github/scripts/`) rewrites every release's notes as its section, keeping the "Published to PyPI" line of the releases added after the fact.
+- **Rewording past entries:** releases don't follow later changes to their `CHANGELOG.md` section. Running the `Sync Release Notes` workflow (`.github/workflows/sync-release-notes.yml`, built from bvandrc-conventions' shared `sync-release-notes` action, so change it there) rewrites every release's notes as its section, keeping the "Published to PyPI" line of the releases added after the fact.
 
 ## Architecture
 
