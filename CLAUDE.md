@@ -7,6 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 The repo's conventions live in `conventions/` and are imported here in full — they apply to all work in this repo, and everything below extends them. Keep this file consistent with them: nothing here should ever contradict a convention.
 
 @conventions/all.md
+@conventions/python.md
+@conventions/pypi-publishing.md
 
 `conventions/` is synced automatically from `bvandrc/bvandrc-conventions` by `.github/workflows/sync-conventions.yml`. The workflow deletes and recreates the directory on every run, so edits made here are lost — change them upstream. When a sync adds a new file to `conventions/`, add a matching `@conventions/<file>` import to this section.
 
@@ -30,8 +32,6 @@ pyright                                                           # type check (
 ruff check --fix .                                                # lint, and sort imports (config in pyproject.toml); private access is allowed in test/
 ruff format .                                                     # format, line-length 120
 ```
-
-This is a Python repo with no package manager scripts, so `ruff check --fix .` then `ruff format .` is the "format script" the conventions require before every commit; CI checks both.
 
 Tests import the installed `serato_tools` (editable locally, a regular install in CI) and open fixtures by paths relative to the repo root, so `python -m pytest` only works from there.
 
