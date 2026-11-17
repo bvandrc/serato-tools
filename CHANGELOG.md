@@ -18,6 +18,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Track Tags
 
+- **Feature:** `TrackBeatgrid`'s markers (`NonTerminalBeatgridMarker`, `NonTerminalBeatgridMarkerEnhanced`, and `TerminalBeatgridMarker`), its `Footer`, and its `BeatPoint` are typed `NamedTuple`s, so type checkers know their fields' types, such as `position_s: float`. They behave as before.
 - **Fix:** `TrackBeatgrid.analyze_and_write` now keeps the old grid when the analysis gives one Serato wouldn't write, such as downbeats out of order.
 - **Fix (CLI):** `serato_snap_cues_v2 -e` now keeps an entry you leave unchanged after the editor fails or the content is invalid, and works on Windows, where the editor couldn't open its file.
 - **Fix (CLI):** `serato_tagdump` now exits saying a file has no tags, rather than with a traceback.
