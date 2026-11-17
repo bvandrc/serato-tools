@@ -2,6 +2,18 @@
 
 Each release groups its changes by the part of the package they're in. Within each part, **[BREAKING]** changes come first, each with how to upgrade past it.
 
+## [6.1.0] - 2026-11-17
+
+### Library
+
+- **Feature:** Add `Library.update_smart_crates`, which rewrites every smart crate's tracks from its rules, matched against the library's database, as Serato does when a rule is edited. It matches every crate before changing any, and saves only the ones whose tracks changed, or, inside `batch()`, leaves them for it to save once.
+
+### Database / Crates
+
+- **Feature:** Add `SmartCrate.update_tracks(database)`, which rewrites a smart crate's tracks as the tracks in `database` its rules match, as Serato does when a rule is edited. The tracks it already held that still match keep their order. It raises `NotImplementedError` for the date comparisons of text (`STR_DATE_BEFORE`, `STR_DATE_AFTER`), whose matching isn't known yet, before changing any track.
+- **Feature:** `SmartCrate.set_rule` and `delete_rule` take `update_tracks`, a database, to also rewrite the crate's tracks from its rules. If that raises, the rule is left as it was too.
+- **Feature (CLI):** `serato_smartcrate --update_tracks` rewrites each crate's tracks after setting the rules given, from the default library's database or the one `--database` gives. A crate whose rules it can't match is left unsaved, and it exits with status 1.
+
 ## [6.0.0] - 2026-11-10
 
 ### Database / Crates / Track Tags
@@ -606,6 +618,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** First release on PyPI, for changing Serato's library database and track metadata.
 
+[6.1.0]: https://github.com/bvandrc/serato-tools/compare/v6.0.0...v6.1.0
 [6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.7.0...v6.0.0
 [5.7.0]: https://github.com/bvandrc/serato-tools/compare/v5.6.1...v5.7.0
 [5.6.1]: https://github.com/bvandrc/serato-tools/compare/v5.6.0...v5.6.1

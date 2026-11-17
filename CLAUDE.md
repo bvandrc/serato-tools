@@ -71,6 +71,10 @@ Subclasses (`DatabaseV2`, `CrateBase` → `Crate` / `SmartCrate`):
   - The smart-crate-only fields (rules and their values) live in `SmartCrate.RuleFields`.
   - Each class lists its valid set in `FIELD_ENUMS`, so a rule field in a database or regular crate is rejected. `__init_subclass__` derives the `FIELDS` frozenset and the `FIELD_NAMES` dict of readable names from it, so a subclass sets only `FIELD_ENUMS`.
 - **Smart crate rule values:** a rule holds exactly one of the `RULE_VALUE_FIELDS`, picked by its comparison's type suffix (`cond_*_str`/`_time`/`_uint`), never by the value's Python type. `set_rule` and `Rule.set_value` coerce the value to match, as Serato does.
+- **Smart crate tracks:** `SmartCrate.update_tracks(database)` rewrites the crate's tracks from its rules, as Serato does when a rule is edited, and `set_rule` / `delete_rule` do it after the change when passed `update_tracks=`.
+  - It matches in two steps, `_matching_paths` then `_set_tracks`, so a rule it can't match raises before any track changes, and `Library.update_smart_crates` matches every crate before changing any.
+  - Each `RuleField` reads the database field in `_DB_FIELD_BY_RULE_FIELD`, and `_rule_matcher` builds one matcher per rule. A comparison whose matching isn't known raises `NotImplementedError` rather than guessing, as version gating refuses unknown formats.
+  - The matching semantics in its docstring are the package's best guess, not yet checked against files Serato saved after a rule edit.
 
 The lifecycle is `parse → self._entries → change through the class's methods → to_bytes() → save()`:
 
