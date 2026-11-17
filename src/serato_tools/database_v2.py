@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """Serato's library database (`database V2`), which holds every track's path and the values Serato shows for it."""
 
 import os
@@ -7,9 +5,8 @@ import warnings
 from dataclasses import dataclass
 from typing import ClassVar
 
-
-from serato_tools.utils.bin_file_base import SeratoBinFile
 from serato_tools.utils import SERATO_DIR
+from serato_tools.utils.bin_file_base import SeratoBinFile
 
 
 class DatabaseV2(SeratoBinFile):

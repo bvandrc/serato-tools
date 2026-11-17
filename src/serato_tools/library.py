@@ -1,19 +1,16 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """A Serato library folder as a whole, for changes that have to reach its database and every crate together."""
 
 import os
-from functools import cached_property
 from collections.abc import Collection, Mapping
+from functools import cached_property
 from typing import TYPE_CHECKING, Unpack
-
 
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.smart_crate import SmartCrate
+from serato_tools.utils import SERATO_DIR, logger
 from serato_tools.utils.bin_file_base import SeratoBinFile
 from serato_tools.utils.crate_base import CrateBase
-from serato_tools.utils import logger, SERATO_DIR
 
 if TYPE_CHECKING:
     from serato_tools.db_track_props import DbTrackTags

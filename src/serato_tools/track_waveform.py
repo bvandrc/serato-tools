@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """The `Serato Overview` tag, which holds the waveform overview Serato shows for a track.
 
 It can draw the overview as an image, which needs the `waveform_drawing` extra (pillow).
@@ -72,11 +70,9 @@ class TrackWaveform(SeratoGeobTag):
 
             for j, value in enumerate(rowdata):
                 # The algorithm to derive the colors from the data has no real mathematical background and was found by experimenting with different values.
-                color = "hsl({hue:.2f}, {saturation:d}%, {luminance:.2f}%)".format(
-                    hue=(factor * 1.5 * 360) % 360,
-                    saturation=40,
-                    luminance=(value / 0xFF) * 100,
-                )
+                hue = (factor * 1.5 * 360) % 360
+                luminance = (value / 0xFF) * 100
+                color = f"hsl({hue:.2f}, 40%, {luminance:.2f}%)"
                 pixels[i, j] = ImageColor.getrgb(color)  # pyright: ignore[reportOptionalSubscript]
 
         return img

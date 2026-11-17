@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 from mutagen.id3._frames import RVA2
 
-
 from serato_tools.utils.track_tags import ID3FileOrPath, ID3FileTag, del_tag
 
 

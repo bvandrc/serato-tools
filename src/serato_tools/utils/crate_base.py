@@ -1,11 +1,9 @@
-#!/usr/bin/python
 # This is from this repo: https://github.com/sharst/seratopy
 """What crates and smart crates share: their file extension and folder, track paths, and how they print."""
 
 import os
 import warnings
 from collections.abc import Iterable
-
 
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
@@ -22,7 +20,7 @@ class CrateBase(SeratoBinFile):
     TRACK_PATH_KEY = SeratoBinFile.Fields.TRACK_PATH
 
     def _stringify_entry(self, entry: SeratoBinFile.EntryFull, indent: int = 0) -> str:
-        field, fieldname, value = entry  # pylint: disable=unused-variable
+        _field, _fieldname, value = entry
         return self._stringify_entries(value, indent) if isinstance(value, list) else str(value)
 
     def _stringify_entries(self, entries: Iterable[SeratoBinFile.EntryFull], indent: int = 0) -> str:

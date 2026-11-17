@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """Dumps every Serato tag in an audio file, of any container mutagen reads, for inspecting or capturing raw tag data."""
 
 import base64
@@ -14,9 +12,8 @@ import mutagen.mp3
 import mutagen.mp4
 import mutagen.oggvorbis
 
-
-from serato_tools.utils.track_tags import get_geob
 from serato_tools.utils import logger
+from serato_tools.utils.track_tags import get_geob
 
 
 def get_serato_tagdata(tagfile: mutagen.FileType, decode: bool = False):
@@ -29,7 +26,7 @@ def get_serato_tagdata(tagfile: mutagen.FileType, decode: bool = False):
         raise ValueError(f"file has no tags: {tagfile.filename}")
 
     if isinstance(tagfile, (mutagen.mp3.MP3, mutagen.aiff.AIFF)):
-        for tagname in tagfile.tags.keys():
+        for tagname in tagfile.tags:
             tagname = str(tagname)
             if tagname.startswith("GEOB:Serato"):
                 tagvalue = get_geob(tagfile, tagname[len("GEOB:") :])
@@ -38,9 +35,9 @@ def get_serato_tagdata(tagfile: mutagen.FileType, decode: bool = False):
                 yield tagname[5:], tagvalue
 
     elif isinstance(tagfile, (mutagen.flac.FLAC, mutagen.mp4.MP4)):
-        for tagname, tagvalue in tagfile.tags.items():  # type: ignore
+        for tagname, tagvalue in tagfile.tags.items():  # pyright: ignore[reportAttributeAccessIssue]
             tagname = str(tagname)
-            if not (tagname.startswith("serato_") or tagname.startswith("----:com.serato.dj:")):
+            if not (tagname.startswith(("serato_", "----:com.serato.dj:"))):
                 continue
 
             tagvalue = tagvalue[0]
@@ -72,7 +69,7 @@ def get_serato_tagdata(tagfile: mutagen.FileType, decode: bool = False):
             yield fieldname, fielddata if decode else encoded_data
 
     elif isinstance(tagfile, mutagen.oggvorbis.OggVorbis):
-        for tagname, tagvalue in tagfile.tags.items():  # type: ignore
+        for tagname, tagvalue in tagfile.tags.items():  # pyright: ignore[reportGeneralTypeIssues]
             tagname = str(tagname)
             tagvalue = tagvalue[0]
             if not tagname.startswith("serato_"):

@@ -6,8 +6,8 @@ from its audio file or from a file of its own bytes.
 
 import os
 import shutil
-from typing import TYPE_CHECKING
 from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     # only for annotations, so this module doesn't need the track_tags extra (mutagen) to import

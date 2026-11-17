@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """The `Serato Markers2` tag, which holds a track's hot cues, loops, flips, color, and beatgrid lock.
 
 Also the `serato_snap_cues_v2` CLI, which sets the color, snaps cues to the beatgrid, or edits the tag's entries.
@@ -8,23 +6,22 @@ Also the `serato_snap_cues_v2` CLI, which sets the color, snaps cues to the beat
 import ast
 import base64
 import configparser
+import dataclasses
 import io
 import os
 import struct
 import sys
 import warnings
-from typing import ClassVar
 from collections.abc import Callable, Sequence
-from enum import Enum, unique
-import dataclasses
 from dataclasses import dataclass, field
+from enum import Enum, unique
+from typing import ClassVar
 
-
-from serato_tools.utils import _AssertionValueError
-from serato_tools.track_cues_v1 import TrackCuesV1
-from serato_tools.utils.track_tags import SeratoGeobTag, del_geob, GeobKeys, NoCuesError
-from serato_tools.utils.ui import open_tag_file_or_data
 from serato_tools.track_beatgrid import TrackBeatgrid
+from serato_tools.track_cues_v1 import TrackCuesV1
+from serato_tools.utils import _AssertionValueError
+from serato_tools.utils.track_tags import GeobKeys, NoCuesError, SeratoGeobTag, del_geob
+from serato_tools.utils.ui import open_tag_file_or_data
 
 # the sizes Serato writes the tag at, in an ID3 file: 470 bytes, or larger by a multiple of 512
 _MIN_SIZE = 470
@@ -167,7 +164,7 @@ class TrackCuesV2(SeratoGeobTag):
         def __repr__(self) -> str:
             return "{}({})".format(
                 type(self).__qualname__,
-                ", ".join("{}={!r}".format(f, getattr(self, f)) for f in type(self).FIELDS),
+                ", ".join(f"{f}={getattr(self, f)!r}" for f in type(self).FIELDS),
             )
 
     @dataclass(repr=False)
@@ -667,7 +664,7 @@ class TrackCuesV2(SeratoGeobTag):
         snapped_ms = beatgrid.find_nearest_beat(postion_ms, tolerance_beats)
         if snapped_ms is None:  # NOTE: don't do `if not`, 0.0 is valid
             return None
-        snapped_ms = int(round(snapped_ms))
+        snapped_ms = round(snapped_ms)
         return snapped_ms if abs(snapped_ms - postion_ms) >= min_ms_change else None
 
     def snap_positions_to_beat_rule(self, tolerance_beats: float, min_ms_change: int = 2) -> ModifyCallback:
@@ -852,9 +849,9 @@ def main():
                                 entries_to_edit = ((entry.NAME if entry.NAME is not None else "Unknown", entry),)
 
                             for section, e in entries_to_edit:
-                                f.write("[{}]\n".format(section).encode())
+                                f.write(f"[{section}]\n".encode())
                                 for field_name in e.FIELDS:
-                                    f.write("{}: {!r}\n".format(field_name, getattr(e, field_name)).encode())
+                                    f.write(f"{field_name}: {getattr(e, field_name)!r}\n".encode())
                                 f.write(b"\n")
                             editor = text_editor  # pyright: ignore[reportPossiblyUnboundVariable]
                         f.close()
@@ -917,7 +914,7 @@ def main():
                                 if action == "a":
                                     action = "_"
                                 break
-                            elif subaction == "n":
+                            if subaction == "n":
                                 if action == "a":
                                     action = "q"
                                 new_entries.append(entry)

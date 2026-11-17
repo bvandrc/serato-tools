@@ -1,6 +1,6 @@
 # pylint: disable=protected-access
-import unittest
 import struct
+import unittest
 from unittest import mock
 
 from serato_tools.track_beatgrid import TrackBeatgrid, main

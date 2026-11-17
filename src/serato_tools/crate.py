@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # This is from this repo: https://github.com/sharst/seratopy
 """Serato crate files (`.crate`), and the `serato_crate` CLI for listing their tracks and fixing missing ones."""
 
@@ -7,9 +6,8 @@ import sys
 from dataclasses import dataclass
 from typing import ClassVar
 
-
-from serato_tools.utils.crate_base import CrateBase
 from serato_tools.utils import SERATO_DIR
+from serato_tools.utils.crate_base import CrateBase
 
 
 class Crate(CrateBase):
