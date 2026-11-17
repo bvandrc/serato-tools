@@ -1,12 +1,12 @@
 # pylint: disable=protected-access
-import unittest
 import os
+import unittest
 
 from serato_tools.smart_crate import SmartCrate
 
 from test.helpers import read_bytes
 
-with open("test/data/smart_crate.txt", "r", encoding="utf-8") as f:
+with open("test/data/smart_crate.txt", encoding="utf-8") as f:
     expected = f.read()
 
 

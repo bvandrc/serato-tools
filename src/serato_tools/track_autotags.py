@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """The `Serato Autotags` tag, which holds the BPM and gain values Serato's analysis found for a track."""
 
 import io

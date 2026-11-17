@@ -5,24 +5,23 @@ The crates' tracks are copied to one folder on the drive, with a library that po
 Also the `serato_usb_export` CLI.
 """
 
-import os
 import filecmp
 import fnmatch
-import shutil
-import re
+import os
 import platform
+import re
+import shutil
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-
-from serato_tools.database_v2 import DatabaseV2
 from serato_tools.crate import Crate
+from serato_tools.database_v2 import DatabaseV2
 from serato_tools.smart_crate import SmartCrate
 from serato_tools.utils import (
-    logger,
-    SERATO_DIR_NAME,
     SERATO_DIR as LOCAL_SERATO_DIR,
+    SERATO_DIR_NAME,
     SERATO_DRIVE as LOCAL_SERATO_DRIVE,
+    logger,
 )
 
 # TODO: put in folders if there are different locations locally for the same basename
@@ -81,7 +80,7 @@ def copy_crates_to_usb(
     for crate_file in crate_files:
         if os.path.isdir(crate_file):
             continue
-        elif crate_file.endswith(Crate.EXTENSION):
+        if crate_file.endswith(Crate.EXTENSION):
             crate = Crate(crate_file)
         elif crate_file.endswith(SmartCrate.EXTENSION):
             crate = SmartCrate(crate_file)
@@ -131,7 +130,7 @@ def copy_crates_to_usb(
     NEW_ORDER_FILE = "neworder.pref"
     LOCAL_NEW_ORDER_FILEPATH = os.path.join(LOCAL_SERATO_DIR, NEW_ORDER_FILE)
     if os.path.isfile(LOCAL_NEW_ORDER_FILEPATH):
-        with open(LOCAL_NEW_ORDER_FILEPATH, "r", encoding="utf-8") as f:
+        with open(LOCAL_NEW_ORDER_FILEPATH, encoding="utf-8") as f:
             lines = f.read().splitlines()
 
         if root_crate:
@@ -223,7 +222,7 @@ def copy_crates_to_usb(
 
     if tracks_to_copy and len(not_found) == len(tracks_to_copy):
         logger.error("No source files found.")
-        uniq_dirs = list(set(os.path.dirname(d) for d in tracks_to_copy))
+        uniq_dirs = list({os.path.dirname(d) for d in tracks_to_copy})
         logger.error(f"Directories: \n{"\n    ".join(uniq_dirs)}")
         return
 

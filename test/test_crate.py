@@ -1,12 +1,12 @@
-import unittest
 import copy
 import os
+import unittest
 
 from serato_tools.crate import Crate
 
 from test.helpers import read_bytes, temp_dir
 
-with open("test/data/crate.txt", "r", encoding="utf-8") as f:
+with open("test/data/crate.txt", encoding="utf-8") as f:
     base_expected = f.read()
 
 

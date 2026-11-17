@@ -2,13 +2,12 @@
 
 import os
 import sys
-from typing import TYPE_CHECKING, ClassVar, cast
-from enum import Enum, StrEnum, IntEnum, unique
 from dataclasses import dataclass
+from enum import Enum, IntEnum, StrEnum, unique
+from typing import TYPE_CHECKING, ClassVar, cast
 
-
-from serato_tools.utils.crate_base import CrateBase
 from serato_tools.utils import SERATO_DIR, DataTypeError
+from serato_tools.utils.crate_base import CrateBase
 
 if TYPE_CHECKING:
     from serato_tools.crate import Crate
@@ -131,7 +130,7 @@ class SmartCrate(CrateBase):
         return str(value)
 
     def _stringify_entry(self, entry: CrateBase.EntryFull, indent: int = 0) -> str:
-        field, fieldname, value = entry  # pylint: disable=unused-variable
+        field, _fieldname, value = entry
         if isinstance(value, list):
             return self._stringify_entries(value, indent)
 

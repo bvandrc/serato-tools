@@ -3,21 +3,21 @@
 A file is a list of entries, each a named, typed value, which may itself be a nested list of entries.
 """
 
-import os
-import io
-import re
-import struct
 import base64
 import copy
 import hashlib
-import warnings
-from enum import StrEnum, unique
+import io
 import json
-from typing import ClassVar, TypedDict, cast, NotRequired
+import os
+import re
+import struct
+import warnings
+from collections.abc import Callable, Collection, Generator, Iterable
+from enum import StrEnum, unique
 from re import Pattern
-from collections.abc import Collection, Iterable, Generator, Callable
+from typing import ClassVar, NotRequired, TypedDict, cast
 
-from serato_tools.utils import _AssertionValueError, logger, SERATO_DRIVE, DataTypeError, DeeplyNestedListError
+from serato_tools.utils import SERATO_DRIVE, DataTypeError, DeeplyNestedListError, _AssertionValueError, logger
 
 
 class _OutOfRangeError(ValueError, struct.error):
@@ -139,7 +139,7 @@ class SeratoBinFile:
 
         if os.path.exists(file):
             if file.lower().endswith(".json"):
-                with open(file, "r", encoding="utf-8") as f:
+                with open(file, encoding="utf-8") as f:
                     self.from_json_object(json.load(f))
                 # what saving the entries as loaded would write
                 self._saved_hash = self._hash(self.to_bytes())
@@ -180,7 +180,7 @@ class SeratoBinFile:
                 lines.append(f"{indent_str}{field} ({fieldname})")
                 lines.append(self._stringify_entries(value, indent + 1))
             else:
-                lines.append(f"{indent_str}{field} ({fieldname}): {str(value)}")
+                lines.append(f"{indent_str}{field} ({fieldname}): {value!s}")
 
         return "\n".join(lines)
 
@@ -454,7 +454,6 @@ class SeratoBinFile:
             if type_id in ("o", "r"):  #  struct
                 value = list(self._parse_item(data))
             elif type_id in ("p", "t"):  # text
-                # value = (data[1:] + b"\00").decode("utf-16") # from imported code
                 value = data.decode("utf-16-be")
             elif type_id == "b":  # single byte, is a boolean
                 # anything but 0x00/0x01 would be rewritten as 0x01 on save, so refuse it like an unknown version
@@ -812,7 +811,7 @@ class SeratoBinFile:
         def modify_track(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
             # loop over the rules rather than the track's fields, since a track has far more fields than there are rules
             relpath_upper = track.relpath.upper()
-            for rule, files in zip(rules, rule_files):
+            for rule, files in zip(rules, rule_files, strict=True):
                 if files is not None and relpath_upper not in files:
                     continue
                 field = rule["field"]
@@ -834,7 +833,7 @@ class SeratoBinFile:
                     maybe_new_val = SeratoBinFile.get_relative_path(maybe_new_val)
 
                 logger.info(
-                    f"Set {field}({self.get_field_name(field)})={str(maybe_new_val)} in library for {track.relpath}"
+                    f"Set {field}({self.get_field_name(field)})={maybe_new_val!s} in library for {track.relpath}"
                 )
                 track.set_value(field, maybe_new_val)
             return track

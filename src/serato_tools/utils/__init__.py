@@ -16,7 +16,7 @@ class DataTypeError(Exception):
 
     def __init__(self, value: Any, expected_type: type, field: str | None):
         super().__init__(
-            f"value must be {expected_type.__name__} when field is {field} (type: {type(value).__name__}) (value: {str(value)})"
+            f"value must be {expected_type.__name__} when field is {field} (type: {type(value).__name__}) (value: {value!s})"
         )
 
 

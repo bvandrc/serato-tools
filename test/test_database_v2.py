@@ -1,11 +1,11 @@
 # pylint: disable=protected-access
-import unittest
 import copy
-from unittest import mock
-from collections.abc import Iterable
-import os
 import json
+import os
 import shutil
+import unittest
+from collections.abc import Iterable
+from unittest import mock
 
 from serato_tools.database_v2 import DatabaseV2
 
@@ -23,7 +23,7 @@ class TestCase(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(db.to_bytes(), read_bytes(file), "to_bytes")
 
-        with open("test/data/database_v2_test_output.txt", "r", encoding="utf-16") as f:
+        with open("test/data/database_v2_test_output.txt", encoding="utf-16") as f:
             expected = f.read()
             self.assertEqual(db.__str__(), expected, "parse")
 
@@ -48,7 +48,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(db.to_bytes(), original_bytes, "was not modified")
         self.assertEqual(db.__str__(), expected, "was not modified")
 
-        new_time = int(1735748100)
+        new_time = 1735748100
         changed = db.modify(
             [
                 {"field": DatabaseV2.Fields.DATE_ADDED_U, "func": lambda *args: new_time},
@@ -57,7 +57,7 @@ class TestCase(unittest.TestCase):
             ]
         )
         self.assertTrue(changed, "reports change")
-        with open("test/data/database_v2_test_modified_output.txt", "r", encoding="utf-16") as f:
+        with open("test/data/database_v2_test_modified_output.txt", encoding="utf-16") as f:
             self.assertEqual(db.__str__(), f.read(), "was modified correctly")
         with open("test/data/database_v2_test_modified_output.bin", "rb") as f:
             self.assertEqual(db.to_bytes(), f.read(), "was modified correctly")
@@ -83,7 +83,7 @@ class TestCase(unittest.TestCase):
                 },
             ]
         )
-        with open("test/data/database_v2_test_modified_output_2.txt", "r", encoding="utf-8") as f:
+        with open("test/data/database_v2_test_modified_output_2.txt", encoding="utf-8") as f:
             self.assertEqual(db.__str__(), f.read(), "was modified correctly, given files")
         with open("test/data/database_v2_test_modified_output_2.bin", "rb") as f:
             self.assertEqual(db.to_bytes(), f.read(), "was modified correctly, given files")
@@ -275,12 +275,12 @@ class TestCase(unittest.TestCase):
     def test_dedupe(self):
         db = DatabaseV2(os.path.abspath("test/data/database_v2_duplicates.bin"))
 
-        with open("test/data/database_v2_duplicates_output.txt", "r", encoding="utf-8") as f:
+        with open("test/data/database_v2_duplicates_output.txt", encoding="utf-8") as f:
             self.assertEqual(db.__str__(), f.read(), "original")
 
         self.assertTrue(db.remove_duplicates(), "reports removal")
 
-        with open("test/data/database_v2_duplicates_output_deduped.txt", "r", encoding="utf-8") as f:
+        with open("test/data/database_v2_duplicates_output_deduped.txt", encoding="utf-8") as f:
             self.assertEqual(db.__str__(), f.read(), "deduped")
 
         self.assertFalse(db.remove_duplicates(), "nothing left to remove")
@@ -313,7 +313,7 @@ class TestCase(unittest.TestCase):
 
     def test_json_round_trip(self):
         db_from_bin = DatabaseV2(os.path.abspath("test/data/database_v2_test.bin"))
-        with open("test/data/database_v2_json.json", "r", encoding="utf-8") as f:
+        with open("test/data/database_v2_json.json", encoding="utf-8") as f:
             self.assertEqual(db_from_bin.to_json_object(), json.load(f), "to_json_object")
 
         db_from_json = DatabaseV2(os.path.abspath("test/data/database_v2_json.json"))

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """The `Serato BeatGrid` tag, which holds a track's beatgrid as markers.
 
 Also the CLIs that print it, or analyze and write one. Analyzing needs the `beatgrid_analysis` extra (librosa and
@@ -9,8 +7,8 @@ numpy).
 import io
 import struct
 import sys
-from typing import NamedTuple, cast, overload, TypeVar, Unpack
 from dataclasses import dataclass
+from typing import NamedTuple, TypeVar, cast, overload
 
 from mutagen import FileType
 from mutagen.id3 import ID3
@@ -58,7 +56,7 @@ class TrackBeatgrid(SeratoGeobTag):
         beats_till_next_marker: int
         bpm: float
 
-    _EntryList = tuple[Unpack[tuple[_T, ...]], TerminalBeatgridMarker, Footer]
+    _EntryList = tuple[*tuple[_T, ...], TerminalBeatgridMarker, Footer]
     type EntryList = _EntryList[NonTerminalBeatgridMarker]
     type EntryListEnhanced = _EntryList[NonTerminalBeatgridMarkerEnhanced]
 
@@ -223,10 +221,8 @@ class TrackBeatgrid(SeratoGeobTag):
             if isinstance(marker, TrackBeatgrid.NonTerminalBeatgridMarker):
                 next_marker = markers[i + 1]
                 time_diff = next_marker.position_s - marker.position_s
-                if time_diff == 0:
-                    bpm = float("nan")  # mark invalid BPM when segment has zero duration
-                else:
-                    bpm = marker.beats_till_next_marker / time_diff * 60
+                # NaN marks an invalid BPM, for a segment with zero duration
+                bpm = float("nan") if time_diff == 0 else marker.beats_till_next_marker / time_diff * 60
                 enhanced.append(
                     TrackBeatgrid.NonTerminalBeatgridMarkerEnhanced(
                         marker.position_s,
