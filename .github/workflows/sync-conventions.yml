@@ -13,4 +13,5 @@ jobs:
   sync:
     uses: bvandrc/bvandrc-conventions/.github/workflows/sync.yml@main
     with:
-      files: all.md
+      # apply-with-claude is left off, since its Claude can only run JavaScript package managers, not pip.
+      files: all.md python.md pypi-publishing.md
