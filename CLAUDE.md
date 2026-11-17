@@ -50,7 +50,8 @@ End every sentence of a changelog entry with a period, the last one included, so
 
 Publishing a GitHub release then publishes that version to PyPI, through `.github/workflows/release.yml`:
 - **Tag:** it must be `v` + the version (e.g. `v6.0.0`), or the workflow fails before building.
-- **Notes:** a release published with empty notes gets the version's `CHANGELOG.md` section as its notes, and the built distributions are attached to it.
+- **Shared steps:** its build and release-notes steps are shared actions from [bvandrc-conventions](https://github.com/bvandrc/bvandrc-conventions) (`.github/actions/`), used from `main`, so change them there; only the publish step stays in this file, since PyPI's trusted publishing matches the workflow file that runs it.
+- **Notes:** the release's notes are set to the version's `CHANGELOG.md` section, replacing any written on it, and the built distributions are attached to it.
 - **Trusted publisher:** PyPI's names that workflow file and its `pypi` environment, so renaming either means updating it on PyPI too.
 - **Rewording past entries:** releases don't follow later changes to their `CHANGELOG.md` section. Running the `Sync Release Notes` workflow (`.github/workflows/sync-release-notes.yml`, script in `.github/scripts/`) rewrites every release's notes as its section, keeping the "Published to PyPI" line of the releases added after the fact.
 
