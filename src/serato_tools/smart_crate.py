@@ -4,7 +4,7 @@ import os
 import sys
 from dataclasses import dataclass
 from enum import IntEnum, StrEnum, unique
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, ClassVar, cast, override
 
 from serato_tools.utils import SERATO_DIR
 from serato_tools.utils.crate_base import CrateBase
@@ -48,7 +48,7 @@ class SmartCrate(CrateBase):
     )
 
     # each comparison names its value's type in its suffix (cond_is_str, cond_bef_time, cond_greq_uint)
-    _RULE_VALUE_FIELD_BY_COMPARISON_SUFFIX = {
+    _RULE_VALUE_FIELD_BY_COMPARISON_SUFFIX: ClassVar[dict[str, RuleFields]] = {
         "str": RuleFields.RULE_VALUE_TEXT,
         "time": RuleFields.RULE_VALUE_DATE,
         "uint": RuleFields.RULE_VALUE_INTEGER,
@@ -89,7 +89,7 @@ class SmartCrate(CrateBase):
         INT_IS_GE = "cond_greq_uint"
         INT_IS_LE = "cond_lseq_uint"
 
-    DEFAULT_ENTRIES = [
+    DEFAULT_ENTRIES: ClassVar[CrateBase.EntryList] = [
         (CrateBase.Fields.VERSION, "1.0/Serato ScratchLive Smart Crate"),
         (RuleFields.SMARTCRATE_MATCH_ALL, [(RuleFields.SETTING_VALUE, False)]),
         (RuleFields.SMARTCRATE_LIVE_UPDATE, [(RuleFields.SETTING_VALUE, False)]),
@@ -149,11 +149,10 @@ class SmartCrate(CrateBase):
             value_field = next((field for field in SmartCrate.RULE_VALUE_FIELDS if field in self.fields), None)
             return cast(str | int, self.get_value(value_field)) if value_field is not None else None
 
-        def set_value(  # pylint: disable=arguments-differ # pyright: ignore[reportIncompatibleMethodOverride]
+        def set_value(  # pyright: ignore[reportIncompatibleMethodOverride]
             self, value: str | int
         ):
             """Sets the rule's value, converted to the type its comparison stores, in the field that type goes in."""
-            # pylint: disable=protected-access
             field = SmartCrate._get_rule_value_field(self.comparison)
             value = SmartCrate._coerce_rule_value(self.comparison, value)
             # when the comparison's type differs from the old value's (e.g. text -> integer), replace
@@ -217,14 +216,13 @@ class SmartCrate(CrateBase):
         the file.
         """
         # imported here, since only this method needs regular crates
-        from serato_tools.crate import Crate
+        from serato_tools.crate import Crate  # noqa: PLC0415
 
         crate = Crate(file)
         rule_fields = {field.value for field in SmartCrate.RuleFields}
-        # pylint: disable=protected-access
-        crate._entries = [
+        crate._entries = [  # noqa: SLF001
             # a regular crate's version, then this smart crate's entries but its own version and its rules
-            *(entry for entry in crate._entries if entry[0] == Crate.Fields.VERSION),
+            *(entry for entry in crate._entries if entry[0] == Crate.Fields.VERSION),  # noqa: SLF001
             *(entry for entry in self._entries if entry[0] != Crate.Fields.VERSION and entry[0] not in rule_fields),
         ]
         return crate
@@ -236,6 +234,7 @@ class SmartCrate(CrateBase):
 
 def main():
     """The `serato_smartcrate` CLI: prints smart crates, lists their tracks, or sets or deletes their rules."""
+    # ruff: disable[PLC0415, T201]
     import argparse
 
     @dataclass
@@ -250,6 +249,7 @@ def main():
     class AppendRule(argparse.Action):
         """Adds the option's field, its `const`, and its arguments to `rule_args`."""
 
+        @override
         def __call__(self, parser, namespace, values, option_string=None):
             namespace.rule_args.append((self.const, values))
 
@@ -297,7 +297,7 @@ def main():
             except KeyError:
                 parser.error(f"{option}: unknown comparison {comparison_name}, must be one of: {comparisons}")
             try:
-                SmartCrate._coerce_rule_value(comparison, value)  # pylint: disable=protected-access
+                SmartCrate._coerce_rule_value(comparison, value)  # noqa: SLF001
             except ValueError:
                 parser.error(f"{option}: {comparison_name} compares whole numbers, got {value}")
             rules.append((field, (comparison, value)))
@@ -328,6 +328,7 @@ def main():
             crate.print_track_paths(filenames_only=args.filenames_only)
         else:
             print(crate)
+    # ruff: enable[PLC0415, T201]
 
 
 if __name__ == "__main__":

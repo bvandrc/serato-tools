@@ -1,10 +1,9 @@
-# pylint: disable=protected-access
 import copy
 import json
 import os
 import struct
+from collections.abc import Iterable
 from enum import StrEnum, unique
-from typing import Iterable
 from unittest import mock
 
 import pytest
@@ -160,7 +159,7 @@ def test_parsing_a_value_it_would_rewrite_raises(tmp_dir: str, entry: bytes, mes
 
 
 # DatabaseV2 can't be created new. Crate and SmartCrate share CrateBase.DEFAULT_VIEW_ENTRIES' sublists
-@pytest.mark.parametrize("cls", (Crate, SmartCrate), ids=lambda cls: cls.__name__)
+@pytest.mark.parametrize("cls", [Crate, SmartCrate], ids=lambda cls: cls.__name__)
 def test_new_file_shares_no_entries_with_its_class_default(tmp_dir: str, cls: type[Crate] | type[SmartCrate]):
     defaults = {c: copy.deepcopy(c.DEFAULT_ENTRIES) for c in (Crate, SmartCrate)}
     a = cls(os.path.join(tmp_dir, "A" + cls.EXTENSION))
@@ -304,7 +303,7 @@ def test_modify_empty_value_removes_field(db_file: str):
     db.save()
     assert grouping(DatabaseV2(db_file), target) is None, "removed in the saved file"
 
-    with pytest.raises(ValueError):  # a track can't be without its path
+    with pytest.raises(ValueError, match="can't remove a track's path"):
         db.modify([{"field": DatabaseV2.Fields.FILE_PATH, "files": [target], "func": lambda *args: ""}])
 
 
@@ -401,7 +400,7 @@ def test_get_entries_matching_tracks():
 
     def track_paths(entries: Iterable[DatabaseV2.EntryFull]) -> list[str]:
         return [
-            str(dict((f, v) for f, _, v in value)[DatabaseV2.Fields.FILE_PATH])
+            str({f: v for f, _, v in value}[DatabaseV2.Fields.FILE_PATH])
             for field, _, value in entries
             if field == DatabaseV2.Fields.TRACK and isinstance(value, list)
         ]
@@ -447,7 +446,7 @@ def test_change_track_path_to_a_file_that_doesnt_exist_raises(new_crate: Crate, 
 
 def test_duplicate_field_raises():
     # a repeated field would be silently collapsed/duplicated on round-trip, corrupting the file
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="duplicate field"):
         SeratoBinFile.Track(
             [
                 (SeratoBinFile.Fields.FILE_PATH.value, "a.mp3"),
@@ -488,7 +487,7 @@ def test_set_value_refuses_a_value_its_field_cant_hold():
         track.set_value(path, 1)
     with pytest.raises(DataTypeError):  # another text field
         track.set_value(genre, 1)
-    with pytest.raises(ValueError):  # a number too big
+    with pytest.raises(ValueError, match="holds a number from 0 to 4294967295"):  # a number too big
         track.set_value(fields.PLAY_COUNT.value, 2**32)
     assert track.to_entries() == [(path, "Music/a.mp3"), (genre, "House")], "values kept"
 
@@ -510,9 +509,9 @@ def test_remove_field():
     assert track.to_entries() == only_path, "set_value empty doesn't add it when already gone"
 
     # a track can't be without its path
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="can't remove a track's path"):
         track.remove_field(path)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="can't remove a track's path"):
         track.set_value(path, "")
     assert track.to_entries() == only_path, "path kept"
 

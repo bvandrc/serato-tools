@@ -39,8 +39,9 @@ waveform_drawing = [
 beatgrid_analysis = ["mutagen", "librosa", "numpy"]
 all = ["serato-tools[track_tags,waveform_drawing,beatgrid_analysis]"]
 test = ["pytest"]
-# the test extra too, so pyright can check the tests' pytest imports
-dev = ["serato-tools[test]", "black", "isort", "pylint", "pyright"]
+# the test extra too, so pyright can check the tests' pytest imports; Ruff up to its next minor version, since a minor
+# release can change its default rules and its formatting
+dev = ["serato-tools[test]", "ruff>=0.17,<0.18", "pyright"]
 
 [project.urls]
 Homepage = "https://pypi.org/project/serato-tools/"
@@ -60,17 +61,76 @@ serato_snap_cues_v2 = "serato_tools.track_cues_v2:main"
 where = ["src"]
 include = ["serato_tools*"]
 
-[tool.black]
+[tool.ruff]
 line-length = 120
 
+[tool.ruff.lint]
+# Every stable rule, less those below. A Ruff minor release can add stable rules, which only reach CI through a PR
+# that bumps the pinned Ruff, so each one gets a decision there.
+select = ["ALL"]
+ignore = [
+    # whole families that don't fit this codebase
+    "ANN",  # type annotations everywhere: pyright checks the types
+    "D",  # docstring style: the repo's docstrings follow its own conventions
+    "PTH",  # pathlib: the API takes and returns str paths
+    "FBT",  # boolean positional arguments: changing them would change the public API, e.g. save(file, force)
+    "EM",  # exception messages assigned to a variable before raising
+    "CPY",  # copyright notices
+    "TD",  # TODO comment format
+    "FIX",  # TODO comments
+    "C90",  # complexity limits
+    "N",  # naming: the test helpers use classes as namespaces of constants, and parsers use local constants
+    "COM",  # trailing commas: the formatter adds them, and COM812 conflicts with it
+    "ISC001",  # implicitly concatenated strings on one line: conflicts with the formatter
+    # single rules, in families that are otherwise on
+    "S101",  # assert: tests assert, and the code asserts to narrow types
+    "S603",  # subprocess calls: every call here passes a fixed argument list
+    "TRY003",  # long exception messages: the messages say what went wrong
+    "E501",  # line length: the formatter wraps code, and what's left is long strings
+    "PLR2004",  # magic values: the binary formats' constants
+    "PLR09",  # too many branches, arguments, or statements
+    "TC006",  # quoting the type in cast()
+    # takes any UPPER_CASE name for a constant, so it would swap `assert cls.DEFAULT_ENTRIES == default` to put the
+    # expected value first
+    "SIM300",
+    # flags any raise after an isinstance check, but those here are about malformed data or a tag with no audio file,
+    # which raise ValueError, not about a caller passing the wrong type
+    "TRY004",
+    # the parsers convert each field's value in place as they read it, reassigning the loop variable; pylint only
+    # checks this in an optional extension
+    "PLW2901",
+]
+# rules in Ruff's defaults that the family ignores above would otherwise turn off
+extend-select = [
+    "D419",  # empty docstrings
+    "N999",  # module names that aren't valid identifiers
+    "PTH124",  # the py.path library
+    "PTH210",  # invalid suffixes passed to Path.with_suffix
+]
+
+[tool.ruff.lint.per-file-ignores]
+# tests reach into internals to set up and check state the public API doesn't expose, and import what only some of
+# them need (the track_tags extra) inside the fixtures that need it
+"test/**" = ["SLF001", "PLC0415"]
+# USB export prints its progress as it copies tracks
+"src/serato_tools/usb_export.py" = ["T201"]
+# a standalone script, not part of a package, which runs the gh CLI found on PATH and prints what it does
+".github/scripts/**" = ["INP001", "S607", "T20"]
+
+[tool.ruff.lint.flake8-pytest-style]
+# the tests name their parametrize arguments in one string, "a, b, c"
+parametrize-names-type = "csv"
+
+[tool.ruff.lint.flake8-unused-arguments]
+# a lambda or callback taking `*args` it doesn't use is matching the signature its caller passes
+ignore-variadic-names = true
+
 # Groups the imports into the standard library, third-party packages, and this repo's modules, each sorted.
-[tool.isort]
-profile = "black"
-line_length = 120
-known_first_party = ["serato_tools"]
+[tool.ruff.lint.isort]
+known-first-party = ["serato_tools"]
 # the tests' shared helpers, in their own group after the package's imports
-known_local_folder = ["test"]
-combine_as_imports = true
+known-local-folder = ["test"]
+combine-as-imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["test"]

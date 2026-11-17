@@ -1,9 +1,9 @@
-#!/usr/bin/python
 # This is from this repo: https://github.com/sharst/seratopy
 """What crates and smart crates share: their file extension and folder, track paths, and how they print."""
 
 import os
-from typing import Iterable, Optional
+from collections.abc import Iterable
+from typing import ClassVar
 
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
@@ -18,7 +18,7 @@ class CrateBase(SeratoBinFile):
 
     # the sort and columns Serato gives a new crate or smart crate, which follow the version (and a smart crate's
     # settings) in each one's DEFAULT_ENTRIES
-    DEFAULT_VIEW_ENTRIES: SeratoBinFile.EntryList = [
+    DEFAULT_VIEW_ENTRIES: ClassVar[SeratoBinFile.EntryList] = [
         (
             SeratoBinFile.Fields.SORTING,
             [(SeratoBinFile.Fields.COLUMN_NAME, "key"), (SeratoBinFile.Fields.REVERSE_ORDER, False)],
@@ -56,9 +56,9 @@ class CrateBase(SeratoBinFile):
         track_paths = self.get_track_paths(include_drive=True)
         if filenames_only:
             track_paths = [os.path.splitext(os.path.basename(t))[0] for t in track_paths]
-        print("\n".join(track_paths))
+        print("\n".join(track_paths))  # noqa: T201
 
-    def save(self, file: Optional[str] = None, force: bool = False) -> bool:
+    def save(self, file: str | None = None, force: bool = False) -> bool:
         """As `SeratoBinFile.save`, but raises ValueError if `file` doesn't end with this class's `EXTENSION`."""
         if file is None:
             file = self.filepath
@@ -83,7 +83,7 @@ class CrateBase(SeratoBinFile):
                 self._entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, relpath)]))
                 existing.add(relpath.upper())
 
-    def add_tracks_from_dir(self, dir: str, replace: bool = False):
+    def add_tracks_from_dir(self, dir: str, replace: bool = False):  # noqa: A002
         """Adds every file directly in `dir` but hidden ones, such as `.DS_Store`; with `replace`, first removes every
         track that isn't one of them."""
         dir_tracks = [
@@ -113,7 +113,6 @@ class CrateBase(SeratoBinFile):
 
         crate_paths: list[str] = []
         if os.path.isdir(file_or_dir):
-
             for fname in os.listdir(file_or_dir):
                 path = os.path.normpath(os.path.join(file_or_dir, fname))
                 if os.path.isfile(path) and path.endswith(cls.EXTENSION):

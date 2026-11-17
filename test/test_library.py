@@ -1,4 +1,3 @@
-# pylint: disable=protected-access
 import logging
 import os
 import subprocess
@@ -70,7 +69,8 @@ def test_rename_track_file(folders: LibraryFolders, bin_file_writes: list[str]):
     library = Library(folders.serato_dir)
     changed = library.rename_track_file(src, dest)
 
-    assert os.path.exists(dest) and not os.path.exists(src), "file renamed"
+    assert os.path.exists(dest), "file at its new path"
+    assert not os.path.exists(src), "file gone from its old path"
     assert sorted(bin_file_writes) == sorted([DatabaseV2.FILENAME, "With.crate", "Smart.scrate"]), "only those with it"
     assert sorted(changed) == file_paths_named(library, bin_file_writes), "returns those files"
     old_path, new_path = relpath(src), relpath(dest)
@@ -126,7 +126,8 @@ def test_rename_track_file_not_in_the_library(folders: LibraryFolders, bin_file_
 
     changed = Library(folders.serato_dir).rename_track_file(src, dest)
 
-    assert os.path.exists(dest) and not os.path.exists(src), "file still renamed"
+    assert os.path.exists(dest), "file still at its new path"
+    assert not os.path.exists(src), "file still gone from its old path"
     assert changed == [], "no library file changed"
     assert bin_file_writes == [], "nothing saved"
 
@@ -197,10 +198,14 @@ def test_batch_saves_when_the_block_raises(folders: LibraryFolders, bin_file_wri
     bin_file_writes.clear()
 
     library = Library(folders.serato_dir)
-    with pytest.raises(RuntimeError):  # the exception still propagates
+
+    def rename_then_fail():
         with library.batch():
             library.rename_track_file(src, dest)
             raise RuntimeError("stopped partway")
+
+    with pytest.raises(RuntimeError, match="stopped partway"):  # the exception still propagates
+        rename_then_fail()
 
     assert bin_file_writes == [DatabaseV2.FILENAME]
     assert relpath(dest) in track_paths(library.database), "points at renamed file"
@@ -314,7 +319,7 @@ def test_set_db_track_tags_text_frames(folders: LibraryFolders):
     folders.add_to_database(track)
 
     Library(folders.serato_dir).set_db_tracks_tags(
-        {track: {key: value for key, (value, _, _) in TEXT_FRAMES.items()}}  # type: ignore
+        {track: {key: value for key, (value, _, _) in TEXT_FRAMES.items()}}  # pyright: ignore[reportArgumentType]
     )
 
     frames = TrackTextFrames(track)
@@ -425,13 +430,13 @@ def _then_a_track_with(tags: dict[str, object]):
     "tracks, error, message",
     [
         pytest.param(
-            lambda folders, first: {first: {"color": Colors.RED, "rating": 5}},
+            lambda _folders, first: {first: {"color": Colors.RED, "rating": 5}},
             ValueError,
             "unknown track tags",
             id="an unknown key",
         ),
         pytest.param(
-            lambda folders, first: {first: {"color": Colors.RED}, "Second.flac": {"beatgrid_locked": True}},
+            lambda _folders, first: {first: {"color": Colors.RED}, "Second.flac": {"beatgrid_locked": True}},
             ValueError,
             "unsupported file type",
             id="a later track's file unreadable",

@@ -1,4 +1,3 @@
-# pylint: disable=protected-access
 import os
 
 import pytest
@@ -136,9 +135,9 @@ def test_to_regular_crate_keeps_the_tracks_sort_and_columns_but_not_the_rules(tm
     saved = Crate(file)
     assert saved._version == Crate.DEFAULT_ENTRIES[0][1], "a regular crate's version"
     assert saved.get_track_paths() == smart_crate.get_track_paths()
-    assert saved._entries[1:] == [
-        entry for entry in smart_crate._entries[1:] if entry[0] not in rule_fields
-    ], "everything but the version and the rules, in order"
+    assert saved._entries[1:] == [entry for entry in smart_crate._entries[1:] if entry[0] not in rule_fields], (
+        "everything but the version and the rules, in order"
+    )
 
 
 class TestCli:

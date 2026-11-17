@@ -11,8 +11,8 @@ import os
 import platform
 import re
 import shutil
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import Callable, Iterable, Optional
 
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
@@ -43,7 +43,7 @@ def _uniq_by_basename(paths: list[str]):
 
 
 def copy_crates_to_usb(
-    crate_files: Iterable[str], dest_drive_dir: str, dest_tracks_dir: str, root_crate: Optional[str] = None
+    crate_files: Iterable[str], dest_drive_dir: str, dest_tracks_dir: str, root_crate: str | None = None
 ):
     """Copies the crates in `crate_files`, and their tracks, to the drive at `dest_drive_dir`.
 
@@ -91,7 +91,7 @@ def copy_crates_to_usb(
     _copy_tracks(track_paths, os.path.join(dest_drive_dir, dest_tracks_dir))
 
 
-def _export_crate(crate_file: str, dest_crate_dir: str, root_crate: Optional[str], dest_tracks_dir: str) -> list[str]:
+def _export_crate(crate_file: str, dest_crate_dir: str, root_crate: str | None, dest_tracks_dir: str) -> list[str]:
     """Writes the crate to the drive's crate folder, pointed at its tracks' paths there, and returns the paths it held.
 
     The paths returned are as Serato stores them, without a drive or leading slash, in the crate's order and with
@@ -128,8 +128,8 @@ def _export_library_file(
     file: SeratoBinFile,
     dest_file: str,
     dest_tracks_dir: str,
-    track_paths: Optional[set[str]] = None,
-    edit_track: Optional[Callable[[SeratoBinFile.Track], None]] = None,
+    track_paths: set[str] | None = None,
+    edit_track: Callable[[SeratoBinFile.Track], None] | None = None,
 ):
     """Writes the database or crate to `dest_file`, its tracks pointed at their paths in `dest_tracks_dir` on the drive.
 
@@ -155,14 +155,14 @@ def _dest_track_path(track_path: str, dest_tracks_dir: str) -> str:
     return Crate.get_relative_path(os.path.join(dest_tracks_dir, os.path.basename(track_path)))
 
 
-def _copy_order_file(dest_serato_dir: str, root_crate: Optional[str]):
+def _copy_order_file(dest_serato_dir: str, root_crate: str | None):
     """Copies Serato's crate order file to the drive, with each crate in `root_crate` if given."""
     ORDER_FILE = "neworder.pref"
     LOCAL_ORDER_FILE = os.path.join(LOCAL_SERATO_DIR, ORDER_FILE)
     if not os.path.isfile(LOCAL_ORDER_FILE):
         logger.warning(f"no order file to copy: {LOCAL_ORDER_FILE}")
         return
-    with open(LOCAL_ORDER_FILE, "r", encoding="utf-8") as f:
+    with open(LOCAL_ORDER_FILE, encoding="utf-8") as f:
         lines = f.read().splitlines()
 
     if root_crate:
@@ -227,8 +227,8 @@ def _copy_tracks(track_paths: list[str], dest_dir: str):
 
     if src_paths and len(not_found) == len(src_paths):
         logger.error("No source files found.")
-        uniq_dirs = list(set(os.path.dirname(d) for d in src_paths))
-        logger.error(f"Directories: \n{"\n    ".join(uniq_dirs)}")
+        uniq_dirs = list({os.path.dirname(d) for d in src_paths})
+        logger.error(f"Directories: \n{'\n    '.join(uniq_dirs)}")
         return
 
     for n in not_found:
@@ -261,6 +261,7 @@ def get_crate_files(pattern: str):
 
 def main():
     """The `serato_usb_export` CLI: exports the crates matching the patterns given to a drive, under `Tracks`."""
+    # ruff: disable[PLC0415]
     import argparse
 
     @dataclass
@@ -312,6 +313,7 @@ def main():
         dest_tracks_dir="Tracks",
         root_crate=args.root_crate,
     )
+    # ruff: enable[PLC0415]
 
 
 if __name__ == "__main__":

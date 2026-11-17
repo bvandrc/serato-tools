@@ -1,10 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """The `Serato Autotags` tag, which holds the BPM and gain values Serato's analysis found for a track."""
 
 import io
 from dataclasses import dataclass
-from typing import Optional
 
 from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag
 
@@ -59,9 +56,9 @@ class TrackAutotags(SeratoGeobTag):
 
     def set(
         self,
-        bpm: Optional[float] = None,
-        autogain: Optional[float] = None,
-        gaindb: Optional[float] = None,
+        bpm: float | None = None,
+        autogain: float | None = None,
+        gaindb: float | None = None,
     ):
         """Sets the values given, leaving the rest, in memory; call `save()` to write them to the file.
 
@@ -77,6 +74,7 @@ class TrackAutotags(SeratoGeobTag):
 
 
 if __name__ == "__main__":
+    # ruff: disable[T201]
     import argparse
 
     from serato_tools.utils.cli import open_tag_file_or_data
@@ -91,3 +89,4 @@ if __name__ == "__main__":
 
     tags = open_tag_file_or_data(TrackAutotags, args.file)
     print(str(tags))
+    # ruff: enable[T201]

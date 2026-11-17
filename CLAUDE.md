@@ -19,25 +19,25 @@ Work in the repo's `.venv` (gitignored), with the package installed editable so 
 ```bash
 python -m venv .venv
 source .venv/Scripts/activate                                     # Git Bash on Windows; .venv/bin/activate elsewhere
-pip install -e ".[all,dev]"                                  # all optional deps + pytest, black, isort, pylint, pyright
+pip install -e ".[all,dev]"                                  # all optional deps + pytest, ruff, pyright
 ```
 
 ```bash
 python -m pytest                                                  # full suite
 python -m pytest test/test_crate.py                               # one module
 python -m pytest test/test_crate.py::test_saving_needs_the_crate_extension  # one test
-pylint $(git ls-files '*.py')                                     # lint (config in .pylintrc, most C/R checks disabled)
 pyright                                                           # type check (config in pyproject.toml)
-isort .                                                           # sort imports (config in pyproject.toml)
-black .                                                           # format, line-length 120
+ruff check --fix .                                                # lint, and sort imports (config in pyproject.toml); private access is allowed in test/
+ruff format .                                                     # format, line-length 120
 ```
 
-This is a Python repo with no package manager scripts, so `isort .` then `black .` is the "format script" the conventions require before every commit; CI checks both.
+This is a Python repo with no package manager scripts, so `ruff check --fix .` then `ruff format .` is the "format script" the conventions require before every commit; CI checks both.
 
 Tests import the installed `serato_tools` (editable locally, a regular install in CI) and open fixtures by paths relative to the repo root, so `python -m pytest` only works from there.
 
-CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pylint and pyright, plus isort and black once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15.
-- **Lint on every version:** neither tool pins one, and both check against the running interpreter, so 3.12 catches use of anything newer and later versions catch deprecations and removals.
+CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pyright, plus Ruff's lint and format checks once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15.
+- **Lint on every version:** pyright checks against the running interpreter, so 3.12 catches use of anything newer and later versions catch deprecations and removals. Ruff checks against `requires-python` instead, so it runs once.
+- **Ruff's rules and version:** `pyproject.toml` selects every stable rule (`ALL`) and ignores, each with its reason, those that don't fit. Ruff is pinned below its next minor version (`ruff>=0.17,<0.18` in the `dev` extra), since only a minor release adds stable rules or changes the formatting. So moving to a new minor version is its own PR, deciding for each new rule whether to fix what it flags or ignore it.
 - **Required checks:** the `main` ruleset requires these checks by name, so renaming a job or matrix entry means updating the ruleset too.
 - **OS-specific tests:** tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `pytest.mark.skipif`, with a matching test for the other OS family. A parametrized test marks just its OS-specific cases, with `WINDOWS_ONLY` / `POSIX_ONLY` from `test.helpers.platforms`.
 
@@ -52,6 +52,7 @@ Publishing a GitHub release then publishes that version to PyPI, through `.githu
 - **Tag:** it must be `v` + the version (e.g. `v6.0.0`), or the workflow fails before building.
 - **Notes:** a release published with empty notes gets the version's `CHANGELOG.md` section as its notes, and the built distributions are attached to it.
 - **Trusted publisher:** PyPI's names that workflow file and its `pypi` environment, so renaming either means updating it on PyPI too.
+- **Rewording past entries:** releases don't follow later changes to their `CHANGELOG.md` section. Running the `Sync Release Notes` workflow (`.github/workflows/sync-release-notes.yml`, script in `.github/scripts/`) rewrites every release's notes as its section, keeping the "Published to PyPI" line of the releases added after the fact.
 
 ## Architecture
 
@@ -131,7 +132,7 @@ Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`
 - **What each tag class implements:**
   - the read-only `has_changed` property;
   - `_write_to_tagfile()`, which puts its unsaved changes into the shared tagfile without saving and returns whether it had any. A `SeratoGeobTag` compares its data (`_raw_data`) with what it read or last saved (`_tagged_raw_data`) rather than with the tagfile, so an unchanged `Serato Markers_` that `TrackCuesV2` deleted isn't put back. `TrackCuesV2._write_to_tagfile` alone takes an argument, `delete_tags_v1`, which `Track.save()` passes it.
-- **Adding a tag class:** implement both (`ID3FileTag`'s raise `NotImplementedError`; it isn't an ABC, so it can still be instantiated), which `save()` is built on, and add it to `Track`: a flag, a property, and an entry in `save()`'s tuple of parsed tags.
+- **Adding a tag class:** implement both (`ID3FileTag`'s raise `NotImplementedError`; it isn't an ABC, so it can still be instantiated), which `save()` is built on, and add it to `Track`: a flag, a property, and an entry in `save()`'s tuple of parsed tags. Also add it to `TAG_CLASSES` in `test_track_tags.py`, whose save test calls both; `test_every_tag_class_is_tested` fails until you do, since no linter checks that a subclass implements them.
 
 **v1/v2 interaction:** current Serato reads `Serato Markers2`, but a stale `Serato Markers_` shadows changes made to it.
 - That's why `TrackCuesV2.save()` and `Track.save()` (and `Library.set_db_tracks_tags`, which passes it on) take `delete_tags_v1=True` by default: writing `Serato Markers2` deletes the v1 tag rather than keeping the two in sync.
@@ -140,7 +141,7 @@ Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`
 
 `TrackCuesV2` exposes each entry kind (`CueEntry`, `LoopEntry`, `ColorEntry`, `FlipEntry`, `BpmLockEntry`) as a dataclass, aggregated into `TrackCuesInfo`.
 - **Editing:** `modify_entries(callback)` hands the callback the whole `TrackCuesInfo` and expects a new one back (use `dataclasses.replace`) or `None` for no change.
-- **Converting:** each entry class (and `TrackCuesV1.Entry`) converts with `_parse()` / `_serialize()`, which are internal to its module. Callers go through `modify_entries` and `save()`, so the tag class is the only user, and pylint's `protected-access` is disabled per function where it calls them.
+- **Converting:** each entry class (and `TrackCuesV1.Entry`) converts with `_parse()` / `_serialize()`, which are internal to its module. Callers go through `modify_entries` and `save()`, so the tag class is the only user, and each call is marked `# noqa: SLF001`, Ruff's check for access to another class's private members.
 
 ### Version gating
 
@@ -180,7 +181,7 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
 
 ### CLI conventions
 
-Console scripts are declared in `[project.scripts]` in `pyproject.toml` and point at `main()` / `main_analyze()` in the module. Each entry point defines a local `@dataclass Args` and constructs it with `Args(**vars(parser.parse_args()))` to get a typed view of argparse output — follow that pattern when adding a CLI. To run a module directly, use `python -m serato_tools.<module>`.
+Console scripts are declared in `[project.scripts]` in `pyproject.toml` and point at `main()` / `main_analyze()` in the module. Each entry point defines a local `@dataclass Args` and constructs it with `Args(**vars(parser.parse_args()))` to get a typed view of argparse output — follow that pattern when adding a CLI. Its `main()` (or `__main__` block) is wrapped in `# ruff: disable[...]` / `# ruff: enable[...]` for the rules a CLI breaks on purpose (`T201` for `print`, `PLC0415` for its imports, which load only when it runs), listing only the codes it uses, since Ruff flags an unused one; library code that prints or imports inside a function marks each line `# noqa` instead. To run a module directly, use `python -m serato_tools.<module>`.
 
 ## Repository layout notes
 

@@ -11,16 +11,13 @@ import json
 import os
 import re
 import struct
+from collections.abc import Callable, Collection, Generator, Iterable
 from enum import StrEnum, unique
+from re import Pattern
 from typing import (
     Any,
-    Callable,
-    Collection,
-    Generator,
-    Iterable,
+    ClassVar,
     NotRequired,
-    Optional,
-    Pattern,
     TypedDict,
     cast,
     overload,
@@ -34,7 +31,7 @@ class DataTypeError(Exception):
 
     def __init__(self, value: Any, expected_type: type, field: str | None):
         super().__init__(
-            f"value must be {expected_type.__name__} when field is {field} (type: {type(value).__name__}) (value: {str(value)})"
+            f"value must be {expected_type.__name__} when field is {field} (type: {type(value).__name__}) (value: {value!s})"
         )
 
 
@@ -174,7 +171,7 @@ class SeratoBinFile:
 
     TESTED_VERSIONS: frozenset[str]
     TRACK_PATH_KEY: Fields
-    DEFAULT_ENTRIES: EntryList
+    DEFAULT_ENTRIES: ClassVar[EntryList]
 
     # set once __init__ has parsed the file, so save() can refuse a half-built instance
     _parsed: bool = False
@@ -206,7 +203,7 @@ class SeratoBinFile:
 
         if os.path.exists(file):
             if file.lower().endswith(".json"):
-                with open(file, "r", encoding="utf-8") as f:
+                with open(file, encoding="utf-8") as f:
                     self.from_json_object(json.load(f))
                 # what saving the entries as loaded would write
                 self._saved_hash = self._hash(self.to_bytes())
@@ -242,7 +239,7 @@ class SeratoBinFile:
                 lines.append(f"{indent_str}{field} ({fieldname})")
                 lines.append(self._stringify_entries(value, indent + 1))
             else:
-                lines.append(f"{indent_str}{field} ({fieldname}): {str(value)}")
+                lines.append(f"{indent_str}{field} ({fieldname}): {value!s}")
 
         return "\n".join(lines)
 
@@ -257,7 +254,7 @@ class SeratoBinFile:
                 We do not want to risk damaging users' library database or crate files!
 
                 Possible versions:
-                {'\n'.join(sorted(self.TESTED_VERSIONS))}
+                {"\n".join(sorted(self.TESTED_VERSIONS))}
                 """)
         return value
 
@@ -364,7 +361,7 @@ class SeratoBinFile:
             f.write(json_content)
 
     def print(self):
-        print(self)
+        print(self)  # noqa: T201
 
     class EntryListCls:
         """A flat entry list, such as a track's, with each field's value as an attribute named for the field.
@@ -508,7 +505,6 @@ class SeratoBinFile:
             if type_id in ("o", "r"):  #  struct
                 value = list(self._parse_item(data))
             elif type_id in ("p", "t"):  # text
-                # value = (data[1:] + b"\00").decode("utf-16") # from imported code
                 value = data.decode("utf-16-be")
             elif type_id == "b":  # single byte, is a boolean
                 # anything but 0x00/0x01 would be rewritten as 0x01 on save, so refuse it like an unknown version
@@ -648,7 +644,7 @@ class SeratoBinFile:
         """Each track's path: as stored, with no drive, or with `include_drive`, as an absolute path."""
         return [t.full_path if include_drive else t.relpath for t in self.get_tracks()]
 
-    def modify_tracks(self, func: Callable[[Track], Track], files: Optional[Iterable[str]] = None) -> bool:
+    def modify_tracks(self, func: Callable[[Track], Track], files: Iterable[str] | None = None) -> bool:
         """
         Replaces each track with what `func` returns for it, and returns whether any track changed.
 
@@ -705,7 +701,7 @@ class SeratoBinFile:
 
         return self.filter_tracks(filter_track)
 
-    def save(self, file: Optional[str] = None, force: bool = False) -> bool:
+    def save(self, file: str | None = None, force: bool = False) -> bool:
         """Writes the file's bytes to `file`, or to the path it was loaded from, and returns whether it wrote them.
 
         Saving to its own path writes only if the file changed since it was loaded or last saved (`has_changed`), unless
@@ -749,7 +745,7 @@ class SeratoBinFile:
         """`filepath` as Serato stores a track path: without its drive or leading slash, and `/`-separated."""
         filepath = os.path.splitdrive(filepath)[1]
         relpath = os.path.normpath(filepath).replace(os.path.sep, "/").lstrip("/")
-        return relpath
+        return relpath  # noqa: RET504
 
     @staticmethod
     def get_full_path(filepath: str) -> str:
@@ -764,7 +760,7 @@ class SeratoBinFile:
         drive = os.path.splitdrive(filepath)[0]
         return os.path.normpath(filepath if drive else os.path.join(SERATO_DRIVE, os.sep, filepath))
 
-    def get_entries(self, track_matcher: Optional[str | Pattern[str]] = None) -> Generator[EntryFull, None, None]:
+    def get_entries(self, track_matcher: str | Pattern[str] | None = None) -> Generator[EntryFull, None, None]:
         """Each entry with its field's readable name, as is each entry in a nested entry list.
 
         Given `track_matcher`, a regex, only the tracks whose path it matches (ignoring case) are included. Raises
@@ -826,7 +822,7 @@ class SeratoBinFile:
         def modify_track(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
             # loop over the rules rather than the track's fields, since a track has far more fields than there are rules
             relpath_upper = track.relpath.upper()
-            for rule, files in zip(rules, rule_files):
+            for rule, files in zip(rules, rule_files, strict=True):
                 if files is not None and relpath_upper not in files:
                     continue
                 field = rule["field"]
@@ -847,14 +843,14 @@ class SeratoBinFile:
                     maybe_new_val = SeratoBinFile.get_relative_path(maybe_new_val)
 
                 logger.info(
-                    f"Set {field}({self.get_field_name(field)})={str(maybe_new_val)} in library for {track.relpath}"
+                    f"Set {field}({self.get_field_name(field)})={maybe_new_val!s} in library for {track.relpath}"
                 )
                 track.set_value(field, maybe_new_val)
             return track
 
         return self.modify_tracks(modify_track, files=only_files)
 
-    def modify_and_save(self, rules: Collection[ModifyRule], file: Optional[str] = None):
+    def modify_and_save(self, rules: Collection[ModifyRule], file: str | None = None):
         """
         Applies `rules` to every track, then saves.
 
@@ -881,7 +877,7 @@ class SeratoBinFile:
             track_path = track.full_path
             if os.path.isfile(track_path):
                 return track
-            print(f"missing: {track_path}")
+            print(f"missing: {track_path}")  # noqa: T201
             filename = os.path.basename(track_path)
             new_location = None
             if new_dir is not None and os.path.isfile(in_new_dir := os.path.join(new_dir, filename)):
@@ -899,7 +895,7 @@ class SeratoBinFile:
                     answer = os.path.join(new_dir, filename)
                 if os.path.exists(answer):
                     new_location = answer
-            print("   new_location: " + new_location)
+            print("   new_location: " + new_location)  # noqa: T201
             track.set_path(new_location)
             return track
 
