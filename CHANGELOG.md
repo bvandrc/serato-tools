@@ -80,7 +80,6 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Feature:** Add `Track.snap_cues_to_beats(tolerance_beats)`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `SnappedCue`. It needs the `Track`'s `cues_v2` and `beatgrid` parsed (the default).
   - `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)` does the same with the `TrackBeatgrid` passed to it.
   - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to.
-- **Feature:** `TrackBeatgrid`'s markers (`NonTerminalBeatgridMarker`, `NonTerminalBeatgridMarkerEnhanced`, and `TerminalBeatgridMarker`), its `Footer`, and its `BeatPoint` are typed `NamedTuple`s, so type checkers know their fields' types, such as `position_s: float`. They behave as before.
 - **Feature (CLI):** `serato_snap_cues_v2 --snap_cues` now says which cue each move was for, and which tag is missing for a track without cues or a beatgrid. Its options are unchanged.
 - **Deprecated:** Passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`) isn't removed yet: it stays deprecated until a future major release, in favor of passing it to `save()`.
 
@@ -100,6 +99,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Track Tags
 
+- **Feature:** `TrackBeatgrid`'s markers (`NonTerminalBeatgridMarker`, `NonTerminalBeatgridMarkerEnhanced`, and `TerminalBeatgridMarker`), its `Footer`, and its `BeatPoint` are typed `NamedTuple`s, so type checkers know their fields' types, such as `position_s: float`. They behave as before.
 - **Fix:** `TrackBeatgrid.analyze_and_write` now keeps the old grid when the analysis gives one Serato wouldn't write, such as downbeats out of order.
 - **Fix (CLI):** `serato_snap_cues_v2 -e` now keeps an entry you leave unchanged after the editor fails or the content is invalid, and works on Windows, where the editor couldn't open its file.
 - **Fix (CLI):** `serato_tagdump` now exits saying a file has no tags, rather than with a traceback.
