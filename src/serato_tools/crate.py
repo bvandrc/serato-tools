@@ -5,6 +5,7 @@
 import os
 import sys
 from dataclasses import dataclass
+from typing import ClassVar
 
 
 from serato_tools.utils.crate_base import CrateBase
@@ -23,7 +24,7 @@ class Crate(CrateBase):
     DIR_PATH = os.path.join(SERATO_DIR, DIR)
     SERATO_STEMS_CRATE_PATH = os.path.join(DIR, "Serato Stems", "Stems.crate")
 
-    DEFAULT_ENTRIES = [
+    DEFAULT_ENTRIES: ClassVar[CrateBase.EntryList] = [
         (CrateBase.Fields.VERSION, "1.0/Serato ScratchLive Crate"),
         (CrateBase.Fields.SORTING, [(CrateBase.Fields.COLUMN_NAME, "key"), (CrateBase.Fields.REVERSE_ORDER, False)]),
         (CrateBase.Fields.COLUMN, [(CrateBase.Fields.COLUMN_NAME, "song"), (CrateBase.Fields.COLUMN_WIDTH, "0")]),

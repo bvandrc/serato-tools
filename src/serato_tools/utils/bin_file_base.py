@@ -13,7 +13,9 @@ import hashlib
 import warnings
 from enum import StrEnum, unique
 import json
-from typing import Collection, Iterable, TypedDict, Generator, Optional, cast, Callable, Pattern, NotRequired
+from typing import ClassVar, TypedDict, cast, NotRequired
+from re import Pattern
+from collections.abc import Collection, Iterable, Generator, Callable
 
 from serato_tools.utils import _AssertionValueError, logger, SERATO_DRIVE, DataTypeError, DeeplyNestedListError
 
@@ -112,7 +114,7 @@ class SeratoBinFile:
 
     TESTED_VERSIONS: frozenset[str]
     TRACK_PATH_KEY: Fields
-    DEFAULT_ENTRIES: EntryList
+    DEFAULT_ENTRIES: ClassVar[EntryList]
 
     # set once __init__ has parsed the file, so save() can refuse a half-built instance
     _parsed: bool = False
@@ -588,7 +590,7 @@ class SeratoBinFile:
         """
         return [t.full_path if include_drive else t.relpath for t in self.get_tracks()]
 
-    def modify_tracks(self, func: Callable[[Track], Track], files: Optional[Iterable[str]] = None) -> bool:
+    def modify_tracks(self, func: Callable[[Track], Track], files: Iterable[str] | None = None) -> bool:
         """
         Replaces each track with what `func` returns for it, and returns whether any track changed.
 
@@ -618,7 +620,7 @@ class SeratoBinFile:
 
     def filter_tracks(self, func: Callable[[Track], bool]) -> bool:
         """Keeps only the tracks `func` returns True for, and returns whether any track was removed."""
-        new_entries: "SeratoBinFile.EntryList" = []
+        new_entries: SeratoBinFile.EntryList = []
         for field, value in self.entries:
             if field == SeratoBinFile.Fields.TRACK:
                 if not isinstance(value, list):
@@ -659,7 +661,7 @@ class SeratoBinFile:
 
         return self.filter_tracks(filter_track)
 
-    def save(self, file: Optional[str] = None):
+    def save(self, file: str | None = None):
         """
         Writes the file's bytes to `file`, or to the path it was loaded from.
 
@@ -728,7 +730,7 @@ class SeratoBinFile:
         drive = os.path.splitdrive(filepath)[0]
         return os.path.normpath(filepath if drive else os.path.join(SERATO_DRIVE, os.sep, filepath))
 
-    def get_entries(self, track_matcher: Optional[str | Pattern[str]] = None) -> Generator[EntryFull, None, None]:
+    def get_entries(self, track_matcher: str | Pattern[str] | None = None) -> Generator[EntryFull, None, None]:
         """Each entry with its field's readable name, as is each entry in a nested entry list.
 
         Given `track_matcher`, a regex, only the tracks whose path it matches (ignoring case) are included.
@@ -744,7 +746,7 @@ class SeratoBinFile:
         )
         yield from self.__get_entries_internal(track_matcher=track_matcher)
 
-    def __get_entries_internal(self, track_matcher: Optional[str | Pattern[str]]) -> Generator[EntryFull, None, None]:
+    def __get_entries_internal(self, track_matcher: str | Pattern[str] | None) -> Generator[EntryFull, None, None]:
         """Internal implementation for getting entry fieldnames."""
         for field, value in self.entries:
             if isinstance(value, list):
@@ -839,7 +841,7 @@ class SeratoBinFile:
 
         return self.modify_tracks(modify_track, files=only_files)
 
-    def modify_and_save(self, rules: Collection[ModifyRule], file: Optional[str] = None):
+    def modify_and_save(self, rules: Collection[ModifyRule], file: str | None = None):
         """
         Applies `rules` to every track, then saves.
 

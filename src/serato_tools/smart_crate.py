@@ -2,7 +2,7 @@
 
 import os
 import sys
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 from enum import Enum, StrEnum, IntEnum, unique
 from dataclasses import dataclass
 
@@ -53,7 +53,7 @@ class SmartCrate(CrateBase):
     )
 
     # each comparison names its value's type in its suffix (cond_is_str, cond_bef_time, cond_greq_uint)
-    _RULE_VALUE_FIELD_BY_COMPARISON_SUFFIX = {
+    _RULE_VALUE_FIELD_BY_COMPARISON_SUFFIX: ClassVar[dict[str, RuleFields]] = {
         "str": RuleFields.RULE_VALUE_TEXT,
         "time": RuleFields.RULE_VALUE_DATE,
         "uint": RuleFields.RULE_VALUE_INTEGER,
@@ -94,7 +94,7 @@ class SmartCrate(CrateBase):
         INT_IS_GE = "cond_greq_uint"
         INT_IS_LE = "cond_lseq_uint"
 
-    DEFAULT_ENTRIES = [
+    DEFAULT_ENTRIES: ClassVar[CrateBase.EntryList] = [
         (CrateBase.Fields.VERSION, "1.0/Serato ScratchLive Smart Crate"),
         (RuleFields.SMARTCRATE_MATCH_ALL, [(RuleFields.SETTING_VALUE, False)]),
         (RuleFields.SMARTCRATE_LIVE_UPDATE, [(RuleFields.SETTING_VALUE, False)]),

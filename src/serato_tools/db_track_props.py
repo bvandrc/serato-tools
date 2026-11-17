@@ -5,7 +5,8 @@ Needs the `track_tags` extra (mutagen). Only ID3 files (.mp3, .aiff, .aif) are c
 """
 
 from dataclasses import dataclass
-from typing import Callable, Mapping, TypedDict
+from typing import TypedDict
+from collections.abc import Callable, Mapping
 
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.track import Track

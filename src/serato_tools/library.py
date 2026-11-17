@@ -4,8 +4,8 @@
 
 import os
 from functools import cached_property
-from collections.abc import Collection
-from typing import TYPE_CHECKING, Mapping, Unpack
+from collections.abc import Collection, Mapping
+from typing import TYPE_CHECKING, Unpack
 
 
 from serato_tools.crate import Crate

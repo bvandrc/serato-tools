@@ -2,7 +2,7 @@
 import unittest
 import copy
 from unittest import mock
-from typing import Iterable
+from collections.abc import Iterable
 import os
 import json
 import shutil

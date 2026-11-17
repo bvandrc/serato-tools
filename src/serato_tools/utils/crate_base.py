@@ -4,7 +4,7 @@
 
 import os
 import warnings
-from typing import Optional, Iterable
+from collections.abc import Iterable
 
 
 from serato_tools.utils.bin_file_base import SeratoBinFile
@@ -47,7 +47,7 @@ class CrateBase(SeratoBinFile):
             track_paths = [os.path.splitext(os.path.basename(t))[0] for t in track_paths]
         print("\n".join(track_paths))
 
-    def save(self, file: Optional[str] = None):
+    def save(self, file: str | None = None):
         """As `SeratoBinFile.save`, but raises ValueError if `file` doesn't end with this class's `EXTENSION`."""
         if file is None:
             file = self.filepath
