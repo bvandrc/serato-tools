@@ -113,7 +113,7 @@ class TrackCuesV1(SeratoGeobTag):
             )
 
         @classmethod
-        def _parse(cls, data: bytes):
+        def _parse(cls, data: bytes) -> "TrackCuesV1.Entry":
             start_set, start, end_set, end, field5, color, entry_type, is_locked = struct.unpack(
                 cls.FORMAT, data[: struct.calcsize(cls.FORMAT)]
             )
@@ -130,7 +130,7 @@ class TrackCuesV1(SeratoGeobTag):
                 is_locked,
             )
 
-        def _serialize(self):
+        def _serialize(self) -> bytes:
             return struct.pack(
                 self.FORMAT,
                 _serialize_position_set(self.start_position_set),
@@ -150,11 +150,11 @@ class TrackCuesV1(SeratoGeobTag):
         FIELDS = ("color",)
 
         @classmethod
-        def _parse(cls, data: bytes):
+        def _parse(cls, data: bytes) -> "TrackCuesV1.Color":
             (color,) = struct.unpack(cls.FORMAT, data[: struct.calcsize(cls.FORMAT)])
             return cls(_decode_bytes_32(color))
 
-        def _serialize(self):
+        def _serialize(self) -> bytes:
             return struct.pack(self.FORMAT, _encode_bytes_32(self.color))
 
     def _parse(self, data: bytes):
