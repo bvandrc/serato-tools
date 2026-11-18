@@ -79,10 +79,10 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Use `has_changed`.
 - **[BREAKING] Removed:** The `SeratoTrack` and `SeratoTag` names in `serato_tools.utils.track_tags`.
   - **Upgrading:** Use `ID3FileTag` and `SeratoGeobTag`.
-- **[BREAKING] Removed:** The `FIELDS` tuple on `TrackCuesV2`'s entry classes (`CueEntry`, `LoopEntry`, `ColorEntry`, etc.).
+- **[BREAKING] Removed:** The `FIELDS` tuple on `TrackCuesV2`'s entry classes (`CueEntry`, `LoopEntry`, `ColorEntry`, etc.), and on `TrackCuesV1.Entry` and `TrackCuesV1.Color`.
   - **Upgrading:** Use `dataclasses.fields`: `[f.name for f in dataclasses.fields(TrackCuesV2.CueEntry)]`.
 - **[BREAKING]** `TrackCuesV1.Color` is no longer a subclass of `TrackCuesV1.Entry`.
-  - Both are now dataclasses, so entries with the same values are equal.
+  - Both are now dataclasses, so entries with the same values are equal, and their repr names the class as `TrackCuesV1.Entry(...)`, as `TrackCuesV2`'s entries' does.
   - **Upgrading:** `isinstance(entry, TrackCuesV1.Entry)` now matches only cue and loop slots. Check for `TrackCuesV1.Color` too where you meant every entry.
 - **Fix:** An error from `mutagen` opening a track file names the file in the error itself, rather than in a separate error logged before it.
 - **Deprecated:** Passing `delete_tags_v1` to an edit method isn't removed yet: it stays deprecated until a future major release. Pass it to `save()` instead.

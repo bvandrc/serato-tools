@@ -11,6 +11,9 @@ from mutagen.mp3 import HeaderNotFoundError
 
 from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag
 
+# the bytes Serato writes for a position that isn't set
+_NO_POSITION = b"\x7f\x7f\x7f\x7f"
+
 
 def _decode_bytes_32(data: bytes) -> bytes:
     """3 bytes, from the 4 Serato stores them as, 7 bits to a byte."""
@@ -49,7 +52,8 @@ def _parse_position(data: bytes) -> int:
 
 def _serialize_position(position: int | None) -> bytes:
     """A position's 4 stored bytes: 7f bytes for an unset one, as Serato writes it."""
-    return b"\x7f\x7f\x7f\x7f" if position is None else _encode_bytes_32(struct.pack(">I", position)[1:])
+    # bytes, not the int 0x7F7F7F7F, since FORMAT packs the field as 4s
+    return _NO_POSITION if position is None else _encode_bytes_32(struct.pack(">I", position)[1:])
 
 
 class TrackCuesV1(SeratoGeobTag):
@@ -78,16 +82,8 @@ class TrackCuesV1(SeratoGeobTag):
         if self._raw_data is not None:
             self.entries = list(self._parse(self._raw_data))
 
-    class _EntryRepr:
-        """Mixin for a repr of the entry's `FIELDS`, named by the class alone, as `Entry(...)`."""
-
-        FIELDS: ClassVar[tuple[str, ...]]
-
-        def __repr__(self) -> str:
-            return "{}({})".format(type(self).__name__, ", ".join(f"{f}={getattr(self, f)!r}" for f in self.FIELDS))
-
-    @dataclass(repr=False)
-    class Entry(_EntryRepr):
+    @dataclass
+    class Entry:
         """A cue or loop slot, with positions in milliseconds, or None where unset, and its color as RGB bytes."""
 
         start_position_set: bool
@@ -99,16 +95,6 @@ class TrackCuesV1(SeratoGeobTag):
         type: "TrackCuesV1.EntryType"
         is_locked: int
         FORMAT: ClassVar[str] = ">B4sB4s6s4sBB"
-        FIELDS: ClassVar[tuple[str, ...]] = (
-            "start_position_set",
-            "start_position",
-            "end_position_set",
-            "end_position",
-            "field5",
-            "color",
-            "type",
-            "is_locked",
-        )
 
         @classmethod
         def _parse(cls, data: bytes):
@@ -141,13 +127,12 @@ class TrackCuesV1(SeratoGeobTag):
                 self.is_locked,
             )
 
-    @dataclass(repr=False)
-    class Color(_EntryRepr):
+    @dataclass
+    class Color:
         """The track color, as RGB bytes, which ends the tag."""
 
         color: bytes
         FORMAT: ClassVar[str] = ">4s"
-        FIELDS: ClassVar[tuple[str, ...]] = ("color",)
 
         @classmethod
         def _parse(cls, data: bytes):

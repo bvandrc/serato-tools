@@ -13,13 +13,23 @@ def test_parse():
     unset = "start_position_set=False, start_position=None, end_position_set=False, end_position=None, field5=b'\\x00\\x7f\\x7f\\x7f\\x7f\\x7f', color=b'\\x00\\x00\\x00'"
     # 3 cues, 2 unset cues, 9 unset loops, and the track color
     assert [str(e) for e in tags.entries] == [
-        "Entry(start_position_set=True, start_position=0, end_position_set=False, end_position=None, field5=b'\\x00\\x7f\\x7f\\x7f\\x7f\\x7f', color=b'\\xcc\\x00\\x00', type=<EntryType.CUE: 1>, is_locked=0)",
-        "Entry(start_position_set=True, start_position=218456, end_position_set=False, end_position=None, field5=b'\\x00\\x7f\\x7f\\x7f\\x7f\\x7f', color=b'\\xcc\\x88\\x00', type=<EntryType.CUE: 1>, is_locked=0)",
-        "Entry(start_position_set=True, start_position=60004, end_position_set=False, end_position=None, field5=b'\\x00\\x7f\\x7f\\x7f\\x7f\\x7f', color=b'\\x00\\x00\\xcc', type=<EntryType.CUE: 1>, is_locked=0)",
-        *[f"Entry({unset}, type=<EntryType.INVALID: 0>, is_locked=0)"] * 2,
-        *[f"Entry({unset}, type=<EntryType.LOOP: 3>, is_locked=0)"] * 9,
-        "Color(color=b'\\xff\\xff\\xff')",
+        "TrackCuesV1.Entry(start_position_set=True, start_position=0, end_position_set=False, end_position=None, field5=b'\\x00\\x7f\\x7f\\x7f\\x7f\\x7f', color=b'\\xcc\\x00\\x00', type=<EntryType.CUE: 1>, is_locked=0)",
+        "TrackCuesV1.Entry(start_position_set=True, start_position=218456, end_position_set=False, end_position=None, field5=b'\\x00\\x7f\\x7f\\x7f\\x7f\\x7f', color=b'\\xcc\\x88\\x00', type=<EntryType.CUE: 1>, is_locked=0)",
+        "TrackCuesV1.Entry(start_position_set=True, start_position=60004, end_position_set=False, end_position=None, field5=b'\\x00\\x7f\\x7f\\x7f\\x7f\\x7f', color=b'\\x00\\x00\\xcc', type=<EntryType.CUE: 1>, is_locked=0)",
+        *[f"TrackCuesV1.Entry({unset}, type=<EntryType.INVALID: 0>, is_locked=0)"] * 2,
+        *[f"TrackCuesV1.Entry({unset}, type=<EntryType.LOOP: 3>, is_locked=0)"] * 9,
+        "TrackCuesV1.Color(color=b'\\xff\\xff\\xff')",
     ]
+
+
+def test_a_locked_loop_round_trips():
+    # every loop in the fixture is unlocked; entry 5 is its first loop, and an entry's byte 21 is is_locked
+    is_locked = 6 + 0x16 * 5 + 21
+    data = DATA[:is_locked] + b"\x01" + DATA[is_locked + 1 :]
+    tags = TrackCuesV1(data)
+    tags._raw_data = None  # so only _serialize can put the bytes back
+    tags._serialize()
+    assert tags._raw_data == data
 
 
 @pytest.mark.parametrize(
