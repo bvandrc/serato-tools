@@ -48,9 +48,11 @@ def copy_crates_to_usb(
     """Copies the crates in `crate_files`, and their tracks, to the drive at `dest_drive_dir`.
 
     - Every track goes in `dest_tracks_dir` on the drive, and only the first of tracks that share a filename is kept.
-    - The drive's `_Serato_` folder is replaced by one holding these crates and a database of just their tracks, all
-      pointed at the new paths. Smart crates become regular crates of the tracks they hold, keeping their sort,
-      columns, and place in the crate order but not their rules, since Serato can't use a smart crate on a drive.
+    - The drive's library (its database, crates, and crate order) is replaced by one holding these crates and a
+      database of just their tracks, all pointed at the new paths. The rest of its `_Serato_` folder, such as the
+      History of sets played from it, is kept.
+    - Smart crates become regular crates of the tracks they hold, keeping their sort, columns, and place in the crate
+      order but not their rules, since Serato can't use a smart crate on a drive.
     - A track whose file is already on the drive, unchanged, isn't copied again. Its stems file is copied too.
     - Given `root_crate`, every crate goes inside a crate of that name.
     - A track whose file is missing is skipped, logging an error. Raises FileNotFoundError if every one is missing, such
@@ -65,8 +67,7 @@ def copy_crates_to_usb(
     )
 
     dest_serato_dir = os.path.join(dest_drive_dir, SERATO_DIR_NAME)
-    if os.path.isdir(dest_serato_dir):
-        shutil.rmtree(dest_serato_dir)
+    _remove_library(dest_serato_dir)
     dest_crate_dir = os.path.join(dest_serato_dir, Crate.DIR)
     os.makedirs(dest_crate_dir, exist_ok=True)
     for crate, name in crates:
@@ -93,6 +94,16 @@ def copy_crates_to_usb(
         _export_library_file(Crate(local_stems_crate), dest_stems_crate, dest_paths)
         logger.info(f"copied crate {dest_stems_crate}")
     _copy_tracks(dest_paths, dest_drive_dir)
+
+
+def _remove_library(dest_serato_dir: str):
+    """Removes the library files an export writes from the drive's `_Serato_` folder, keeping everything else."""
+    for folder in (Crate.DIR, SmartCrate.DIR):
+        if os.path.isdir(path := os.path.join(dest_serato_dir, folder)):
+            shutil.rmtree(path)
+    for filename in (DatabaseV2.FILENAME, _ORDER_FILE, _COLLAPSED_FILE):
+        if os.path.isfile(path := os.path.join(dest_serato_dir, filename)):
+            os.remove(path)
 
 
 def _load_crate(crate_file: str, root_crate: str | None) -> tuple[Crate | SmartCrate, str]:
