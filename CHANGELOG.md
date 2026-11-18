@@ -84,12 +84,15 @@ Each release groups its changes by the part of the package they're in. Within ea
   - `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)` does the same with the `TrackBeatgrid` passed to it.
   - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to.
 - **Feature (CLI):** `serato_snap_cues_v2 --snap_cues` now says which cue each move was for, and which tag is missing for a track without cues or a beatgrid. Its options are unchanged.
+- **Fix:** An error from `mutagen` opening a track file names the file in the error itself, rather than in a separate error logged before it.
 - **Deprecated:** Passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`) isn't removed yet: it stays deprecated until a future major release, in favor of passing it to `save()`.
 
 ### USB Export
 
 - **[BREAKING]** `get_crate_files`, and so `serato_usb_export --crate_matcher`, match a pattern against the crate's name, without its `.crate` or `.scrate` extension. Before, a pattern such as `"*crate*"` matched every crate, through the extension.
   - **Upgrading:** Drop the extension from your patterns: `"house*"` rather than `"house*.crate"`. A pattern can no longer choose crates or smart crates by their extension.
+- **[BREAKING]** `copy_crates_to_usb`, and so `serato_usb_export`, raise `FileNotFoundError` when none of the crates' tracks are found, such as when the music is on a drive that isn't plugged in, rather than logging an error and returning. The CLI exits with an error.
+  - **Upgrading:** Catch `FileNotFoundError` if you call `copy_crates_to_usb` and relied on it returning. Some tracks missing, but not all, still only logs an error for each.
 - **Feature:** The export shows a progress bar while it copies tracks, with a count, rate, and time left, through `tqdm`, which the package now installs. It replaces the percentage it printed, which stopped short of 100%.
 
 ## [5.8.0] - 2026-11-18
