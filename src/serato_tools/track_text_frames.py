@@ -1,5 +1,6 @@
 """A track file's ID3 text frames, such as `TIT2` (title), and its comment. Needs the `track_tags` extra."""
 
+from collections.abc import Mapping
 from enum import StrEnum, unique
 
 from mutagen.id3 import COMM, ID3, Encoding, Frame, Frames, TextFrame
@@ -41,7 +42,7 @@ def _differs(tagfile: ID3File, key: str, text: str | None) -> bool:
     return _get_texts(tagfile, key) != ([text] if text else [])
 
 
-def _put_frames(tagfile: ID3File, frames: dict[str, Frame | None]) -> bool:
+def _put_frames(tagfile: ID3File, frames: Mapping[str, Frame | None]) -> bool:
     """Puts each frame in the file's tags by key, without saving; None removes it. Returns whether there were any."""
     for key, frame in frames.items():
         if frame is None:
