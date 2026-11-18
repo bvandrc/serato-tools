@@ -12,7 +12,7 @@ import os
 import platform
 import re
 import shutil
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 
 from tqdm import tqdm
@@ -173,7 +173,7 @@ def _dest_track_paths(track_paths: list[str], dest_tracks_dir: str) -> dict[str,
 def _export_library_file(
     file: SeratoBinFile,
     dest_file: str,
-    dest_paths: dict[str, str],
+    dest_paths: Mapping[str, str],
     edit_track: Callable[[SeratoBinFile.Track], None] | None = None,
 ):
     """Writes the database or crate to `dest_file`, keeping only the tracks in `dest_paths`, pointed at their paths.
@@ -232,7 +232,7 @@ def _copy_pref_file(filename: str, dest_serato_dir: str, root_crate: str | None,
     logger.info(f"copied {dest_file}")
 
 
-def _copy_tracks(dest_paths: dict[str, str], dest_drive_dir: str) -> set[str]:
+def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str) -> set[str]:
     """Copies each track, and its stems file, to its path in `dest_paths` on the drive, unless it's there unchanged.
 
     Returns the paths on the drive of the tracks and stems files it's meant to hold, copied now or before, or whose

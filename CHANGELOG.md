@@ -81,22 +81,27 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Use `ID3FileTag` and `SeratoGeobTag`.
 - **[BREAKING] Removed:** The `FIELDS` tuple on `TrackCuesV2`'s entry classes (`CueEntry`, `LoopEntry`, `ColorEntry`, etc.).
   - **Upgrading:** Use `dataclasses.fields`: `[f.name for f in dataclasses.fields(TrackCuesV2.CueEntry)]`.
-- **Fix:** An error from `mutagen` opening a track file names the file in the error itself, rather than in a separate error logged before it.
 - **Deprecated:** Passing `delete_tags_v1` to an edit method isn't removed yet: it stays deprecated until a future major release. Pass it to `save()` instead.
+- **Fix:** `TrackCuesV1.Entry`'s `type` is typed as the `TrackCuesV1.EntryType` it holds, rather than `bytes | str`.
 
 ### USB Export
 
-- **[BREAKING]** `get_crate_files`, and so `serato_usb_export --crate_matcher`, now match a pattern against the crate's name, without its `.crate` or `.scrate` extension. Before, a pattern such as `"*crate*"` matched every crate, through the extension.
-  - **Upgrading:** Drop the extension from your patterns: `"house*"` rather than `"house*.crate"`. A pattern can no longer choose crates or smart crates by their extension.
-- **[BREAKING]** `copy_crates_to_usb`, and so `serato_usb_export`, raise `FileNotFoundError` when none of the crates' tracks are found, such as when the music is on a drive that isn't plugged in, rather than logging an error and returning. The CLI exits with an error.
-  - **Upgrading:** Catch `FileNotFoundError` if you call `copy_crates_to_usb`. Some tracks missing, but not all, still only logs an error for each.
-- **Fix:** The drive keeps your crate order, with a root crate or smart crates. Before, Serato couldn't use the order file the export wrote, and on Windows it was garbled.
+- **[BREAKING]** `get_crate_files`, and so `serato_usb_export --crate_matcher`, match a pattern against the crate's name, without its extension.
+  - Before, `"*crate*"` matched every crate, through the extension.
+  - **Upgrading:** Drop the extension from your patterns (`"house*"`, not `"house*.crate"`). A pattern can no longer pick crates or smart crates by extension.
+- **[BREAKING]** `copy_crates_to_usb`, and so `serato_usb_export`, raise `FileNotFoundError` when none of the crates' tracks are found, rather than logging an error.
+  - **Upgrading:** Catch `FileNotFoundError` if you call `copy_crates_to_usb`.
+- **Fix:** The export keeps the drive's History and the rest of its `_Serato_` folder.
+  - It replaces only the database, crates, and crate order.
+- **Fix:** Tracks that share a filename are all exported, rather than only the first.
+  - A later one goes in a subfolder named after its own folder. Filenames differing only in case count as shared, since FAT32 and exFAT drives ignore case.
+- **Fix:** The drive keeps your crate order, with a root crate or smart crates.
+  - Before, Serato couldn't use the order file the export wrote, and on Windows it was garbled.
   - The order lists only the exported crates, with the root crate first.
-- **Fix:** Tracks that share a filename are all exported, a later one in a subfolder named after its own folder, rather than only the first. Filenames differing only in case count as shared, since a FAT32 or exFAT drive ignores case.
-- **Fix:** The export keeps the drive's History, and the rest of its `_Serato_` folder, replacing only its database, crates, and crate order.
-- **Feature (CLI):** Add `delete_unused_tracks` to `copy_crates_to_usb`, and `--delete_unused_tracks` to `serato_usb_export`, which delete the files in the drive's tracks folder that no exported crate uses, such as a track taken out of a crate.
-- **Feature:** The drive keeps which crates are collapsed, from Serato's `collapsed.pref`.
-- **Feature:** The export shows a progress bar while it copies tracks, with a count, rate, and time left, through `tqdm`, which the package now installs. It replaces the percentage it printed.
+- **Feature (CLI):** `delete_unused_tracks` on `copy_crates_to_usb`, and `--delete_unused_tracks` on `serato_usb_export`, delete tracks on the drive that no exported crate uses.
+- **Feature:** The drive keeps which crates are collapsed.
+- **Feature:** USB export shows a progress bar while it copies tracks.
+  - The package now installs `tqdm` for it.
 
 ## [5.8.1] - 2026-11-18
 
