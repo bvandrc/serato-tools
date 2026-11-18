@@ -56,6 +56,8 @@ def copy_crates_to_usb(
       columns but not their rules, since Serato can't use a smart crate on a drive.
     - A track whose file is already on the drive, unchanged, isn't copied again. Its stems file is copied too.
     - Given `root_crate`, every crate goes inside a crate of that name.
+    - A track whose file is missing is skipped, logging an error. Raises FileNotFoundError if every one is missing, such
+      as when the library's music is on a drive that isn't plugged in.
     """
     if not os.path.isdir(dest_drive_dir):
         raise FileNotFoundError(f"destination drive directory does not exist: {dest_drive_dir}")
@@ -227,13 +229,11 @@ def _copy_tracks(track_paths: list[str], dest_dir: str):
             maybe_copy(stem_files[0])
 
     if src_paths and len(not_found) == len(src_paths):
-        logger.error("No source files found.")
-        uniq_dirs = list({os.path.dirname(d) for d in src_paths})
-        logger.error(f"Directories: \n{'\n    '.join(uniq_dirs)}")
-        return
+        uniq_dirs = sorted({os.path.dirname(d) for d in src_paths})
+        raise FileNotFoundError("none of the tracks were found, in these folders:\n    " + "\n    ".join(uniq_dirs))
 
     for n in not_found:
-        logger.warning(f"ERROR: does not exist - {n}")
+        logger.error(f"does not exist - {n}")
 
 
 def get_crate_files(pattern: str):

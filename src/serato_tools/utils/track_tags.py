@@ -83,8 +83,9 @@ def open_tagfile(file: ID3FileOrPath) -> ID3File:
             return MP3(file)
         if file.lower().endswith(_AIFF_EXTENSIONS):
             return AIFF(file)
-    except Exception:
-        logger.error(f"Mutagen error for file {file}")
+    except Exception as e:
+        # mutagen's errors don't always name the file
+        e.add_note(f"file: {file}")
         raise
     raise ValueError(f"unsupported file type (only .mp3, .aiff, and .aif are supported): {file}")
 

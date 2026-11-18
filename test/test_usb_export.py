@@ -170,15 +170,21 @@ def test_copy_crates_to_usb_copies_only_changed_files(export: Export):
     assert read_bytes(export.on_drive(DRIVE_TRACKS, "B.mp3")) == b"b changed"
 
 
-def test_copy_crates_to_usb_warns_of_a_missing_file(export: Export, caplog: pytest.LogCaptureFixture):
+def test_copy_crates_to_usb_logs_a_missing_file(export: Export, caplog: pytest.LogCaptureFixture):
     a, gone = export.make_track("A.mp3", b"a"), os.path.join(export.music_dir, "Gone.mp3")
     crates = [export.make_crate("House", [a, gone])]
 
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.ERROR):
         usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
 
     assert f"does not exist - {gone}" in caplog.text
     assert read_bytes(export.on_drive(DRIVE_TRACKS, "A.mp3")) == b"a", "the other track still copied"
+
+
+def test_copy_crates_to_usb_raises_when_every_track_is_missing(export: Export):
+    crates = [export.make_crate("House", [os.path.join(export.music_dir, "Gone.mp3")])]
+    with pytest.raises(FileNotFoundError, match="none of the tracks were found"):
+        usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
 
 
 def test_copy_crates_to_usb_copies_each_tracks_own_stems(export: Export):
