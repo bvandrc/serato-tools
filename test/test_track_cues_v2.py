@@ -282,6 +282,13 @@ def test_snap_cues_to_beats_without_a_beatgrid_raises(no_beatgrid_mp3: str):
     assert not tags.has_changed
 
 
+def test_snap_cues_to_beats_warns_below_min_ms_change_2():
+    tags = TrackCuesV2(TEST_MP3)
+    with pytest.warns(UserWarning, match="min_ms_change=1") as caught:
+        tags.snap_cues_to_beats(TrackBeatgrid(TEST_MP3), 1 / 8, min_ms_change=1)
+    assert caught.pop(UserWarning).filename == __file__
+
+
 def test_loop_fields():
     # track_cues_v2_saved_loops.bin is a tag Serato wrote with 4 loops, the second one locked
     loops = TrackCuesV2(cues_v2_data("_saved_loops"))._from_entries().loops
@@ -343,6 +350,14 @@ ENTRIES_UNLIKE_SERATOS = _entries_unlike_seratos()
 def test_an_entry_unlike_seratos_raises(entry_class, data: bytes, message: str):
     with pytest.raises(ValueError, match=re.escape(message)):
         entry_class._parse(data)
+
+
+def test_two_color_entries_raise_on_an_edit():
+    tags = TrackCuesV2(cues_v2_data())
+    color = next(e for e in tags.entries if isinstance(e, TrackCuesV2.ColorEntry))
+    tags.entries.append(color)
+    with pytest.raises(ValueError, match="Multiple COLOR entries found"):
+        tags.set_track_color(Colors.RED)
 
 
 def cues_cli(path: str, *args: str):

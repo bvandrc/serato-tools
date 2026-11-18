@@ -125,6 +125,12 @@ def test_an_untested_version_raises(tmp_dir: str):
         Crate(path)
 
 
+def test_a_file_without_a_version_raises(tmp_dir: str):
+    [path] = mock_files({tmp_dir: ["Empty.crate"]})
+    with pytest.raises(ValueError, match="no version entry"):
+        Crate(path)
+
+
 def entry_bytes(field: str, data: bytes) -> bytes:
     """An entry as it's stored: its 4-character field name, its length, then `data`."""
     return struct.pack(">4sI", field.encode("ascii"), len(data)) + data
@@ -446,6 +452,19 @@ def test_change_track_path_to_a_file_that_doesnt_exist_raises(new_crate: Crate, 
 
 
 # a track's fields
+
+
+def test_duplicate_field_raises():
+    # a repeated field would be silently collapsed/duplicated on round-trip, corrupting the file
+    with pytest.raises(ValueError, match="duplicate field"):
+        SeratoBinFile.Track(
+            [
+                (SeratoBinFile.Fields.FILE_PATH.value, "a.mp3"),
+                (SeratoBinFile.Fields.GENRE.value, "House"),
+                (SeratoBinFile.Fields.GENRE.value, "Techno"),
+            ],
+            path_key=SeratoBinFile.Fields.FILE_PATH.value,
+        )
 
 
 def test_a_nested_entry_list_raises_naming_the_field():
