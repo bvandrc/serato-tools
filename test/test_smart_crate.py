@@ -122,6 +122,11 @@ def test_find_missing_raises():
         SmartCrate(TEST_SMART_CRATE).find_missing()
 
 
+def test_to_regular_crate_doesnt_warn_that_its_new_file_doesnt_exist(tmp_dir: str, caplog: pytest.LogCaptureFixture):
+    SmartCrate(TEST_SMART_CRATE).to_regular_crate(os.path.join(tmp_dir, "Regular.crate"))
+    assert not caplog.records
+
+
 def test_to_regular_crate_keeps_the_tracks_sort_and_columns_but_not_the_rules(tmp_dir: str):
     smart_crate = SmartCrate(TEST_SMART_CRATE)
     view_fields = {Crate.Fields.SORTING.value, Crate.Fields.COLUMN.value}

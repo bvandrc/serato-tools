@@ -218,7 +218,7 @@ class SmartCrate(CrateBase):
         # imported here, since only this method needs regular crates
         from serato_tools.crate import Crate  # noqa: PLC0415
 
-        crate = Crate(file)
+        crate = Crate(file, _warn_if_missing=False)
         rule_fields = {field.value for field in SmartCrate.RuleFields}
         crate._entries = [  # noqa: SLF001
             # a regular crate's version, then this smart crate's entries but its own version and its rules

@@ -177,6 +177,12 @@ def test_new_file_shares_no_entries_with_its_class_default(tmp_dir: str, cls: ty
     assert b._entries == defaults[cls], "other instance must not inherit tracks or nested edits"
 
 
+def test_a_new_file_warns_in_case_its_path_is_a_mistake(tmp_dir: str, caplog: pytest.LogCaptureFixture):
+    path = os.path.join(tmp_dir, "Typo.crate")
+    Crate(path)
+    assert f"File does not exist: {path}" in caplog.text
+
+
 def test_json_round_trip():
     db_from_bin = DatabaseV2(TEST_DATABASE)
     assert db_from_bin.to_json_object() == json.loads(read_text("test/data/database_v2_json.json"))

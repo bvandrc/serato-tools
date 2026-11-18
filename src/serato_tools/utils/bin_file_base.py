@@ -184,11 +184,11 @@ class SeratoBinFile:
         cls.FIELDS = _field_values(cls.FIELD_ENUMS)
         cls.FIELD_NAMES = _field_names(cls.FIELD_ENUMS)
 
-    def __init__(self, file: str):
+    def __init__(self, file: str, *, _warn_if_missing: bool = True):
         """Parses `file`, either Serato's binary format or JSON as `write_json` writes it.
 
-        A file that doesn't exist yet starts from `DEFAULT_ENTRIES`, and `save()` creates it. Raises ValueError for a
-        version not in `TESTED_VERSIONS`.
+        A file that doesn't exist yet starts from `DEFAULT_ENTRIES`, with a warning in case its path is a mistake, and
+        `save()` creates it. Raises ValueError for a version not in `TESTED_VERSIONS`.
         """
         self.filepath = os.path.abspath(file)
 
@@ -215,7 +215,9 @@ class SeratoBinFile:
                 # next to nothing for has_changed
                 self._saved_hash = self._hash(data)
         else:
-            logger.warning(f"File does not exist: {file}. Using default data to create an empty item.")
+            # skipped by package code creating a file on purpose, such as a smart crate's export as a regular crate
+            if _warn_if_missing:
+                logger.warning(f"File does not exist: {file}. Using default data to create an empty item.")
             # copied down to the nested lists (osrt, ovct, ...): a shallow copy would leave every instance sharing —
             # and able to mutate — the class-level DEFAULT_ENTRIES sublists.
             self._entries = copy.deepcopy(self.DEFAULT_ENTRIES)
