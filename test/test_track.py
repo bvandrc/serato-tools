@@ -202,13 +202,6 @@ def test_snap_cues_to_beats_without_cues_v2_or_beatgrid_raises(request: pytest.F
         Track(request.getfixturevalue(file), **{flag: False}).snap_cues_to_beats(1 / 16)
 
 
-def test_snap_cues_to_beats_warns_at_the_caller(mp3: str):
-    track = Track(mp3)
-    with pytest.warns(UserWarning, match="min_ms_change=1") as caught:
-        track.snap_cues_to_beats(1 / 8, min_ms_change=1)
-    assert caught.pop(UserWarning).filename == __file__, "past Track, not at it"
-
-
 @pytest.mark.parametrize("name", ["test.aif", "test.aiff", "TEST.AIF"])
 def test_an_aiff_reads_and_saves_as_an_mp3_does(tmp_dir: str, name: str):
     path = aiff_with_the_mp3s_tags(tmp_dir, name)

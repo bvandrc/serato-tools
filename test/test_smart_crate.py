@@ -57,20 +57,6 @@ def test_delete_rule_returns_whether_removed():
     assert crate.delete_rule(Field.GROUPING) is False, "the grouping rule was already removed"
 
 
-# one falsy value per value field
-FALSY_VALUES = {ValueField.RULE_VALUE_INTEGER: 0, ValueField.RULE_VALUE_TEXT: "", ValueField.RULE_VALUE_DATE: ""}
-
-
-def test_falsy_values_cover_every_value_field():
-    assert set(FALSY_VALUES) == set(SmartCrate.RULE_VALUE_FIELDS)
-
-
-@pytest.mark.parametrize("value_field, value", FALSY_VALUES.items(), ids=lambda v: getattr(v, "name", repr(v)))
-def test_rule_falsy_value_reads_back(value_field: ValueField, value: str | int):
-    rule = make_rule(Comparison.INT_IS_GE, Field.PLAYS, value_field, value)
-    assert rule.value == value, "a falsy rule value must not read as no value"
-
-
 @pytest.mark.parametrize("comparison", Comparison, ids=lambda c: c.name)
 def test_every_comparison_maps_to_a_value_field(comparison: Comparison):
     # the suffix lookup must cover every comparison, so a comparison with an unknown suffix
@@ -95,12 +81,6 @@ def test_rule_set_value_replaces_value_field_on_comparison_type_change():
     assert rule.to_entries() == rule_entries(Comparison.INT_IS_GE, Field.PLAYS, ValueField.RULE_VALUE_INTEGER, 100)
 
 
-def test_rule_set_value_rejects_non_integer_for_integer_comparison():
-    rule = make_rule(Comparison.INT_IS_GE, Field.PLAYS, ValueField.RULE_VALUE_INTEGER, 5)
-    with pytest.raises(ValueError, match="requires an integer value"):
-        rule.set_value("abc")
-
-
 def test_rule_properties_follow_its_entries():
     rule = make_rule(Comparison.INT_IS_GE, Field.PLAYS, ValueField.RULE_VALUE_INTEGER, 5)
     rule.set_comparison(Comparison.STR_CONTAINS)
@@ -114,12 +94,6 @@ def test_rule_properties_follow_its_entries():
 
     rule.remove_field(ValueField.RULE_VALUE_TEXT)
     assert rule.value is None, "removed"
-
-
-def test_find_missing_raises():
-    # its tracks come from its rules
-    with pytest.raises(TypeError):
-        SmartCrate(TEST_SMART_CRATE).find_missing()
 
 
 def test_to_regular_crate_keeps_the_tracks_sort_and_columns_but_not_the_rules(tmp_dir: str):

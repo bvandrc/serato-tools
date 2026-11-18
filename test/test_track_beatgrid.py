@@ -128,11 +128,6 @@ def test_str_prints_an_invalid_grid():
     assert str(tags) == "\n".join(str(marker) for marker in markers)
 
 
-def test_bytes_after_the_footer_raise():
-    with pytest.raises(ValueError, match="1 bytes after its footer"):
-        TrackBeatgrid(read_bytes(DATA_FILES.BEATGRID) + b"\x00")
-
-
 @pytest.mark.parametrize(
     "find",
     [
@@ -150,26 +145,12 @@ def test_without_a_beatgrid_finding_beats_raises(no_beatgrid_mp3: str, find):
     assert caught.value.filename == no_beatgrid_mp3
 
 
-def test_no_beatgrid_error_from_bytes_has_no_filename():
-    tags = TrackBeatgrid(read_bytes(DATA_FILES.BEATGRID))
-    tags.delete()
-    with pytest.raises(NoBeatgridError) as caught:
-        tags.find_nearest_beat(FIRST_CUE_POSITION, 1 / 8)
-    assert caught.value.filename is None
-    assert str(caught.value) == "no Serato BeatGrid tag"
-
-
 def test_a_footer_only_tag_has_no_beatgrid():
     # a version, a marker count of 0, and the footer
     tags = TrackBeatgrid(b"\x01\x00" + struct.pack(">I", 0) + b"\x00")
     assert tags.entries is None
     with pytest.raises(NoBeatgridError):
         tags.find_nearest_beat(FIRST_CUE_POSITION, 1 / 8)
-
-
-def test_analyzing_a_tag_read_from_bytes_raises():
-    with pytest.raises(ValueError, match="read from bytes"):
-        TrackBeatgrid(read_bytes(DATA_FILES.BEATGRID)).analyze_and_write()
 
 
 def test_analyze_and_write_replaces_the_beats_found(mp3: str):

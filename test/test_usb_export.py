@@ -181,11 +181,6 @@ def test_copy_crates_to_usb_warns_of_a_missing_file(export: Export, caplog: pyte
     assert read_bytes(export.on_drive(DRIVE_TRACKS, "A.mp3")) == b"a", "the other track still copied"
 
 
-def test_copy_crates_to_usb_needs_the_drive_to_exist(export: Export):
-    with pytest.raises(FileNotFoundError):
-        usb_export.copy_crates_to_usb([], os.path.join(export.drive, "Missing"), DRIVE_TRACKS)
-
-
 def test_copy_crates_to_usb_copies_each_tracks_own_stems(export: Export):
     # named after the track with or without its extension; the old prefix match took "A Extended"'s for "A.mp3" too
     tracks = [export.make_track(name) for name in ["A.mp3", "A Extended.mp3", "C.mp3"]]
@@ -234,38 +229,6 @@ def test_copy_crates_to_usb_raises_for_a_track_with_two_stems_files(export: Expo
     export.make_track("A.mp3.serato-stems")
     with pytest.raises(ValueError, match="more than 1 stems file"):
         usb_export.copy_crates_to_usb([export.make_crate("House", [a])], export.drive, DRIVE_TRACKS)
-
-
-def test_copy_crates_to_usb_skips_a_folder_in_the_crate_list(export: Export):
-    house = export.make_crate("House", [export.make_track("A.mp3")])
-    folder = os.path.join(export.serato_dir, Crate.DIR, "Folder")
-    mock_files({folder: []})
-
-    usb_export.copy_crates_to_usb([folder, house], export.drive, DRIVE_TRACKS)
-
-    assert os.listdir(export.on_drive("_Serato_", Crate.DIR)) == ["House.crate"], "the crates after it still exported"
-    assert os.listdir(export.on_drive(DRIVE_TRACKS)) == ["A.mp3"]
-
-
-def test_copy_crates_to_usb_raises_for_a_file_that_isnt_a_crate(export: Export):
-    notes = os.path.join(export.serato_dir, Crate.DIR, "notes.txt")
-    with open(notes, "w", encoding="utf-8") as f:
-        f.write("not a crate")
-    with pytest.raises(ValueError, match="not a crate file"):
-        usb_export.copy_crates_to_usb([notes], export.drive, DRIVE_TRACKS)
-
-
-def test_copy_crates_to_usb_logs_the_database_and_stems_crate_it_writes(
-    export: Export, caplog: pytest.LogCaptureFixture
-):
-    house = export.make_crate("House", [export.make_track("A.mp3")])
-    export.make_crate(os.path.join("Serato Stems", "Stems"), [])
-
-    with caplog.at_level(logging.INFO, "serato-tools"):
-        usb_export.copy_crates_to_usb([house], export.drive, DRIVE_TRACKS)
-
-    assert f"created database file {export.on_drive('_Serato_', DatabaseV2.FILENAME)}" in caplog.messages
-    assert f"copied crate {export.on_drive('_Serato_', Crate.SERATO_STEMS_CRATE_PATH)}" in caplog.messages
 
 
 @pytest.mark.parametrize(

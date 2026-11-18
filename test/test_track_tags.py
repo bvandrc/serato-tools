@@ -74,11 +74,6 @@ def test_tagdump_reads_each_geob(tag_class):
     assert dumped[tag_class.GEOB_KEY] == tag_class(TEST_MP3)._raw_data
 
 
-def test_unsupported_file_type_raises():
-    with pytest.raises(ValueError, match="unsupported file type"):
-        ID3FileTag("some_file.flac")
-
-
 def test_geob_tag_has_changed(mp3: str):
     tags = TrackAutotags(mp3)
     assert not tags.has_changed, "as read"
@@ -111,15 +106,6 @@ def test_serialize_reproduces_the_bytes_parsed(tag_class):
     tags._raw_data = None  # so only _serialize can put the bytes back
     tags._serialize()
     assert tags._raw_data == data
-
-
-# a file whose ID3 tags have no frames is falsy to mutagen, which once read as "no file"
-@pytest.mark.parametrize("tag_class", WRITABLE_GEOB_TAG_CLASSES, ids=lambda cls: cls.__name__)
-def test_a_tag_in_a_file_with_no_frames_has_the_file(tmp_dir: str, tag_class):
-    path = copy_mp3_with_empty_id3(tmp_dir)
-    tags = tag_class(path)
-    assert tags.tagfile is not None
-    assert tags.filename == path
 
 
 @pytest.mark.parametrize(

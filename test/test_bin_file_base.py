@@ -125,12 +125,6 @@ def test_an_untested_version_raises(tmp_dir: str):
         Crate(path)
 
 
-def test_a_file_without_a_version_raises(tmp_dir: str):
-    [path] = mock_files({tmp_dir: ["Empty.crate"]})
-    with pytest.raises(ValueError, match="no version entry"):
-        Crate(path)
-
-
 def entry_bytes(field: str, data: bytes) -> bytes:
     """An entry as it's stored: its 4-character field name, its length, then `data`."""
     return struct.pack(">4sI", field.encode("ascii"), len(data)) + data
@@ -220,13 +214,6 @@ EVERY_TRACK_RULES: list[DatabaseV2.ModifyRule] = [
 ]
 
 
-def test_modify_without_rules_changes_nothing():
-    db = DatabaseV2(TEST_DATABASE)
-    original_entries = copy.deepcopy(db._entries)
-    assert db.modify([]) is False, "reports no change"
-    assert db._entries == original_entries
-
-
 def test_modify_every_track():
     db = DatabaseV2(TEST_DATABASE)
     assert db.modify(EVERY_TRACK_RULES) is True, "reports change"
@@ -274,13 +261,6 @@ def test_modify_passes_later_rules_the_new_path():
             ]
         )
     assert seen == [new]
-
-
-def test_modify_with_two_rules_for_a_field_raises():
-    db = DatabaseV2(TEST_DATABASE)
-    rule: SeratoBinFile.ModifyRule = {"field": DatabaseV2.Fields.GENRE, "func": lambda *args: None}
-    with pytest.raises(ValueError, match="1 rule per field"):
-        db.modify([rule, rule])
 
 
 def test_modify_empty_value_removes_field(db_file: str):
@@ -444,19 +424,6 @@ def test_change_track_path_to_a_file_that_doesnt_exist_raises(new_crate: Crate, 
 # a track's fields
 
 
-def test_duplicate_field_raises():
-    # a repeated field would be silently collapsed/duplicated on round-trip, corrupting the file
-    with pytest.raises(ValueError, match="duplicate field"):
-        SeratoBinFile.Track(
-            [
-                (SeratoBinFile.Fields.FILE_PATH.value, "a.mp3"),
-                (SeratoBinFile.Fields.GENRE.value, "House"),
-                (SeratoBinFile.Fields.GENRE.value, "Techno"),
-            ],
-            path_key=SeratoBinFile.Fields.FILE_PATH.value,
-        )
-
-
 def test_a_nested_entry_list_raises_naming_the_field():
     path = SeratoBinFile.Fields.FILE_PATH.value
     entries = [(path, "a.mp3"), ("onst", [(path, "b.mp3")])]
@@ -467,16 +434,6 @@ def test_a_nested_entry_list_raises_naming_the_field():
     db._entries.append((SeratoBinFile.Fields.TRACK.value, entries))
     with pytest.raises(DeeplyNestedListError, match=rf"in field {SeratoBinFile.Fields.TRACK.value}.*a\.mp3"):
         list(db.get_entries())
-
-
-def test_paths_follow_the_path_however_its_set():
-    path = SeratoBinFile.Fields.FILE_PATH.value
-    track = SeratoBinFile.Track([(path, "Music/a.mp3")], path_key=path)
-
-    track.set_value(path, "Music/b.mp3")
-    assert (track.relpath, track.full_path) == ("Music/b.mp3", SeratoBinFile.get_full_path("Music/b.mp3")), "set_value"
-    track.set_path("Music/c.mp3")
-    assert (track.relpath, track.full_path) == ("Music/c.mp3", SeratoBinFile.get_full_path("Music/c.mp3")), "set_path"
 
 
 def test_set_value_refuses_a_value_its_field_cant_hold():

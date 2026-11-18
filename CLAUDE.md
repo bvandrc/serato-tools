@@ -27,7 +27,7 @@ pip install -e ".[all,dev]"                                  # all optional deps
 ```bash
 python -m pytest                                                  # full suite
 python -m pytest test/test_crate.py                               # one module
-python -m pytest test/test_crate.py::test_saving_needs_the_crate_extension  # one test
+python -m pytest test/test_crate.py::test_add_tracks              # one test
 pyright                                                           # type check (config in pyproject.toml)
 ruff check --fix .                                                # lint, and sort imports (config in pyproject.toml); private access is allowed in test/
 ruff format .                                                     # format, line-length 120
