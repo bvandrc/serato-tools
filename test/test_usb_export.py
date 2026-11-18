@@ -123,6 +123,23 @@ class CopyCratesToUsbTestCase(unittest.TestCase):
         crate.save()
         return path
 
+    def test_progress_ends_at_100_percent(self):
+        with mock.patch.object(usb_export, "print") as print_mock:
+            usb_export.copy_crates_to_usb([self.house], self.drive, "Tracks")
+        progress = [c.args[0] for c in print_mock.call_args_list if c.args and c.args[0].endswith("%")]
+        self.assertEqual(progress[-1], "100.0%")
+
+    def test_smart_crate_export_does_not_warn_its_crate_is_missing(self):
+        with self.assertLogs("serato-tools", "INFO") as logs:
+            usb_export.copy_crates_to_usb([self.deep], self.drive, "Tracks")
+        self.assertFalse([line for line in logs.output if "File does not exist" in line], logs.output)
+
+    def test_missing_track_logs_an_error(self):
+        os.remove(self.b)
+        with self.assertLogs("serato-tools", "ERROR") as logs:
+            usb_export.copy_crates_to_usb([self.house, self.deep], self.drive, "Tracks")
+        self.assertEqual(logs.output, [f"ERROR:serato-tools:does not exist - {self.b}"])
+
     def test_a_track_with_two_stems_files_raises(self):
         self.add_track(os.path.join(self.music, "one", "a.mp3.serato-stems"))
         with self.assertRaisesRegex(ValueError, "more than 1 stems file"):

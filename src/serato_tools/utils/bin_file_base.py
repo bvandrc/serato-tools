@@ -122,7 +122,7 @@ class SeratoBinFile:
     # a hash of the file's bytes as loaded or last saved to its own path, for has_changed; None if it didn't exist
     _saved_hash: bytes | None = None
 
-    def __init__(self, file: str):
+    def __init__(self, file: str, *, _new: bool = False):
         """Parses `file`, either Serato's binary format or JSON as `write_json` writes it.
 
         A file that doesn't exist yet starts from `DEFAULT_ENTRIES`, and `save()` creates it. Raises ValueError for a
@@ -137,7 +137,9 @@ class SeratoBinFile:
             if not hasattr(self, key):
                 raise AttributeError(f"must set {key} in subclass")
 
-        if os.path.exists(file):
+        # _new starts from the defaults without reading the file or warning that it's missing, for a file that's about
+        # to be written from scratch (SmartCrate.to_regular_crate)
+        if os.path.exists(file) and not _new:
             if file.lower().endswith(".json"):
                 with open(file, encoding="utf-8") as f:
                     self.from_json_object(json.load(f))
@@ -151,7 +153,8 @@ class SeratoBinFile:
                 # next to nothing for has_changed
                 self._saved_hash = self._hash(data)
         else:
-            logger.warning(f"File does not exist: {file}. Using default data to create an empty item.")
+            if not _new:
+                logger.warning(f"File does not exist: {file}. Using default data to create an empty item.")
             # copied down to the nested lists (osrt, ovct, ...): a shallow copy would leave every instance sharing —
             # and able to mutate — the class-level DEFAULT_ENTRIES sublists.
             self.entries = copy.deepcopy(self.DEFAULT_ENTRIES)

@@ -2,6 +2,21 @@
 
 Each release groups its changes by the part of the package they're in. Within each part, **[BREAKING]** changes come first, each with how to upgrade past it.
 
+## [5.8.1] - 2026-11-18
+
+### Database / Crates / USB Export
+
+- **Fix:** `SmartCrate.to_regular_crate` no longer warns that its file doesn't exist, so USB export no longer logs that warning for each smart crate it writes to a drive. It also no longer reads a file already at that path, which it replaces, so a damaged crate left on the drive no longer stops the export.
+
+### Track Tags
+
+- **Fix:** An error from `mutagen` opening a track file names the file in the error itself, rather than in a separate error logged before it.
+
+### USB Export
+
+- **Fix:** The percentage USB export prints while it copies tracks now reaches 100%, rather than stopping one track short.
+- **Fix:** A track whose file is missing is now logged as an error, rather than as a warning starting `ERROR:`.
+
 ## [5.8.0] - 2026-11-18
 
 ### Database / Crates
@@ -544,6 +559,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** First release on PyPI, for changing Serato's library database and track metadata.
 
+[5.8.1]: https://github.com/bvandrc/serato-tools/compare/v5.8.0...v5.8.1
 [5.8.0]: https://github.com/bvandrc/serato-tools/compare/v5.7.0...v5.8.0
 [5.7.0]: https://github.com/bvandrc/serato-tools/compare/v5.6.1...v5.7.0
 [5.6.1]: https://github.com/bvandrc/serato-tools/compare/v5.6.0...v5.6.1

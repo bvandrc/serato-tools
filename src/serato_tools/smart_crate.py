@@ -258,7 +258,8 @@ class SmartCrate(CrateBase):
         # imported here, since only this method needs regular crates
         from serato_tools.crate import Crate
 
-        crate = Crate(file)
+        # whatever is at `file` is replaced, so it isn't read, and a crate not on the drive yet isn't warned about
+        crate = Crate(file, _new=True)
         rule_fields = {field.value for field in SmartCrate.RuleFields}
         crate.entries = [
             # a regular crate's version, then this smart crate's entries but its own version and its rules
