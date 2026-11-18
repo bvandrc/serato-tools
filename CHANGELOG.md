@@ -115,7 +115,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Library
 
-- **Fix:** `Library.set_db_track_tags` / `set_db_tracks_tags` now raise `DataTypeError` for a color that isn't a `TrackCuesV2.TrackColors`, before changing any file.
+- **Fix:** `Library.set_db_track_tags` / `set_db_tracks_tags` now raise `DataTypeError` (as well as still `AttributeError`) for a color that isn't a `TrackCuesV2.TrackColors`, before changing any file.
   - **Deprecated:** Catching that error as `AttributeError`. It still works until 6.0, where it's only a `DataTypeError`.
 
 ## [5.7.0] - 2026-11-15
