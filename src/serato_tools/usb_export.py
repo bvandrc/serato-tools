@@ -236,9 +236,11 @@ def _copy_tracks(track_paths: list[str], dest_dir: str):
 
 
 def get_crate_files(pattern: str):
-    """The crate and smart crate files in the default Serato folder whose filename matches `pattern`.
+    """The crate and smart crate files in the default Serato folder whose name matches `pattern`.
 
-    `pattern` is tried as a glob, and if nothing matches it, as a regex.
+    The name is the filename without its extension, so `"*crate*"` matches only crates with "crate" in their name. A
+    subcrate's name includes its parents' (`Bass%%DnB`), so `"Bass*"` matches a crate and its subcrates. `pattern` is
+    tried as a glob, and if nothing matches it, as a regex.
     """
     # the classes' get_crate_files check the crate extension, so stray files in the folders
     # (e.g. .DS_Store) are never matched; a missing folder just means no crates of that kind
@@ -246,16 +248,17 @@ def get_crate_files(pattern: str):
     for crate_class in (Crate, SmartCrate):
         if os.path.isdir(crate_class.DIR_PATH):
             filepaths += crate_class.get_crate_files()
+    names = {f: os.path.splitext(os.path.basename(f))[0] for f in filepaths}
 
     # try the pattern as a glob first: most globs (e.g. "house*") are also valid regexes, so
     # checking re.compile first would silently give glob-looking patterns regex semantics
-    files = [f for f in filepaths if fnmatch.fnmatch(os.path.basename(f), pattern)]
+    files = [f for f in filepaths if fnmatch.fnmatch(names[f], pattern)]
     if not files:
         try:
             regex = re.compile(pattern)
         except re.error:
             return []
-        files = [f for f in filepaths if regex.search(os.path.basename(f))]
+        files = [f for f in filepaths if regex.search(names[f])]
     return files
 
 
@@ -288,7 +291,7 @@ def main():
         nargs="+",
         type=str,
         required=True,
-        help='Glob or Regex matcher for crate and smartcrate filenames. Example: "*house*". Can pass multiple to OR them. To copy all, pass "*"',
+        help='Glob or Regex matcher for crate and smartcrate names, without the file extension. Example: "*house*". Can pass multiple to OR them. To copy all, pass "*"',
     )
     parser.add_argument(
         "-r",

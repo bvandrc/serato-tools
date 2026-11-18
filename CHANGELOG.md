@@ -88,6 +88,11 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Fix (CLI):** `serato_tagdump` exits saying a file has no tags, rather than with a traceback.
 - **Deprecated:** Passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`) isn't removed yet: it stays deprecated until a future major release, in favor of passing it to `save()`.
 
+### USB Export
+
+- **[BREAKING]** `get_crate_files`, and so `serato_usb_export --crate_matcher`, match a pattern against the crate's name, without its `.crate` or `.scrate` extension. Before, a pattern such as `"*crate*"` matched every crate, through the extension.
+  - **Upgrading:** Drop the extension from your patterns: `"house*"` rather than `"house*.crate"`. A pattern can no longer choose crates or smart crates by their extension.
+
 ## [5.7.0] - 2026-11-15
 
 ### Database / Crates / Track Tags

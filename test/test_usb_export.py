@@ -61,6 +61,20 @@ def matched_names(pattern: str) -> set[str]:
         ),
         pytest.param(["house.crate", ".DS_Store", "notes.txt"], "*", {"house.crate"}, id="non-crate files never"),
         pytest.param(["house.crate"], "*[techno*", set(), id="invalid regex and no glob match"),
+        pytest.param(
+            ["house.crate", "test crate.crate", "house.scrate"],
+            "*crate*",
+            {"test crate.crate"},
+            id="glob ignores the extension",
+        ),
+        pytest.param(["house.crate", "house.scrate"], "*.scrate", set(), id="glob can't match the extension"),
+        pytest.param(["house.crate", "deep.crate"], "use$", {"house.crate"}, id="regex ignores the extension"),
+        pytest.param(
+            ["Bass.crate", "Bass%%DnB.crate", "House.crate"],
+            "Bass*",
+            {"Bass.crate", "Bass%%DnB.crate"},
+            id="subcrates match their parent's name",
+        ),
     ],
 )
 def test_get_crate_files(crate_dirs: tuple[str, str], names: list[str], pattern: str, matched: set[str]):
