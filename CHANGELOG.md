@@ -569,10 +569,10 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Database / Crates
 
-- **Feature:** Add `DatabaseV2.rename_track_file(src, dest)`, which renames a track's file and updates its path in the database.
-- **Fix:** Fix database text outside Latin-1 being garbled.
 - **[BREAKING]** `DatabaseV2.to_objects()` and `print_items()` are renamed `to_dicts()` and `print_data()`, and `modify_file` rejects two rules on one field.
   - **Upgrading:** Use the new names, and combine a field's rules into one.
+- **Feature:** Add `DatabaseV2.rename_track_file(src, dest)`, which renames a track's file and updates its path in the database.
+- **Fix:** Fix database text outside Latin-1 being garbled.
 
 ### Track Tags
 
