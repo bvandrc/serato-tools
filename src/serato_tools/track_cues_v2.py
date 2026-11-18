@@ -352,7 +352,8 @@ class TrackCuesV2(SeratoGeobTag):
             entry_name = SeratoGeobTag._readbytes(fp).decode("utf-8")  # noqa: SLF001
             if not entry_name:
                 break
-            if (entry_len := struct.unpack(">I", fp.read(4))[0]) == 0:
+            entry_len = struct.unpack(">I", fp.read(4))[0]
+            if entry_len == 0:
                 raise ValueError(f"{entry_name} entry has no data")
 
             entry_class = TrackCuesV2._get_entry_class(entry_name)
@@ -691,7 +692,8 @@ def main():
             raise ValueError(f"Invalid snap tolerance: {args.snap_tolerance!r}") from exc
         if den == 0:
             raise ValueError("Snap tolerance denominator cannot be zero")
-        if (tolerance_beats := num / den) >= 1:
+        tolerance_beats = num / den
+        if tolerance_beats >= 1:
             raise NotImplementedError("Snap tolerance must be less than 1 beat. TODO: implement this to allow")
 
         if tags.tagfile is None:

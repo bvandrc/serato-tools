@@ -318,8 +318,8 @@ class TrackBeatgrid(SeratoGeobTag):
         1 ms off the rounded beat. Needs the tag read from an audio file, for the track's length. Raises
         NoBeatgridError for a track without a beatgrid.
         """
-        # NOTE: don't do `if not`, 0.0 is valid
-        if (snapped_ms := self.find_nearest_beat(position_ms, tolerance_beats)) is None:
+        snapped_ms = self.find_nearest_beat(position_ms, tolerance_beats)
+        if snapped_ms is None:  # NOTE: don't do `if not`, 0.0 is valid
             return None
         snapped_ms = round(snapped_ms)
         return snapped_ms if abs(snapped_ms - position_ms) >= min_ms_change else None
@@ -343,7 +343,8 @@ class TrackBeatgrid(SeratoGeobTag):
         # libmad, and 12 to 60 ms late for CoreAudio. The analysis below doesn't correct for its decoder, so an MP3's
         # grid may be off by about that much.
         logger.info("Analyzing beat grid...")
-        if not (analyzed := analyze_beatgrid(filename, bpm_helper=bpm)).downbeats:
+        analyzed = analyze_beatgrid(filename, bpm_helper=bpm)
+        if not analyzed.downbeats:
             raise ValueError("beatgrid analysis found no downbeats, cannot write beatgrid")
 
         logger.info("Writing tags...")

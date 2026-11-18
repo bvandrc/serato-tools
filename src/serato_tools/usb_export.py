@@ -222,7 +222,8 @@ def _copy_tracks(track_paths: list[str], dest_dir: str):
     for src_path in tqdm(src_paths, desc="Copying tracks", unit="track"):
         maybe_copy(src_path)
 
-        if len(stem_files := find_stem_files(src_path)) > 1:
+        stem_files = find_stem_files(src_path)
+        if len(stem_files) > 1:
             raise ValueError(f"more than 1 stems file for {src_path}: {', '.join(stem_files)}")
         if stem_files:
             maybe_copy(stem_files[0])
@@ -246,7 +247,8 @@ def get_crate_files(pattern: str):
 
     # try the pattern as a glob first: most globs (e.g. "house*") are also valid regexes, so
     # checking re.compile first would silently give glob-looking patterns regex semantics
-    if not (files := [f for f, name in crate_names.items() if fnmatch.fnmatch(name, pattern)]):
+    files = [f for f, name in crate_names.items() if fnmatch.fnmatch(name, pattern)]
+    if not files:
         try:
             regex = re.compile(pattern)
         except re.error:
