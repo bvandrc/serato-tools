@@ -213,12 +213,12 @@ class SmartCrate(CrateBase):
         not its rules.
 
         Serato can't use a smart crate on a drive, so USB export writes each one as this. Call its `save()` to write
-        the file.
+        the file. Raises FileExistsError if `file` already exists, as `Crate.new` does.
         """
         # imported here, since only this method needs regular crates
         from serato_tools.crate import Crate  # noqa: PLC0415
 
-        crate = Crate(file)
+        crate = Crate.new(file)
         rule_fields = {field.value for field in SmartCrate.RuleFields}
         crate._entries = [  # noqa: SLF001
             # a regular crate's version, then this smart crate's entries but its own version and its rules
