@@ -2,7 +2,7 @@
 
 Each release groups its changes by the part of the package they're in. Within each part, **[BREAKING]** changes come first, each with how to upgrade past it.
 
-## [5.8.0] - 2026-11-16
+## [5.8.0] - 2026-11-18
 
 ### Database / Crates
 
