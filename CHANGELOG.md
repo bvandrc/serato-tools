@@ -67,7 +67,7 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Use `ID3FileTag` and `SeratoGeobTag`.
 - **[BREAKING] Removed:** `TrackCuesV2.modified`, deprecated in 5.6.0.
   - **Upgrading:** Use `has_changed`.
-- **[BREAKING] Removed:** `TrackCuesV2` no longer reads the beatgrid from its own file for cue snapping. Its methods that did are removed: `snap_positions_to_beat`, `snap_positions_to_beat_rule`, `get_snapped_beat_ms`, and `get_beat_position`.
+- **[BREAKING] Removed:** `TrackCuesV2` no longer reads the beatgrid from its own file for cue snapping; its methods that did are removed: `snap_positions_to_beat`, `snap_positions_to_beat_rule`, `get_snapped_beat_ms`, and `get_beat_position`.
   - **Upgrading:**
     - For `snap_positions_to_beat` and `snap_positions_to_beat_rule`, use `Track.snap_cues_to_beats`, or `TrackCuesV2.snap_cues_to_beats(beatgrid, ...)` with a beatgrid you pass it. Both return the moves rather than printing them. There's no rule to pass to `modify_entries`: snap, then make any other edits, before saving.
     - For `get_snapped_beat_ms`, use `TrackBeatgrid.get_snapped_position` (e.g. `track.beatgrid.get_snapped_position`).
