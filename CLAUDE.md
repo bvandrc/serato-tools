@@ -41,8 +41,8 @@ CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pyright, plus Ruff's lint
 
 A version's `CHANGELOG.md` entries are grouped by the part of the package they're in, so a reader can skip the parts they don't use. Follow these guidelines in a PR's entries; the maintainer may make exceptions in review, as some past versions' entries are:
 - **Sections:** a version's entries are grouped under `###` headings, in title case, for the part of the package they're in (`Library`, `Database / Crates`, `Track Tags`, `USB Export`, ...). Every version has sections, however few its entries. There's no section for CLIs: a CLI change goes in the section for what it works on. A change spanning several parts goes in one section naming them all (`Database / Crates / Track Tags`), placed before the sections of each, rather than repeated in each.
-- **Prefixes:** every top-level bullet opens with a bold prefix, and a section lists them in this order: `**Feature:**`, `**Performance:**`, `**Fix:**`, `**Deprecated:**`, and `**Docs:**`. A CLI change adds `(CLI)` to it (`**Fix (CLI):**`). Only when one section gets long, split it with `####` subheadings for the prefixes, in the same order, and drop the prefixes under them.
-- **Breaking changes:** these come first in their section, and the prefix can name the kind (`**[BREAKING] Removed:**`, ...).
+- **Prefixes:** every top-level bullet opens with a bold prefix: `**Feature:**`, `**Performance:**`, `**Fix:**`, `**Deprecated:**`, or `**Docs:**`. A CLI change adds `(CLI)` to it (`**Fix (CLI):**`), and a breaking change can name its kind (`**[BREAKING] Removed:**`, ...).
+- **Order:** a section lists its entries most significant first, whatever their prefix, as `pypi-publishing.md`'s Order says. For example, in 6.0.0 the new `TrackTextFrames` leads Track Tags, and in Database / Crates, removing the widely used `add_track` comes before making `entries` internal, with an error's new type near the end. A related pair can sit together, such as a removal right after the feature that replaces it.
 
 Releasing follows `pypi-publishing.md`.
 
