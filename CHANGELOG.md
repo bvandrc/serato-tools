@@ -90,7 +90,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **[BREAKING]** `get_crate_files`, and so `serato_usb_export --crate_matcher`, match a pattern against the crate's name, without its `.crate` or `.scrate` extension. Before, a pattern such as `"*crate*"` matched every crate, through the extension.
   - **Upgrading:** Drop the extension from your patterns: `"house*"` rather than `"house*.crate"`. A pattern can no longer choose crates or smart crates by their extension.
-- **Fix:** The export's progress ends at 100%, counting each track once it's copied, rather than at the share copied before the last one.
+- **Feature:** The export shows a progress bar while it copies tracks, with a count, rate, and time left, through `tqdm`, which the package now installs. It replaces the percentage it printed, which stopped short of 100%.
 
 ## [5.8.0] - 2026-11-18
 
