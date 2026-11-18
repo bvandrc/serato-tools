@@ -23,7 +23,7 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Catch `FileExistsError` where you checked for False.
 - **[BREAKING]** `Library.set_db_track_tags` / `set_db_tracks_tags` raise only `DataTypeError` for a color that isn't a `TrackCuesV2.TrackColors`, no longer also `AttributeError`.
   - **Upgrading:** Catch `DataTypeError`.
-- **Feature:** `Library.set_db_track_tags` / `set_db_tracks_tags` also set a track's metadata in its ID3 text frames and the database: `title`, `artist`, `album`, `genre`, `key`, `grouping`, `publisher`, `composer`, `year`, `remixer`, `track_number`, `disc_number`, and `comment`. An empty value removes it from both.
+- **Feature:** `Library.set_db_track_tags` / `set_db_tracks_tags` also set a track's metadata in its ID3 text frames and the database: `title`, `artist`, `genre`, `key`, `comment`, etc. An empty value removes it from both.
 - **Feature:** Add `Library.save`, which writes each of the library's parsed files that has changed, once, and returns their paths.
 - **Feature:** Add `Library.batch()`, a context manager: inside `with library.batch():`, `rename_track_file`, `remove_track_files`, and `set_db_tracks_tags` hold back writing the database and crates, and each changed file is written once when the block ends, instead of once per track. It still saves if the block raises.
 - **Feature:** `Library.remove_track_files` returns a `RemoveTrackFilesResult`, with the track files it deleted (`files_deleted`) and the library files it changed (`library_files_changed`).
@@ -32,7 +32,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 ### Database / Crates
 
 - **[BREAKING]** `Crate(path)` and `SmartCrate(path)` raise `FileNotFoundError` for a file that doesn't exist, rather than warning and starting an empty crate. `SmartCrate.to_regular_crate` raises `FileExistsError` for a file that already exists.
-  - **Upgrading:** Start a new crate with `Crate.new(path)` or `SmartCrate.new(path)`, which raises `FileExistsError` rather than replace a file that exists.
+  - **Upgrading:** Start a new crate with `Crate.new(path)` or `SmartCrate.new(path)`.
 - **[BREAKING]** `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`.
   - **Upgrading:** Import them from `serato_tools.utils.bin_file_base`.
 - **[BREAKING]** A database's or crate's `entries` and `version` are now internal.
@@ -42,7 +42,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **[BREAKING]** A database or crate file with no version entry, such as an empty one, raises `ValueError` rather than `AttributeError`.
   - **Upgrading:** Catch `ValueError`.
 - **[BREAKING] Removed:** `DatabaseV2.rename_track_file`, deprecated in 5.2.0.
-  - **Upgrading:** Use `Library.rename_track_file`, which also updates the crates and smart crates.
+  - **Upgrading:** Use `Library.rename_track_file`.
 - **[BREAKING] Removed:** `add_track` and `remove_track`, deprecated in 5.1.0.
   - **Upgrading:** Use `add_tracks` and `remove_tracks`.
 - **[BREAKING] Removed:** A database or crate track's `get_full_path()`, deprecated in 5.8.0.
@@ -52,7 +52,6 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **[BREAKING] Removed (CLI):** `serato_smartcrate`'s `--set_rules`.
   - **Upgrading:** Pass the rule options directly, without it.
 - **Feature (CLI):** `serato_smartcrate` now takes each rule field as its own option, e.g. `serato_smartcrate Dubstep.scrate --grouping str_is UNTAGGED --year DELETE`.
-  - `--help` lists the fields and comparisons.
   - A bad field, comparison, value, or number of arguments is rejected before any crate is changed.
 - **Feature:** A database or crate track's, or a smart crate rule's, `set_value` raises `DataTypeError` for a value of the wrong type, and `ValueError` for an out-of-range number, when it's set rather than only when the file is saved. `modify_tracks` and `modify` now check the tracks they change too.
 - **Feature:** A smart crate rule's `comparison` is typed as `str` and its `field` as `int`, rather than as any value an entry can hold.
@@ -69,7 +68,7 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Use `has_changed`.
 - **[BREAKING] Removed:** `TrackCuesV2` no longer reads the beatgrid from its own file for cue snapping; its methods that did are removed: `snap_positions_to_beat`, `snap_positions_to_beat_rule`, `get_snapped_beat_ms`, and `get_beat_position`.
   - **Upgrading:**
-    - For `snap_positions_to_beat` and `snap_positions_to_beat_rule`, use `Track.snap_cues_to_beats`, or `TrackCuesV2.snap_cues_to_beats(beatgrid, ...)` with a beatgrid you pass it. Both return the moves rather than printing them. There's no rule to pass to `modify_entries`: snap, then make any other edits, before saving.
+    - For `snap_positions_to_beat` and `snap_positions_to_beat_rule`, use `Track.snap_cues_to_beats`, or `TrackCuesV2.snap_cues_to_beats(beatgrid, ...)`. Both return the moves rather than printing them. There's no rule to pass to `modify_entries`: snap, then make any other edits, before saving.
     - For `get_snapped_beat_ms`, use `TrackBeatgrid.get_snapped_position` (e.g. `track.beatgrid.get_snapped_position`).
     - For `get_beat_position(entry)`, use `beatgrid.get_beat_position(entry.position)`.
 - **[BREAKING] Removed:** The `FIELDS` tuple on `TrackCuesV2`'s entry classes (`CueEntry`, `LoopEntry`, `ColorEntry`, etc.).
@@ -77,8 +76,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **[BREAKING] Removed (CLI):** The CLIs' edit modes: `-e` / `--edit` on `serato_snap_cues_v2`, `python -m serato_tools.track_cues_v1`, and `python -m serato_tools.track_autotags`.
   - **Upgrading:** Change a tag through its class's methods instead, such as `TrackCuesV2.modify_entries` and `set_track_color`, or `TrackAutotags.set`.
 - **Feature:** Add `TrackTextFrames` (`serato_tools.track_text_frames`), which reads and sets a track file's ID3 text frames, and `Track.text_frames`. Setting a frame to `""` removes it.
-  - `TrackTextFrames.Fields` names the frames Serato shows a column for (`Fields.TITLE`, `Fields.GENRE`, ...), to pass to `get` and `set` in place of the frame ID.
-  - `Fields.COMMENT` gets and sets the track's comment the way Serato reads and writes it.
+  - `TrackTextFrames.Fields` names the frames Serato shows a column for (`Fields.TITLE`, `Fields.GENRE`, etc.), and `Fields.COMMENT` gets and sets the comment the way Serato does.
 - **Feature:** Add `Track.snap_cues_to_beats(tolerance_beats)`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `SnappedCue`.
   - `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)` does the same with the `TrackBeatgrid` passed to it.
   - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to.
@@ -100,7 +98,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** `get_entries` on the database, crates, and smart crates takes an optional `track_matcher`, a regex, and then gives only the tracks whose path it matches, ignoring case.
   - **Deprecated:** `get_entries_filtered(track_matcher)`, in favor of `get_entries(track_matcher)`. It still works until 6.0 removes it.
-- **Feature:** Add a `full_path` property to a database or crate track: its absolute path, as `get_full_path()` gives.
+- **Feature:** Add a `full_path` property to a database or crate track: its absolute path.
   - **Deprecated:** A track's `get_full_path()`, in favor of `full_path`. It still works until 6.0 removes it.
 - **Feature:** `SmartCrate.delete_rule` returns whether the crate had a rule on that field to remove.
 - **Fix:** A database or crate track's `relpath`, and a smart crate rule's `comparison`, `field`, and `value`, now read the track's or rule's current entries, so they no longer keep a value set through `set_value` or removed through `remove_field`. In particular, a `modify()` rule after one that changes a track's path now gets the new path. They're now read-only: change it through `set_path`, `set_value`, or the rule's setters.
@@ -110,9 +108,9 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Track Tags
 
-- **Feature:** `TrackBeatgrid`'s markers (`NonTerminalBeatgridMarker`, `NonTerminalBeatgridMarkerEnhanced`, and `TerminalBeatgridMarker`), its `Footer`, and its `BeatPoint` are typed `NamedTuple`s, so type checkers know their fields' types, such as `position_s: float`. They behave as before.
+- **Feature:** `TrackBeatgrid`'s markers, `Footer`, and `BeatPoint` are typed `NamedTuple`s, so type checkers know their fields' types, such as `position_s: float`.
 - **Fix:** `TrackBeatgrid.analyze_and_write` now keeps the old grid when the analysis gives one Serato wouldn't write, such as downbeats out of order.
-- **Fix (CLI):** `serato_snap_cues_v2 -e` now keeps an entry you leave unchanged after the editor fails or the content is invalid, and works on Windows, where the editor couldn't open its file.
+- **Fix (CLI):** `serato_snap_cues_v2 -e` now keeps an entry you leave unchanged after the editor fails or the content is invalid, and works on Windows.
 - **Fix (CLI):** `serato_tagdump` now exits saying a file has no tags, rather than with a traceback.
 
 ### Library
@@ -184,7 +182,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Fix:** Fix `TrackCuesV2.save()` skipping the save, and losing a change, when an edit that changed nothing followed one that did.
 - **Fix:** Fix `TrackCuesV1` failing to serialize a tag with an unset cue or loop position, as every `Serato Markers_` tag Serato writes has.
 - **Fix:** `TrackCuesV2` deletes the `Serato Markers_` tag only when it writes a change to `Serato Markers2`. An edit that changed nothing, or was changed back, used to delete it from the file in memory, and saving another tag in the same file would write the deletion.
-- **Deprecated:** Passing `delete_tags_v1` to `TrackCuesV2.modify_entries`, `set_track_color`, or `set_beatgrid_locked`, or to `Track.set_track_color` or `set_beatgrid_locked`, is deprecated in favor of passing it to `save()`, and will be removed in the next major version.
+- **Deprecated:** Passing `delete_tags_v1` to an edit method (`modify_entries`, `set_track_color`, etc.) is deprecated in favor of passing it to `save()`, and will be removed in the next major version.
   - Until then, passing False still keeps `Serato Markers_` at the next save, unless another edit since the last save didn't pass False.
 
 ## [5.5.0] - 2026-11-06
@@ -237,7 +235,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Database / Crates
 
-- **Feature:** Name more database track fields, so they're printed with a name instead of `Unknown Field`, and can be used in `DatabaseV2.modify`: `COMMENT`, `REMIXER`, `TRACK_NUMBER`, `DISC_NUMBER`, `PLAY_COUNT`, `COLOR` (the track color, as `0xRRGGBB`), `CORRUPT_REASON`, `READ_ONLY`, and `OVERVIEW_BUILT` (waveform created).
+- **Feature:** Name more database track fields, so they're printed with a name instead of `Unknown Field`, and can be used in `DatabaseV2.modify`: `COMMENT`, `REMIXER`, `PLAY_COUNT`, `COLOR` (the track color, as `0xRRGGBB`), `CORRUPT_REASON`, etc.
   - The smart crate field holding the on/off value of "match all" and "live update" is named too: `SmartCrate.RuleFields.SETTING_VALUE`.
 - **Feature:** Add `DatabaseV2.get_corrupt_tracks`, and `--list_corrupt` to the database CLI, which list the tracks Serato marked corrupt along with the reason Serato gives.
 
