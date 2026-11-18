@@ -115,15 +115,15 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Library
 
-- **Fix:** `Library.set_db_track_tags` / `set_db_tracks_tags` now raise `DataTypeError` for a color that isn't a `TrackCuesV2.TrackColors`, before changing any file. It's still an `AttributeError` too.
+- **Fix:** `Library.set_db_track_tags` / `set_db_tracks_tags` now raise `DataTypeError` for a color that isn't a `TrackCuesV2.TrackColors`, before changing any file.
   - **Deprecated:** Catching that error as `AttributeError`. It still works until 6.0, where it's only a `DataTypeError`.
 
 ## [5.7.0] - 2026-11-15
 
 ### Database / Crates / Track Tags
 
-- **Feature:** A cut-off or malformed database, crate, or tag now raises `ValueError` saying what's wrong. It's still an `AssertionError` too.
-- **Feature:** A number too big or negative for its field now raises `ValueError` naming the field. It's still a `struct.error` too.
+- **Feature:** A cut-off or malformed database, crate, or tag now raises `ValueError` saying what's wrong.
+- **Feature:** A number too big or negative for its field now raises `ValueError` naming the field.
 - **Feature:** Errors that were a bare `Exception` are now a `ValueError`, `TypeError`, `FileNotFoundError`, or `ImportError` saying what's wrong.
 - **Deprecated:** Catching a malformed file's error as `AssertionError`, or an out-of-range number's as `struct.error`, is deprecated, but still works: catch `ValueError`, which is all they'll be in 6.0.
 
