@@ -6,6 +6,7 @@ from unittest import mock
 
 import pytest
 
+from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.library import Library
 from serato_tools.smart_crate import SmartCrate
@@ -14,6 +15,7 @@ from serato_tools.track_text_frames import TrackTextFrames
 from serato_tools.utils.bin_file_base import DataTypeError, SeratoBinFile
 
 from test.helpers.bin_files import LibraryFolders
+from test.helpers.files import mock_files
 from test.helpers.track_tags import copy_mp3, copy_mp3_without_cues, has_tags_v1
 
 relpath = DatabaseV2.get_relative_path
@@ -56,6 +58,19 @@ def test_files_are_parsed_when_first_needed(folders: LibraryFolders):
     assert library.crates == [], "no Subcrates folder means no crates"
     assert library.smart_crates == [], "no SmartCrates folder means no smart crates"
     assert library.database is library.database, "database parsed once"
+
+
+def test_crate_files(folders: LibraryFolders):
+    library = Library(folders.serato_dir)
+    assert library.crate_files == [], "no crate folders means no crate files"
+
+    crate_dir, smart_crate_dir = (os.path.join(folders.serato_dir, c.DIR) for c in (Crate, SmartCrate))
+    mock_files({crate_dir: ["House.crate", ".DS_Store"], smart_crate_dir: ["Deep.scrate"]})
+    assert library.crate_files == [
+        os.path.join(crate_dir, "House.crate"),
+        os.path.join(smart_crate_dir, "Deep.scrate"),
+    ], "crates made since the Library was, crates first, and only crate files"
+    assert "crates" not in vars(library), "listing the files doesn't parse them"
 
 
 def test_rename_track_file(folders: LibraryFolders, bin_file_writes: list[str]):
