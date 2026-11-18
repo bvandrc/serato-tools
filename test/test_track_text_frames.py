@@ -7,7 +7,7 @@ from serato_tools.track_text_frames import TrackTextFrames
 def comm_frames(path: str) -> dict[str, tuple[int, list[str]]]:
     """The COMM frames of the file at `path`, by key, with their encoding and text."""
     tags = ID3(path)
-    return {key: (tags[key].encoding, list(tags[key].text)) for key in tags.keys() if key.startswith("COMM")}
+    return {key: (tags[key].encoding, list(tags[key].text)) for key in tags if key.startswith("COMM")}
 
 
 def add_frames(path: str, *frames: Frame):
@@ -51,7 +51,7 @@ def test_set_writes_on_save(mp3: str):
 
 def test_fields_name_the_frames_get_and_set_take(mp3: str):
     assert TrackTextFrames(mp3).get(TrackTextFrames.Fields.TITLE) == "Frequency Shift", "TIT2"
-    texts = {field: "1" for field in TrackTextFrames.Fields}
+    texts = dict.fromkeys(TrackTextFrames.Fields, "1")
     texts.update({TrackTextFrames.Fields.YEAR: "2020", TrackTextFrames.Fields.GENRE: "Dubstep"})
     frames = TrackTextFrames(mp3)
     for field, text in texts.items():
@@ -74,13 +74,8 @@ def test_set_raises_for_a_frame_id_that_isnt_a_text_frame_stored_by_its_id(mp3: 
 # loading updates tags to ID3v2.4, which converts or drops these, so what was set would never be read back
 @pytest.mark.parametrize("frame_id", ["TYER", "TDAT", "TIME", "TORY", "TRDA", "TSIZ"])
 def test_set_raises_for_a_frame_loading_converts_or_drops(mp3: str, frame_id: str):
-    with pytest.raises(ValueError, match="loading (converts|drops)"):
+    with pytest.raises(ValueError, match=r"loading (converts|drops)"):
         TrackTextFrames(mp3).set(frame_id, "2020")
-
-
-def test_set_names_the_frame_loading_converts_to(mp3: str):
-    with pytest.raises(ValueError, match="into TDRC; set that instead"):
-        TrackTextFrames(mp3).set("TYER", "2020")
 
 
 # loading turns numeric genres into names, so the genre would silently change

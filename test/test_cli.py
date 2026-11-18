@@ -1,5 +1,3 @@
-# pylint: disable=protected-access
-
 import pytest
 
 from serato_tools.track_autotags import TrackAutotags

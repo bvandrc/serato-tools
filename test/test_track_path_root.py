@@ -1,5 +1,5 @@
 import os
-from typing import Callable
+from collections.abc import Callable
 
 import pytest
 
@@ -68,7 +68,7 @@ def test_paths_relative_to_given_root(drive: str):
 def test_path_in_a_sibling_of_the_root_is_outside_it(drive: str):
     # a sibling folder whose name starts with the root's isn't inside it
     sibling_track = os.path.join(drive + "2", "Music", "Track.mp3")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="isn't on the library's drive"):
         DatabaseV2.get_relative_path(sibling_track, drive)
 
 
@@ -113,7 +113,7 @@ def test_external_drive_library_tracks(drive: str, as_mount: AsMount):
     old, kept = mock_files({os.path.join(drive, "Music"): ["Old.mp3", "Kept.mp3"]})
     new = os.path.join(drive, "Music", "New.mp3")
 
-    crate = Crate(os.path.join(serato_dir, Crate.DIR, "USB.crate"))
+    crate = Crate.new(os.path.join(serato_dir, Crate.DIR, "USB.crate"))
     crate.add_tracks([old, kept])
     assert crate.get_track_paths() == ["Music/Old.mp3", "Music/Kept.mp3"], "stored relative to the drive"
     assert crate.get_track_paths(include_drive=True) == [old, kept], "resolved from the drive"
@@ -130,8 +130,8 @@ def test_external_drive_library_tracks(drive: str, as_mount: AsMount):
 
 def test_external_drive_library_rejects_track_on_another_drive(drive: str, as_mount: AsMount):
     as_mount(drive)
-    crate = Crate(os.path.join(drive, "_Serato_", Crate.DIR, "USB.crate"))
+    crate = Crate.new(os.path.join(drive, "_Serato_", Crate.DIR, "USB.crate"))
     other_drive_track = os.path.join(os.path.dirname(drive), "Other", "Music", "Track.mp3")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="isn't on the library's drive"):
         crate.add_tracks([other_drive_track])
     assert crate.get_track_paths() == [], "nothing added"

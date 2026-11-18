@@ -152,12 +152,14 @@ class Track:
         are only written then: otherwise save the tagfile yourself.
         """
         # a set built in full, not any() over a generator, so that every tag puts its changes in before the one write
-        # pylint: disable=protected-access
         changed = {
-            tag._write_to_tagfile(delete_tags_v1) if isinstance(tag, TrackCuesV2) else tag._write_to_tagfile()
+            (
+                tag._write_to_tagfile(delete_tags_v1)  # noqa: SLF001
+                if isinstance(tag, TrackCuesV2)
+                else tag._write_to_tagfile()  # noqa: SLF001
+            )
             for tag in self._parsed_tags()
         }
-        # pylint: enable=protected-access
         if not any(changed):
             return False
         self.tagfile.save()
