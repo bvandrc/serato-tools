@@ -162,9 +162,9 @@ def test_parsing_a_value_it_would_rewrite_raises(tmp_dir: str, entry: bytes, mes
 @pytest.mark.parametrize("cls", [Crate, SmartCrate], ids=lambda cls: cls.__name__)
 def test_new_file_shares_no_entries_with_its_class_default(tmp_dir: str, cls: type[Crate] | type[SmartCrate]):
     defaults = {c: copy.deepcopy(c.DEFAULT_ENTRIES) for c in (Crate, SmartCrate)}
-    a = cls(os.path.join(tmp_dir, "A" + cls.EXTENSION))
+    a = cls.new(os.path.join(tmp_dir, "A" + cls.EXTENSION))
     a.add_tracks(["/music/track1.mp3"])
-    b = cls(os.path.join(tmp_dir, "B" + cls.EXTENSION))
+    b = cls.new(os.path.join(tmp_dir, "B" + cls.EXTENSION))
 
     for i, (field, value) in enumerate(a._entries[: len(defaults[cls])]):
         if isinstance(value, list):
@@ -177,10 +177,14 @@ def test_new_file_shares_no_entries_with_its_class_default(tmp_dir: str, cls: ty
     assert b._entries == defaults[cls], "other instance must not inherit tracks or nested edits"
 
 
-def test_a_new_file_warns_in_case_its_path_is_a_mistake(tmp_dir: str, caplog: pytest.LogCaptureFixture):
-    path = os.path.join(tmp_dir, "Typo.crate")
-    Crate(path)
-    assert f"File does not exist: {path}" in caplog.text
+def test_a_file_that_doesnt_exist_raises(tmp_dir: str):
+    with pytest.raises(FileNotFoundError):
+        Crate(os.path.join(tmp_dir, "Typo.crate"))
+
+
+def test_new_refuses_a_file_that_exists():
+    with pytest.raises(FileExistsError):
+        Crate.new(TEST_CRATE)
 
 
 def test_json_round_trip():

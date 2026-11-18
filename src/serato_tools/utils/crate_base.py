@@ -3,7 +3,7 @@
 
 import os
 from collections.abc import Iterable
-from typing import ClassVar
+from typing import ClassVar, Self
 
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
@@ -100,6 +100,14 @@ class CrateBase(SeratoBinFile):
             self.filter_tracks(lambda track: track.relpath.upper() in dir_track_set)
 
         self.add_tracks(dir_tracks)
+
+    @classmethod
+    def new(cls, file: str) -> Self:
+        """A new, empty crate at `file`, with the sort and columns Serato gives one, which `save()` creates.
+
+        Raises FileExistsError if `file` already exists, rather than replace it on save.
+        """
+        return cls(file, _new=True)
 
     @classmethod
     def get_crate_files(cls, file_or_dir: str | None = None) -> list[str]:
