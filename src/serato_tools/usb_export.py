@@ -244,21 +244,18 @@ def get_crate_files(pattern: str):
     """
     # the classes' get_crate_files check the crate extension, so stray files in the folders
     # (e.g. .DS_Store) are never matched; a missing folder just means no crates of that kind
-    filepaths: list[str] = []
-    for crate_class in (Crate, SmartCrate):
-        if os.path.isdir(crate_class.DIR_PATH):
-            filepaths += crate_class.get_crate_files()
-    names = {f: os.path.splitext(os.path.basename(f))[0] for f in filepaths}
+    filepaths = [f for c in (Crate, SmartCrate) if os.path.isdir(c.DIR_PATH) for f in c.get_crate_files()]
+    crate_names = {f: os.path.splitext(os.path.basename(f))[0] for f in filepaths}
 
     # try the pattern as a glob first: most globs (e.g. "house*") are also valid regexes, so
     # checking re.compile first would silently give glob-looking patterns regex semantics
-    files = [f for f in filepaths if fnmatch.fnmatch(names[f], pattern)]
+    files = [f for f in filepaths if fnmatch.fnmatch(crate_names[f], pattern)]
     if not files:
         try:
             regex = re.compile(pattern)
         except re.error:
             return []
-        files = [f for f in filepaths if regex.search(names[f])]
+        files = [f for f in filepaths if regex.search(crate_names[f])]
     return files
 
 
