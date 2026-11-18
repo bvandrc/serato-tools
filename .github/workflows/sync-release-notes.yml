@@ -1,0 +1,29 @@
+name: Sync Release Notes
+
+# Rewrites each GitHub release's notes as its version's section of CHANGELOG.md, e.g. after the changelog's entries are
+# reworded. A release whose version has no section keeps its notes. The steps are a shared action from
+# bvandrc/bvandrc-conventions, so change them there.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only print the new notes, without changing any release"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # to edit the releases
+
+jobs:
+  sync:
+    name: "Sync Release Notes"
+    runs-on: ubuntu-latest
+    steps:
+      # for CHANGELOG.md
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync the release notes
+        uses: bvandrc/bvandrc-conventions/.github/actions/sync-release-notes@main
+        with:
+          dry-run: ${{ inputs.dry_run }}

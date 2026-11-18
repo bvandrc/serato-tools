@@ -7,6 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 The repo's conventions live in `conventions/` and are imported here in full — they apply to all work in this repo, and everything below extends them. Keep this file consistent with them: nothing here should ever contradict a convention.
 
 @conventions/all.md
+@conventions/python.md
+@conventions/pypi-publishing.md
 
 `conventions/` is synced automatically from `bvandrc/bvandrc-conventions` by `.github/workflows/sync-conventions.yml`. The workflow deletes and recreates the directory on every run, so edits made here are lost — change them upstream. When a sync adds a new file to `conventions/`, add a matching `@conventions/<file>` import to this section.
 
@@ -14,44 +16,36 @@ The repo's conventions live in `conventions/` and are imported here in full — 
 
 Requires Python 3.12+ (the code uses PEP 695 `type` statements, which are a syntax error on 3.11).
 
-Work in the repo's `.venv` (gitignored), with the package installed editable so `serato_tools` imports resolve to `src/` rather than some other installed copy:
+Set up the `.venv` with every extra:
 
 ```bash
 python -m venv .venv
 source .venv/Scripts/activate                                     # Git Bash on Windows; .venv/bin/activate elsewhere
-pip install -e ".[all,dev]"                                  # all optional deps + pytest, black, isort, pylint, pyright
+pip install -e ".[all,dev]"                                  # all optional deps + pytest, ruff, pyright
 ```
 
 ```bash
 python -m pytest                                                  # full suite
 python -m pytest test/test_crate.py                               # one module
 python -m pytest test/test_crate.py::test_saving_needs_the_crate_extension  # one test
-pylint $(git ls-files '*.py')                                     # lint (config in .pylintrc, most C/R checks disabled)
 pyright                                                           # type check (config in pyproject.toml)
-isort .                                                           # sort imports (config in pyproject.toml)
-black .                                                           # format, line-length 120
+ruff check --fix .                                                # lint, and sort imports (config in pyproject.toml); private access is allowed in test/
+ruff format .                                                     # format, line-length 120
 ```
-
-This is a Python repo with no package manager scripts, so `isort .` then `black .` is the "format script" the conventions require before every commit; CI checks both.
 
 Tests import the installed `serato_tools` (editable locally, a regular install in CI) and open fixtures by paths relative to the repo root, so `python -m pytest` only works from there.
 
-CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pylint and pyright, plus isort and black once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15.
-- **Lint on every version:** neither tool pins one, and both check against the running interpreter, so 3.12 catches use of anything newer and later versions catch deprecations and removals.
+CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pyright, plus Ruff's lint and format checks once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15.
 - **Required checks:** the `main` ruleset requires these checks by name, so renaming a job or matrix entry means updating the ruleset too.
-- **OS-specific tests:** tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `pytest.mark.skipif`, with a matching test for the other OS family. A parametrized test marks just its OS-specific cases, with `WINDOWS_ONLY` / `POSIX_ONLY` from `test.helpers.platforms`.
+- **OS-specific tests** (drive letters, backslash separators, POSIX mount points): a parametrized test marks just its OS-specific cases, with `WINDOWS_ONLY` / `POSIX_ONLY` from `test.helpers.platforms`.
 
-Bump `version` in `pyproject.toml` and add a `CHANGELOG.md` entry for user-visible changes. A version's entries are grouped by the part of the package they're in, so a reader can skip the parts they don't use. Follow these guidelines in a PR's entries; the maintainer may make exceptions in review, as some past versions' entries are:
+A version's `CHANGELOG.md` entries are grouped by the part of the package they're in, so a reader can skip the parts they don't use. Follow these guidelines in a PR's entries; the maintainer may make exceptions in review, as some past versions' entries are:
 - **Sections:** a version's entries are grouped under `###` headings, in title case, for the part of the package they're in (`Library`, `Database / Crates`, `Track Tags`, `USB Export`, ...). Every version has sections, however few its entries. There's no section for CLIs: a CLI change goes in the section for what it works on. A change spanning several parts goes in one section naming them all (`Database / Crates / Track Tags`), placed before the sections of each, rather than repeated in each.
-- **Prefixes:** every top-level bullet opens with a bold prefix, and a section lists them in this order: `**Feature:**`, `**Performance:**`, `**Fix:**`, `**Deprecated:**`, and `**Docs:**`. A CLI change adds `(CLI)` to it (`**Fix (CLI):**`). Only when one section gets long, split it with `####` subheadings for the prefixes, in the same order, and drop the prefixes under them.
-- **Breaking changes:** these come first in their section, prefixed `**[BREAKING]**` (or `**[BREAKING] Removed:**`, ...), each with an `**Upgrading:**` sub-bullet saying how to move past it.
+- **Prefixes:** every top-level bullet opens with a bold prefix: `**Feature:**`, `**Performance:**`, `**Fix:**`, `**Deprecated:**`, or `**Docs:**`, or `**[BREAKING]**` for a breaking change, which can name its kind (`**[BREAKING] Removed:**`, ...). A CLI change adds `(CLI)` to it (`**Fix (CLI):**`).
+- **Order:** a section lists its entries most significant first, whatever their prefix, as `pypi-publishing.md`'s Order says, and a version lists its sections the same way, keeping a section that names several parts before each of theirs. For example, in 6.0.0 the new `TrackTextFrames` leads Track Tags, and in Database / Crates, removing the widely used `add_track` comes before making `entries` internal, with an error's new type near the end. A related pair can sit together, such as a removal right after the feature that replaces it.
+- **Brevity:** an entry says what changed for a user in one short sentence. Put any further effect in a sub-bullet rather than a longer sentence, and keep how it works out of it. Leave out a change a user wouldn't notice, such as a message logged at a different level, or an error that names a file the log already named.
 
-End every sentence of a changelog entry with a period, the last one included, so an entry of two sentences doesn't end one with a period and not the other. A new version's heading is `## [x.y.z] - YYYY-MM-DD`, with a link definition added at the top of the list at the bottom of the file, comparing the previous version's tag with its own (`[x.y.z]: https://github.com/bvandrc/serato-tools/compare/v<previous>...vx.y.z`). The link 404s until the release creates the tag. Entries don't name PRs, since one often spans several; the compare link lists them, and `git blame` leads from an entry to its PR.
-
-Publishing a GitHub release then publishes that version to PyPI, through `.github/workflows/release.yml`:
-- **Tag:** it must be `v` + the version (e.g. `v6.0.0`), or the workflow fails before building.
-- **Notes:** a release published with empty notes gets the version's `CHANGELOG.md` section as its notes, and the built distributions are attached to it.
-- **Trusted publisher:** PyPI's names that workflow file and its `pypi` environment, so renaming either means updating it on PyPI too.
+Releasing follows `pypi-publishing.md`.
 
 ## Architecture
 
@@ -131,7 +125,7 @@ Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`
 - **What each tag class implements:**
   - the read-only `has_changed` property;
   - `_write_to_tagfile()`, which puts its unsaved changes into the shared tagfile without saving and returns whether it had any. A `SeratoGeobTag` compares its data (`_raw_data`) with what it read or last saved (`_tagged_raw_data`) rather than with the tagfile, so an unchanged `Serato Markers_` that `TrackCuesV2` deleted isn't put back. `TrackCuesV2._write_to_tagfile` alone takes an argument, `delete_tags_v1`, which `Track.save()` passes it.
-- **Adding a tag class:** implement both (`ID3FileTag`'s raise `NotImplementedError`; it isn't an ABC, so it can still be instantiated), which `save()` is built on, and add it to `Track`: a flag, a property, and an entry in `save()`'s tuple of parsed tags.
+- **Adding a tag class:** implement both (`ID3FileTag`'s raise `NotImplementedError`; it isn't an ABC, so it can still be instantiated), which `save()` is built on, and add it to `Track`: a flag, a property, and an entry in `save()`'s tuple of parsed tags. Also add it to `TAG_CLASSES` in `test_track_tags.py`, whose save test calls both; `test_every_tag_class_is_tested` fails until you do, since no linter checks that a subclass implements them.
 
 **v1/v2 interaction:** current Serato reads `Serato Markers2`, but a stale `Serato Markers_` shadows changes made to it.
 - That's why `TrackCuesV2.save()` and `Track.save()` (and `Library.set_db_tracks_tags`, which passes it on) take `delete_tags_v1=True` by default: writing `Serato Markers2` deletes the v1 tag rather than keeping the two in sync.
@@ -140,7 +134,7 @@ Each of these accepts *either* a file path / mutagen tagfile *or* raw `bytes` (`
 
 `TrackCuesV2` exposes each entry kind (`CueEntry`, `LoopEntry`, `ColorEntry`, `FlipEntry`, `BpmLockEntry`) as a dataclass, aggregated into `TrackCuesInfo`.
 - **Editing:** `modify_entries(callback)` hands the callback the whole `TrackCuesInfo` and expects a new one back (use `dataclasses.replace`) or `None` for no change.
-- **Converting:** each entry class (and `TrackCuesV1.Entry`) converts with `_parse()` / `_serialize()`, which are internal to its module. Callers go through `modify_entries` and `save()`, so the tag class is the only user, and pylint's `protected-access` is disabled per function where it calls them.
+- **Converting:** each entry class (and `TrackCuesV1.Entry`) converts with `_parse()` / `_serialize()`, which are internal to its module. Callers go through `modify_entries` and `save()`, so the tag class is the only user, and each call is marked `# noqa: SLF001`, Ruff's check for access to another class's private members.
 
 ### Version gating
 
@@ -180,7 +174,7 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
 
 ### CLI conventions
 
-Console scripts are declared in `[project.scripts]` in `pyproject.toml` and point at `main()` / `main_analyze()` in the module. Each entry point defines a local `@dataclass Args` and constructs it with `Args(**vars(parser.parse_args()))` to get a typed view of argparse output — follow that pattern when adding a CLI. To run a module directly, use `python -m serato_tools.<module>`.
+Console scripts are declared in `[project.scripts]` in `pyproject.toml` and point at `main()` / `main_analyze()` in the module. Each entry point defines a local `@dataclass Args` and constructs it with `Args(**vars(parser.parse_args()))` to get a typed view of argparse output — follow that pattern when adding a CLI. Its `main()` (or `__main__` block) is wrapped in `# ruff: disable[...]` / `# ruff: enable[...]` for the rules a CLI breaks on purpose (`T201` for `print`, `PLC0415` for its imports, which load only when it runs), listing only the codes it uses, since Ruff flags an unused one; library code that prints or imports inside a function marks each line `# noqa` instead. To run a module directly, use `python -m serato_tools.<module>`.
 
 ## Repository layout notes
 

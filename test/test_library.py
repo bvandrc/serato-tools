@@ -1,4 +1,3 @@
-# pylint: disable=protected-access
 import logging
 import os
 import subprocess
@@ -7,6 +6,7 @@ from unittest import mock
 
 import pytest
 
+from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.library import Library
 from serato_tools.smart_crate import SmartCrate
@@ -15,6 +15,7 @@ from serato_tools.track_text_frames import TrackTextFrames
 from serato_tools.utils.bin_file_base import DataTypeError, SeratoBinFile
 
 from test.helpers.bin_files import LibraryFolders
+from test.helpers.files import mock_files
 from test.helpers.track_tags import copy_mp3, copy_mp3_without_cues, has_tags_v1
 
 relpath = DatabaseV2.get_relative_path
@@ -59,6 +60,19 @@ def test_files_are_parsed_when_first_needed(folders: LibraryFolders):
     assert library.database is library.database, "database parsed once"
 
 
+def test_crate_files(folders: LibraryFolders):
+    library = Library(folders.serato_dir)
+    assert library.crate_files == [], "no crate folders means no crate files"
+
+    crate_dir, smart_crate_dir = (os.path.join(folders.serato_dir, c.DIR) for c in (Crate, SmartCrate))
+    mock_files({crate_dir: ["House.crate", ".DS_Store"], smart_crate_dir: ["Deep.scrate"]})
+    assert library.crate_files == [
+        os.path.join(crate_dir, "House.crate"),
+        os.path.join(smart_crate_dir, "Deep.scrate"),
+    ], "crates made since the Library was, crates first, and only crate files"
+    assert "crates" not in vars(library), "listing the files doesn't parse them"
+
+
 def test_rename_track_file(folders: LibraryFolders, bin_file_writes: list[str]):
     src, dest = folders.make_track("Old.mp3"), folders.music_path("New.mp3")
     folders.add_to_database(src)
@@ -70,7 +84,8 @@ def test_rename_track_file(folders: LibraryFolders, bin_file_writes: list[str]):
     library = Library(folders.serato_dir)
     changed = library.rename_track_file(src, dest)
 
-    assert os.path.exists(dest) and not os.path.exists(src), "file renamed"
+    assert os.path.exists(dest), "file at its new path"
+    assert not os.path.exists(src), "file gone from its old path"
     assert sorted(bin_file_writes) == sorted([DatabaseV2.FILENAME, "With.crate", "Smart.scrate"]), "only those with it"
     assert sorted(changed) == file_paths_named(library, bin_file_writes), "returns those files"
     old_path, new_path = relpath(src), relpath(dest)
@@ -126,7 +141,8 @@ def test_rename_track_file_not_in_the_library(folders: LibraryFolders, bin_file_
 
     changed = Library(folders.serato_dir).rename_track_file(src, dest)
 
-    assert os.path.exists(dest) and not os.path.exists(src), "file still renamed"
+    assert os.path.exists(dest), "file still at its new path"
+    assert not os.path.exists(src), "file still gone from its old path"
     assert changed == [], "no library file changed"
     assert bin_file_writes == [], "nothing saved"
 
@@ -197,10 +213,14 @@ def test_batch_saves_when_the_block_raises(folders: LibraryFolders, bin_file_wri
     bin_file_writes.clear()
 
     library = Library(folders.serato_dir)
-    with pytest.raises(RuntimeError):  # the exception still propagates
+
+    def rename_then_fail():
         with library.batch():
             library.rename_track_file(src, dest)
             raise RuntimeError("stopped partway")
+
+    with pytest.raises(RuntimeError, match="stopped partway"):  # the exception still propagates
+        rename_then_fail()
 
     assert bin_file_writes == [DatabaseV2.FILENAME]
     assert relpath(dest) in track_paths(library.database), "points at renamed file"
@@ -314,7 +334,7 @@ def test_set_db_track_tags_text_frames(folders: LibraryFolders):
     folders.add_to_database(track)
 
     Library(folders.serato_dir).set_db_tracks_tags(
-        {track: {key: value for key, (value, _, _) in TEXT_FRAMES.items()}}  # type: ignore
+        {track: {key: value for key, (value, _, _) in TEXT_FRAMES.items()}}  # pyright: ignore[reportArgumentType]
     )
 
     frames = TrackTextFrames(track)
@@ -425,13 +445,13 @@ def _then_a_track_with(tags: dict[str, object]):
     "tracks, error, message",
     [
         pytest.param(
-            lambda folders, first: {first: {"color": Colors.RED, "rating": 5}},
+            lambda _folders, first: {first: {"color": Colors.RED, "rating": 5}},
             ValueError,
             "unknown track tags",
             id="an unknown key",
         ),
         pytest.param(
-            lambda folders, first: {first: {"color": Colors.RED}, "Second.flac": {"beatgrid_locked": True}},
+            lambda _folders, first: {first: {"color": Colors.RED}, "Second.flac": {"beatgrid_locked": True}},
             ValueError,
             "unsupported file type",
             id="a later track's file unreadable",

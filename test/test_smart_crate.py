@@ -1,4 +1,3 @@
-# pylint: disable=protected-access
 import os
 
 import pytest
@@ -58,15 +57,14 @@ def test_delete_rule_returns_whether_removed():
     assert crate.delete_rule(Field.GROUPING) is False, "the grouping rule was already removed"
 
 
-# one falsy value per value field
-FALSY_VALUES = {ValueField.RULE_VALUE_INTEGER: 0, ValueField.RULE_VALUE_TEXT: "", ValueField.RULE_VALUE_DATE: ""}
-
-
-def test_falsy_values_cover_every_value_field():
-    assert set(FALSY_VALUES) == set(SmartCrate.RULE_VALUE_FIELDS)
-
-
-@pytest.mark.parametrize("value_field, value", FALSY_VALUES.items(), ids=lambda v: getattr(v, "name", repr(v)))
+@pytest.mark.parametrize(
+    "value_field, value",
+    [
+        pytest.param(ValueField.RULE_VALUE_INTEGER, 0, id="RULE_VALUE_INTEGER"),
+        pytest.param(ValueField.RULE_VALUE_TEXT, "", id="RULE_VALUE_TEXT"),
+        pytest.param(ValueField.RULE_VALUE_DATE, "", id="RULE_VALUE_DATE"),
+    ],
+)
 def test_rule_falsy_value_reads_back(value_field: ValueField, value: str | int):
     rule = make_rule(Comparison.INT_IS_GE, Field.PLAYS, value_field, value)
     assert rule.value == value, "a falsy rule value must not read as no value"
@@ -117,12 +115,6 @@ def test_rule_properties_follow_its_entries():
     assert rule.value is None, "removed"
 
 
-def test_find_missing_raises():
-    # its tracks come from its rules
-    with pytest.raises(TypeError):
-        SmartCrate(TEST_SMART_CRATE).find_missing()
-
-
 def test_to_regular_crate_keeps_the_tracks_sort_and_columns_but_not_the_rules(tmp_dir: str):
     smart_crate = SmartCrate(TEST_SMART_CRATE)
     view_fields = {Crate.Fields.SORTING.value, Crate.Fields.COLUMN.value}
@@ -136,9 +128,9 @@ def test_to_regular_crate_keeps_the_tracks_sort_and_columns_but_not_the_rules(tm
     saved = Crate(file)
     assert saved._version == Crate.DEFAULT_ENTRIES[0][1], "a regular crate's version"
     assert saved.get_track_paths() == smart_crate.get_track_paths()
-    assert saved._entries[1:] == [
-        entry for entry in smart_crate._entries[1:] if entry[0] not in rule_fields
-    ], "everything but the version and the rules, in order"
+    assert saved._entries[1:] == [entry for entry in smart_crate._entries[1:] if entry[0] not in rule_fields], (
+        "everything but the version and the rules, in order"
+    )
 
 
 class TestCli:

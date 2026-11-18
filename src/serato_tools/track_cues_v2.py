@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """The `Serato Markers2` tag, which holds a track's hot cues, loops, flips, color, and beatgrid lock.
 
 Also the `serato_snap_cues_v2` CLI, which sets the color, snaps cues to the beatgrid, or prints the tag's entries.
@@ -12,9 +10,10 @@ import os
 import struct
 import sys
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, unique
-from typing import TYPE_CHECKING, Callable, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from serato_tools.track_cues_v1 import TrackCuesV1
 from serato_tools.utils.track_tags import (
@@ -158,24 +157,12 @@ class TrackCuesV2(SeratoGeobTag):
         """The class for an entry named `entry_name`, such as "CUE", or `UnknownEntry` for a name it doesn't know."""
         return TrackCuesV2._ENTRY_CLASS_BY_NAME.get(entry_name, TrackCuesV2.UnknownEntry)
 
-    class _EntryRepr:
-        """Mixin that provides the old Entry-style __repr__ (FIELDS order)."""
-
-        FIELDS: ClassVar[tuple[str, ...]]
-
-        def __repr__(self) -> str:
-            return "{}({})".format(
-                type(self).__qualname__,
-                ", ".join("{}={!r}".format(f, getattr(self, f)) for f in type(self).FIELDS),
-            )
-
-    @dataclass(repr=False)
-    class UnknownEntry(_EntryRepr):
+    @dataclass
+    class UnknownEntry:
         """Unknown/opaque entry."""
 
         data: bytes
         NAME: ClassVar[str | None] = None
-        FIELDS: ClassVar[tuple[str, ...]] = ("data",)
 
         @classmethod
         def _parse(cls, data: bytes) -> "TrackCuesV2.UnknownEntry":
@@ -184,13 +171,12 @@ class TrackCuesV2(SeratoGeobTag):
         def _serialize(self) -> bytes:
             return self.data
 
-    @dataclass(repr=False)
-    class BpmLockEntry(_EntryRepr):
+    @dataclass
+    class BpmLockEntry:
         """BPM lock state."""
 
         enabled: bool
         NAME: ClassVar[str] = "BPMLOCK"
-        FIELDS: ClassVar[tuple[str, ...]] = ("enabled",)
         _FORMAT: ClassVar[str] = "?"
 
         @classmethod
@@ -201,14 +187,13 @@ class TrackCuesV2(SeratoGeobTag):
         def _serialize(self) -> bytes:
             return struct.pack(self._FORMAT, self.enabled)
 
-    @dataclass(repr=False)
-    class ColorEntry(_EntryRepr):
+    @dataclass
+    class ColorEntry:
         """Track color."""
 
         field1: bytes
         color: bytes
         NAME: ClassVar[str] = "COLOR"
-        FIELDS: ClassVar[tuple[str, ...]] = ("field1", "color")
         _FORMAT: ClassVar[str] = "c3s"
 
         @classmethod
@@ -221,8 +206,8 @@ class TrackCuesV2(SeratoGeobTag):
         def _serialize(self) -> bytes:
             return struct.pack(self._FORMAT, self.field1, self.color)
 
-    @dataclass(repr=False)
-    class CueEntry(_EntryRepr):
+    @dataclass
+    class CueEntry:
         """Cue (hot cue)."""
 
         field1: bytes
@@ -233,15 +218,6 @@ class TrackCuesV2(SeratoGeobTag):
         field6: bytes
         name: str
         NAME: ClassVar[str] = "CUE"
-        FIELDS: ClassVar[tuple[str, ...]] = (
-            "field1",
-            "index",
-            "position",  # in milliseconds
-            "field4",
-            "color",
-            "field6",
-            "name",
-        )
         _FORMAT: ClassVar[str] = ">cBIc3s2s"
 
         @classmethod
@@ -273,8 +249,8 @@ class TrackCuesV2(SeratoGeobTag):
                 )
             )
 
-    @dataclass(repr=False)
-    class LoopEntry(_EntryRepr):
+    @dataclass
+    class LoopEntry:
         """Loop/hot cue loop."""
 
         field1: bytes
@@ -290,17 +266,6 @@ class TrackCuesV2(SeratoGeobTag):
         locked: bool
         name: str
         NAME: ClassVar[str] = "LOOP"
-        FIELDS: ClassVar[tuple[str, ...]] = (
-            "field1",
-            "index",
-            "startposition",
-            "endposition",
-            "field5",
-            "field6",
-            "color",
-            "locked",
-            "name",
-        )
         # the x is a byte that's always 00, so it isn't a field: it's checked on parse and written as 00
         _FORMAT: ClassVar[str] = ">cBII4sc3sx?"
 
@@ -345,13 +310,12 @@ class TrackCuesV2(SeratoGeobTag):
                 )
             )
 
-    @dataclass(repr=False)
-    class FlipEntry(_EntryRepr):
+    @dataclass
+    class FlipEntry:
         """Flip (performance) entry. Flips aren't parsed, so it holds the raw bytes and writes them back unchanged."""
 
         _raw_data: bytes
         NAME: ClassVar[str] = "FLIP"
-        FIELDS: ClassVar[tuple[str, ...]] = ("_raw_data",)
 
         @classmethod
         def _parse(cls, data: bytes) -> "TrackCuesV2.FlipEntry":
@@ -368,7 +332,6 @@ class TrackCuesV2(SeratoGeobTag):
 
     def _parse(self, data: bytes):
         # the entry classes' _parse() / _serialize() are internal to this module
-        # pylint: disable=protected-access
         self._check_version(data[: self.VERSION_LEN])
         data = data[self.VERSION_LEN :]  # b64data
         try:
@@ -386,7 +349,7 @@ class TrackCuesV2(SeratoGeobTag):
         while True:
             if num_entries >= MAX_PARSE_ENTRIES:
                 raise ValueError(f"cue payload has more than {MAX_PARSE_ENTRIES} entries; malformed or unsupported")
-            entry_name = SeratoGeobTag._readbytes(fp).decode("utf-8")
+            entry_name = SeratoGeobTag._readbytes(fp).decode("utf-8")  # noqa: SLF001
             if not entry_name:
                 break
             entry_len = struct.unpack(">I", fp.read(4))[0]
@@ -394,17 +357,16 @@ class TrackCuesV2(SeratoGeobTag):
                 raise ValueError(f"{entry_name} entry has no data")
 
             entry_class = TrackCuesV2._get_entry_class(entry_name)
-            yield entry_class._parse(fp.read(entry_len))
+            yield entry_class._parse(fp.read(entry_len))  # noqa: SLF001
             num_entries += 1
 
     def _serialize(self):
         # the entry classes' _parse() / _serialize() are internal to this module
-        # pylint: disable=protected-access
         version = self._pack_version()
 
         contents: list[bytes] = [version]
         for entry in self.entries:
-            data = entry._serialize()
+            data = entry._serialize()  # noqa: SLF001
             if entry.NAME is not None:
                 data = b"".join(
                     (
@@ -670,6 +632,7 @@ class TrackCuesV2(SeratoGeobTag):
 
 def main():
     """The `serato_snap_cues_v2` CLI: sets the track color, snaps cues to the beatgrid, or prints the entries."""
+    # ruff: disable[PLC0415, T201]
     import argparse
     import math
 
@@ -753,6 +716,7 @@ def main():
     width = math.floor(math.log10(len(tags.entries))) + 1
     for entry_index, entry in enumerate(tags.entries):
         print("{:{}d}: {!r}".format(entry_index, width, entry))
+    # ruff: enable[PLC0415, T201]
 
 
 if __name__ == "__main__":
