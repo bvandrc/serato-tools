@@ -3,7 +3,7 @@
 import os
 import posixpath
 import sys
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import IntEnum, StrEnum, unique
@@ -52,7 +52,7 @@ class SmartCrate(CrateBase):
     )
 
     # each comparison names its value's type in its suffix (cond_is_str, cond_bef_time, cond_greq_uint)
-    _RULE_VALUE_FIELD_BY_COMPARISON_SUFFIX: ClassVar[dict[str, RuleFields]] = {
+    _RULE_VALUE_FIELD_BY_COMPARISON_SUFFIX: ClassVar[Mapping[str, RuleFields]] = {
         "str": RuleFields.RULE_VALUE_TEXT,
         "time": RuleFields.RULE_VALUE_DATE,
         "uint": RuleFields.RULE_VALUE_INTEGER,
@@ -94,7 +94,7 @@ class SmartCrate(CrateBase):
         INT_IS_LE = "cond_lseq_uint"
 
     # the database field each rule field tests; FILENAME tests the file name in the track's path
-    _DB_FIELD_BY_RULE_FIELD: ClassVar[dict[RuleField, CrateBase.Fields]] = {
+    _DB_FIELD_BY_RULE_FIELD: ClassVar[Mapping[RuleField, CrateBase.Fields]] = {
         RuleField.ADDED: CrateBase.Fields.DATE_ADDED_U,
         RuleField.ALBUM: CrateBase.Fields.ALBUM,
         RuleField.ARTIST: CrateBase.Fields.ARTIST,
