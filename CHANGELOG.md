@@ -48,12 +48,11 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Use its `full_path` property.
 - **[BREAKING] Removed:** `get_entries_filtered(track_matcher)` on the database, crates, and smart crates, deprecated in 5.8.0.
   - **Upgrading:** Use `get_entries(track_matcher)`.
-- **[BREAKING]** `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`.
-  - **Upgrading:** Import them from `serato_tools.utils.bin_file_base`.
-- **[BREAKING]** A database or crate file with a number field that isn't the 2 or 4 bytes its type holds raises `ValueError` rather than `struct.error`.
-  - **Upgrading:** Catch `ValueError`.
-- **[BREAKING]** A database or crate file with no version entry, such as an empty one, raises `ValueError` rather than `AttributeError`.
-  - **Upgrading:** Catch `ValueError`.
+- **[BREAKING] Error types:**
+  - `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`.
+  - A database or crate file with a number field that isn't the 2 or 4 bytes its type holds now raises `ValueError` rather than `struct.error`.
+  - A database or crate file with no version entry, such as an empty one, now raises `ValueError` rather than `AttributeError`.
+  - **Upgrading:** Import those two errors from `serato_tools.utils.bin_file_base`, and catch `ValueError`.
 - **Feature:** A smart crate rule's `comparison` is typed as `str` and its `field` as `int`, rather than as any value an entry can hold.
 
 ### Track Tags
