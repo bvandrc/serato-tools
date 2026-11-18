@@ -101,14 +101,6 @@ class CrateBase(SeratoBinFile):
 
         self.add_tracks(dir_tracks)
 
-    @staticmethod
-    def name_from_path(path: str) -> str:
-        """The name of the crate or smart crate file at `path`: its filename without the extension.
-
-        A subcrate's name includes its parents', joined as in its filename (`Bass%%DnB`).
-        """
-        return os.path.splitext(os.path.basename(path))[0]
-
     @classmethod
     def get_crate_files(cls, file_or_dir: str | None = None) -> list[str]:
         """The paths of this class's crate files directly in `file_or_dir`, or just `file_or_dir` if it's a file.

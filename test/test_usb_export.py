@@ -68,6 +68,7 @@ def matched_names(pattern: str) -> set[str]:
         ),
         pytest.param(["house.crate", "house.scrate"], "*.scrate", set(), id="glob can't match the extension"),
         pytest.param(["house.crate", "deep.crate"], "use$", {"house.crate"}, id="regex ignores the extension"),
+        pytest.param(["Pop, Rock, etc..crate"], "*etc.", {"Pop, Rock, etc..crate"}, id="name ending in a dot"),
         pytest.param(
             ["Bass.crate", "Bass%%DnB.crate", "House.crate"],
             "Bass*",

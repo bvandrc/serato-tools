@@ -25,7 +25,6 @@ from serato_tools.utils import (
     logger,
 )
 from serato_tools.utils.bin_file_base import SeratoBinFile
-from serato_tools.utils.crate_base import CrateBase
 
 # TODO: put in folders if there are different locations locally for the same basename
 
@@ -245,7 +244,7 @@ def get_crate_files(pattern: str):
     tried as a glob, and if nothing matches it, as a regex.
     """
     filepaths = Library(LOCAL_SERATO_DIR).crate_files
-    crate_names = {f: CrateBase.name_from_path(f) for f in filepaths}
+    crate_names = {f: os.path.splitext(os.path.basename(f))[0] for f in filepaths}
 
     # try the pattern as a glob first: most globs (e.g. "house*") are also valid regexes, so
     # checking re.compile first would silently give glob-looking patterns regex semantics

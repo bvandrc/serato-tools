@@ -86,19 +86,6 @@ def run_cli(*args: str) -> str:
     return stdout.getvalue()
 
 
-@pytest.mark.parametrize(
-    "path, name",
-    [
-        pytest.param(os.path.join("Subcrates", "House.crate"), "House", id="crate"),
-        pytest.param(os.path.join("SmartCrates", "House.scrate"), "House", id="smart crate"),
-        pytest.param("Bass%%DnB.crate", "Bass%%DnB", id="subcrate keeps its parents"),
-        pytest.param("Pop, Rock, etc..crate", "Pop, Rock, etc.", id="name ending in a dot"),
-    ],
-)
-def test_name_from_path(path: str, name: str):
-    assert Crate.name_from_path(path) == name
-
-
 def test_cli_lists_a_crates_tracks():
     crate = Crate(TEST_CRATE)
     assert run_cli(TEST_CRATE, "-l").splitlines() == crate.get_track_paths(include_drive=True), "absolute paths"
