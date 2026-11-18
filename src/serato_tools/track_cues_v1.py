@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """The legacy `Serato Markers_` tag: a track's first 5 cues, 9 loops, and color, which `Serato Markers2` also holds."""
 
 import enum
@@ -86,9 +84,7 @@ class TrackCuesV1(SeratoGeobTag):
         FIELDS: ClassVar[tuple[str, ...]]
 
         def __repr__(self) -> str:
-            return "{}({})".format(
-                type(self).__name__, ", ".join("{}={!r}".format(f, getattr(self, f)) for f in self.FIELDS)
-            )
+            return "{}({})".format(type(self).__name__, ", ".join(f"{f}={getattr(self, f)!r}" for f in self.FIELDS))
 
     @dataclass(repr=False)
     class Entry(_EntryRepr):
@@ -163,7 +159,6 @@ class TrackCuesV1(SeratoGeobTag):
 
     def _parse(self, data: bytes):
         # the entry classes' _parse() / _serialize() are internal to this module
-        # pylint: disable=protected-access
         fp = io.BytesIO(data)
         self._check_version(fp.read(self.VERSION_LEN))
 
@@ -173,10 +168,10 @@ class TrackCuesV1(SeratoGeobTag):
             if len(entry_data) != 0x16:
                 raise ValueError(f"tag ends partway through an entry: {len(entry_data)} of its 22 bytes")
 
-            entry = TrackCuesV1.Entry._parse(entry_data)
+            entry = TrackCuesV1.Entry._parse(entry_data)  # noqa: SLF001
             yield entry
 
-        yield TrackCuesV1.Color._parse(fp.read())
+        yield TrackCuesV1.Color._parse(fp.read())  # noqa: SLF001
 
     def delete(self):
         """Deletes the tag in memory, returning whether the file had it; call `save()` to write the deletion."""
@@ -186,7 +181,6 @@ class TrackCuesV1(SeratoGeobTag):
 
     def _serialize(self):
         # the entry classes' _parse() / _serialize() are internal to this module
-        # pylint: disable=protected-access
         entries = self.entries
         # the trailing Color entry doubles as the format's footer: it is not counted in num_entries,
         # so serializing without it (or with it anywhere else) would write a tag Serato cannot parse
@@ -198,11 +192,12 @@ class TrackCuesV1(SeratoGeobTag):
         num_entries = len(entries) - 1
         data += struct.pack(">I", num_entries)
         for entry_data in entries:
-            data += entry_data._serialize()
+            data += entry_data._serialize()  # noqa: SLF001
         self._raw_data = data
 
 
 if __name__ == "__main__":
+    # ruff: disable[T201]
     import argparse
     import math
 
@@ -229,3 +224,4 @@ if __name__ == "__main__":
     width = math.floor(math.log10(len(entries))) + 1
     for entry_index, entry in enumerate(entries):
         print("{:{}d}: {!r}".format(entry_index, width, entry))
+    # ruff: enable[T201]

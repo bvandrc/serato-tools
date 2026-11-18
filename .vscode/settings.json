@@ -5,10 +5,9 @@
     "reportPrivateImportUsage": "none"
   },
   "python.analysis.typeCheckingMode": "basic",
-  "black-formatter.importStrategy": "fromEnvironment",
-  "pylint.importStrategy": "fromEnvironment",
+  "ruff.importStrategy": "fromEnvironment",
   "[python]": {
-    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.defaultFormatter": "charliermarsh.ruff",
     "editor.formatOnSave": true
   }
 }

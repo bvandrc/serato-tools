@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  # on every Python version, since pylint and pyright check against the running one (3.12 catches use of anything newer,
-  # later versions catch deprecations and removals), but on one OS, since the results don't depend on it
+  # on every Python version, since pyright checks against the running one (3.12 catches use of anything newer, later
+  # versions catch deprecations and removals), but on one OS, since the results don't depend on it
   lint:
     name: "Lint (${{ matrix.python-version }})"
     runs-on: ubuntu-latest
@@ -31,22 +31,19 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install ".[all,dev]"
 
-    - name: Lint (Pylint)
-      run: pylint $(git ls-files '*.py')
-
-    - name: Lint (PyRight)
+    - name: Type Check
       uses: jakebailey/pyright-action@v1
       with:
         working-directory: .
 
-    # isort's and black's output don't depend on the Python version
-    - name: Import Order Check (isort)
+    # Ruff's output doesn't depend on the Python version: it checks against requires-python, not the running one
+    - name: Lint
       if: matrix.python-version == '3.12'
-      run: isort --check-only --diff .
+      run: ruff check --output-format=github .
 
-    - name: Format Check (Black)
+    - name: Format Check
       if: matrix.python-version == '3.12'
-      uses: psf/black@stable
+      run: ruff format --check --diff .
 
   test:
     name: "Test (${{ matrix.os }}, ${{ matrix.python-version }})"

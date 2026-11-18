@@ -1,13 +1,11 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """A Serato library folder as a whole, for changes that have to reach its database and every crate together."""
 
 import os
-from collections.abc import Collection, Generator
+from collections.abc import Callable, Collection, Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING, Callable, Mapping, Unpack
+from typing import TYPE_CHECKING, Unpack
 
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
@@ -50,7 +48,7 @@ def _db_track_props():  # return type left to pyright, which infers the module a
     without it.
     """
     try:
-        from serato_tools import db_track_props  # pylint: disable=import-outside-toplevel
+        from serato_tools import db_track_props  # noqa: PLC0415
     except ModuleNotFoundError as error:
         if (error.name or "").split(".")[0] != "mutagen":
             raise
@@ -90,6 +88,14 @@ class Library:
         """The library's smart crates, from its `SmartCrates` folder."""
         return [SmartCrate(path) for path in self._get_crate_files(SmartCrate)]
 
+    @property
+    def crate_files(self) -> list[str]:
+        """The paths of the library's crate and smart crate files, crates first, without parsing them.
+
+        Read from disk on each access, so it includes crates made since the Library was.
+        """
+        return self._get_crate_files(Crate) + self._get_crate_files(SmartCrate)
+
     def _get_crate_files(self, crate_class: type[CrateBase]) -> list[str]:
         crates_dir = os.path.join(self.serato_dir, crate_class.DIR)
         # Serato only creates the folder once the first crate of its kind is made
@@ -122,8 +128,9 @@ class Library:
         """
         saved: list[str] = []
         for file in self._get_parsed_bin_files():
+            # a loop rather than a comprehension, so the save isn't hidden in its filter
             if file.save():
-                saved.append(file.filepath)
+                saved.append(file.filepath)  # noqa: PERF401
         return saved
 
     @contextmanager

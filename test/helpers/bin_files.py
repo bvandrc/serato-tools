@@ -62,7 +62,7 @@ class LibraryFolders:
         """A crate, or a smart crate, of `tracks` in the library folder, named as Serato names its file."""
         path = os.path.join(self.serato_dir, crate_class.DIR, name + crate_class.EXTENSION)
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        crate = crate_class(path)
+        crate = crate_class.new(path)
         crate.add_tracks(tracks)
         crate.save()
         return crate.filepath
@@ -73,7 +73,7 @@ class LibraryFolders:
         for track in tracks:
             entries = [(DatabaseV2.Fields.FILE_PATH, DatabaseV2.get_relative_path(track)), *(fields or [])]
             # the database has no method that adds a track
-            db._entries.append((DatabaseV2.Fields.TRACK, entries))  # pylint: disable=protected-access
+            db._entries.append((DatabaseV2.Fields.TRACK, entries))
         db.save()
 
     def db_track(self, track: str) -> SeratoBinFile.Track:

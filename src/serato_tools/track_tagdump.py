@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """Dumps every Serato tag in an audio file, of any container mutagen reads, for inspecting or capturing raw tag data."""
 
 import base64
@@ -7,7 +5,7 @@ import os
 import sys
 from dataclasses import dataclass
 
-import mutagen._file
+import mutagen
 import mutagen.aiff
 import mutagen.flac
 import mutagen.mp3
@@ -18,7 +16,7 @@ from serato_tools.utils import logger
 from serato_tools.utils.track_tags import get_geob
 
 
-def get_serato_tagdata(tagfile: mutagen._file.FileType, decode: bool = False):
+def get_serato_tagdata(tagfile: mutagen.FileType, decode: bool = False):
     """Each of the file's Serato tags, as its name and its data.
 
     Reads ID3 (MP3, AIFF), FLAC, MP4, and Ogg Vorbis files. FLAC and MP4 files store each tag base64-encoded, which
@@ -28,7 +26,7 @@ def get_serato_tagdata(tagfile: mutagen._file.FileType, decode: bool = False):
         raise ValueError(f"file has no tags: {tagfile.filename}")
 
     if isinstance(tagfile, (mutagen.mp3.MP3, mutagen.aiff.AIFF)):
-        for tagname in tagfile.tags.keys():
+        for tagname in tagfile.tags:
             tagname = str(tagname)
             if tagname.startswith("GEOB:Serato"):
                 tagvalue = get_geob(tagfile, tagname[len("GEOB:") :])
@@ -37,9 +35,9 @@ def get_serato_tagdata(tagfile: mutagen._file.FileType, decode: bool = False):
                 yield tagname[5:], tagvalue
 
     elif isinstance(tagfile, (mutagen.flac.FLAC, mutagen.mp4.MP4)):
-        for tagname, tagvalue in tagfile.tags.items():  # type: ignore
+        for tagname, tagvalue in tagfile.tags.items():  # pyright: ignore[reportAttributeAccessIssue]
             tagname = str(tagname)
-            if not (tagname.startswith("serato_") or tagname.startswith("----:com.serato.dj:")):
+            if not (tagname.startswith(("serato_", "----:com.serato.dj:"))):
                 continue
 
             tagvalue = tagvalue[0]
@@ -71,7 +69,7 @@ def get_serato_tagdata(tagfile: mutagen._file.FileType, decode: bool = False):
             yield fieldname, fielddata if decode else encoded_data
 
     elif isinstance(tagfile, mutagen.oggvorbis.OggVorbis):
-        for tagname, tagvalue in tagfile.tags.items():  # type: ignore
+        for tagname, tagvalue in tagfile.tags.items():  # pyright: ignore[reportGeneralTypeIssues]
             tagname = str(tagname)
             tagvalue = tagvalue[0]
             if not tagname.startswith("serato_"):
@@ -82,6 +80,7 @@ def get_serato_tagdata(tagfile: mutagen._file.FileType, decode: bool = False):
 
 
 if __name__ == "__main__":
+    # ruff: disable[T201]
     import argparse
 
     @dataclass
@@ -97,8 +96,7 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--decode", action="store_true")
     args = Args(**vars(parser.parse_args()))
 
-    # pylint: disable-next=protected-access
-    tagfile: mutagen._file.FileType | None = mutagen._file.File(args.input_file)
+    tagfile: mutagen.FileType | None = mutagen.File(args.input_file)
 
     # not `if not tagfile`: an audio file with no tags, or ID3 tags with no frames, is falsy
     if tagfile is None:
@@ -107,7 +105,7 @@ if __name__ == "__main__":
         sys.exit(f"file has no tags: {args.input_file}")
 
     for field, value in get_serato_tagdata(tagfile, decode=args.decode):
-        log_str = f'field {field} { "decoded " if args.decode else "" }value: {value}'
+        log_str = f"field {field} {'decoded ' if args.decode else ''}value: {value}"
         if args.output_dir:
             filepath = os.path.join(args.output_dir, f"{field}.octet-stream")
             print(log_str + f" (written to file {filepath})")
@@ -115,3 +113,4 @@ if __name__ == "__main__":
                 fp.write(value)
         else:
             print(log_str)
+    # ruff: enable[T201]

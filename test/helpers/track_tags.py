@@ -7,7 +7,7 @@ Needs the track_tags extra (mutagen), so only tests of track tags import it.
 import contextlib
 import os
 import struct
-from typing import Iterator
+from collections.abc import Iterator
 from unittest import mock
 
 from mutagen.aiff import AIFF
@@ -91,7 +91,8 @@ def aiff_with_the_mp3s_tags(folder: str, name: str = "test.aif") -> str:
     aiff = AIFF(path)
     aiff.add_tags()
     mp3_tags = MP3(TEST_MP3).tags
-    assert aiff.tags is not None and mp3_tags is not None
+    assert aiff.tags is not None
+    assert mp3_tags is not None
     for frame in mp3_tags.values():
         aiff.tags.add(frame)
     aiff.save()
@@ -124,7 +125,7 @@ def has_tags_v1(path: str) -> bool:
 
 def cue_positions(tags: TrackCuesV2) -> list[int]:
     """The position of each of `tags`' cues, in order."""
-    return [cue.position for cue in tags._from_entries().cues]  # pylint: disable=protected-access
+    return [cue.position for cue in tags._from_entries().cues]
 
 
 @contextlib.contextmanager

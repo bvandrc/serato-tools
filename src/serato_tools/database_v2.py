@@ -1,9 +1,8 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """Serato's library database (`database V2`), which holds every track's path and the values Serato shows for it."""
 
 import os
 from dataclasses import dataclass
+from typing import ClassVar
 
 from serato_tools.utils import SERATO_DIR
 from serato_tools.utils.bin_file_base import SeratoBinFile
@@ -22,14 +21,12 @@ class DatabaseV2(SeratoBinFile):
     DEFAULT_DATABASE_FILE = os.path.join(SERATO_DIR, FILENAME)
     TRACK_PATH_KEY = SeratoBinFile.Fields.FILE_PATH
 
-    DEFAULT_ENTRIES = [
+    DEFAULT_ENTRIES: ClassVar[SeratoBinFile.EntryList] = [
         (SeratoBinFile.Fields.VERSION, "2.0/Serato Scratch LIVE Database"),
     ]
 
     def __init__(self, file: str = DEFAULT_DATABASE_FILE):
-        """Parses the database at `file`; raises FileNotFoundError if it doesn't exist, rather than creating one."""
-        if not os.path.exists(file):
-            raise FileNotFoundError(f"file does not exist: {file}")
+        """Parses the database at `file`, Serato's own by default; raises FileNotFoundError if it doesn't exist."""
         super().__init__(file=file)
 
     def get_corrupt_tracks(self) -> dict[str, str]:
@@ -44,6 +41,7 @@ class DatabaseV2(SeratoBinFile):
 
 
 if __name__ == "__main__":
+    # ruff: disable[T201]
     import argparse
 
     @dataclass
@@ -68,3 +66,4 @@ if __name__ == "__main__":
             print(f"{path}: {reason}")
     else:
         print(db)
+    # ruff: enable[T201]
