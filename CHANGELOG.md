@@ -104,7 +104,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Feature:** Add a `full_path` property to a database or crate track: its absolute path.
   - **Deprecated:** A track's `get_full_path()`, in favor of `full_path`. It still works until 6.0 removes it.
 - **Feature:** `SmartCrate.delete_rule` now returns whether the crate had a rule on that field to remove.
-- **Fix:** A database or crate track's `relpath`, and a smart crate rule's `comparison`, `field`, and `value`, now read the track's or rule's current entries, so they no longer keep a value set through `set_value` or removed through `remove_field`. In particular, a `modify()` rule after one that changes a track's path now gets the new path. They're now read-only: change it through `set_path`, `set_value`, or the rule's setters.
+- **Fix:** A database or crate track's `relpath`, and a smart crate rule's `comparison`, `field`, and `value`, now read the track's or rule's current entries, so they no longer keep a value set through `set_value` or removed through `remove_field`. In particular, a `modify()` rule after one that changes a track's path now gets the new path. They're now read-only: change one through `set_path`, `set_value`, or the rule's setters.
 - **Fix:** Setting a track's path to a value that isn't text, through `set_value`, now raises `DataTypeError`.
 - **Fix:** `modify_tracks`, and so `modify`, now change no track when `func` raises for one, rather than keeping the changes to the tracks before it.
 - **Fix:** A crate's `add_tracks`, and so `add_tracks_from_dir`, now skip a track already in the crate in another casing, and `remove_duplicates` removes a repeat of a track's path in another casing. Before, a crate could hold one track twice, under paths differing only in case.
@@ -239,7 +239,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Database / Crates
 
-- **Feature:** Name more database track fields, so they're printed with a name instead of `Unknown Field`: `COMMENT`, `REMIXER`, `TRACK_NUMBER`, `DISC_NUMBER`, `PLAY_COUNT`, `COLOR` (the track color, as `0xRRGGBB`), `CORRUPT_REASON`, `READ_ONLY`, and `OVERVIEW_BUILT` (waveform created).
+- **Feature:** Name more database track fields, so they're printed with a name instead of `Unknown Field`, and can be used in `DatabaseV2.modify`: `COMMENT`, `REMIXER`, `TRACK_NUMBER`, `DISC_NUMBER`, `PLAY_COUNT`, `COLOR` (the track color, as `0xRRGGBB`), `CORRUPT_REASON`, `READ_ONLY`, and `OVERVIEW_BUILT` (waveform created).
   - The smart crate field holding the on/off value of "match all" and "live update" is named too: `SmartCrate.RuleFields.SETTING_VALUE`.
 - **Feature:** Add `DatabaseV2.get_corrupt_tracks`, and `--list_corrupt` to the database CLI, which list the tracks Serato marked corrupt along with the reason Serato gives.
 
