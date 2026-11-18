@@ -72,7 +72,7 @@ Each release groups its changes by the part of the package they're in. Within ea
     - For `snap_positions_to_beat` and `snap_positions_to_beat_rule`, use `Track.snap_cues_to_beats`, or `TrackCuesV2.snap_cues_to_beats(beatgrid, ...)` with a beatgrid you pass it. Both return the moves rather than printing them. There's no rule to pass to `modify_entries`: snap, then make any other edits, before saving.
     - For `get_snapped_beat_ms`, use `TrackBeatgrid.get_snapped_position` (e.g. `track.beatgrid.get_snapped_position`).
     - For `get_beat_position(entry)`, use `beatgrid.get_beat_position(entry.position)`.
-- **[BREAKING] Removed:** The `FIELDS` tuple on `TrackCuesV2`'s entry classes (`CueEntry`, `LoopEntry`, `ColorEntry`, `BpmLockEntry`, `FlipEntry`, and `UnknownEntry`).
+- **[BREAKING] Removed:** The `FIELDS` tuple on `TrackCuesV2`'s entry classes (`CueEntry`, `LoopEntry`, `ColorEntry`, etc.).
   - **Upgrading:** Use `dataclasses.fields`: `[f.name for f in dataclasses.fields(TrackCuesV2.CueEntry)]`.
 - **[BREAKING] Removed (CLI):** The CLIs' edit modes: `-e` / `--edit` on `serato_snap_cues_v2`, `python -m serato_tools.track_cues_v1`, and `python -m serato_tools.track_autotags`.
   - **Upgrading:** Change a tag through its class's methods instead, such as `TrackCuesV2.modify_entries` and `set_track_color`, or `TrackAutotags.set`.
