@@ -81,7 +81,6 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Use `ID3FileTag` and `SeratoGeobTag`.
 - **[BREAKING] Removed:** The `FIELDS` tuple on `TrackCuesV2`'s entry classes (`CueEntry`, `LoopEntry`, `ColorEntry`, etc.).
   - **Upgrading:** Use `dataclasses.fields`: `[f.name for f in dataclasses.fields(TrackCuesV2.CueEntry)]`.
-- **Fix:** An error from `mutagen` opening a track file names the file in the error itself, rather than in a separate error logged before it.
 - **Deprecated:** Passing `delete_tags_v1` to an edit method isn't removed yet: it stays deprecated until a future major release. Pass it to `save()` instead.
 
 ### USB Export
@@ -90,7 +89,22 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Drop the extension from your patterns: `"house*"` rather than `"house*.crate"`. A pattern can no longer choose crates or smart crates by their extension.
 - **[BREAKING]** `copy_crates_to_usb`, and so `serato_usb_export`, raise `FileNotFoundError` when none of the crates' tracks are found, such as when the music is on a drive that isn't plugged in, rather than logging an error and returning. The CLI exits with an error.
   - **Upgrading:** Catch `FileNotFoundError` if you call `copy_crates_to_usb`. Some tracks missing, but not all, still only logs an error for each.
-- **Feature:** The export shows a progress bar while it copies tracks, with a count, rate, and time left, through `tqdm`, which the package now installs. It replaces the percentage it printed, which stopped short of 100%.
+- **Feature:** The export shows a progress bar while it copies tracks, with a count, rate, and time left, through `tqdm`, which the package now installs. It replaces the percentage it printed.
+
+## [5.8.1] - 2026-11-18
+
+### Database / Crates / USB Export
+
+- **Fix:** `SmartCrate.to_regular_crate` no longer warns that its file doesn't exist, so USB export no longer logs that warning for each smart crate it writes to a drive. It also no longer reads a file already at that path, which it replaces, so a damaged crate left on the drive no longer stops the export.
+
+### Track Tags
+
+- **Fix:** An error from `mutagen` opening a track file names the file in the error itself, rather than in a separate error logged before it.
+
+### USB Export
+
+- **Fix:** The percentage USB export prints while it copies tracks now reaches 100%, rather than stopping one track short.
+- **Fix:** A track whose file is missing is now logged as an error, rather than as a warning starting `ERROR:`.
 
 ## [5.8.0] - 2026-11-18
 
@@ -636,7 +650,8 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** First release on PyPI, for changing Serato's library database and track metadata.
 
-[6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.8.0...v6.0.0
+[6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.8.1...v6.0.0
+[5.8.1]: https://github.com/bvandrc/serato-tools/compare/v5.8.0...v5.8.1
 [5.8.0]: https://github.com/bvandrc/serato-tools/compare/v5.7.0...v5.8.0
 [5.7.0]: https://github.com/bvandrc/serato-tools/compare/v5.6.1...v5.7.0
 [5.6.1]: https://github.com/bvandrc/serato-tools/compare/v5.6.0...v5.6.1
