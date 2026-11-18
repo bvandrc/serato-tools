@@ -4,18 +4,11 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ## [5.8.1] - 2026-11-18
 
-### Database / Crates / USB Export
-
-- **Fix:** `SmartCrate.to_regular_crate` no longer warns that its file doesn't exist, so USB export no longer logs that warning for each smart crate it writes to a drive. It also no longer reads a file already at that path, which it replaces, so a damaged crate left on the drive no longer stops the export.
-
-### Track Tags
-
-- **Fix:** An error from `mutagen` opening a track file names the file in the error itself, rather than in a separate error logged before it.
-
 ### USB Export
 
-- **Fix:** The percentage USB export prints while it copies tracks now reaches 100%, rather than stopping one track short.
-- **Fix:** A track whose file is missing is now logged as an error, rather than as a warning starting `ERROR:`.
+- **Fix:** No more "File does not exist" warning for each smart crate exported, from `SmartCrate.to_regular_crate`.
+  - A damaged crate left on the drive is now replaced, rather than stopping the export.
+- **Fix:** The progress percentage now reaches 100%.
 
 ## [5.8.0] - 2026-11-18
 
