@@ -22,6 +22,16 @@ def test_parse():
     ]
 
 
+def test_a_locked_loop_round_trips():
+    # every loop in the fixture is unlocked; entry 5 is its first loop, and an entry's byte 21 is is_locked
+    is_locked = 6 + 0x16 * 5 + 21
+    data = DATA[:is_locked] + b"\x01" + DATA[is_locked + 1 :]
+    tags = TrackCuesV1(data)
+    tags._raw_data = None  # so only _serialize can put the bytes back
+    tags._serialize()
+    assert tags._raw_data == data
+
+
 @pytest.mark.parametrize(
     "keep",
     [
