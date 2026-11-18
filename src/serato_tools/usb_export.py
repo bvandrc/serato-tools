@@ -14,6 +14,8 @@ import shutil
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
+from tqdm import tqdm
+
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.library import Library
@@ -54,6 +56,8 @@ def copy_crates_to_usb(
       columns but not their rules, since Serato can't use a smart crate on a drive.
     - A track whose file is already on the drive, unchanged, isn't copied again. Its stems file is copied too.
     - Given `root_crate`, every crate goes inside a crate of that name.
+    - A track whose file is missing is skipped, logging an error. Raises FileNotFoundError if every one is missing, such
+      as when the library's music is on a drive that isn't plugged in.
     """
     if not os.path.isdir(dest_drive_dir):
         raise FileNotFoundError(f"destination drive directory does not exist: {dest_drive_dir}")
@@ -215,7 +219,7 @@ def _copy_tracks(track_paths: list[str], dest_dir: str):
             logger.info(f"copying {src_path}")
             shutil.copy2(src_path, dst_path)
 
-    for index, src_path in enumerate(src_paths, start=1):
+    for src_path in tqdm(src_paths, desc="Copying tracks", unit="track"):
         maybe_copy(src_path)
 
         stem_files = find_stem_files(src_path)
@@ -223,18 +227,13 @@ def _copy_tracks(track_paths: list[str], dest_dir: str):
             raise ValueError(f"more than 1 stems file for {src_path}: {', '.join(stem_files)}")
         if stem_files:
             maybe_copy(stem_files[0])
-        # after the copy, so the last track ends it at 100%
-        print(f"{index / len(src_paths) * 100:.1f}%", end="\r", flush=True)
-    print("\n")
 
     if src_paths and len(not_found) == len(src_paths):
-        logger.error("No source files found.")
-        uniq_dirs = list({os.path.dirname(d) for d in src_paths})
-        logger.error(f"Directories: \n{'\n    '.join(uniq_dirs)}")
-        return
+        uniq_dirs = sorted({os.path.dirname(d) for d in src_paths})
+        raise FileNotFoundError("none of the tracks were found, in these folders:\n    " + "\n    ".join(uniq_dirs))
 
     for n in not_found:
-        logger.warning(f"ERROR: does not exist - {n}")
+        logger.error(f"does not exist - {n}")
 
 
 def get_crate_files(pattern: str):

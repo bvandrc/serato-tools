@@ -65,13 +65,16 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Feature:** Add `TrackTextFrames` (`serato_tools.track_text_frames`) and `Track.text_frames`, which read and set a track's ID3 text frames, and its comment as Serato does. `TrackTextFrames.Fields` names the frames Serato shows (`Fields.TITLE`, ...), and `""` removes a frame.
 - **Feature:** Add `Track.snap_cues_to_beats(tolerance_beats)` and `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)`, which snap cues to the beatgrid in memory and return each move as a `SnappedCue`, and `TrackBeatgrid.get_snapped_position` for a single position.
 - **Feature (CLI):** `serato_snap_cues_v2 --snap_cues` says which cue each move was for, and which tag a track is missing.
+- **Fix:** An error from `mutagen` opening a track file names the file.
 - **Deprecated:** Passing `delete_tags_v1` to an edit method, rather than to `save()`, stays deprecated until a future major release.
 
 ### USB Export
 
 - **[BREAKING]** `get_crate_files` and `serato_usb_export --crate_matcher` match a pattern against the crate's name without its `.crate` or `.scrate` extension.
   - **Upgrading:** Drop the extension: `"house*"` rather than `"house*.crate"`.
-- **Fix:** The export's progress ends at 100%.
+- **[BREAKING]** When none of the crates' tracks are found (e.g. the music drive isn't plugged in), `copy_crates_to_usb` raises `FileNotFoundError` and `serato_usb_export` exits with an error, rather than logging one and returning.
+  - **Upgrading:** Catch `FileNotFoundError` if you call `copy_crates_to_usb`. Some tracks missing, but not all, still only logs each.
+- **Feature:** The export shows a progress bar, with a count, rate, and time left. The package now installs `tqdm` for it.
 
 ## [5.8.0] - 2026-11-18
 
