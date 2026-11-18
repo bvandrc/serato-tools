@@ -81,8 +81,8 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Use `ID3FileTag` and `SeratoGeobTag`.
 - **[BREAKING] Removed:** The `FIELDS` tuple on `TrackCuesV2`'s entry classes (`CueEntry`, `LoopEntry`, `ColorEntry`, etc.).
   - **Upgrading:** Use `dataclasses.fields`: `[f.name for f in dataclasses.fields(TrackCuesV2.CueEntry)]`.
-- **Fix:** `TrackCuesV1` now raises `ValueError` for a `Serato Markers_` tag unlike any Serato writes, rather than risk rewriting one it doesn't understand.
 - **Fix:** An error from `mutagen` opening a track file names the file in the error itself, rather than in a separate error logged before it.
+- **Fix:** `TrackCuesV1` now raises `ValueError` for a `Serato Markers_` tag unlike any Serato writes, rather than risk rewriting one it doesn't understand.
 - **Deprecated:** Passing `delete_tags_v1` to an edit method isn't removed yet: it stays deprecated until a future major release. Pass it to `save()` instead.
 
 ### USB Export
