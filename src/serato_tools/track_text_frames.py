@@ -68,7 +68,7 @@ class _SeratoComment:
 
     def keys(self) -> list[str]:
         """The keys of the file's COMM frames that Serato could show, in the file's order: all but iTunes' data."""
-        return [key for key in self.tagfile.keys() if key.startswith("COMM:") and not key.startswith("COMM:iTun")]
+        return [key for key in self.tagfile if key.startswith("COMM:") and not key.startswith("COMM:iTun")]
 
     def read(self) -> str | None:
         """The comment Serato shows, or None if the file has none."""
@@ -80,7 +80,7 @@ class _SeratoComment:
         """Each COMM frame, by key, that would change for a comment of `text`, as its new frame; None removes it."""
         # every other frame goes: mutagen saves frames smallest first, so a shorter one would come first in the
         # file, and Serato would show it
-        texts: dict[str, str | None] = {key: None for key in self.keys()}
+        texts: dict[str, str | None] = dict.fromkeys(self.keys())
         texts[self.KEY] = text or None
         # the whole text, though Serato cuts its copy to about 29 characters: a cut-off copy is smaller, so mutagen
         # would save it before the main frame, and Serato would show the cut-off one; with the whole text, its longer

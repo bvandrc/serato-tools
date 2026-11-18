@@ -75,7 +75,7 @@ def test_add_tracks_from_dir_replacing_keeps_a_track_there_in_another_case(new_c
 
 
 def test_saving_needs_the_crate_extension(new_crate: Crate, tmp_dir: str):
-    with pytest.raises(ValueError, match="should end with .crate"):
+    with pytest.raises(ValueError, match=r"should end with \.crate"):
         new_crate.save(os.path.join(tmp_dir, "Test.txt"))
 
 

@@ -123,15 +123,19 @@ from serato_tools.database_v2 import DatabaseV2
 now = int(time.time())
 files_set_date = ["/Users/Username/Music/Dubstep/Raaket - ILL.mp3"]
 
+
 def modify_uadd(filename: str, prev_val: Any):
     print(f'Serato library change - Changed "date added" to today: {filename}')
     return now
 
+
 def modify_tadd(filename: str, prev_val: Any):
     return str(now)
 
+
 def remove_group(filename: str, prev_val: Any):
     return " "
+
 
 db = DatabaseV2()
 # the available fields are in DatabaseV2.Fields
@@ -139,7 +143,7 @@ db.modify_and_save(
     rules=[
         {"field": DatabaseV2.Fields.DATE_ADDED_U, "files": files_set_date, "func": modify_uadd},
         {"field": DatabaseV2.Fields.DATE_ADDED_T, "files": files_set_date, "func": modify_tadd},
-        {"field": DatabaseV2.Fields.GROUPING, "func": remove_group}, # all files
+        {"field": DatabaseV2.Fields.GROUPING, "func": remove_group},  # all files
     ]
 )
 ```
@@ -182,7 +186,7 @@ _NOTE: This feature has only been tested on a couple of tracks. Recommend review
 from serato_tools.track import Track
 from serato_tools.track_cues_v2 import TrackCuesV2
 
-track = Track('/Users/Username/Music/Dubstep/Raaket - ILL.mp3')
+track = Track("/Users/Username/Music/Dubstep/Raaket - ILL.mp3")
 track.set_track_color(TrackCuesV2.TrackColors.PURPLE)  # Serato stores it in cues_v2
 track.autotags.set(bpm=128)
 track.gain.set(gain=-2.5)
@@ -192,7 +196,7 @@ track.save()  # one write; returns False, without writing, if nothing changed
 Its tags are `cues_v2`, `cues_v1`, `beatgrid`, `autotags`, `waveform`, and `gain`: the same classes as below, so use their own methods to change them, and `Track.save()` rather than theirs. Each is parsed unless you pass it `False`, except `waveform`, which you pass `True` to parse; a tag that isn't parsed isn't saved either:
 
 ```python
-track = Track('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', cues_v1=False, beatgrid=False, waveform=True)
+track = Track("/Users/Username/Music/Dubstep/Raaket - ILL.mp3", cues_v1=False, beatgrid=False, waveform=True)
 ```
 
 ### Setting track color
@@ -205,26 +209,30 @@ from serato_tools.track_cues_v2 import TrackCuesV2
 
 library = Library()
 library.set_db_track_tags(
-    '/Users/Username/Music/Dubstep/Raaket - ILL.mp3',
+    "/Users/Username/Music/Dubstep/Raaket - ILL.mp3",
     color=TrackCuesV2.TrackColors.PURPLE,
     beatgrid_locked=True,
     # delete_tags_v1 (the default) deletes the legacy "Serato Markers_" tag, since a stale one stops the new color from appearing in Serato. No issues have been found from deleting it, but use caution with versions of Serato before 3, which may still read it.
     delete_tags_v1=True,
 )
 # many tracks at once, saving the database only once
-library.set_db_tracks_tags({
-    '/Users/Username/Music/Dubstep/Raaket - ILL.mp3': {'color': TrackCuesV2.TrackColors.PURPLE},
-    '/Users/Username/Music/Dubstep/Other.mp3': {'color': TrackCuesV2.TrackColors.BLUE1, 'beatgrid_locked': False},
-})
+library.set_db_tracks_tags(
+    {
+        "/Users/Username/Music/Dubstep/Raaket - ILL.mp3": {"color": TrackCuesV2.TrackColors.PURPLE},
+        "/Users/Username/Music/Dubstep/Other.mp3": {"color": TrackCuesV2.TrackColors.BLUE1, "beatgrid_locked": False},
+    }
+)
 # both return whether the database changed, and which track files were written
-result = library.set_db_track_tags('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', color=TrackCuesV2.TrackColors.PURPLE)
+result = library.set_db_track_tags(
+    "/Users/Username/Music/Dubstep/Raaket - ILL.mp3", color=TrackCuesV2.TrackColors.PURPLE
+)
 result.database_changed, result.files_written
 ```
 
 The same goes for a track's metadata, which Serato keeps both in the file's ID3 text frames and in the database: `title`, `artist`, `album`, `genre`, `key`, `grouping`, `publisher`, `composer`, `year`, `remixer`, `track_number`, `disc_number`, and `comment`. An empty value removes it, as clearing it in Serato does.
 
 ```python
-library.set_db_track_tags('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', grouping='TAGGED', genre='Dubstep')
+library.set_db_track_tags("/Users/Username/Music/Dubstep/Raaket - ILL.mp3", grouping="TAGGED", genre="Dubstep")
 ```
 
 Only ID3 files (.mp3, .aiff, .aif) are currently supported. A track Serato hasn't analyzed yet gets the color or lock added to its tags, as Serato writes them.
@@ -251,7 +259,7 @@ In Python, use `Track.snap_cues_to_beats`, which reads the track's `Serato Marke
 ```python
 from serato_tools.track import Track
 
-track = Track('/Users/Username/Music/Dubstep/Raaket - ILL.mp3', cues_v1=False, autotags=False, gain=False)
+track = Track("/Users/Username/Music/Dubstep/Raaket - ILL.mp3", cues_v1=False, autotags=False, gain=False)
 for snapped in track.snap_cues_to_beats(tolerance_beats=1 / 16):
     print(f"cue {snapped.index + 1}: {snapped.old_position} ms -> {snapped.new_position} ms")
 track.save()
@@ -269,7 +277,8 @@ from serato_tools.track_cues_v2 import TrackCuesV2
 CueColors = TrackCuesV2.CueColors
 TrackColors = TrackCuesV2.TrackColors
 
-tags = TrackCuesV2('/Users/Username/Music/Dubstep/Raaket - ILL.mp3')
+tags = TrackCuesV2("/Users/Username/Music/Dubstep/Raaket - ILL.mp3")
+
 
 def track_rule(track: TrackCuesV2.TrackCuesInfo) -> TrackCuesV2.TrackCuesInfo | None:
     # Set ID3 grouping field from track color
@@ -292,6 +301,7 @@ def track_rule(track: TrackCuesV2.TrackCuesInfo) -> TrackCuesV2.TrackCuesInfo | 
     new_track = dataclasses.replace(track, cues=new_cues)
     return new_track if new_track != track else None
 
+
 tags.modify_entries(track_rule)
 # delete_tags_v1 (the default) deletes the legacy "Serato Markers_" tag, since a stale one stops changes from appearing in Serato.
 # save() writes only when the cues changed, so the Grouping set on tags.tagfile above is saved here otherwise
@@ -303,10 +313,12 @@ if not tags.save(delete_tags_v1=True):
 
 ```python
 from serato_tools.crate import Crate
-print('\n'.join(Crate.get_crate_files()))
+
+print("\n".join(Crate.get_crate_files()))
 
 from serato_tools.smart_crate import SmartCrate
-print('\n'.join(SmartCrate.get_crate_files()))
+
+print("\n".join(SmartCrate.get_crate_files()))
 ``` 
 
 ### Modifying a SmartCrate Rule
@@ -330,7 +342,7 @@ __via code__
 ```python
 from serato_tools.smart_crate import SmartCrate
 
-crate = SmartCrate('/Users/Username/Music/_Serato_/SmartCrates/Dubstep.scrate')
+crate = SmartCrate("/Users/Username/Music/_Serato_/SmartCrates/Dubstep.scrate")
 
 # updates the rule on this field, or adds the rule if the crate doesn't have one for it.
 # the value is stored in the value field the comparison expects, just like Serato does.
@@ -343,7 +355,7 @@ crate.save()
 ```python
 from serato_tools.crate import Crate
 
-crate = Crate('/Users/Username/Music/_Serato_/Subcrates/Dubstep.crate')
+crate = Crate("/Users/Username/Music/_Serato_/Subcrates/Dubstep.crate")
 
 crate.print_track_paths()
 # /Users/Username/Music/Dubstep/Saka - backitup.mp3
@@ -366,8 +378,13 @@ print(crate)  # or crate.print()
 
 
 # Example: Add tracks to the crate and save it as a new crate
-crate.add_tracks(['/Users/Username/Music/Dubstep/Raaket - ILL.mp3'])
-crate.save('/Users/Username/Music/_Serato_/Subcrates/New Crate.crate')
+crate.add_tracks(["/Users/Username/Music/Dubstep/Raaket - ILL.mp3"])
+crate.save("/Users/Username/Music/_Serato_/Subcrates/New Crate.crate")
+
+# Example: Start an empty crate (Crate("...") raises FileNotFoundError for a file that doesn't exist)
+empty = Crate.new("/Users/Username/Music/_Serato_/Subcrates/Empty Crate.crate")
+empty.add_tracks(["/Users/Username/Music/Dubstep/Raaket - ILL.mp3"])
+empty.save()
 ```
 
 ### Smart Crate details
@@ -375,7 +392,7 @@ crate.save('/Users/Username/Music/_Serato_/Subcrates/New Crate.crate')
 ```python
 from serato_tools.smart_crate import SmartCrate
 
-s_crate = SmartCrate('/Users/Username/Music/_Serato_/SmartCrates/Dubstep.scrate')
+s_crate = SmartCrate("/Users/Username/Music/_Serato_/SmartCrates/Dubstep.scrate")
 print(s_crate)
 ```
 

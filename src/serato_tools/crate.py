@@ -1,10 +1,10 @@
-#!/usr/bin/python
 # This is from this repo: https://github.com/sharst/seratopy
 """Serato crate files (`.crate`), and the `serato_crate` CLI for listing their tracks and fixing missing ones."""
 
 import os
 import sys
 from dataclasses import dataclass
+from typing import ClassVar
 
 from serato_tools.utils import SERATO_DIR
 from serato_tools.utils.crate_base import CrateBase
@@ -19,7 +19,7 @@ class Crate(CrateBase):
     DIR_PATH = os.path.join(SERATO_DIR, DIR)
     SERATO_STEMS_CRATE_PATH = os.path.join(DIR, "Serato Stems", "Stems.crate")
 
-    DEFAULT_ENTRIES = [
+    DEFAULT_ENTRIES: ClassVar[CrateBase.EntryList] = [
         (CrateBase.Fields.VERSION, "1.0/Serato ScratchLive Crate"),
         *CrateBase.DEFAULT_VIEW_ENTRIES,
     ]
@@ -27,6 +27,7 @@ class Crate(CrateBase):
 
 def main():
     """The `serato_crate` CLI: prints crates, lists their tracks, or finds tracks whose files are missing."""
+    # ruff: disable[PLC0415, T201]
     import argparse
 
     @dataclass
@@ -61,6 +62,7 @@ def main():
             crate.print_track_paths(filenames_only=args.filenames_only)
         else:
             print(crate)
+    # ruff: enable[PLC0415, T201]
 
 
 if __name__ == "__main__":
