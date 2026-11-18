@@ -330,8 +330,8 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Database / Crates
 
-- **Fix:** `DatabaseV2.rename_track_file` rewrites only the crates that contain the track.
-- **Fix:** `get_full_path` keeps a path's drive.
+- **Fix:** `DatabaseV2.rename_track_file` rewrites only the crates that contain the track, instead of every crate.
+- **Fix:** `get_full_path` now keeps a path's drive instead of dropping it.
 
 ## [4.0.2] - 2026-08-17
 
@@ -580,14 +580,14 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Track Tags
 
-- **Feature:** Add `track_cues_v2`'s `modify_file_entries` and `set_track_color`, which change and save a track's cues or color.
+- **Feature:** Add `modify_file_entries` and `set_track_color` to `track_cues_v2`, which change and save a track's cues or color.
 - **Feature:** Add beatgrid analysis (`track_beatgrid.analyze_and_write`, with the `beatgrid_analysis` extra), which writes a beatgrid from the track's detected beats.
 
 ## [1.8.1] - 2025-04-11
 
 ### Database / Track Tags
 
-- **[BREAKING]** The modules move into `database` and `track` subpackages, and the tag modules are named after what they hold (e.g. `serato_markers2` → `track_cues_v2`).
+- **[BREAKING]** The modules move into `database` and `track` subpackages, and the tag modules are now named after what they hold (e.g. `serato_markers2` → `track_cues_v2`).
   - **Upgrading:** Import e.g. `serato_tools.database.database_v2` and `serato_tools.track.track_cues_v2`.
 
 ## [1.7.0] - 2025-04-11
@@ -607,7 +607,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Packaging
 
-- **Fix:** The package imports as `serato_tools`.
+- **Fix:** Fix the package not being importable as `serato_tools`.
 
 ## [1.5.1] - 2025-04-11
 
