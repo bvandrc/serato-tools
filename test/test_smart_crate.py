@@ -57,6 +57,19 @@ def test_delete_rule_returns_whether_removed():
     assert crate.delete_rule(Field.GROUPING) is False, "the grouping rule was already removed"
 
 
+@pytest.mark.parametrize(
+    "value_field, value",
+    [
+        pytest.param(ValueField.RULE_VALUE_INTEGER, 0, id="RULE_VALUE_INTEGER"),
+        pytest.param(ValueField.RULE_VALUE_TEXT, "", id="RULE_VALUE_TEXT"),
+        pytest.param(ValueField.RULE_VALUE_DATE, "", id="RULE_VALUE_DATE"),
+    ],
+)
+def test_rule_falsy_value_reads_back(value_field: ValueField, value: str | int):
+    rule = make_rule(Comparison.INT_IS_GE, Field.PLAYS, value_field, value)
+    assert rule.value == value, "a falsy rule value must not read as no value"
+
+
 @pytest.mark.parametrize("comparison", Comparison, ids=lambda c: c.name)
 def test_every_comparison_maps_to_a_value_field(comparison: Comparison):
     # the suffix lookup must cover every comparison, so a comparison with an unknown suffix

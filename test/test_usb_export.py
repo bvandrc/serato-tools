@@ -187,6 +187,11 @@ def test_copy_crates_to_usb_raises_when_every_track_is_missing(export: Export):
         usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
 
 
+def test_copy_crates_to_usb_needs_the_drive_to_exist(export: Export):
+    with pytest.raises(FileNotFoundError):
+        usb_export.copy_crates_to_usb([], os.path.join(export.drive, "Missing"), DRIVE_TRACKS)
+
+
 def test_copy_crates_to_usb_copies_each_tracks_own_stems(export: Export):
     # named after the track with or without its extension; the old prefix match took "A Extended"'s for "A.mp3" too
     tracks = [export.make_track(name) for name in ["A.mp3", "A Extended.mp3", "C.mp3"]]

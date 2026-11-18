@@ -128,6 +128,11 @@ def test_str_prints_an_invalid_grid():
     assert str(tags) == "\n".join(str(marker) for marker in markers)
 
 
+def test_bytes_after_the_footer_raise():
+    with pytest.raises(ValueError, match="1 bytes after its footer"):
+        TrackBeatgrid(read_bytes(DATA_FILES.BEATGRID) + b"\x00")
+
+
 @pytest.mark.parametrize(
     "find",
     [

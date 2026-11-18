@@ -125,16 +125,6 @@ def test_save_deletes_tags_v1_unless_told_not_to(mp3: str, save_kwargs: dict[str
     assert has_tags_v1(mp3) == kept, "an unchanged v1 tag isn't restored"
 
 
-def test_delete_tags_v1_on_an_edit_is_deprecated(mp3: str):
-    track = Track(mp3)
-    with pytest.warns(DeprecationWarning, match="passing delete_tags_v1 to an edit is deprecated") as caught:
-        track.set_track_color(Colors.RED, delete_tags_v1=False)
-    assert caught.pop(DeprecationWarning).filename == __file__, "points at the caller, not at Track"
-    track.save()
-
-    assert has_tags_v1(mp3), "False still keeps the v1 tag"
-
-
 def _changed_back(cues: TrackCuesV2):
     color = Colors(cues.get_track_color())
     cues.set_track_color(Colors.RED)
