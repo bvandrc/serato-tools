@@ -125,9 +125,10 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Database / Crates / Track Tags
 
-- **Feature:** A cut-off or malformed database, crate, or tag now raises `ValueError` (as well as still `AssertionError`) saying what's wrong.
-- **Feature:** A number too big or negative for its field now raises `ValueError` (as well as still `struct.error`) naming the field.
-- **Feature:** Errors that were a bare `Exception` are now a `ValueError`, `TypeError`, `FileNotFoundError`, or `ImportError` saying what's wrong.
+- **Feature:** Clearer error types:
+  - A cut-off or malformed database, crate, or tag now raises `ValueError` (as well as still `AssertionError`) saying what's wrong.
+  - A number too big or negative for its field now raises `ValueError` (as well as still `struct.error`) naming the field.
+  - Errors that were a bare `Exception` are now a `ValueError`, `TypeError`, `FileNotFoundError`, or `ImportError` saying what's wrong.
 - **Deprecated:** Catching a malformed file's error as `AssertionError`, or an out-of-range number's as `struct.error`, is deprecated, but still works: catch `ValueError`, which is all they'll be in 6.0.
 
 ### USB Export
