@@ -94,6 +94,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Fix:** The drive keeps your crate order, with a root crate or smart crates.
   - Before, Serato couldn't use the order file the export wrote, and on Windows it was garbled.
   - The order lists only the exported crates, with the root crate first.
+- **Feature:** The drive keeps which crates are collapsed.
 - **Feature:** USB export shows a progress bar while it copies tracks.
   - The package now installs `tqdm` for it.
 
