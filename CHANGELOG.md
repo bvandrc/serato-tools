@@ -4,17 +4,6 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ## [6.0.0] - 2026-11-10
 
-### Database / Crates / Track Tags
-
-- **[BREAKING]** `save()` on the library database, crates, and smart crates now skips writing to the file's own path when it hasn't changed since it was loaded or last saved, and returns whether it wrote. Saving to another path always writes.
-  - **Upgrading:** Pass `force=True` to write anyway, e.g. to overwrite a file changed on disk since it was loaded.
-- **[BREAKING]** `save()` on `TrackCuesV1`, `TrackBeatgrid`, `TrackAutotags`, and `TrackWaveform` now skips writing when the tag hasn't changed since it was read or last saved. Every tag class's `save()` now also returns whether it wrote.
-  - **Upgrading:** Pass `force=True` to write anyway. If you pass in a tagfile with other unsaved changes and relied on one of these four classes' `save()` to write them, save the tagfile yourself when `save()` returns False.
-- **[BREAKING]** A database, crate, or Serato tag that's cut off or malformed raises only `ValueError`, no longer also `AssertionError`, and a number too big or negative for its field raises only `ValueError`, no longer also `struct.error`.
-  - **Upgrading:** Catch `ValueError`.
-- **[BREAKING]** `serato_tools.utils.ui` is renamed `serato_tools.utils.cli`.
-  - **Upgrading:** Import from `serato_tools.utils.cli`.
-
 ### Library
 
 - **Feature:** `Library.set_db_track_tags` / `set_db_tracks_tags` now also set a track's metadata in its ID3 text frames and the database: `title`, `artist`, `album`, `genre`, `key`, `grouping`, `publisher`, `composer`, `year`, `remixer`, `track_number`, `disc_number`, and `comment`. An empty value removes it from both.
@@ -28,6 +17,17 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **[BREAKING]** `Library.set_db_track_tags` / `set_db_tracks_tags` raise only `DataTypeError` for a color that isn't a `TrackCuesV2.TrackColors`, no longer also `AttributeError`.
   - **Upgrading:** Catch `DataTypeError`.
 - **Feature:** Add `Library.crate_files`, the paths of the library's crate and smart crate files, listed without parsing them.
+
+### Database / Crates / Track Tags
+
+- **[BREAKING]** `save()` on the library database, crates, and smart crates now skips writing to the file's own path when it hasn't changed since it was loaded or last saved, and returns whether it wrote. Saving to another path always writes.
+  - **Upgrading:** Pass `force=True` to write anyway, e.g. to overwrite a file changed on disk since it was loaded.
+- **[BREAKING]** `save()` on `TrackCuesV1`, `TrackBeatgrid`, `TrackAutotags`, and `TrackWaveform` now skips writing when the tag hasn't changed since it was read or last saved. Every tag class's `save()` now also returns whether it wrote.
+  - **Upgrading:** Pass `force=True` to write anyway. If you pass in a tagfile with other unsaved changes and relied on one of these four classes' `save()` to write them, save the tagfile yourself when `save()` returns False.
+- **[BREAKING]** A database, crate, or Serato tag that's cut off or malformed raises only `ValueError`, no longer also `AssertionError`, and a number too big or negative for its field raises only `ValueError`, no longer also `struct.error`.
+  - **Upgrading:** Catch `ValueError`.
+- **[BREAKING]** `serato_tools.utils.ui` is renamed `serato_tools.utils.cli`.
+  - **Upgrading:** Import from `serato_tools.utils.cli`.
 
 ### Database / Crates
 
