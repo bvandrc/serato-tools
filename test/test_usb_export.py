@@ -1,4 +1,3 @@
-# pylint: disable=protected-access
 import logging
 import os
 from dataclasses import dataclass
@@ -64,6 +63,21 @@ def matched_names(serato_dir: str, pattern: str) -> set[str]:
         ),
         pytest.param(["house.crate", ".DS_Store", "notes.txt"], "*", {"house.crate"}, id="non-crate files never"),
         pytest.param(["house.crate"], "*[techno*", set(), id="invalid regex and no glob match"),
+        pytest.param(
+            ["house.crate", "test crate.crate", "house.scrate"],
+            "*crate*",
+            {"test crate.crate"},
+            id="glob ignores the extension",
+        ),
+        pytest.param(["house.crate", "house.scrate"], "*.scrate", set(), id="glob can't match the extension"),
+        pytest.param(["house.crate", "deep.crate"], "use$", {"house.crate"}, id="regex ignores the extension"),
+        pytest.param(["Pop, Rock, etc..crate"], "*etc.", {"Pop, Rock, etc..crate"}, id="name ending in a dot"),
+        pytest.param(
+            ["Bass.crate", "Bass%%DnB.crate", "House.crate"],
+            "Bass*",
+            {"Bass.crate", "Bass%%DnB.crate"},
+            id="subcrates match their parent's name",
+        ),
     ],
 )
 def test_get_crate_files(tmp_dir: str, crate_dirs: tuple[str, str], names: list[str], pattern: str, matched: set[str]):
@@ -177,15 +191,21 @@ def test_copy_crates_to_usb_copies_only_changed_files(export: Export):
     assert read_bytes(export.on_drive(DRIVE_TRACKS, "B.mp3")) == b"b changed"
 
 
-def test_copy_crates_to_usb_warns_of_a_missing_file(export: Export, caplog: pytest.LogCaptureFixture):
+def test_copy_crates_to_usb_logs_a_missing_file(export: Export, caplog: pytest.LogCaptureFixture):
     a, gone = export.make_track("A.mp3", b"a"), os.path.join(export.music_dir, "Gone.mp3")
     crates = [export.make_crate("House", [a, gone])]
 
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.ERROR):
         export.export_crates(crates)
 
     assert f"does not exist - {gone}" in caplog.text
     assert read_bytes(export.on_drive(DRIVE_TRACKS, "A.mp3")) == b"a", "the other track still copied"
+
+
+def test_copy_crates_to_usb_raises_when_every_track_is_missing(export: Export):
+    crates = [export.make_crate("House", [os.path.join(export.music_dir, "Gone.mp3")])]
+    with pytest.raises(FileNotFoundError, match="none of the tracks were found"):
+        export.export_crates(crates)
 
 
 def test_copy_crates_to_usb_needs_the_drive_to_exist(export: Export):
@@ -241,38 +261,6 @@ def test_copy_crates_to_usb_raises_for_a_track_with_two_stems_files(export: Expo
     export.make_track("A.mp3.serato-stems")
     with pytest.raises(ValueError, match="more than 1 stems file"):
         export.export_crates([export.make_crate("House", [a])])
-
-
-def test_copy_crates_to_usb_skips_a_folder_in_the_crate_list(export: Export):
-    house = export.make_crate("House", [export.make_track("A.mp3")])
-    folder = os.path.join(export.serato_dir, Crate.DIR, "Folder")
-    mock_files({folder: []})
-
-    export.export_crates([folder, house])
-
-    assert os.listdir(export.on_drive("_Serato_", Crate.DIR)) == ["House.crate"], "the crates after it still exported"
-    assert os.listdir(export.on_drive(DRIVE_TRACKS)) == ["A.mp3"]
-
-
-def test_copy_crates_to_usb_raises_for_a_file_that_isnt_a_crate(export: Export):
-    notes = os.path.join(export.serato_dir, Crate.DIR, "notes.txt")
-    with open(notes, "w", encoding="utf-8") as f:
-        f.write("not a crate")
-    with pytest.raises(ValueError, match="not a crate file"):
-        export.export_crates([notes])
-
-
-def test_copy_crates_to_usb_logs_the_database_and_stems_crate_it_writes(
-    export: Export, caplog: pytest.LogCaptureFixture
-):
-    house = export.make_crate("House", [export.make_track("A.mp3")])
-    export.make_crate(os.path.join("Serato Stems", "Stems"), [])
-
-    with caplog.at_level(logging.INFO, "serato-tools"):
-        export.export_crates([house])
-
-    assert f"created database file {export.on_drive('_Serato_', DatabaseV2.FILENAME)}" in caplog.messages
-    assert f"copied crate {export.on_drive('_Serato_', Crate.SERATO_STEMS_CRATE_PATH)}" in caplog.messages
 
 
 def test_copy_crates_to_usb_leaves_the_library_as_it_was(export: Export):

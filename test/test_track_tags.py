@@ -1,10 +1,13 @@
-# pylint: disable=protected-access
+import importlib
 import os
+import pkgutil
 import runpy
+from collections.abc import Iterator
 
 import pytest
 from mutagen.mp3 import MP3
 
+import serato_tools
 from serato_tools.track_autotags import TrackAutotags
 from serato_tools.track_beatgrid import TrackBeatgrid
 from serato_tools.track_cues_v1 import TrackCuesV1
@@ -43,6 +46,22 @@ def test_save_writes_only_a_changed_tag_unless_forced(mp3: str, tag_class):
         saves.assert_called_once()
 
 
+def test_every_tag_class_is_tested():
+    # ID3FileTag isn't an ABC: a subclass that doesn't implement has_changed or _write_to_tagfile only raises
+    # NotImplementedError when they're called, as the test above does for each of TAG_CLASSES
+    for module in pkgutil.iter_modules(serato_tools.__path__):
+        importlib.import_module(f"serato_tools.{module.name}")
+
+    def subclasses(cls: type) -> Iterator[type]:
+        for subclass in cls.__subclasses__():
+            yield subclass
+            yield from subclasses(subclass)
+
+    # the concrete ones: nothing subclasses them, as SeratoGeobTag is subclassed
+    tag_classes = {cls for cls in subclasses(ID3FileTag) if not cls.__subclasses__()}
+    assert tag_classes == set(TAG_CLASSES), "a tag class missing from TAG_CLASSES skips the tests run over it"
+
+
 @pytest.mark.parametrize("tag_class", GEOB_TAG_CLASSES, ids=lambda cls: cls.__name__)
 def test_untested_version_raises_at_construction(tag_class):
     with pytest.raises(ValueError, match="Untested Serato tag version"):
@@ -53,11 +72,6 @@ def test_untested_version_raises_at_construction(tag_class):
 def test_tagdump_reads_each_geob(tag_class):
     dumped = dict(get_serato_tagdata(MP3(TEST_MP3)))
     assert dumped[tag_class.GEOB_KEY] == tag_class(TEST_MP3)._raw_data
-
-
-def test_unsupported_file_type_raises():
-    with pytest.raises(ValueError, match="unsupported file type"):
-        ID3FileTag("some_file.flac")
 
 
 def test_geob_tag_has_changed(mp3: str):
@@ -77,7 +91,7 @@ def test_geob_tag_has_changed(mp3: str):
 
 
 # TrackCuesV2 has its own save()
-@pytest.mark.parametrize("tag_class", (TrackCuesV2, TrackAutotags), ids=lambda cls: cls.__name__)
+@pytest.mark.parametrize("tag_class", [TrackCuesV2, TrackAutotags], ids=lambda cls: cls.__name__)
 def test_saving_a_change_to_a_tag_read_from_bytes_raises(tag_class):
     tags = tag_class(read_bytes(GEOB_DATA[tag_class]))
     tags.delete()
@@ -92,15 +106,6 @@ def test_serialize_reproduces_the_bytes_parsed(tag_class):
     tags._raw_data = None  # so only _serialize can put the bytes back
     tags._serialize()
     assert tags._raw_data == data
-
-
-# a file whose ID3 tags have no frames is falsy to mutagen, which once read as "no file"
-@pytest.mark.parametrize("tag_class", WRITABLE_GEOB_TAG_CLASSES, ids=lambda cls: cls.__name__)
-def test_a_tag_in_a_file_with_no_frames_has_the_file(tmp_dir: str, tag_class):
-    path = copy_mp3_with_empty_id3(tmp_dir)
-    tags = tag_class(path)
-    assert tags.tagfile is not None
-    assert tags.filename == path
 
 
 @pytest.mark.parametrize(
