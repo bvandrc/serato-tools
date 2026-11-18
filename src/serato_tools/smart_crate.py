@@ -2,6 +2,7 @@
 
 import os
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import IntEnum, StrEnum, unique
 from typing import TYPE_CHECKING, ClassVar, cast, override
@@ -48,7 +49,7 @@ class SmartCrate(CrateBase):
     )
 
     # each comparison names its value's type in its suffix (cond_is_str, cond_bef_time, cond_greq_uint)
-    _RULE_VALUE_FIELD_BY_COMPARISON_SUFFIX: ClassVar[dict[str, RuleFields]] = {
+    _RULE_VALUE_FIELD_BY_COMPARISON_SUFFIX: ClassVar[Mapping[str, RuleFields]] = {
         "str": RuleFields.RULE_VALUE_TEXT,
         "time": RuleFields.RULE_VALUE_DATE,
         "uint": RuleFields.RULE_VALUE_INTEGER,
