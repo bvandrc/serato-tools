@@ -10,7 +10,7 @@ import os
 import struct
 import sys
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum, unique
 from typing import TYPE_CHECKING, ClassVar
@@ -326,7 +326,7 @@ class TrackCuesV2(SeratoGeobTag):
 
     type Entry = UnknownEntry | BpmLockEntry | ColorEntry | CueEntry | LoopEntry | FlipEntry
 
-    _ENTRY_CLASS_BY_NAME: ClassVar[dict[str, type[Entry]]] = {
+    _ENTRY_CLASS_BY_NAME: ClassVar[Mapping[str, type[Entry]]] = {
         entry_class.NAME: entry_class for entry_class in (BpmLockEntry, ColorEntry, CueEntry, LoopEntry, FlipEntry)
     }
 
