@@ -29,8 +29,7 @@ def get_serato_tagdata(tagfile: mutagen.FileType, decode: bool = False):
         for tagname in tagfile.tags:
             tagname = str(tagname)
             if tagname.startswith("GEOB:Serato"):
-                tagvalue = get_geob(tagfile, tagname[len("GEOB:") :])
-                if not tagvalue:
+                if not (tagvalue := get_geob(tagfile, tagname[len("GEOB:") :])):
                     raise ValueError(f"no value for {tagname}")
                 yield tagname[5:], tagvalue
 
@@ -51,8 +50,7 @@ def get_serato_tagdata(tagfile: mutagen.FileType, decode: bool = False):
 
             fixed_data: bytes = encoded_data
 
-            length = len(fixed_data.splitlines()[-1])
-            if length % 4 == 1:
+            if (length := len(fixed_data.splitlines()[-1])) % 4 == 1:
                 fixed_data += b"A=="
             elif length % 4 == 2:
                 fixed_data += b"=="
