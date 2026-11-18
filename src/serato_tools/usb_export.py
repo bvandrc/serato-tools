@@ -243,18 +243,17 @@ def get_crate_files(pattern: str):
     subcrate's name includes its parents' (`Bass%%DnB`), so `"Bass*"` matches a crate and its subcrates. `pattern` is
     tried as a glob, and if nothing matches it, as a regex.
     """
-    filepaths = Library(LOCAL_SERATO_DIR).crate_files
-    crate_names = {f: os.path.splitext(os.path.basename(f))[0] for f in filepaths}
+    crate_names = {f: os.path.splitext(os.path.basename(f))[0] for f in Library(LOCAL_SERATO_DIR).crate_files}
 
     # try the pattern as a glob first: most globs (e.g. "house*") are also valid regexes, so
     # checking re.compile first would silently give glob-looking patterns regex semantics
-    files = [f for f in filepaths if fnmatch.fnmatch(crate_names[f], pattern)]
+    files = [f for f, name in crate_names.items() if fnmatch.fnmatch(name, pattern)]
     if not files:
         try:
             regex = re.compile(pattern)
         except re.error:
             return []
-        files = [f for f in filepaths if regex.search(crate_names[f])]
+        files = [f for f, name in crate_names.items() if regex.search(name)]
     return files
 
 
