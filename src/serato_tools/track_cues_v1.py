@@ -11,7 +11,7 @@ from mutagen.mp3 import HeaderNotFoundError
 from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag
 
 
-def _decode_bytes_32(data: bytes):
+def _decode_bytes_32(data: bytes) -> bytes:
     """Decode 4 byte Serato binary format into 3 byte plain text."""
     w, x, y, z = struct.unpack("BBBB", data)
     c = (z & 0x7F) | ((y & 0x01) << 7)
@@ -20,14 +20,14 @@ def _decode_bytes_32(data: bytes):
     return struct.pack("BBB", a, b, c)
 
 
-def _encode_bytes_32(data: bytes):
+def _encode_bytes_32(data: bytes) -> bytes:
     """Encode 3 byte plain text into 4 byte Serato binary format."""
     a, b, c = struct.unpack("BBB", data)
     z = c & 0x7F
     y = ((c >> 7) | (b << 1)) & 0x7F
     x = ((b >> 6) | (a << 2)) & 0x7F
     w = a >> 5
-    return bytes(bytearray([w, x, y, z]))
+    return bytes([w, x, y, z])
 
 
 def _parse_position_set(field: str, value: int) -> bool:
@@ -73,7 +73,6 @@ class TrackCuesV1(SeratoGeobTag):
         LOOP = 3
 
     def __init__(self, file_or_data: SeratoGeobTag.FileOrData):
-        self._raw_data: bytes | None
         super().__init__(file_or_data)
 
         self.entries: list[TrackCuesV1.Entry | TrackCuesV1.Color] = []
@@ -89,7 +88,7 @@ class TrackCuesV1(SeratoGeobTag):
         end_position: int | None
         field5: bytes
         color: bytes
-        type: bytes | str
+        type: "TrackCuesV1.EntryType"
         is_locked: int
         FORMAT = ">B4sB4s6s4sBB"
         FIELDS = (
