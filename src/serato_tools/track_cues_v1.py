@@ -10,12 +10,9 @@ from mutagen.mp3 import HeaderNotFoundError
 
 from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag
 
-# the bytes Serato writes for a position that isn't set
-_NO_POSITION = b"\x7f\x7f\x7f\x7f"
 
-
-def _decode_bytes_32(data: bytes) -> bytes:
-    """3 bytes, from the 4 Serato stores them as, 7 bits to a byte."""
+def _decode_bytes_32(data: bytes):
+    """Decode 4 byte Serato binary format into 3 byte plain text."""
     w, x, y, z = struct.unpack("BBBB", data)
     c = (z & 0x7F) | ((y & 0x01) << 7)
     b = ((y & 0x7F) >> 1) | ((x & 0x03) << 6)
@@ -23,14 +20,14 @@ def _decode_bytes_32(data: bytes) -> bytes:
     return struct.pack("BBB", a, b, c)
 
 
-def _encode_bytes_32(data: bytes) -> bytes:
-    """3 bytes as the 4 Serato stores them, 7 bits to a byte."""
+def _encode_bytes_32(data: bytes):
+    """Encode 3 byte plain text into 4 byte Serato binary format."""
     a, b, c = struct.unpack("BBB", data)
     z = c & 0x7F
     y = ((c >> 7) | (b << 1)) & 0x7F
     x = ((b >> 6) | (a << 2)) & 0x7F
     w = a >> 5
-    return bytes([w, x, y, z])
+    return bytes(bytearray([w, x, y, z]))
 
 
 def _parse_position_set(field: str, value: int) -> bool:
@@ -50,9 +47,10 @@ def _parse_position(data: bytes) -> int:
 
 
 def _serialize_position(position: int | None) -> bytes:
-    """A position's 4 stored bytes: 7f bytes for an unset one, as Serato writes it."""
-    # bytes, not the int 0x7F7F7F7F, since FORMAT packs the field as 4s
-    return _NO_POSITION if position is None else _encode_bytes_32(struct.pack(">I", position)[1:])
+    """A position's 4 stored bytes."""
+    # an unset position is stored as 7f bytes, as Serato writes it; FORMAT packs the field as 4s, so
+    # it has to be bytes, not the int 0x7F7F7F7F
+    return b"\x7f\x7f\x7f\x7f" if position is None else _encode_bytes_32(struct.pack(">I", position)[1:])
 
 
 class TrackCuesV1(SeratoGeobTag):
@@ -75,6 +73,7 @@ class TrackCuesV1(SeratoGeobTag):
         LOOP = 3
 
     def __init__(self, file_or_data: SeratoGeobTag.FileOrData):
+        self._raw_data: bytes | None
         super().__init__(file_or_data)
 
         self.entries: list[TrackCuesV1.Entry | TrackCuesV1.Color] = []
@@ -90,7 +89,7 @@ class TrackCuesV1(SeratoGeobTag):
         end_position: int | None
         field5: bytes
         color: bytes
-        type: "TrackCuesV1.EntryType"
+        type: bytes | str
         is_locked: int
         FORMAT = ">B4sB4s6s4sBB"
         FIELDS = (
