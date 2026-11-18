@@ -200,7 +200,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Track Cues
 
-- **[BREAKING] Fix:** `TrackCuesV2` raises ValueError for a `COLOR`, `BPMLOCK`, `CUE`, or `LOOP` entry unlike any Serato writes, rather than risk rewriting one it doesn't understand. That includes a cue past 8, and it raises on saving one too.
+- **[BREAKING] Fix:** `TrackCuesV2` raises ValueError for a `COLOR`, `BPMLOCK`, `CUE`, or `LOOP` entry unlike any Serato writes. That includes a cue past 8, and it raises on saving one too.
   - **Upgrading:** Catch `ValueError` when reading tags you don't control, and remove any cue past 8 before saving.
 - **Fix:** Changing a track's cues keeps its BPM lock before its flips, the order Serato writes them in.
 - **Fix:** `TrackCuesV2` writes the `Serato Markers2` tag byte for byte as Serato does: its base64 ends as Serato's does, and it keeps the size the tag already had rather than shrinking it.
