@@ -181,6 +181,12 @@ def test_copy_crates_to_usb_warns_of_a_missing_file(export: Export, caplog: pyte
     assert read_bytes(export.on_drive(DRIVE_TRACKS, "A.mp3")) == b"a", "the other track still copied"
 
 
+def test_copy_crates_to_usb_raises_when_every_track_is_missing(export: Export):
+    crates = [export.make_crate("House", [os.path.join(export.music_dir, "Gone.mp3")])]
+    with pytest.raises(FileNotFoundError, match="none of the tracks were found"):
+        usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
+
+
 def test_copy_crates_to_usb_needs_the_drive_to_exist(export: Export):
     with pytest.raises(FileNotFoundError):
         usb_export.copy_crates_to_usb([], os.path.join(export.drive, "Missing"), DRIVE_TRACKS)
