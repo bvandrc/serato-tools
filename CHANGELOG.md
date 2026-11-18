@@ -82,7 +82,7 @@ Each release groups its changes by the part of the package they're in. Within ea
   - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to.
 - **Feature (CLI):** `serato_snap_cues_v2 --snap_cues` now says which cue each move was for, and which tag is missing for a track without cues or a beatgrid.
 - **Fix:** An error from `mutagen` opening a track file names the file in the error itself, rather than in a separate error logged before it.
-- **Deprecated:** Passing `delete_tags_v1` to an edit method, rather than to `save()`, isn't removed yet: it stays deprecated until a future major release.
+- **Deprecated:** Passing `delete_tags_v1` to an edit method isn't removed yet: it stays deprecated until a future major release. Pass it to `save()` instead.
 
 ### USB Export
 
