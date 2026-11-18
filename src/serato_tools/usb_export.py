@@ -202,9 +202,7 @@ def copy_crates_to_usb(
             logger.info(f"copying {src_path}")
             shutil.copy2(src_path, dst_path)
 
-    for index, src_path in enumerate(tracks_to_copy):
-        percent_complete = index / float(len(tracks_to_copy)) * 100
-        print(f"{percent_complete:.1f}%", end="\r", flush=True)
+    for index, src_path in enumerate(tracks_to_copy, start=1):
         maybe_copy(
             src_path=src_path,
             dst_path=os.path.join(dest_drive_dir, dest_tracks_dir, os.path.basename(src_path)),
@@ -218,6 +216,8 @@ def copy_crates_to_usb(
                 src_path=maybe_stem_files[0],
                 dst_path=os.path.join(dest_drive_dir, dest_tracks_dir, os.path.basename(maybe_stem_files[0])),
             )
+        # after the copy, so the last track ends it at 100%
+        print(f"{index / len(tracks_to_copy) * 100:.1f}%", end="\r", flush=True)
     print("\n")
 
     if tracks_to_copy and len(not_found) == len(tracks_to_copy):
@@ -227,7 +227,7 @@ def copy_crates_to_usb(
         return
 
     for n in not_found:
-        logger.warning(f"ERROR: does not exist - {n}")
+        logger.error(f"does not exist - {n}")
 
 
 def get_crate_files(pattern: str):

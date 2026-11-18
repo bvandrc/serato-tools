@@ -15,7 +15,7 @@ from serato_tools.track_waveform import TrackWaveform
 from serato_tools.utils import track_tags
 from serato_tools.utils.track_tags import ID3FileTag, SeratoGeobTag, get_geob
 
-from test.helpers import TEST_MP3, temp_mp3
+from test.helpers import TEST_MP3, temp_dir, temp_mp3
 
 
 class TestCase(unittest.TestCase):
@@ -47,6 +47,14 @@ class TestCase(unittest.TestCase):
     def test_unsupported_file_type_raises(self):
         with self.assertRaises(ValueError):
             ID3FileTag("some_file.flac")
+
+    def test_mutagen_error_names_the_file(self):
+        path = os.path.join(temp_dir(self), "not audio.mp3")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("not audio")
+        with self.assertRaises(Exception) as caught:
+            track_tags.open_tagfile(path)
+        self.assertIn(f"file: {path}", getattr(caught.exception, "__notes__", []))
 
     def test_has_changed(self):
         tags = TrackAutotags(temp_mp3(self))

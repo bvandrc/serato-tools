@@ -2,6 +2,14 @@
 
 Each release groups its changes by the part of the package they're in. Within each part, **[BREAKING]** changes come first, each with how to upgrade past it.
 
+## [5.8.1] - 2026-11-18
+
+### USB Export
+
+- **Fix:** No more "File does not exist" warning for each smart crate exported, from `SmartCrate.to_regular_crate`.
+  - A damaged crate left on the drive is now replaced, rather than stopping the export.
+- **Fix:** The progress percentage now reaches 100%.
+
 ## [5.8.0] - 2026-11-18
 
 ### Database / Crates
@@ -546,6 +554,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** First release on PyPI, for changing Serato's library database and track metadata.
 
+[5.8.1]: https://github.com/bvandrc/serato-tools/compare/v5.8.0...v5.8.1
 [5.8.0]: https://github.com/bvandrc/serato-tools/compare/v5.7.0...v5.8.0
 [5.7.0]: https://github.com/bvandrc/serato-tools/compare/v5.6.1...v5.7.0
 [5.6.1]: https://github.com/bvandrc/serato-tools/compare/v5.6.0...v5.6.1

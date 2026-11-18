@@ -2,9 +2,10 @@
 import os
 import unittest
 
+from serato_tools.crate import Crate
 from serato_tools.smart_crate import SmartCrate
 
-from test.helpers import read_bytes
+from test.helpers import read_bytes, temp_dir
 
 with open("test/data/smart_crate.txt", encoding="utf-8") as f:
     expected = f.read()
@@ -73,6 +74,14 @@ class TestCase(unittest.TestCase):
                     falsy_values[value_field],
                 )
                 self.assertEqual(rule.value, falsy_values[value_field], "a falsy rule value must not read as no value")
+
+    def test_to_regular_crate_does_not_read_the_file_it_replaces(self):
+        path = os.path.join(temp_dir(self), "Deep.crate")
+        with open(path, "wb") as f:
+            f.write(b"not a crate")
+        crate = SmartCrate("test/data/TestSmartCrate.scrate").to_regular_crate(path)
+        crate.save()
+        self.assertEqual(Crate(path).get_track_paths(), crate.get_track_paths())
 
     def test_delete_rule_returns_whether_removed(self):
         crate = SmartCrate(os.path.abspath("test/data/TestSmartCrate.scrate"))
