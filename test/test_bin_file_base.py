@@ -224,6 +224,13 @@ EVERY_TRACK_RULES: list[DatabaseV2.ModifyRule] = [
 ]
 
 
+def test_modify_without_rules_changes_nothing():
+    db = DatabaseV2(TEST_DATABASE)
+    original_entries = copy.deepcopy(db._entries)
+    assert db.modify([]) is False, "reports no change"
+    assert db._entries == original_entries
+
+
 def test_modify_every_track():
     db = DatabaseV2(TEST_DATABASE)
     assert db.modify(EVERY_TRACK_RULES) is True, "reports change"
@@ -271,6 +278,13 @@ def test_modify_passes_later_rules_the_new_path():
             ]
         )
     assert seen == [new]
+
+
+def test_modify_with_two_rules_for_a_field_raises():
+    db = DatabaseV2(TEST_DATABASE)
+    rule: SeratoBinFile.ModifyRule = {"field": DatabaseV2.Fields.GENRE, "func": lambda *args: None}
+    with pytest.raises(ValueError, match="1 rule per field"):
+        db.modify([rule, rule])
 
 
 def test_modify_empty_value_removes_field(db_file: str):
@@ -444,6 +458,16 @@ def test_a_nested_entry_list_raises_naming_the_field():
     db._entries.append((SeratoBinFile.Fields.TRACK.value, entries))
     with pytest.raises(DeeplyNestedListError, match=rf"in field {SeratoBinFile.Fields.TRACK.value}.*a\.mp3"):
         list(db.get_entries())
+
+
+def test_paths_follow_the_path_however_its_set():
+    path = SeratoBinFile.Fields.FILE_PATH.value
+    track = SeratoBinFile.Track([(path, "Music/a.mp3")], path_key=path)
+
+    track.set_value(path, "Music/b.mp3")
+    assert (track.relpath, track.full_path) == ("Music/b.mp3", SeratoBinFile.get_full_path("Music/b.mp3")), "set_value"
+    track.set_path("Music/c.mp3")
+    assert (track.relpath, track.full_path) == ("Music/c.mp3", SeratoBinFile.get_full_path("Music/c.mp3")), "set_path"
 
 
 def test_set_value_refuses_a_value_its_field_cant_hold():

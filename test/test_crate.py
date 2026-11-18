@@ -74,6 +74,11 @@ def test_add_tracks_from_dir_replacing_keeps_a_track_there_in_another_case(new_c
     assert new_crate.get_track_paths() == [Crate.get_relative_path(in_crate)], "kept, not removed and added again"
 
 
+def test_saving_needs_the_crate_extension(new_crate: Crate, tmp_dir: str):
+    with pytest.raises(ValueError, match=r"should end with \.crate"):
+        new_crate.save(os.path.join(tmp_dir, "Test.txt"))
+
+
 def run_cli(*args: str) -> str:
     """Runs `serato_crate` with `args`, and returns what it printed."""
     with cli_args("serato_crate", *args) as stdout:

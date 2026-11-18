@@ -81,6 +81,12 @@ def test_rule_set_value_replaces_value_field_on_comparison_type_change():
     assert rule.to_entries() == rule_entries(Comparison.INT_IS_GE, Field.PLAYS, ValueField.RULE_VALUE_INTEGER, 100)
 
 
+def test_rule_set_value_rejects_non_integer_for_integer_comparison():
+    rule = make_rule(Comparison.INT_IS_GE, Field.PLAYS, ValueField.RULE_VALUE_INTEGER, 5)
+    with pytest.raises(ValueError, match="requires an integer value"):
+        rule.set_value("abc")
+
+
 def test_rule_properties_follow_its_entries():
     rule = make_rule(Comparison.INT_IS_GE, Field.PLAYS, ValueField.RULE_VALUE_INTEGER, 5)
     rule.set_comparison(Comparison.STR_CONTAINS)
