@@ -23,7 +23,7 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Catch `FileExistsError` where you checked for False.
 - **[BREAKING]** `Library.set_db_track_tags` / `set_db_tracks_tags` raise only `DataTypeError` for a color that isn't a `TrackCuesV2.TrackColors`, no longer also `AttributeError`.
   - **Upgrading:** Catch `DataTypeError`.
-- **Feature:** `Library.set_db_track_tags` / `set_db_tracks_tags` also set a track's metadata in its ID3 text frames and the database: `title`, `artist`, `genre`, `key`, `comment`, etc. An empty value removes it from both.
+- **Feature:** `Library.set_db_track_tags` / `set_db_tracks_tags` also set a track's metadata in its ID3 text frames and the database: `title`, `artist`, `album`, `genre`, `key`, `grouping`, `publisher`, `composer`, `year`, `remixer`, `track_number`, `disc_number`, and `comment`. An empty value removes it from both.
 - **Feature:** Add `Library.save`, which writes each of the library's parsed files that has changed, once, and returns their paths.
 - **Feature:** Add `Library.batch()`, a context manager: inside `with library.batch():`, `rename_track_file`, `remove_track_files`, and `set_db_tracks_tags` hold back writing the database and crates, and each changed file is written once when the block ends, instead of once per track. It still saves if the block raises.
 - **Feature:** `Library.remove_track_files` returns a `RemoveTrackFilesResult`, with the track files it deleted (`files_deleted`) and the library files it changed (`library_files_changed`).
