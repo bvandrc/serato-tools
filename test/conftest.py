@@ -17,7 +17,7 @@ def tmp_dir(tmp_path: Path) -> str:
 @pytest.fixture
 def new_crate(tmp_dir: str) -> Crate:
     """A new, empty crate at Test.crate in tmp_dir, not yet saved."""
-    return Crate(os.path.join(tmp_dir, "Test.crate"))
+    return Crate.new(os.path.join(tmp_dir, "Test.crate"))
 
 
 @pytest.fixture

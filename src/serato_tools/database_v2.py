@@ -26,9 +26,7 @@ class DatabaseV2(SeratoBinFile):
     ]
 
     def __init__(self, file: str = DEFAULT_DATABASE_FILE):
-        """Parses the database at `file`; raises FileNotFoundError if it doesn't exist, rather than creating one."""
-        if not os.path.exists(file):
-            raise FileNotFoundError(f"file does not exist: {file}")
+        """Parses the database at `file`, Serato's own by default; raises FileNotFoundError if it doesn't exist."""
         super().__init__(file=file)
 
     def get_corrupt_tracks(self) -> dict[str, str]:

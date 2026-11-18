@@ -31,6 +31,8 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Database / Crates
 
+- **[BREAKING]** `Crate(path)` and `SmartCrate(path)` raise `FileNotFoundError` for a file that doesn't exist, rather than starting an empty crate, and `SmartCrate.to_regular_crate` raises `FileExistsError` for one that does.
+  - **Upgrading:** Start a new crate with `Crate.new(path)` or `SmartCrate.new(path)`, then `save()`.
 - **[BREAKING]** `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`.
   - **Upgrading:** Import them from `serato_tools.utils.bin_file_base`.
 - **[BREAKING]** A database's or crate's `entries` and `version` are now internal.
@@ -69,6 +71,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **[BREAKING]** `get_crate_files` and `serato_usb_export --crate_matcher` match a pattern against the crate's name without its `.crate` or `.scrate` extension.
   - **Upgrading:** Drop the extension: `"house*"` rather than `"house*.crate"`.
+- **Fix:** The export's progress ends at 100%.
 
 ## [5.8.0] - 2026-11-18
 
