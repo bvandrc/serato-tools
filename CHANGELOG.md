@@ -6,9 +6,9 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Database / Crates / Track Tags
 
-- **[BREAKING]** `save()` on the library database, crates, and smart crates skips writing to the file's own path when it hasn't changed since it was loaded or last saved, and returns whether it wrote. Saving to another path always writes.
+- **[BREAKING]** `save()` on the library database, crates, and smart crates now skips writing to the file's own path when it hasn't changed since it was loaded or last saved, and returns whether it wrote. Saving to another path always writes.
   - **Upgrading:** Pass `force=True` to write anyway, e.g. to overwrite a file changed on disk since it was loaded.
-- **[BREAKING]** `save()` on `TrackCuesV1`, `TrackBeatgrid`, `TrackAutotags`, and `TrackWaveform` skips writing when the tag hasn't changed since it was read or last saved. Every tag class's `save()` now also returns whether it wrote.
+- **[BREAKING]** `save()` on `TrackCuesV1`, `TrackBeatgrid`, `TrackAutotags`, and `TrackWaveform` now skips writing when the tag hasn't changed since it was read or last saved. Every tag class's `save()` now also returns whether it wrote.
   - **Upgrading:** Pass `force=True` to write anyway. If you pass in a tagfile with other unsaved changes and relied on one of these four classes' `save()` to write them, save the tagfile yourself when `save()` returns False.
 - **[BREAKING]** A database, crate, or Serato tag that's cut off or malformed raises only `ValueError`, no longer also `AssertionError`, and a number too big or negative for its field raises only `ValueError`, no longer also `struct.error`.
   - **Upgrading:** Catch `ValueError`.
@@ -23,10 +23,10 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Catch `FileExistsError` where you checked for False.
 - **[BREAKING]** `Library.set_db_track_tags` / `set_db_tracks_tags` raise only `DataTypeError` for a color that isn't a `TrackCuesV2.TrackColors`, no longer also `AttributeError`.
   - **Upgrading:** Catch `DataTypeError`.
-- **Feature:** `Library.set_db_track_tags` / `set_db_tracks_tags` also set a track's metadata in its ID3 text frames and the database: `title`, `artist`, `album`, `genre`, `key`, `grouping`, `publisher`, `composer`, `year`, `remixer`, `track_number`, `disc_number`, and `comment`. An empty value removes it from both.
+- **Feature:** `Library.set_db_track_tags` / `set_db_tracks_tags` now also set a track's metadata in its ID3 text frames and the database: `title`, `artist`, `album`, `genre`, `key`, `grouping`, `publisher`, `composer`, `year`, `remixer`, `track_number`, `disc_number`, and `comment`. An empty value removes it from both.
 - **Feature:** Add `Library.save`, which writes each of the library's parsed files that has changed, once, and returns their paths.
 - **Feature:** Add `Library.batch()`, a context manager: inside `with library.batch():`, `rename_track_file`, `remove_track_files`, and `set_db_tracks_tags` hold back writing the database and crates, and each changed file is written once when the block ends, instead of once per track. It still saves if the block raises.
-- **Feature:** `Library.remove_track_files` returns a `RemoveTrackFilesResult`, with the track files it deleted (`files_deleted`) and the library files it changed (`library_files_changed`).
+- **Feature:** `Library.remove_track_files` now returns a `RemoveTrackFilesResult`, with the track files it deleted (`files_deleted`) and the library files it changed (`library_files_changed`).
 - **Feature:** Add `Library.crate_files`, the paths of the library's crate and smart crate files, listed without parsing them.
 
 ### Database / Crates
@@ -86,7 +86,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### USB Export
 
-- **[BREAKING]** `get_crate_files`, and so `serato_usb_export --crate_matcher`, match a pattern against the crate's name, without its `.crate` or `.scrate` extension. Before, a pattern such as `"*crate*"` matched every crate, through the extension.
+- **[BREAKING]** `get_crate_files`, and so `serato_usb_export --crate_matcher`, now match a pattern against the crate's name, without its `.crate` or `.scrate` extension. Before, a pattern such as `"*crate*"` matched every crate, through the extension.
   - **Upgrading:** Drop the extension from your patterns: `"house*"` rather than `"house*.crate"`.
 - **[BREAKING]** `copy_crates_to_usb`, and so `serato_usb_export`, raise `FileNotFoundError` when none of the crates' tracks are found, such as when the music is on a drive that isn't plugged in, rather than logging an error and returning. The CLI exits with an error.
   - **Upgrading:** Catch `FileNotFoundError` if you call `copy_crates_to_usb`. Some tracks missing, but not all, still only logs an error for each.
@@ -96,11 +96,11 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Database / Crates
 
-- **Feature:** `get_entries` on the database, crates, and smart crates takes an optional `track_matcher`, a regex, and then gives only the tracks whose path it matches, ignoring case.
+- **Feature:** `get_entries` on the database, crates, and smart crates now takes an optional `track_matcher`, a regex, and then gives only the tracks whose path it matches, ignoring case.
   - **Deprecated:** `get_entries_filtered(track_matcher)`, in favor of `get_entries(track_matcher)`. It still works until 6.0 removes it.
 - **Feature:** Add a `full_path` property to a database or crate track: its absolute path.
   - **Deprecated:** A track's `get_full_path()`, in favor of `full_path`. It still works until 6.0 removes it.
-- **Feature:** `SmartCrate.delete_rule` returns whether the crate had a rule on that field to remove.
+- **Feature:** `SmartCrate.delete_rule` now returns whether the crate had a rule on that field to remove.
 - **Fix:** A database or crate track's `relpath`, and a smart crate rule's `comparison`, `field`, and `value`, now read the track's or rule's current entries, so they no longer keep a value set through `set_value` or removed through `remove_field`. In particular, a `modify()` rule after one that changes a track's path now gets the new path. They're now read-only: change it through `set_path`, `set_value`, or the rule's setters.
 - **Fix:** Setting a track's path to a value that isn't text, through `set_value`, now raises `DataTypeError`.
 - **Fix:** `modify_tracks`, and so `modify`, now change no track when `func` raises for one, rather than keeping the changes to the tracks before it.
