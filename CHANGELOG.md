@@ -178,14 +178,14 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Track Tags
 
+- **Feature:** `TrackCuesV2.save()` and `Track.save()` take `delete_tags_v1` (default True), which deletes the legacy `Serato Markers_` tag when `Serato Markers2` is written, since a stale one stops the change from appearing in Serato. `Library.set_db_track_tags` and `set_db_tracks_tags` pass theirs to it.
 - **[BREAKING]** Any write of `Serato Markers2` now deletes `Serato Markers_` by default, not only one after `modify_entries`, `set_track_color`, `set_beatgrid_locked`, or `snap_positions_to_beat`: that includes the `serato_snap_cues_v2 --edit` CLI, a forced save, and saving a deleted `Serato Markers2`.
   - **Upgrading:** Pass `delete_tags_v1=False` to `save()` where you need `Serato Markers_` kept.
+- **Fix:** Fix `TrackCuesV2.save()` skipping the save, and losing a change, when an edit that changed nothing followed one that did.
+- **Fix:** `TrackCuesV2` deletes the `Serato Markers_` tag only when it writes a change to `Serato Markers2`. An edit that changed nothing, or was changed back, used to delete it from the file in memory, and saving another tag in the same file would write the deletion.
+- **Fix:** Fix `TrackCuesV1` failing to serialize a tag with an unset cue or loop position, as every `Serato Markers_` tag Serato writes has.
 - **[BREAKING] Deprecated:** `TrackCuesV2.modified` is deprecated in favor of `has_changed`, and will be removed in the next major version. Until then it's read-only and returns `has_changed`, so an edit that changes nothing no longer resets it.
   - **Upgrading:** Stop assigning `modified`, which now raises, and read `has_changed` instead.
-- **Feature:** `TrackCuesV2.save()` and `Track.save()` take `delete_tags_v1` (default True), which deletes the legacy `Serato Markers_` tag when `Serato Markers2` is written, since a stale one stops the change from appearing in Serato. `Library.set_db_track_tags` and `set_db_tracks_tags` pass theirs to it.
-- **Fix:** Fix `TrackCuesV2.save()` skipping the save, and losing a change, when an edit that changed nothing followed one that did.
-- **Fix:** Fix `TrackCuesV1` failing to serialize a tag with an unset cue or loop position, as every `Serato Markers_` tag Serato writes has.
-- **Fix:** `TrackCuesV2` deletes the `Serato Markers_` tag only when it writes a change to `Serato Markers2`. An edit that changed nothing, or was changed back, used to delete it from the file in memory, and saving another tag in the same file would write the deletion.
 - **Deprecated:** Passing `delete_tags_v1` to an edit method (`modify_entries`, `set_track_color`, etc.) is deprecated in favor of passing it to `save()`, and will be removed in the next major version.
   - Until then, passing False still keeps `Serato Markers_` at the next save, unless another edit since the last save didn't pass False.
 
@@ -427,9 +427,9 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Database / Crates
 
+- **Feature (CLI):** Add the `serato_crate` and `serato_smartcrate` commands, which take a crate file, a folder of crates, or `--all`.
 - **[BREAKING] Removed (CLI):** The crate and smart crate CLIs' `-o` / `--output` option, which saved the crate to another file.
   - **Upgrading:** Call the crate's `save(file)`.
-- **Feature (CLI):** Add the `serato_crate` and `serato_smartcrate` commands, which take a crate file, a folder of crates, or `--all`.
 
 ### Smart Crates
 
@@ -457,9 +457,9 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **[BREAKING]** Renames: `SERATO_FOLDER` is now `SERATO_DIR`, a crate's `FOLDER` (a full path) is replaced by `DIR` (the folder's name), and a crate's `tracks()`, `list_folder()`, and `add_tracks_from_folder()` are now `get_track_paths()`, `list_dir()`, and `add_tracks_from_dir()`. A crate's `track_dir` is removed.
   - **Upgrading:** Use the new names, and `os.path.join(SERATO_DIR, Crate.DIR)` for a crate folder's path.
+- **Feature:** Add `get_track_paths()`, `modify_tracks(func)`, `filter_tracks(func)`, `remove_track(filepath)`, and `remove_duplicates()` to the database, crates, and smart crates.
 - **[BREAKING]** `str()` of a crate gives its entries rather than its tracks, and the crate CLIs print them by default, without `-d`.
   - **Upgrading:** Use `get_track_paths()`, or the CLI's `-l`, for the tracks.
-- **Feature:** Add `get_track_paths()`, `modify_tracks(func)`, `filter_tracks(func)`, `remove_track(filepath)`, and `remove_duplicates()` to the database, crates, and smart crates.
 - **Fix:** Fix creating and saving a crate whose file doesn't exist yet.
 
 ### Track Tags
@@ -569,10 +569,10 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Database / Crates
 
-- **[BREAKING]** `DatabaseV2.to_objects()` and `print_items()` are renamed `to_dicts()` and `print_data()`, and `modify_file` rejects two rules on one field.
-  - **Upgrading:** Use the new names, and combine a field's rules into one.
 - **Feature:** Add `DatabaseV2.rename_track_file(src, dest)`, which renames a track's file and updates its path in the database.
 - **Fix:** Fix database text outside Latin-1 being garbled.
+- **[BREAKING]** `DatabaseV2.to_objects()` and `print_items()` are renamed `to_dicts()` and `print_data()`, and `modify_file` rejects two rules on one field.
+  - **Upgrading:** Use the new names, and combine a field's rules into one.
 
 ### Track Tags
 
