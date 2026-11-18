@@ -24,8 +24,7 @@ def crate_dirs(tmp_dir: str, monkeypatch: pytest.MonkeyPatch) -> tuple[str, str]
     crate_dir = os.path.join(tmp_dir, usb_export.Crate.DIR)
     smart_crate_dir = os.path.join(tmp_dir, usb_export.SmartCrate.DIR)
     mock_files({crate_dir: [], smart_crate_dir: []})
-    monkeypatch.setattr(usb_export.Crate, "DIR_PATH", crate_dir)
-    monkeypatch.setattr(usb_export.SmartCrate, "DIR_PATH", smart_crate_dir)
+    monkeypatch.setattr(usb_export, "LOCAL_SERATO_DIR", tmp_dir)
     return crate_dir, smart_crate_dir
 
 
@@ -61,6 +60,21 @@ def matched_names(pattern: str) -> set[str]:
         ),
         pytest.param(["house.crate", ".DS_Store", "notes.txt"], "*", {"house.crate"}, id="non-crate files never"),
         pytest.param(["house.crate"], "*[techno*", set(), id="invalid regex and no glob match"),
+        pytest.param(
+            ["house.crate", "test crate.crate", "house.scrate"],
+            "*crate*",
+            {"test crate.crate"},
+            id="glob ignores the extension",
+        ),
+        pytest.param(["house.crate", "house.scrate"], "*.scrate", set(), id="glob can't match the extension"),
+        pytest.param(["house.crate", "deep.crate"], "use$", {"house.crate"}, id="regex ignores the extension"),
+        pytest.param(["Pop, Rock, etc..crate"], "*etc.", {"Pop, Rock, etc..crate"}, id="name ending in a dot"),
+        pytest.param(
+            ["Bass.crate", "Bass%%DnB.crate", "House.crate"],
+            "Bass*",
+            {"Bass.crate", "Bass%%DnB.crate"},
+            id="subcrates match their parent's name",
+        ),
     ],
 )
 def test_get_crate_files(crate_dirs: tuple[str, str], names: list[str], pattern: str, matched: set[str]):

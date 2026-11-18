@@ -25,6 +25,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Feature:** Add `Library.save`, which writes each of the library's parsed files that has changed, once, and returns their paths. It saves changes made through `library.database`'s or the crates' own methods, such as `modify`.
 - **Feature:** Add `Library.batch()`, a context manager: inside `with library.batch():`, `rename_track_file`, `remove_track_files`, and `set_db_tracks_tags` hold back writing the database and crates, and each changed file is written once when the block ends, instead of once per track. The track files themselves still change right away, so it saves even if the block raises.
 - **Feature:** `Library.remove_track_files` returns a `RemoveTrackFilesResult`: `files_deleted`, the track files it deleted, and `library_files_changed`, the paths of the database, crates, and smart crates it changed.
+- **Feature:** Add `Library.crate_files`, the paths of the library's crate and smart crate files, listed without parsing them.
 - **Fix:** `Library.set_db_track_tags` / `set_db_tracks_tags` raise `DataTypeError` for a value of the wrong type, such as a color that isn't a `TrackColors`, before changing any file. Before, a color given as text raised `AttributeError`, and another wrong type, such as `beatgrid_locked="yes"`, was written to the track file before saving the database failed.
 
 ### Database / Crates
@@ -87,6 +88,11 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Feature (CLI):** `serato_snap_cues_v2 --snap_cues` now says which cue each move was for, and which tag is missing for a track without cues or a beatgrid. Its options are unchanged.
 - **Fix (CLI):** `serato_tagdump` exits saying a file has no tags, rather than with a traceback.
 - **Deprecated:** Passing `delete_tags_v1` to an edit (`TrackCuesV2.modify_entries`, `set_track_color`, and `set_beatgrid_locked`, and `Track.set_track_color` and `set_beatgrid_locked`) isn't removed yet: it stays deprecated until a future major release, in favor of passing it to `save()`.
+
+### USB Export
+
+- **[BREAKING]** `get_crate_files`, and so `serato_usb_export --crate_matcher`, match a pattern against the crate's name, without its `.crate` or `.scrate` extension. Before, a pattern such as `"*crate*"` matched every crate, through the extension.
+  - **Upgrading:** Drop the extension from your patterns: `"house*"` rather than `"house*.crate"`. A pattern can no longer choose crates or smart crates by their extension.
 
 ## [5.7.0] - 2026-11-15
 
