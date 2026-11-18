@@ -84,19 +84,21 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Use `ID3FileTag` and `SeratoGeobTag`.
 - **[BREAKING] Removed:** The `FIELDS` tuple on `TrackCuesV2`'s entry classes (`CueEntry`, `LoopEntry`, `ColorEntry`, etc.).
   - **Upgrading:** Use `dataclasses.fields`: `[f.name for f in dataclasses.fields(TrackCuesV2.CueEntry)]`.
-- **Fix:** An error from `mutagen` opening a track file names the file in the error itself, rather than in a separate error logged before it.
 - **Deprecated:** Passing `delete_tags_v1` to an edit method isn't removed yet: it stays deprecated until a future major release. Pass it to `save()` instead.
+- **Fix:** `TrackCuesV1.Entry`'s `type` is typed as the `TrackCuesV1.EntryType` it holds, rather than `bytes | str`.
 
 ### USB Export
 
-- **[BREAKING]** `get_crate_files`, and so `serato_usb_export --crate_matcher`, now match a pattern against the crate's name, without its `.crate` or `.scrate` extension. Before, a pattern such as `"*crate*"` matched every crate, through the extension.
-  - **Upgrading:** Drop the extension from your patterns: `"house*"` rather than `"house*.crate"`. A pattern can no longer choose crates or smart crates by their extension.
-- **[BREAKING]** `copy_crates_to_usb`, and so `serato_usb_export`, raise `FileNotFoundError` when none of the crates' tracks are found, such as when the music is on a drive that isn't plugged in, rather than logging an error and returning. The CLI exits with an error.
-  - **Upgrading:** Catch `FileNotFoundError` if you call `copy_crates_to_usb`. Some tracks missing, but not all, still only logs an error for each.
+- **[BREAKING]** `get_crate_files`, and so `serato_usb_export --crate_matcher`, match a pattern against the crate's name, without its extension.
+  - Before, `"*crate*"` matched every crate, through the extension.
+  - **Upgrading:** Drop the extension from your patterns (`"house*"`, not `"house*.crate"`). A pattern can no longer pick crates or smart crates by extension.
+- **[BREAKING]** `copy_crates_to_usb`, and so `serato_usb_export`, raise `FileNotFoundError` when none of the crates' tracks are found, rather than logging an error.
+  - **Upgrading:** Catch `FileNotFoundError` if you call `copy_crates_to_usb`.
 - **Feature (CLI):** Add `--source` to `serato_usb_export`: a library on another drive to export from, instead of the home library, given as its `_Serato_` folder or the drive it's on (e.g. `D` or `/Volumes/Music`).
   - A folder with no library is reported as a usage error.
 - **Feature:** Add `source_serato_dir` to `copy_crates_to_usb`, and `serato_dir` to `get_crate_files`, for a library on another drive. Each defaults to the home library.
-- **Feature:** The export shows a progress bar while it copies tracks, with a count, rate, and time left, through `tqdm`, which the package now installs. It replaces the percentage it printed.
+- **Feature:** USB export shows a progress bar while it copies tracks.
+  - The package now installs `tqdm` for it.
 - **Fix:** `copy_crates_to_usb` now stores tracks' paths relative to the drive when `dest_tracks_dir` is an absolute path on it.
   - Before, on macOS, `/Volumes/USB/Tracks` was stored as `Volumes/USB/Tracks/...`.
 
