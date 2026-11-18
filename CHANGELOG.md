@@ -74,7 +74,7 @@ Each release groups its changes by the part of the package they're in. Within ea
     - For `get_beat_position(entry)`, use `beatgrid.get_beat_position(entry.position)`.
 - **[BREAKING] Removed:** The `FIELDS` tuple on `TrackCuesV2`'s entry classes (`CueEntry`, `LoopEntry`, `ColorEntry`, `BpmLockEntry`, `FlipEntry`, and `UnknownEntry`).
   - **Upgrading:** Use `dataclasses.fields`: `[f.name for f in dataclasses.fields(TrackCuesV2.CueEntry)]`.
-- **[BREAKING] Removed (CLI):** The CLIs' edit modes: `-e` / `--edit` on `serato_snap_cues_v2`, `python -m serato_tools.track_cues_v1`, and `python -m serato_tools.track_autotags`. Each still prints the tag's entries or values. `TrackCuesV2.parse_entries_file` is removed with them.
+- **[BREAKING] Removed (CLI):** The CLIs' edit modes: `-e` / `--edit` on `serato_snap_cues_v2`, `python -m serato_tools.track_cues_v1`, and `python -m serato_tools.track_autotags`.
   - **Upgrading:** Change a tag through its class's methods instead, such as `TrackCuesV2.modify_entries` and `set_track_color`, or `TrackAutotags.set`.
 - **Feature:** Add `TrackTextFrames` (`serato_tools.track_text_frames`), which reads and sets a track file's ID3 text frames, and `Track.text_frames`. Setting a frame to `""` removes it.
   - `TrackTextFrames.Fields` names the frames Serato shows a column for (`Fields.TITLE`, `Fields.GENRE`, ...), to pass to `get` and `set` in place of the frame ID.
