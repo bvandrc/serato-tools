@@ -90,7 +90,15 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Drop the extension from your patterns: `"house*"` rather than `"house*.crate"`. A pattern can no longer choose crates or smart crates by their extension.
 - **[BREAKING]** `copy_crates_to_usb`, and so `serato_usb_export`, raise `FileNotFoundError` when none of the crates' tracks are found, such as when the music is on a drive that isn't plugged in, rather than logging an error and returning. The CLI exits with an error.
   - **Upgrading:** Catch `FileNotFoundError` if you call `copy_crates_to_usb`. Some tracks missing, but not all, still only logs an error for each.
-- **Feature:** The export shows a progress bar while it copies tracks, with a count, rate, and time left, through `tqdm`, which the package now installs. It replaces the percentage it printed, which stopped short of 100%.
+- **Feature:** The export shows a progress bar while it copies tracks, with a count, rate, and time left, through `tqdm`, which the package now installs. It replaces the percentage it printed.
+
+## [5.8.1] - 2026-11-18
+
+### USB Export
+
+- **Fix:** No more "File does not exist" warning for each smart crate exported, from `SmartCrate.to_regular_crate`.
+  - A damaged crate left on the drive is now replaced, rather than stopping the export.
+- **Fix:** The progress percentage now reaches 100%.
 
 ## [5.8.0] - 2026-11-18
 
@@ -636,7 +644,8 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** First release on PyPI, for changing Serato's library database and track metadata.
 
-[6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.8.0...v6.0.0
+[6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.8.1...v6.0.0
+[5.8.1]: https://github.com/bvandrc/serato-tools/compare/v5.8.0...v5.8.1
 [5.8.0]: https://github.com/bvandrc/serato-tools/compare/v5.7.0...v5.8.0
 [5.7.0]: https://github.com/bvandrc/serato-tools/compare/v5.6.1...v5.7.0
 [5.6.1]: https://github.com/bvandrc/serato-tools/compare/v5.6.0...v5.6.1
