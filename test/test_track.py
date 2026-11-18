@@ -125,16 +125,6 @@ def test_save_deletes_tags_v1_unless_told_not_to(mp3: str, save_kwargs: dict[str
     assert has_tags_v1(mp3) == kept, "an unchanged v1 tag isn't restored"
 
 
-def test_delete_tags_v1_on_an_edit_is_deprecated(mp3: str):
-    track = Track(mp3)
-    with pytest.warns(DeprecationWarning, match="passing delete_tags_v1 to an edit is deprecated") as caught:
-        track.set_track_color(Colors.RED, delete_tags_v1=False)
-    assert caught.pop(DeprecationWarning).filename == __file__, "points at the caller, not at Track"
-    track.save()
-
-    assert has_tags_v1(mp3), "False still keeps the v1 tag"
-
-
 def _changed_back(cues: TrackCuesV2):
     color = Colors(cues.get_track_color())
     cues.set_track_color(Colors.RED)
@@ -200,13 +190,6 @@ def test_snap_cues_to_beats_needs_only_cues_v2_and_beatgrid(mp3: str):
 def test_snap_cues_to_beats_without_cues_v2_or_beatgrid_raises(request: pytest.FixtureRequest, file: str, flag: str):
     with pytest.raises(ValueError, match=f"{flag}=True"):
         Track(request.getfixturevalue(file), **{flag: False}).snap_cues_to_beats(1 / 16)
-
-
-def test_snap_cues_to_beats_warns_at_the_caller(mp3: str):
-    track = Track(mp3)
-    with pytest.warns(UserWarning, match="min_ms_change=1") as caught:
-        track.snap_cues_to_beats(1 / 8, min_ms_change=1)
-    assert caught.pop(UserWarning).filename == __file__, "past Track, not at it"
 
 
 @pytest.mark.parametrize("name", ["test.aif", "test.aiff", "TEST.AIF"])

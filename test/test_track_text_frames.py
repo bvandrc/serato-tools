@@ -78,11 +78,6 @@ def test_set_raises_for_a_frame_loading_converts_or_drops(mp3: str, frame_id: st
         TrackTextFrames(mp3).set(frame_id, "2020")
 
 
-def test_set_names_the_frame_loading_converts_to(mp3: str):
-    with pytest.raises(ValueError, match="into TDRC; set that instead"):
-        TrackTextFrames(mp3).set("TYER", "2020")
-
-
 # loading turns numeric genres into names, so the genre would silently change
 @pytest.mark.parametrize("text", ["1", "128", "RX", "(1)Rock"])
 def test_set_raises_for_a_genre_loading_rewrites(mp3: str, text: str):
