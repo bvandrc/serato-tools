@@ -91,6 +91,9 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Drop the extension from your patterns (`"house*"`, not `"house*.crate"`). A pattern can no longer pick crates or smart crates by extension.
 - **[BREAKING]** `copy_crates_to_usb`, and so `serato_usb_export`, raise `FileNotFoundError` when none of the crates' tracks are found, rather than logging an error.
   - **Upgrading:** Catch `FileNotFoundError` if you call `copy_crates_to_usb`.
+- **Fix:** The drive keeps your crate order, with a root crate or smart crates.
+  - Before, Serato couldn't use the order file the export wrote, and on Windows it was garbled.
+  - The order lists only the exported crates, with the root crate first.
 - **Feature:** USB export shows a progress bar while it copies tracks.
   - The package now installs `tqdm` for it.
 
