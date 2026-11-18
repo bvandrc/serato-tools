@@ -69,7 +69,8 @@ def analyze_beatgrid(file: str, bpm_helper: float | None = None):
     # Get onset peaks near beat positions
     downbeats: list[float] = []
     for beat_time in beat_times[::4]:  # Check every 4th beat
-        if (onset_frame := int(beat_time * sample_rate / 512)) < len(onset_env):
+        onset_frame = int(beat_time * sample_rate / 512)
+        if onset_frame < len(onset_env):
             window_start = max(0, onset_frame - 2)
             local_max = np.argmax(onset_env[window_start : min(len(onset_env), onset_frame + 3)])
             # local_max is relative to window_start, which is not onset_frame - 2 near the track start
