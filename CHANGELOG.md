@@ -185,6 +185,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Fix:** Fix `TrackCuesV1` failing to serialize a tag with an unset cue or loop position, as every `Serato Markers_` tag Serato writes has.
 - **Fix:** `TrackCuesV2` deletes the `Serato Markers_` tag only when it writes a change to `Serato Markers2`. An edit that changed nothing, or was changed back, used to delete it from the file in memory, and saving another tag in the same file would write the deletion.
 - **Deprecated:** Passing `delete_tags_v1` to `TrackCuesV2.modify_entries`, `set_track_color`, or `set_beatgrid_locked`, or to `Track.set_track_color` or `set_beatgrid_locked`, is deprecated in favor of passing it to `save()`, and will be removed in the next major version.
+  - Until then, passing False still keeps `Serato Markers_` at the next save, unless another edit since the last save didn't pass False.
 
 ## [5.5.0] - 2026-11-06
 
