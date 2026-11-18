@@ -12,7 +12,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **[BREAKING]** `Library.set_db_tracks_tags` and `set_db_track_tags` return a `DbTrackTagsResult` rather than a bool: `database_changed`, as the bool was, and `files_written`, the paths of the track files written.
   - **Upgrading:** Read `.database_changed` where you used the bool, since the result is always truthy.
 - **[BREAKING]** `Library.rename_track_file` returns the paths of the database, crates, and smart crates it changed, rather than a bool, and raises `FileExistsError` when a different file already exists at `dest`, rather than logging an error and returning False.
-  - **Upgrading:** Catch `FileExistsError` where you checked for False.
+  - **Upgrading:** Catch `FileExistsError` where you checked for False. It renamed the file whenever it returns, even with an empty list (when no library file held the track), so drop a check for True.
 - **Feature:** `Library.remove_track_files` now returns a `RemoveTrackFilesResult`, with the track files it deleted (`files_deleted`) and the library files it changed (`library_files_changed`).
 - **[BREAKING]** `Library.set_db_track_tags` / `set_db_tracks_tags` raise only `DataTypeError` for a color that isn't a `TrackCuesV2.TrackColors`, no longer also `AttributeError`.
   - **Upgrading:** Catch `DataTypeError`.
@@ -32,7 +32,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 ### Database / Crates
 
 - **[BREAKING]** `Crate(path)` and `SmartCrate(path)` raise `FileNotFoundError` for a file that doesn't exist, rather than warning and starting an empty crate. `SmartCrate.to_regular_crate` raises `FileExistsError` for a file that already exists.
-  - **Upgrading:** Start a new crate with `Crate.new(path)` or `SmartCrate.new(path)`.
+  - **Upgrading:** Start a new crate with `Crate.new(path)` or `SmartCrate.new(path)`, which `save()` then writes.
 - **[BREAKING] Removed:** `add_track` and `remove_track`, deprecated in 5.1.0.
   - **Upgrading:** Use `add_tracks` and `remove_tracks`.
 - **[BREAKING]** A database's or crate's `entries` and `version` are now internal.
@@ -87,7 +87,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 ### USB Export
 
 - **[BREAKING]** `get_crate_files`, and so `serato_usb_export --crate_matcher`, now match a pattern against the crate's name, without its `.crate` or `.scrate` extension. Before, a pattern such as `"*crate*"` matched every crate, through the extension.
-  - **Upgrading:** Drop the extension from your patterns: `"house*"` rather than `"house*.crate"`.
+  - **Upgrading:** Drop the extension from your patterns: `"house*"` rather than `"house*.crate"`. A pattern can no longer choose crates or smart crates by their extension.
 - **[BREAKING]** `copy_crates_to_usb`, and so `serato_usb_export`, raise `FileNotFoundError` when none of the crates' tracks are found, such as when the music is on a drive that isn't plugged in, rather than logging an error and returning. The CLI exits with an error.
   - **Upgrading:** Catch `FileNotFoundError` if you call `copy_crates_to_usb`. Some tracks missing, but not all, still only logs an error for each.
 - **Feature:** The export shows a progress bar while it copies tracks, with a count, rate, and time left, through `tqdm`, which the package now installs. It replaces the percentage it printed, which stopped short of 100%.
