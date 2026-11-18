@@ -106,7 +106,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Fix:** A database or crate track's `relpath`, and a smart crate rule's `comparison`, `field`, and `value`, now read the track's or rule's current entries, so they no longer keep a value set through `set_value` or removed through `remove_field`. In particular, a `modify()` rule after one that changes a track's path now gets the new path. They're now read-only: change it through `set_path`, `set_value`, or the rule's setters.
 - **Fix:** Setting a track's path to a value that isn't text, through `set_value`, now raises `DataTypeError`.
 - **Fix:** `modify_tracks`, and so `modify`, now change no track when `func` raises for one, rather than keeping the changes to the tracks before it.
-- **Fix:** A crate's `add_tracks`, and so `add_tracks_from_dir`, now skip a track already in the crate in another casing, and `remove_duplicates` removes a repeat of a track's path in another casing, as `remove_tracks` and `modify` match paths whatever their case.
+- **Fix:** A crate's `add_tracks`, and so `add_tracks_from_dir`, now skip a track already in the crate in another casing, and `remove_duplicates` removes a repeat of a track's path in another casing, as `remove_tracks` and `modify` match paths whatever their case. Before, a crate could hold one track twice, under paths differing only in case.
 
 ### Track Tags
 
