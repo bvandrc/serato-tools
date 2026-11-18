@@ -25,8 +25,8 @@ authors = [
     { name = "bvandrc", email = "bvandercar@outlook.com" },
 ]
 license = "MIT"
-# crates, smart crates, and the database need nothing beyond the standard library, and USB export only tqdm, for its
-# progress bar; each extra pulls in what its feature imports, including mutagen, which every track tag reads through
+# tqdm for USB export's progress bar; each extra pulls in what its feature imports, including mutagen, which every
+# track tag reads through
 dependencies = ["tqdm>=4.66"]
 
 [project.optional-dependencies]
