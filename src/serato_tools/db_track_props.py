@@ -105,8 +105,7 @@ assert set(_DB_TRACK_PROPS) == DbTrackTags.__optional_keys__, "every DbTrackTags
 
 def _check_db_track_tags(tags: DbTrackTags):
     """Raises ValueError if `tags` has a key that isn't one of DbTrackTags'."""
-    unknown = set(tags) - DbTrackTags.__optional_keys__
-    if unknown:
+    if unknown := set(tags) - DbTrackTags.__optional_keys__:
         raise ValueError(f"unknown track tags: {sorted(unknown)}, expected some of {sorted(_DB_TRACK_PROPS)}")
 
 
