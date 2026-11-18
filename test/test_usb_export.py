@@ -24,8 +24,7 @@ def crate_dirs(tmp_dir: str, monkeypatch: pytest.MonkeyPatch) -> tuple[str, str]
     crate_dir = os.path.join(tmp_dir, usb_export.Crate.DIR)
     smart_crate_dir = os.path.join(tmp_dir, usb_export.SmartCrate.DIR)
     mock_files({crate_dir: [], smart_crate_dir: []})
-    monkeypatch.setattr(usb_export.Crate, "DIR_PATH", crate_dir)
-    monkeypatch.setattr(usb_export.SmartCrate, "DIR_PATH", smart_crate_dir)
+    monkeypatch.setattr(usb_export, "LOCAL_SERATO_DIR", tmp_dir)
     return crate_dir, smart_crate_dir
 
 
