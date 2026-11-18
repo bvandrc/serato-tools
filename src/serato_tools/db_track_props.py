@@ -72,7 +72,7 @@ def _int_prop(field: TrackTextFrames.Fields) -> _DbTrackProp[int]:
 
 
 # keyed by DbTrackTags' keys
-_DB_TRACK_PROPS: dict[str, _DbTrackProp] = {
+_DB_TRACK_PROPS: Mapping[str, _DbTrackProp] = {
     # the database holds the color as 0xRRGGBB, the same bytes as the tags hold, as an int
     "color": _DbTrackProp(
         DatabaseV2.Fields.COLOR,
