@@ -1,7 +1,8 @@
 name: Sync Release Notes
 
 # Rewrites each GitHub release's notes as its version's section of CHANGELOG.md, e.g. after the changelog's entries are
-# reworded. A release whose version has no section keeps its notes.
+# reworded. A release whose version has no section keeps its notes. The steps are a shared action from
+# bvandrc/bvandrc-conventions, so change them there.
 on:
   workflow_dispatch:
     inputs:
@@ -17,17 +18,12 @@ jobs:
   sync:
     name: "Sync Release Notes"
     runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ github.token }}
-      DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
     steps:
+      # for CHANGELOG.md
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
       - name: Sync the release notes
-        run: python .github/scripts/sync_release_notes.py $DRY_RUN
+        uses: bvandrc/bvandrc-conventions/.github/actions/sync-release-notes@main
+        with:
+          dry-run: ${{ inputs.dry_run }}

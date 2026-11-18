@@ -403,6 +403,11 @@ print(crate)  # or crate.print()
 # Example: Add tracks to the crate and save it as a new crate
 crate.add_tracks(["/Users/Username/Music/Dubstep/Raaket - ILL.mp3"])
 crate.save("/Users/Username/Music/_Serato_/Subcrates/New Crate.crate")
+
+# Example: Start an empty crate (Crate("...") raises FileNotFoundError for a file that doesn't exist)
+empty = Crate.new("/Users/Username/Music/_Serato_/Subcrates/Empty Crate.crate")
+empty.add_tracks(["/Users/Username/Music/Dubstep/Raaket - ILL.mp3"])
+empty.save()
 ```
 
 ### Smart Crate details

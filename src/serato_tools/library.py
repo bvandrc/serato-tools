@@ -88,6 +88,14 @@ class Library:
         """The library's smart crates, from its `SmartCrates` folder."""
         return [SmartCrate(path) for path in self._get_crate_files(SmartCrate)]
 
+    @property
+    def crate_files(self) -> list[str]:
+        """The paths of the library's crate and smart crate files, crates first, without parsing them.
+
+        Read from disk on each access, so it includes crates made since the Library was.
+        """
+        return self._get_crate_files(Crate) + self._get_crate_files(SmartCrate)
+
     def _get_crate_files(self, crate_class: type[CrateBase]) -> list[str]:
         crates_dir = os.path.join(self.serato_dir, crate_class.DIR)
         # Serato only creates the folder once the first crate of its kind is made

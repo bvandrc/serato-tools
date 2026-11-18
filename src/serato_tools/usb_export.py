@@ -14,8 +14,11 @@ import shutil
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
+from tqdm import tqdm
+
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
+from serato_tools.library import Library
 from serato_tools.smart_crate import SmartCrate
 from serato_tools.utils import (
     SERATO_DIR as LOCAL_SERATO_DIR,
@@ -53,6 +56,8 @@ def copy_crates_to_usb(
       columns but not their rules, since Serato can't use a smart crate on a drive.
     - A track whose file is already on the drive, unchanged, isn't copied again. Its stems file is copied too.
     - Given `root_crate`, every crate goes inside a crate of that name.
+    - A track whose file is missing is skipped, logging an error. Raises FileNotFoundError if every one is missing, such
+      as when the library's music is on a drive that isn't plugged in.
     """
     if not os.path.isdir(dest_drive_dir):
         raise FileNotFoundError(f"destination drive directory does not exist: {dest_drive_dir}")
@@ -214,8 +219,7 @@ def _copy_tracks(track_paths: list[str], dest_dir: str):
             logger.info(f"copying {src_path}")
             shutil.copy2(src_path, dst_path)
 
-    for index, src_path in enumerate(src_paths):
-        print(f"{index / len(src_paths) * 100:.1f}%", end="\r", flush=True)
+    for src_path in tqdm(src_paths, desc="Copying tracks", unit="track"):
         maybe_copy(src_path)
 
         stem_files = find_stem_files(src_path)
@@ -223,39 +227,33 @@ def _copy_tracks(track_paths: list[str], dest_dir: str):
             raise ValueError(f"more than 1 stems file for {src_path}: {', '.join(stem_files)}")
         if stem_files:
             maybe_copy(stem_files[0])
-    print("\n")
 
     if src_paths and len(not_found) == len(src_paths):
-        logger.error("No source files found.")
-        uniq_dirs = list({os.path.dirname(d) for d in src_paths})
-        logger.error(f"Directories: \n{'\n    '.join(uniq_dirs)}")
-        return
+        uniq_dirs = sorted({os.path.dirname(d) for d in src_paths})
+        raise FileNotFoundError("none of the tracks were found, in these folders:\n    " + "\n    ".join(uniq_dirs))
 
     for n in not_found:
-        logger.warning(f"ERROR: does not exist - {n}")
+        logger.error(f"does not exist - {n}")
 
 
 def get_crate_files(pattern: str):
-    """The crate and smart crate files in the default Serato folder whose filename matches `pattern`.
+    """The crate and smart crate files in the default Serato folder whose name matches `pattern`.
 
-    `pattern` is tried as a glob, and if nothing matches it, as a regex.
+    The name is the filename without its extension, so `"*crate*"` matches only crates with "crate" in their name. A
+    subcrate's name includes its parents' (`Bass%%DnB`), so `"Bass*"` matches a crate and its subcrates. `pattern` is
+    tried as a glob, and if nothing matches it, as a regex.
     """
-    # the classes' get_crate_files check the crate extension, so stray files in the folders
-    # (e.g. .DS_Store) are never matched; a missing folder just means no crates of that kind
-    filepaths: list[str] = []
-    for crate_class in (Crate, SmartCrate):
-        if os.path.isdir(crate_class.DIR_PATH):
-            filepaths += crate_class.get_crate_files()
+    crate_names = {f: os.path.splitext(os.path.basename(f))[0] for f in Library(LOCAL_SERATO_DIR).crate_files}
 
     # try the pattern as a glob first: most globs (e.g. "house*") are also valid regexes, so
     # checking re.compile first would silently give glob-looking patterns regex semantics
-    files = [f for f in filepaths if fnmatch.fnmatch(os.path.basename(f), pattern)]
+    files = [f for f, name in crate_names.items() if fnmatch.fnmatch(name, pattern)]
     if not files:
         try:
             regex = re.compile(pattern)
         except re.error:
             return []
-        files = [f for f in filepaths if regex.search(os.path.basename(f))]
+        files = [f for f, name in crate_names.items() if regex.search(name)]
     return files
 
 
@@ -288,7 +286,7 @@ def main():
         nargs="+",
         type=str,
         required=True,
-        help='Glob or Regex matcher for crate and smartcrate filenames. Example: "*house*". Can pass multiple to OR them. To copy all, pass "*"',
+        help='Glob or Regex matcher for crate and smartcrate names, without the file extension. Example: "*house*". Can pass multiple to OR them. To copy all, pass "*"',
     )
     parser.add_argument(
         "-r",

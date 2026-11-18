@@ -7,6 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 The repo's conventions live in `conventions/` and are imported here in full — they apply to all work in this repo, and everything below extends them. Keep this file consistent with them: nothing here should ever contradict a convention.
 
 @conventions/all.md
+@conventions/python.md
+@conventions/pypi-publishing.md
 
 `conventions/` is synced automatically from `bvandrc/bvandrc-conventions` by `.github/workflows/sync-conventions.yml`. The workflow deletes and recreates the directory on every run, so edits made here are lost — change them upstream. When a sync adds a new file to `conventions/`, add a matching `@conventions/<file>` import to this section.
 
@@ -14,7 +16,7 @@ The repo's conventions live in `conventions/` and are imported here in full — 
 
 Requires Python 3.12+ (the code uses PEP 695 `type` statements, which are a syntax error on 3.11).
 
-Work in the repo's `.venv` (gitignored), with the package installed editable so `serato_tools` imports resolve to `src/` rather than some other installed copy:
+Set up the `.venv` with every extra:
 
 ```bash
 python -m venv .venv
@@ -31,28 +33,19 @@ ruff check --fix .                                                # lint, and so
 ruff format .                                                     # format, line-length 120
 ```
 
-This is a Python repo with no package manager scripts, so `ruff check --fix .` then `ruff format .` is the "format script" the conventions require before every commit; CI checks both.
-
 Tests import the installed `serato_tools` (editable locally, a regular install in CI) and open fixtures by paths relative to the repo root, so `python -m pytest` only works from there.
 
 CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pyright, plus Ruff's lint and format checks once) on ubuntu-latest, and `Test` on windows-latest, macos-latest, and ubuntu-latest, both across Python 3.12-3.15.
-- **Lint on every version:** pyright checks against the running interpreter, so 3.12 catches use of anything newer and later versions catch deprecations and removals. Ruff checks against `requires-python` instead, so it runs once.
-- **Ruff's rules and version:** `pyproject.toml` selects every stable rule (`ALL`) and ignores, each with its reason, those that don't fit. Ruff is pinned below its next minor version (`ruff>=0.17,<0.18` in the `dev` extra), since only a minor release adds stable rules or changes the formatting. So moving to a new minor version is its own PR, deciding for each new rule whether to fix what it flags or ignore it.
 - **Required checks:** the `main` ruleset requires these checks by name, so renaming a job or matrix entry means updating the ruleset too.
-- **OS-specific tests:** tests that only make sense on one OS (drive letters, backslash separators, POSIX mount points) are skipped on the others with `pytest.mark.skipif`, with a matching test for the other OS family. A parametrized test marks just its OS-specific cases, with `WINDOWS_ONLY` / `POSIX_ONLY` from `test.helpers.platforms`.
+- **OS-specific tests** (drive letters, backslash separators, POSIX mount points): a parametrized test marks just its OS-specific cases, with `WINDOWS_ONLY` / `POSIX_ONLY` from `test.helpers.platforms`.
 
-Bump `version` in `pyproject.toml` and add a `CHANGELOG.md` entry for user-visible changes. A version's entries are grouped by the part of the package they're in, so a reader can skip the parts they don't use. Follow these guidelines in a PR's entries; the maintainer may make exceptions in review, as some past versions' entries are:
+A version's `CHANGELOG.md` entries are grouped by the part of the package they're in, so a reader can skip the parts they don't use. Follow these guidelines in a PR's entries; the maintainer may make exceptions in review, as some past versions' entries are:
 - **Sections:** a version's entries are grouped under `###` headings, in title case, for the part of the package they're in (`Library`, `Database / Crates`, `Track Tags`, `USB Export`, ...). Every version has sections, however few its entries. There's no section for CLIs: a CLI change goes in the section for what it works on. A change spanning several parts goes in one section naming them all (`Database / Crates / Track Tags`), placed before the sections of each, rather than repeated in each.
-- **Prefixes:** every top-level bullet opens with a bold prefix, and a section lists them in this order: `**Feature:**`, `**Performance:**`, `**Fix:**`, `**Deprecated:**`, and `**Docs:**`. A CLI change adds `(CLI)` to it (`**Fix (CLI):**`). Only when one section gets long, split it with `####` subheadings for the prefixes, in the same order, and drop the prefixes under them.
-- **Breaking changes:** these come first in their section, prefixed `**[BREAKING]**` (or `**[BREAKING] Removed:**`, ...), each with an `**Upgrading:**` sub-bullet saying how to move past it.
+- **Prefixes:** every top-level bullet opens with a bold prefix: `**Feature:**`, `**Performance:**`, `**Fix:**`, `**Deprecated:**`, or `**Docs:**`, or `**[BREAKING]**` for a breaking change, which can name its kind (`**[BREAKING] Removed:**`, ...). A CLI change adds `(CLI)` to it (`**Fix (CLI):**`).
+- **Order:** a section lists its entries most significant first, whatever their prefix, as `pypi-publishing.md`'s Order says, and a version lists its sections the same way, keeping a section that names several parts before each of theirs. For example, in 6.0.0 the new `TrackTextFrames` leads Track Tags, and in Database / Crates, removing the widely used `add_track` comes before making `entries` internal, with an error's new type near the end. A related pair can sit together, such as a removal right after the feature that replaces it.
+- **Brevity:** an entry says what changed for a user in one short sentence. Put any further effect in a sub-bullet rather than a longer sentence, and keep how it works out of it. Leave out a change a user wouldn't notice, such as a message logged at a different level, or an error that names a file the log already named.
 
-End every sentence of a changelog entry with a period, the last one included, so an entry of two sentences doesn't end one with a period and not the other. A new version's heading is `## [x.y.z] - YYYY-MM-DD`, with a link definition added at the top of the list at the bottom of the file, comparing the previous version's tag with its own (`[x.y.z]: https://github.com/bvandrc/serato-tools/compare/v<previous>...vx.y.z`). The link 404s until the release creates the tag. Entries don't name PRs, since one often spans several; the compare link lists them, and `git blame` leads from an entry to its PR.
-
-Publishing a GitHub release then publishes that version to PyPI, through `.github/workflows/release.yml`:
-- **Tag:** it must be `v` + the version (e.g. `v6.0.0`), or the workflow fails before building.
-- **Notes:** a release published with empty notes gets the version's `CHANGELOG.md` section as its notes, and the built distributions are attached to it.
-- **Trusted publisher:** PyPI's names that workflow file and its `pypi` environment, so renaming either means updating it on PyPI too.
-- **Rewording past entries:** releases don't follow later changes to their `CHANGELOG.md` section. Running the `Sync Release Notes` workflow (`.github/workflows/sync-release-notes.yml`, script in `.github/scripts/`) rewrites every release's notes as its section, keeping the "Published to PyPI" line of the releases added after the fact.
+Releasing follows `pypi-publishing.md`.
 
 ## Architecture
 
