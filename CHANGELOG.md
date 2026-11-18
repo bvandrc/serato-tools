@@ -86,6 +86,7 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** `isinstance(entry, TrackCuesV1.Entry)` now matches only cue and loop slots. Check for `TrackCuesV1.Color` too where you meant every entry.
 - **Fix:** An error from `mutagen` opening a track file names the file in the error itself, rather than in a separate error logged before it.
 - **Deprecated:** Passing `delete_tags_v1` to an edit method isn't removed yet: it stays deprecated until a future major release. Pass it to `save()` instead.
+- **Fix:** `TrackCuesV1.Entry`'s `type` is typed as the `TrackCuesV1.EntryType` it holds, rather than `bytes | str`.
 
 ### USB Export
 
