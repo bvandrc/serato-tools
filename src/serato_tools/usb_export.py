@@ -14,6 +14,8 @@ import shutil
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
+from tqdm import tqdm
+
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.library import Library
@@ -215,7 +217,7 @@ def _copy_tracks(track_paths: list[str], dest_dir: str):
             logger.info(f"copying {src_path}")
             shutil.copy2(src_path, dst_path)
 
-    for index, src_path in enumerate(src_paths, start=1):
+    for src_path in tqdm(src_paths, desc="Copying tracks", unit="track"):
         maybe_copy(src_path)
 
         stem_files = find_stem_files(src_path)
@@ -223,9 +225,6 @@ def _copy_tracks(track_paths: list[str], dest_dir: str):
             raise ValueError(f"more than 1 stems file for {src_path}: {', '.join(stem_files)}")
         if stem_files:
             maybe_copy(stem_files[0])
-        # after the copy, so the last track ends it at 100%
-        print(f"{index / len(src_paths) * 100:.1f}%", end="\r", flush=True)
-    print("\n")
 
     if src_paths and len(not_found) == len(src_paths):
         logger.error("No source files found.")
