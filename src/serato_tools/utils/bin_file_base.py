@@ -11,7 +11,7 @@ import json
 import os
 import re
 import struct
-from collections.abc import Callable, Collection, Generator, Iterable
+from collections.abc import Callable, Collection, Generator, Iterable, Mapping
 from enum import StrEnum, unique
 from re import Pattern
 from typing import (
@@ -64,7 +64,7 @@ def _field_values(field_enums: tuple[type[StrEnum], ...]) -> frozenset[str]:
     return frozenset(member.value for field_enum in field_enums for member in field_enum)
 
 
-def _field_names(field_enums: tuple[type[StrEnum], ...]) -> dict[str, str]:
+def _field_names(field_enums: tuple[type[StrEnum], ...]) -> Mapping[str, str]:
     """A readable name for each field in `field_enums`, from its member's name: "File Path" for `FILE_PATH`."""
     return {
         # DATE_ADDED_T and DATE_ADDED_U hold the same time, so both are "Date Added"
@@ -154,7 +154,7 @@ class SeratoBinFile:
     FIELDS: frozenset[str] = _field_values(FIELD_ENUMS)
     # a readable name for each field in FIELDS, as get_field_name gives it: "File Path" for pfil; built once per
     # class, since printing or JSON-dumping a large database names every field
-    FIELD_NAMES: dict[str, str] = _field_names(FIELD_ENUMS)
+    FIELD_NAMES: Mapping[str, str] = _field_names(FIELD_ENUMS)
 
     type ParsedField = Fields | str
     type BasicValue = str | bytes | int | bool
