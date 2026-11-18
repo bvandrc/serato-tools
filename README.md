@@ -167,6 +167,8 @@ Or `DatabaseV2().get_corrupt_tracks()`, which returns each track's full path wit
 
 On macOS, pass the drive's folder, e.g. `--drive /Volumes/USB`.
 
+Every track goes in the drive's `Tracks` folder, copied only when it's changed. A track whose filename another track already has goes in a subfolder named after its own folder.
+
 ### Analyzing and setting a dynamic beatgrid
 
  Rekordbox has Dynamic Beatgrid Analysis but Serato doesn't. This analyzes a non-consistent BPM across a track, such as a track with live drums, and snaps a beatgrid marker to each beat.

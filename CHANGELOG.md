@@ -93,6 +93,8 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Catch `FileNotFoundError` if you call `copy_crates_to_usb`.
 - **Fix:** The export keeps the drive's History and the rest of its `_Serato_` folder.
   - It replaces only the database, crates, and crate order.
+- **Fix:** Tracks that share a filename are all exported, rather than only the first.
+  - A later one goes in a subfolder named after its own folder. Filenames differing only in case count as shared, since FAT32 and exFAT drives ignore case.
 - **Fix:** The drive keeps your crate order, with a root crate or smart crates.
   - Before, Serato couldn't use the order file the export wrote, and on Windows it was garbled.
   - The order lists only the exported crates, with the root crate first.
