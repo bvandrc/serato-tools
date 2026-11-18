@@ -666,7 +666,8 @@ class SeratoBinFile:
                     continue
             track = self._get_track(value)
             # Track copies the values out of `value`, so this compares against the untouched original
-            if (new_entries := func(track).to_entries()) != value:
+            new_entries = func(track).to_entries()
+            if new_entries != value:
                 # set_value checks each value, but one assigned straight to an attribute, or a Track built by hand,
                 # skips it; checking only changed tracks keeps a whole-library pass from re-checking values loaded
                 for field, new_value in new_entries:

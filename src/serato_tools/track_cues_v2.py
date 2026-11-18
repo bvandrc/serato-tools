@@ -349,7 +349,8 @@ class TrackCuesV2(SeratoGeobTag):
         while True:
             if num_entries >= MAX_PARSE_ENTRIES:
                 raise ValueError(f"cue payload has more than {MAX_PARSE_ENTRIES} entries; malformed or unsupported")
-            if not (entry_name := SeratoGeobTag._readbytes(fp).decode("utf-8")):  # noqa: SLF001
+            entry_name = SeratoGeobTag._readbytes(fp).decode("utf-8")  # noqa: SLF001
+            if not entry_name:
                 break
             entry_len = struct.unpack(">I", fp.read(4))[0]
             if entry_len == 0:
@@ -481,7 +482,8 @@ class TrackCuesV2(SeratoGeobTag):
                 skip_file_prefixes=(_PACKAGE_DIR,),
             )
         track = self._from_entries()
-        if (new_track := modify_callback(track)) is None:
+        new_track = modify_callback(track)
+        if new_track is None:
             return
         # any edit that didn't pass False deletes Serato Markers_, as it did when each edit chose
         self._edits_keep_tags_v1 = delete_tags_v1 is False and self._edits_keep_tags_v1 is not False
