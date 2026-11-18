@@ -159,13 +159,15 @@ Or `DatabaseV2().get_corrupt_tracks()`, which returns each track's full path wit
 
 ### Exporting crates to USB
 
-**NOTE: replaces existing crates on flash drive! (but does not delete existing track files) (TODO: ability to merge with existing)**
+**NOTE: replaces the crates already on the drive!** The rest of the drive's `_Serato_` folder, such as its History, is kept.
 
 ```cmd
 >>> serato_usb_export --drive E --crate_matcher "*house*" "*techno*" --root_crate="Dave USB"
 ```
 
 On macOS, pass the drive's folder, e.g. `--drive /Volumes/USB`.
+
+Every track goes in the drive's `Tracks` folder, copied only when it's changed. A track whose filename another track already has goes in a subfolder named after its own folder. Track files already on the drive are kept, even ones no crate uses anymore, unless you pass `--delete_unused_tracks`, which deletes every other file in `Tracks`.
 
 ### Analyzing and setting a dynamic beatgrid
 

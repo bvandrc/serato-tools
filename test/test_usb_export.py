@@ -12,10 +12,20 @@ from serato_tools.smart_crate import SmartCrate
 
 from test.helpers.bin_files import LibraryFolders
 from test.helpers.cli import cli_args
-from test.helpers.files import mock_files, read_bytes
+from test.helpers.files import copy_into, mock_files, read_bytes
 
 # the folder on the drive the tests export tracks to
 DRIVE_TRACKS = "Tracks"
+# Serato's crate order file, trimmed from a real library's: UTF-16-BE with \n line endings, and a smart crate's
+# subcrates separated with ≫≫
+ORDER_FILE = "test/data/neworder.pref"
+# Serato's file of collapsed crates, from a real library: Pop, Rap, Rock, etc. and Sets, a record each
+COLLAPSED_FILE = "test/data/collapsed.pref"
+
+
+def read_pref_file(path: str) -> list[str]:
+    """The order or collapsed file's lines, decoded as Serato writes it, so a byte out of place fails to decode."""
+    return read_bytes(path).decode("utf-16-be").split("\n")
 
 
 @pytest.fixture
@@ -123,9 +133,9 @@ def test_copy_crates_to_usb(export: Export):
     export.add_to_database(a, b, fields=[(DatabaseV2.Fields.PLAYED, True)])
     crates = [export.make_crate("House", [a, b]), export.make_crate("Deep", [b])]
     export.make_crate(os.path.join("Serato Stems", "Stems"), [b, not_exported])
-    with open(os.path.join(export.serato_dir, "neworder.pref"), "w", encoding="utf-8") as f:
-        f.write("[begin record]\n[crate]House\n[crate]Deep\n[crate]Stems\n[end record]\n")
-    (stale,) = mock_files({export.on_drive("_Serato_"): ["Stale.txt"]})
+    stale, history = mock_files(
+        {export.on_drive("_Serato_"): [{Crate.DIR: ["Old.crate"], "History": ["history.database"]}]}
+    )
 
     usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS, root_crate="Root")
 
@@ -146,13 +156,62 @@ def test_copy_crates_to_usb(export: Export):
     assert db.get_track_paths() == on_drive, "only the crates' tracks, at their new paths"
     assert all(t.get_value(DatabaseV2.Fields.PLAYED) is False for t in db.get_tracks()), "played reset"
 
-    with open(export.on_drive("_Serato_", "neworder.pref"), encoding="utf-8") as f:
-        assert f.read() == "[begin record]\n[crate]Root%%House\n[crate]Root%%Deep\n[crate]Stems\n[end record]\n"
-    assert not os.path.exists(stale), "the drive's old library replaced"
+    assert not os.path.exists(stale), "the drive's old crates replaced"
+    assert os.path.exists(history), "the rest of the drive's _Serato_ folder kept"
     copied = {"A.mp3": a, "B.mp3": b, "B.serato-stems": stems}
     assert sorted(os.listdir(export.on_drive(DRIVE_TRACKS))) == sorted(copied), "only the exported crates' tracks"
     for name, src in copied.items():
         assert read_bytes(export.on_drive(DRIVE_TRACKS, name)) == read_bytes(src), f"{name} copied"
+
+
+@pytest.fixture
+def fixture_crates(export: Export) -> list[str]:
+    """Crates named as in the order and collapsed fixtures: a regular one, a smart subcrate, and a regular subcrate."""
+    a = export.make_track("A.mp3")
+    copy_into(export.serato_dir, ORDER_FILE)
+    copy_into(export.serato_dir, COLLAPSED_FILE)
+    return [
+        export.make_crate("House & Techno", [a]),
+        export.make_crate("Bass≫≫Riddim≫≫Wonky Monxxy Riddim", [a], SmartCrate),
+        export.make_crate("Sets%%Riddim TODO%%Riddim MIX", [a]),
+    ]
+
+
+@pytest.mark.parametrize("root", [None, "Root"])
+def test_copy_crates_to_usb_copies_the_crate_order(export: Export, fixture_crates: list[str], root: str | None):
+    usb_export.copy_crates_to_usb(fixture_crates, export.drive, DRIVE_TRACKS, root_crate=root)
+
+    prefix = f"{root}%%" if root else ""
+    assert read_pref_file(export.on_drive("_Serato_", "neworder.pref")) == [
+        "[begin record]",
+        *([f"[crate]{root}"] if root else []),
+        "[crate]Stems",
+        f"[crate]{prefix}House & Techno",
+        f"[crate]{prefix}Bass",
+        f"[crate]{prefix}Bass%%Riddim",
+        f"[crate]{prefix}Bass%%Riddim%%Wonky Monxxy Riddim",
+        f"[crate]{prefix}Sets",
+        f"[crate]{prefix}Sets%%Riddim TODO",
+        f"[crate]{prefix}Sets%%Riddim TODO%%Riddim MIX",
+        "[end record]",
+        "",
+    ], "only the exported crates and their parents, a smart crate named as the regular crate it's exported as"
+    assert os.path.isfile(export.on_drive("_Serato_", Crate.DIR, f"{prefix}Bass%%Riddim%%Wonky Monxxy Riddim.crate")), (
+        "the smart crate's file named as its line is"
+    )
+
+
+@pytest.mark.parametrize("root", [None, "Root"])
+def test_copy_crates_to_usb_copies_the_collapsed_crates(export: Export, fixture_crates: list[str], root: str | None):
+    usb_export.copy_crates_to_usb(fixture_crates, export.drive, DRIVE_TRACKS, root_crate=root)
+
+    prefix = f"{root}%%" if root else ""
+    assert read_pref_file(export.on_drive("_Serato_", "collapsed.pref")) == [
+        "[begin record]",
+        f"[playlist]{prefix}Sets",
+        "[end record]",
+        "",
+    ], "only an exported crate's record, without the record of one that isn't"
 
 
 def test_copy_crates_to_usb_copies_only_changed_files(export: Export):
@@ -206,19 +265,58 @@ def test_copy_crates_to_usb_copies_each_tracks_own_stems(export: Export):
         assert read_bytes(export.on_drive(DRIVE_TRACKS, name)) == read_bytes(src), f"{name} copied"
 
 
-def test_copy_crates_to_usb_keeps_the_database_entry_of_the_track_it_copies(export: Export):
-    # two tracks with one filename: the crate lists M1's first, the database M2's
-    m1, m2 = export.make_track("M1/A.mp3", b"m1"), export.make_track("M2/A.mp3", b"m2")
-    export.add_to_database(m2, fields=[(DatabaseV2.Fields.GENRE, "from M2")])
-    export.add_to_database(m1, fields=[(DatabaseV2.Fields.GENRE, "from M1")])
+def test_copy_crates_to_usb_puts_tracks_sharing_a_filename_in_subfolders(export: Export):
+    # FAT32 and exFAT drives ignore case, so "a.MP3" would overwrite "A.mp3"
+    tracks = {
+        f"{DRIVE_TRACKS}/A.mp3": export.make_track("M1/A.mp3", b"m1"),
+        f"{DRIVE_TRACKS}/M2/A.mp3": export.make_track("M2/A.mp3", b"m2"),
+        f"{DRIVE_TRACKS}/M3/a.MP3": export.make_track("M3/a.MP3", b"m3"),
+        f"{DRIVE_TRACKS}/M2 (2)/A.mp3": export.make_track("Other/M2/A.mp3", b"other m2"),
+    }
+    export.make_track("M2/A.serato-stems", b"stems")
+    # the database lists them in another order than the crate
+    for i, track in reversed(list(enumerate(tracks.values()))):
+        export.add_to_database(track, fields=[(DatabaseV2.Fields.GENRE, str(i))])
 
-    usb_export.copy_crates_to_usb([export.make_crate("House", [m1, m2])], export.drive, DRIVE_TRACKS)
+    usb_export.copy_crates_to_usb([export.make_crate("House", list(tracks.values()))], export.drive, DRIVE_TRACKS)
 
-    assert read_bytes(export.on_drive(DRIVE_TRACKS, "A.mp3")) == b"m1", "the first in the crates copied"
+    for on_drive, src in tracks.items():
+        assert read_bytes(export.on_drive(on_drive)) == read_bytes(src), f"{on_drive} copied"
+    assert read_bytes(export.on_drive(DRIVE_TRACKS, "M2", "A.serato-stems")) == b"stems", "stems beside their track"
     exported_crate = Crate(export.on_drive("_Serato_", Crate.DIR, "House.crate"))
-    assert exported_crate.get_track_paths() == [f"{DRIVE_TRACKS}/A.mp3"], "the crate lists it once"
-    tracks = export.exported_database().get_tracks()
-    assert [t.get_value(DatabaseV2.Fields.GENRE) for t in tracks] == ["from M1"], "with its own database entry"
+    assert exported_crate.get_track_paths() == list(tracks), "the crate pointed at each"
+    db_genres = {t.relpath: t.get_value(DatabaseV2.Fields.GENRE) for t in export.exported_database().get_tracks()}
+    assert db_genres == {path: str(i) for i, path in enumerate(tracks)}, "each with its own database entry"
+
+
+@pytest.mark.parametrize("delete_unused_tracks", [False, True])
+def test_copy_crates_to_usb_deletes_unused_tracks_only_when_asked(export: Export, delete_unused_tracks: bool):
+    a, b = export.make_track("A.mp3", b"a"), export.make_track("Sub/A.mp3", b"sub a")
+    stems = export.make_track("A.serato-stems", b"stems")
+    house, deep = export.make_crate("House", [a]), export.make_crate("Deep", [b])
+    usb_export.copy_crates_to_usb([house, deep], export.drive, DRIVE_TRACKS)
+    (other,) = mock_files({export.on_drive(DRIVE_TRACKS): ["Other.mp3"]})
+
+    usb_export.copy_crates_to_usb([house], export.drive, DRIVE_TRACKS, delete_unused_tracks=delete_unused_tracks)
+
+    assert os.path.exists(export.on_drive(DRIVE_TRACKS, "A.mp3")), "an exported track kept"
+    assert read_bytes(export.on_drive(DRIVE_TRACKS, "A.serato-stems")) == read_bytes(stems), "its stems kept"
+    unused = [export.on_drive(DRIVE_TRACKS, "Sub", "A.mp3"), other]
+    assert [os.path.exists(f) for f in unused] == [not delete_unused_tracks] * 2, "the rest deleted only when asked"
+    assert os.path.isdir(export.on_drive(DRIVE_TRACKS, "Sub")) != delete_unused_tracks, "and an emptied folder"
+
+
+def test_copy_crates_to_usb_keeps_the_date_added(export: Export):
+    a = export.make_track("A.mp3")
+    added = [(DatabaseV2.Fields.DATE_ADDED_U, 1700000000), (DatabaseV2.Fields.DATE_ADDED_T, "1700000000")]
+    export.add_to_database(a, fields=added)
+
+    usb_export.copy_crates_to_usb([export.make_crate("House", [a])], export.drive, DRIVE_TRACKS)
+
+    (track,) = export.exported_database().get_tracks()
+    assert [track.get_value(field) for field, _ in added] == [value for _, value in added], (
+        "the date the track was added to the library, which Serato's own sync resets to the export's"
+    )
 
 
 def test_copy_crates_to_usb_writes_a_smart_crate_as_a_regular_crate(export: Export):
@@ -258,3 +356,16 @@ def test_cli_exports_to_the_drive(drive: str, system: str, dest: str):
     ):
         usb_export.main()
     assert copy_crates_to_usb.call_args.kwargs["dest_drive_dir"] == dest
+
+
+@pytest.mark.parametrize(
+    "flag, delete", [pytest.param([], False, id="off"), pytest.param(["--delete_unused_tracks"], True, id="on")]
+)
+def test_cli_deletes_unused_tracks_only_when_asked(flag: list[str], delete: bool):
+    with (
+        cli_args("serato_usb_export", "--drive", "/Volumes/USB", "--crates", "*", *flag),
+        mock.patch.object(usb_export, "get_crate_files", return_value=[]),
+        mock.patch.object(usb_export, "copy_crates_to_usb") as copy_crates_to_usb,
+    ):
+        usb_export.main()
+    assert copy_crates_to_usb.call_args.kwargs["delete_unused_tracks"] is delete

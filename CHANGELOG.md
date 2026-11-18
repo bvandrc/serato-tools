@@ -90,6 +90,12 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Drop the extension from your patterns: `"house*"` rather than `"house*.crate"`. A pattern can no longer choose crates or smart crates by their extension.
 - **[BREAKING]** `copy_crates_to_usb`, and so `serato_usb_export`, raise `FileNotFoundError` when none of the crates' tracks are found, such as when the music is on a drive that isn't plugged in, rather than logging an error and returning. The CLI exits with an error.
   - **Upgrading:** Catch `FileNotFoundError` if you call `copy_crates_to_usb`. Some tracks missing, but not all, still only logs an error for each.
+- **Fix:** The drive keeps your crate order, with a root crate or smart crates. Before, Serato couldn't use the order file the export wrote, and on Windows it was garbled.
+  - The order lists only the exported crates, with the root crate first.
+- **Fix:** Tracks that share a filename are all exported, a later one in a subfolder named after its own folder, rather than only the first. Filenames differing only in case count as shared, since a FAT32 or exFAT drive ignores case.
+- **Fix:** The export keeps the drive's History, and the rest of its `_Serato_` folder, replacing only its database, crates, and crate order.
+- **Feature (CLI):** Add `delete_unused_tracks` to `copy_crates_to_usb`, and `--delete_unused_tracks` to `serato_usb_export`, which delete the files in the drive's tracks folder that no exported crate uses, such as a track taken out of a crate.
+- **Feature:** The drive keeps which crates are collapsed, from Serato's `collapsed.pref`.
 - **Feature:** The export shows a progress bar while it copies tracks, with a count, rate, and time left, through `tqdm`, which the package now installs. It replaces the percentage it printed.
 
 ## [5.8.1] - 2026-11-18
