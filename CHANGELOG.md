@@ -230,7 +230,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Track Cues
 
-- **Fix:** Fix cue snapping moving almost every cue by 1 ms: the default of 1 caught the 1 ms gap Serato commonly leaves between a cue and the rounded beat. The default `min_ms_change` is now 2, so 1 ms differences are left alone again, and passing less than 2 warns.
+- **Fix:** Fix cue snapping moving almost every cue by 1 ms since 5.1.1: the default of 1 caught the 1 ms gap Serato commonly leaves between a cue and the rounded beat. The default `min_ms_change` is now 2, so 1 ms differences are left alone again, and passing less than 2 warns.
 
 ## [5.3.0] - 2026-11-03
 
