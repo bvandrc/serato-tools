@@ -50,7 +50,8 @@ def get_serato_tagdata(tagfile: mutagen.FileType, decode: bool = False):
 
             fixed_data: bytes = encoded_data
 
-            if (length := len(fixed_data.splitlines()[-1])) % 4 == 1:
+            length = len(fixed_data.splitlines()[-1])
+            if length % 4 == 1:
                 fixed_data += b"A=="
             elif length % 4 == 2:
                 fixed_data += b"=="

@@ -164,8 +164,7 @@ class TrackCuesV1(SeratoGeobTag):
 
         num_entries = struct.unpack(">I", fp.read(4))[0]
         for _ in range(num_entries):
-            entry_data = fp.read(0x16)
-            if len(entry_data) != 0x16:
+            if len(entry_data := fp.read(0x16)) != 0x16:
                 raise ValueError(f"tag ends partway through an entry: {len(entry_data)} of its 22 bytes")
 
             entry = TrackCuesV1.Entry._parse(entry_data)  # noqa: SLF001
