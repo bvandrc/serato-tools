@@ -79,8 +79,11 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Use `has_changed`.
 - **[BREAKING] Removed:** The `SeratoTrack` and `SeratoTag` names in `serato_tools.utils.track_tags`.
   - **Upgrading:** Use `ID3FileTag` and `SeratoGeobTag`.
-- **[BREAKING] Removed:** The `FIELDS` tuple on `TrackCuesV2`'s entry classes (`CueEntry`, `LoopEntry`, `ColorEntry`, etc.).
+- **[BREAKING] Removed:** The `FIELDS` tuple on `TrackCuesV2`'s and `TrackCuesV1`'s entry classes.
   - **Upgrading:** Use `dataclasses.fields`: `[f.name for f in dataclasses.fields(TrackCuesV2.CueEntry)]`.
+- **[BREAKING]** `TrackCuesV1.Color` is no longer a subclass of `TrackCuesV1.Entry`.
+  - Both are now dataclasses, so entries with the same values compare equal, and can't be hashed (put in a set or used as a dict key).
+  - **Upgrading:** Check for `TrackCuesV1.Color` too where `isinstance(entry, TrackCuesV1.Entry)` meant every entry. Key a dict by an entry's index in `entries` rather than the entry.
 - **Deprecated:** Passing `delete_tags_v1` to an edit method isn't removed yet: it stays deprecated until a future major release. Pass it to `save()` instead.
 - **Fix:** `TrackCuesV1.Entry`'s `type` is typed as the `TrackCuesV1.EntryType` it holds, rather than `bytes | str`.
 
