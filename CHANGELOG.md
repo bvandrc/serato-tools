@@ -82,8 +82,8 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **[BREAKING] Removed:** The `FIELDS` tuple on `TrackCuesV2`'s and `TrackCuesV1`'s entry classes.
   - **Upgrading:** Use `dataclasses.fields`: `[f.name for f in dataclasses.fields(TrackCuesV2.CueEntry)]`.
 - **[BREAKING]** `TrackCuesV1.Color` is no longer a subclass of `TrackCuesV1.Entry`.
-  - Both are now dataclasses, so entries with the same values compare equal.
-  - **Upgrading:** Check for `TrackCuesV1.Color` too where `isinstance(entry, TrackCuesV1.Entry)` meant every entry.
+  - Both are now dataclasses, so entries with the same values compare equal, and can't be hashed (put in a set or used as a dict key).
+  - **Upgrading:** Check for `TrackCuesV1.Color` too where `isinstance(entry, TrackCuesV1.Entry)` meant every entry. Key a dict by an entry's index in `entries` rather than the entry.
 - **Deprecated:** Passing `delete_tags_v1` to an edit method isn't removed yet: it stays deprecated until a future major release. Pass it to `save()` instead.
 - **Fix:** `TrackCuesV1.Entry`'s `type` is typed as the `TrackCuesV1.EntryType` it holds, rather than `bytes | str`.
 
