@@ -190,3 +190,36 @@ class TestCli:
         with pytest.raises(SystemExit):
             self.run_cli(path, *args)
         assert bin_file_writes == []
+
+
+def _crate_file_with_first_rule(tmp_path, rule_entries: SmartCrate.EntryList) -> str:
+    """A copy of the test smart crate, saved with its first rule replaced by `rule_entries`."""
+    crate = SmartCrate(TEST_SMART_CRATE)
+    index = next(i for i, _ in crate._entry_lists(ValueField.SMARTCRATE_RULE))
+    crate._entries[index] = (ValueField.SMARTCRATE_RULE.value, rule_entries)
+    path = str(tmp_path / "rules.scrate")
+    crate.save(path)
+    return path
+
+
+@pytest.mark.parametrize(
+    "rule_entries, message",
+    [
+        pytest.param([(ValueField.RULE_FIELD.value, Field.ARTIST.value)], "has no rule_comparison", id="no-comparison"),
+        pytest.param([(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value)], "has no rule_field", id="no-field"),
+        pytest.param(
+            [(ValueField.RULE_COMPARISON.value, "cond_new_str"), (ValueField.RULE_FIELD.value, Field.ARTIST.value)],
+            'unknown rule_comparison "cond_new_str"',
+            id="unknown-comparison",
+        ),
+        pytest.param(
+            [(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value), (ValueField.RULE_FIELD.value, 999)],
+            'unknown rule_field "999"',
+            id="unknown-field",
+        ),
+    ],
+)
+def test_loading_refuses_a_rule_it_cannot_read(tmp_path, rule_entries: SmartCrate.EntryList, message: str):
+    path = _crate_file_with_first_rule(tmp_path, rule_entries)
+    with pytest.raises(ValueError, match=message):
+        SmartCrate(path)
