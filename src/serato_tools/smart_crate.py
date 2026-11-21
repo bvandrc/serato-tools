@@ -1,9 +1,11 @@
 """Serato smart crate files (`.scrate`), and the `serato_smartcrate` CLI for listing their tracks and setting rules."""
 
 import os
+import posixpath
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
+from datetime import date, datetime
 from enum import IntEnum, StrEnum, unique
 from typing import TYPE_CHECKING, ClassVar, cast, override
 
@@ -12,6 +14,7 @@ from serato_tools.utils.crate_base import CrateBase
 
 if TYPE_CHECKING:
     from serato_tools.crate import Crate
+    from serato_tools.database_v2 import DatabaseV2
 
 
 class SmartCrate(CrateBase):
@@ -89,6 +92,28 @@ class SmartCrate(CrateBase):
         TIME_IS_AFTER = "cond_aft_time"
         INT_IS_GE = "cond_greq_uint"
         INT_IS_LE = "cond_lseq_uint"
+
+    # the database field each rule field tests; FILENAME tests the file name in the track's path
+    _DB_FIELD_BY_RULE_FIELD: ClassVar[Mapping[RuleField, CrateBase.Fields]] = {
+        RuleField.ADDED: CrateBase.Fields.DATE_ADDED_U,
+        RuleField.ALBUM: CrateBase.Fields.ALBUM,
+        RuleField.ARTIST: CrateBase.Fields.ARTIST,
+        RuleField.BPM: CrateBase.Fields.BPM,
+        RuleField.COMMENT: CrateBase.Fields.COMMENT,
+        RuleField.COMPOSER: CrateBase.Fields.COMPOSER,
+        RuleField.FILENAME: CrateBase.Fields.FILE_PATH,
+        RuleField.GENRE: CrateBase.Fields.GENRE,
+        RuleField.GROUPING: CrateBase.Fields.GROUPING,
+        RuleField.KEY: CrateBase.Fields.KEY,
+        RuleField.LABEL: CrateBase.Fields.PUBLISHER,
+        RuleField.PLAYS: CrateBase.Fields.PLAY_COUNT,
+        RuleField.REMIXER: CrateBase.Fields.REMIXER,
+        RuleField.SONG: CrateBase.Fields.TITLE,
+        RuleField.YEAR: CrateBase.Fields.YEAR,
+    }
+
+    # how a TIME comparison's value is written, as in "5/13/2020"
+    _RULE_DATE_FORMAT = "%m/%d/%Y"
 
     DEFAULT_ENTRIES: ClassVar[CrateBase.EntryList] = [
         (CrateBase.Fields.VERSION, "1.0/Serato ScratchLive Smart Crate"),
@@ -174,12 +199,21 @@ class SmartCrate(CrateBase):
         def set_comparison(self, value: "SmartCrate.RuleComparison"):
             super().set_value(SmartCrate.RuleFields.RULE_COMPARISON, value.value)
 
-    def set_rule(self, field: "SmartCrate.RuleField", comparison: "SmartCrate.RuleComparison", value: str | int):
+    def set_rule(
+        self,
+        field: "SmartCrate.RuleField",
+        comparison: "SmartCrate.RuleComparison",
+        value: str | int,
+        update_tracks: "DatabaseV2 | None" = None,
+    ):
         """Sets the rule on `field` to `comparison` and `value`, adding the rule if the crate has none on `field`.
 
         `value` is converted to the type `comparison` compares, e.g. `100` to `"100"` for a text comparison; raises
-        ValueError if a comparison of numbers is given text that isn't one.
+        ValueError if a comparison of numbers is given text that isn't one. Given `update_tracks`, a database, then
+        rewrites the crate's tracks from its rules, as `update_tracks()` does, as Serato does when a rule is edited; if
+        that raises, the rule is left as it was too.
         """
+        entries = list(self._entries)
         updated_rules: list[tuple[int, SmartCrate.EntryList]] = []
         for i, rule_entries in self._entry_lists(SmartCrate.RuleFields.SMARTCRATE_RULE):
             rule = SmartCrate.Rule(rule_entries)
@@ -202,12 +236,153 @@ class SmartCrate(CrateBase):
             new_rule.set_value(value)
             self._entries.append((SmartCrate.RuleFields.SMARTCRATE_RULE.value, new_rule.to_entries()))
 
-    def delete_rule(self, field: "SmartCrate.RuleField") -> bool:
-        """Removes every rule on `field`, and returns whether there was one to remove."""
-        return self._filter_entry_lists(
+        if update_tracks is not None:
+            self._update_tracks_or_restore(update_tracks, entries)
+
+    def delete_rule(self, field: "SmartCrate.RuleField", update_tracks: "DatabaseV2 | None" = None) -> bool:
+        """Removes every rule on `field`, and returns whether there was one to remove.
+
+        Given `update_tracks`, a database, then rewrites the crate's tracks from its rules, as `update_tracks()` does,
+        whether or not a rule was removed; if that raises, the rules are left as they were too.
+        """
+        entries = list(self._entries)
+        removed = self._filter_entry_lists(
             SmartCrate.RuleFields.SMARTCRATE_RULE,
             lambda rule_entries: SmartCrate.Rule(rule_entries).field != field.value,
         )
+        if update_tracks is not None:
+            self._update_tracks_or_restore(update_tracks, entries)
+        return removed
+
+    def _update_tracks_or_restore(self, database: "DatabaseV2", entries: CrateBase.EntryList):
+        """Runs `update_tracks(database)`, putting back `entries` if it raises, so a rule change is undone with it."""
+        try:
+            self.update_tracks(database)
+        except:
+            # a rule change replaces or appends whole entries, never changing one in place, so the list's copy is enough
+            self._entries = entries
+            raise
+
+    def update_tracks(self, database: "DatabaseV2") -> bool:
+        """Rewrites the crate's tracks as the tracks in `database` its rules match, as Serato does when a rule is edited,
+        and returns whether they changed.
+
+        - With "match all" (`SMARTCRATE_MATCH_ALL`) on, a track has to match every rule; otherwise, any one of them. A
+          crate without rules matches no tracks.
+        - Text comparisons ignore case and surrounding whitespace, and a track without the field has it as "".
+        - Number comparisons (`INT_IS_GE` / `INT_IS_LE`) read a text field such as BPM as a number, decimals included,
+          and a track without the field, or with text that isn't one, has it as 0.
+        - `TIME_IS_BEFORE` / `TIME_IS_AFTER` compare the day the track was added, on this computer's clock, with the
+          rule's date, written month/day/year ("5/13/2020"); a track without one counts as added at the Unix epoch (1970).
+        - The tracks it already held that still match keep their order, and the rest follow in `database`'s order.
+
+        Raises NotImplementedError for a rule with a comparison whose matching isn't known yet (`STR_DATE_BEFORE`,
+        `STR_DATE_AFTER`), and ValueError for a rule it can't read, both before changing any track.
+        """
+        return self._set_tracks(self._matching_paths(database.get_tracks()))
+
+    def _matching_paths(self, tracks: Iterable[CrateBase.Track]) -> list[str]:
+        """The path of each of `tracks` the crate's rules match, in order; raises as `update_tracks` does."""
+        # each rule's matcher built once, rather than its value parsed again for every track
+        matchers = [
+            self._rule_matcher(SmartCrate.Rule(rule_entries))
+            for _, rule_entries in self._entry_lists(SmartCrate.RuleFields.SMARTCRATE_RULE)
+        ]
+        if not matchers:
+            return []
+        combine = all if self._get_setting(SmartCrate.RuleFields.SMARTCRATE_MATCH_ALL) else any
+        return [track.relpath for track in tracks if combine(matches(track) for matches in matchers)]
+
+    def _set_tracks(self, relpaths: list[str]) -> bool:
+        """Makes `relpaths` the crate's tracks, keeping those it has in their order, and returns whether they changed."""
+        wanted = {relpath.upper() for relpath in relpaths}
+        changed = self.filter_tracks(lambda track: track.relpath.upper() in wanted)
+        changed = self.remove_duplicates() or changed
+        count = len(self.get_track_paths())
+        # skips the tracks it still has, in any case, as filter_tracks matched them
+        self.add_tracks(relpaths)
+        return changed or len(self.get_track_paths()) != count
+
+    def _get_setting(self, setting: "SmartCrate.RuleFields") -> bool:
+        """Whether `setting`, such as `SMARTCRATE_MATCH_ALL`, is on; off if the crate doesn't have it."""
+        entries = self._get_entry_value(self._entries, setting)
+        return isinstance(entries, list) and self._get_entry_value(entries, SmartCrate.RuleFields.SETTING_VALUE) is True
+
+    @staticmethod
+    def _rule_matcher(rule: "SmartCrate.Rule") -> Callable[[CrateBase.Track], bool]:
+        """A function giving whether a track matches `rule`, as `update_tracks` describes; raises as it does."""
+        try:
+            field = SmartCrate.RuleField(rule.field)
+            comparison = SmartCrate.RuleComparison(rule.comparison)
+        except ValueError:
+            raise ValueError(f"unknown rule field or comparison: {rule}") from None
+        if rule.value is None:
+            raise ValueError(f"rule has no value: {rule}")
+        # a rule loaded from a file may hold its value in a field of another type than its comparison's
+        value = SmartCrate._coerce_rule_value(comparison, rule.value)
+        db_field = SmartCrate._DB_FIELD_BY_RULE_FIELD[field]
+
+        def track_value(track: CrateBase.Track) -> str | int | None:
+            if db_field not in track.fields:
+                return None
+            # the database's fields for rules hold text or a number
+            track_val = cast(str | int, track.get_value(db_field))
+            return posixpath.basename(str(track_val)) if field == SmartCrate.RuleField.FILENAME else track_val
+
+        Comparison = SmartCrate.RuleComparison
+        if comparison in (
+            Comparison.STR_CONTAINS,
+            Comparison.STR_DOES_NOT_CONTAIN,
+            Comparison.STR_IS,
+            Comparison.STR_IS_NOT,
+        ):
+            wanted = str(value).strip().casefold()
+
+            def text(track: CrateBase.Track) -> str:
+                track_val = track_value(track)
+                return "" if track_val is None else str(track_val).strip().casefold()
+
+            if comparison == Comparison.STR_CONTAINS:
+                return lambda track: wanted in text(track)
+            if comparison == Comparison.STR_DOES_NOT_CONTAIN:
+                return lambda track: wanted not in text(track)
+            if comparison == Comparison.STR_IS:
+                return lambda track: text(track) == wanted
+            return lambda track: text(track) != wanted
+
+        if comparison in (Comparison.INT_IS_GE, Comparison.INT_IS_LE):
+            wanted_number = cast(int, value)
+
+            def number(track: CrateBase.Track) -> float:
+                track_val = track_value(track)
+                if isinstance(track_val, int):
+                    return track_val
+                try:
+                    return float(track_val or 0)
+                except ValueError:
+                    return 0
+
+            if comparison == Comparison.INT_IS_GE:
+                return lambda track: number(track) >= wanted_number
+            return lambda track: number(track) <= wanted_number
+
+        if comparison in (Comparison.TIME_IS_BEFORE, Comparison.TIME_IS_AFTER):
+            if field != SmartCrate.RuleField.ADDED:
+                raise ValueError(f"only the added field can be compared as a time, not {field.name.lower()}: {rule}")
+            try:
+                wanted_date = datetime.strptime(str(value), SmartCrate._RULE_DATE_FORMAT).date()  # noqa: DTZ007
+            except ValueError:
+                raise ValueError(f"rule's date isn't month/day/year: {rule}") from None
+
+            def added(track: CrateBase.Track) -> date:
+                # the database's added time is a Unix timestamp; Serato shows its day on the computer's own clock
+                return date.fromtimestamp(cast(int, track_value(track) or 0))  # noqa: DTZ012
+
+            if comparison == Comparison.TIME_IS_BEFORE:
+                return lambda track: added(track) < wanted_date
+            return lambda track: added(track) > wanted_date
+
+        raise NotImplementedError(f"how Serato matches the {comparison.name} comparison isn't known yet: {rule}")
 
     def to_regular_crate(self, file: str) -> "Crate":
         """A regular crate for `file`, holding this smart crate's tracks and view settings (its sort and columns), but
@@ -234,9 +409,12 @@ class SmartCrate(CrateBase):
 
 
 def main():
-    """The `serato_smartcrate` CLI: prints smart crates, lists their tracks, or sets or deletes their rules."""
+    """The `serato_smartcrate` CLI: prints smart crates, lists their tracks, or sets or deletes their rules and updates
+    their tracks."""
     # ruff: disable[PLC0415, T201]
     import argparse
+
+    from serato_tools.database_v2 import DatabaseV2
 
     @dataclass
     class Args:
@@ -244,6 +422,8 @@ def main():
         all: bool
         list_tracks: bool
         filenames_only: bool
+        update_tracks: bool
+        database: str
         # each rule option given, in the order given: its field, and the arguments after it
         rule_args: list[tuple[SmartCrate.RuleField, list[str]]]
 
@@ -262,6 +442,17 @@ def main():
     parser.add_argument("--all", action="store_true", help="Perform actions on all crates.")
     parser.add_argument("-l", "--list_tracks", action="store_true", help="Only list tracks")
     parser.add_argument("-f", "--filenames_only", action="store_true", help="Only list track filenames")
+    parser.add_argument(
+        "--update_tracks",
+        action="store_true",
+        help="Rewrite each crate's tracks as the database's tracks its rules match, after setting any rules given, as "
+        "Serato does when a rule is edited",
+    )
+    parser.add_argument(
+        "--database",
+        default=DatabaseV2.DEFAULT_DATABASE_FILE,
+        help="The database --update_tracks matches tracks from (default: %(default)s)",
+    )
     rule_options = parser.add_argument_group(
         "rules",
         "Set a rule on every crate given with --FIELD COMPARISON VALUE, such as --grouping str_is UNTAGGED, or delete "
@@ -313,22 +504,36 @@ def main():
         print("\n".join(SmartCrate.get_crate_files()))
         sys.exit()
 
+    # read once, for every crate
+    database = DatabaseV2(args.database) if args.update_tracks else None
+    failed = False
     for crate_path in SmartCrate.get_crate_files(args.file_or_dir):
         crate = SmartCrate(crate_path)
 
-        if rules:
+        if rules or database is not None:
             for field, rule in rules:
                 if rule is None:
                     crate.delete_rule(field)
                 else:
                     # set_rule stores the value in the field the comparison expects, parsing it as needed
                     crate.set_rule(field, *rule)
-            # skipped if the rules are as they were, as when a rule is set to the value it already has
+            if database is not None:
+                try:
+                    crate.update_tracks(database)
+                except (NotImplementedError, ValueError) as error:
+                    # left unsaved, rules included, so the crate's rules and tracks still agree
+                    print(f"not changed: {crate_path}: {error}", file=sys.stderr)
+                    failed = True
+                    continue
+            # skipped if the rules and tracks are as they were, as when a rule is set to the value it already has
             crate.save()
         elif args.list_tracks or args.filenames_only:
             crate.print_track_paths(filenames_only=args.filenames_only)
         else:
             print(crate)
+
+    if failed:
+        sys.exit(1)
     # ruff: enable[PLC0415, T201]
 
 
