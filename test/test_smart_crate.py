@@ -348,6 +348,16 @@ def test_set_rule_and_delete_rule_change_nothing_when_updating_tracks_fails(tmp_
     assert crate.to_bytes() == before, "the rule not removed"
 
 
+def test_printing_shows_a_comparison_or_field_it_doesnt_know():
+    crate = SmartCrate(TEST_SMART_CRATE)
+    # a rule a newer Serato could write
+    rule = [(ValueField.RULE_COMPARISON.value, "cond_new"), (ValueField.RULE_FIELD.value, 999)]
+    crate._entries.append((ValueField.SMARTCRATE_RULE.value, rule))
+    printed = str(crate)
+    assert "cond_new (unknown)" in printed
+    assert "999 (unknown)" in printed
+
+
 class TestCli:
     """The serato_smartcrate CLI, run on a copy of the test smart crate."""
 

@@ -1,6 +1,7 @@
 """Serato's library database (`database V2`), which holds every track's path and the values Serato shows for it."""
 
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import ClassVar
 
@@ -38,6 +39,20 @@ class DatabaseV2(SeratoBinFile):
                 reason = track.get_value(fields.CORRUPT_REASON, str) if fields.CORRUPT_REASON in track.fields else ""
                 corrupt[track.full_path] = reason
         return corrupt
+
+    def set_unanalyzed(self, filepaths: Iterable[str]) -> bool:
+        """Marks the tracks as not yet analyzed, so Serato analyzes them again, and returns whether any changed.
+
+        For a track whose audio changed, since Serato otherwise keeps its old analysis. Doesn't save.
+        """
+        overview_built = SeratoBinFile.Fields.OVERVIEW_BUILT
+
+        def set_unanalyzed(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
+            # Serato sets this False when it adds a track, and True once it's analyzed it
+            track.set_value(overview_built, False)
+            return track
+
+        return self.modify_tracks(set_unanalyzed, files=filepaths)
 
 
 if __name__ == "__main__":

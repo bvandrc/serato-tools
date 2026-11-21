@@ -40,9 +40,9 @@ CI (`.github/workflows/ci.yml`) runs two jobs: `Lint` (pyright, plus Ruff's lint
 - **OS-specific tests** (drive letters, backslash separators, POSIX mount points): a parametrized test marks just its OS-specific cases, with `WINDOWS_ONLY` / `POSIX_ONLY` from `test.helpers.platforms`.
 
 A version's `CHANGELOG.md` entries are grouped by the part of the package they're in, so a reader can skip the parts they don't use. Follow these guidelines in a PR's entries; the maintainer may make exceptions in review, as some past versions' entries are:
-- **Sections:** a version's entries are grouped under `###` headings, in title case, for the part of the package they're in (`Library`, `Database / Crates`, `Track Tags`, `USB Export`, ...). Every version has sections, however few its entries. There's no section for CLIs: a CLI change goes in the section for what it works on. A change spanning several parts goes in one section naming them all (`Database / Crates / Track Tags`), placed before the sections of each, rather than repeated in each.
+- **Sections:** a version's entries are grouped under `###` headings, in title case, for the part of the package they're in (`Library`, `Database / Crates`, `Track Cues`, `USB Export`, ...). A change to one tag class goes in that tag's section (`Track Cues`, `Track Beatgrid`, ...), and one to the tag classes as a whole in `Track Tags`, before them. Every version has sections, however few its entries. There's no section for CLIs: a CLI change goes in the section for what it works on. A change spanning several parts goes in one section naming them all (`Database / Crates / Track Tags`), placed before the sections of each, rather than repeated in each.
 - **Prefixes:** every top-level bullet opens with a bold prefix: `**Feature:**`, `**Performance:**`, `**Fix:**`, `**Deprecated:**`, or `**Docs:**`, or `**[BREAKING]**` for a breaking change, which can name its kind (`**[BREAKING] Removed:**`, ...). A CLI change adds `(CLI)` to it (`**Fix (CLI):**`).
-- **Order:** a section lists its entries most significant first, whatever their prefix, as `pypi-publishing.md`'s Order says, and a version lists its sections the same way, keeping a section that names several parts before each of theirs. For example, in 6.0.0 the new `TrackTextFrames` leads Track Tags, and in Database / Crates, removing the widely used `add_track` comes before making `entries` internal, with an error's new type near the end. A related pair can sit together, such as a removal right after the feature that replaces it.
+- **Order:** a section lists its entries most significant first, whatever their prefix, as `pypi-publishing.md`'s Order says, and a version lists its sections the same way, keeping a section that names several parts before each of theirs. For example, in 6.0.0 the new metadata `set_db_track_tags` sets leads Library, and in Database / Crates, removing the widely used `add_track` comes before making `entries` internal, with an error's new type near the end. A related pair can sit together, such as a removal right after the feature that replaces it.
 - **Brevity:** an entry says what changed for a user in one short sentence. Put any further effect in a sub-bullet rather than a longer sentence, and keep how it works out of it. Leave out a change a user wouldn't notice, such as a message logged at a different level, or an error that names a file the log already named.
 
 Releasing follows `pypi-publishing.md`.
@@ -158,7 +158,7 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
     - Pass `Library(database=...)` an already-loaded database so the two don't overwrite each other's saves.
   - **Saving:** `Library.save()` writes each parsed file whose `has_changed` is true.
     - It saves changes made through `library.database`'s or the crates' own methods, such as `modify`.
-    - **Batching:** inside `with library.batch():`, `rename_track_file`, `remove_track_files`, and `set_db_tracks_tags` change the files in memory without writing them (`_save_unless_batching`), and `batch()` calls `save()` when the outermost block ends, so many changes write each file once.
+    - **Batching:** inside `with library.batch():`, `Library`'s methods change the database and crates in memory without writing them (`_save_unless_batching`), and `batch()` calls `save()` when the outermost block ends, so many changes write each file once.
       - It saves in a `finally`, even when the block raises, since the track files were already changed on disk and the library has to point at them.
       - Nested batches count depth (`_batch_depth`), so only the outermost one saves.
       - A new `Library` method that saves has to go through `_save_unless_batching` too.
@@ -172,7 +172,7 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
       - Every value is converted for the database, and every file read and changed in memory, before any file is saved, so a bad value or unreadable file changes nothing.
       - Every file is written before the database, which is saved once, in one `modify_tracks` pass.
     - **A track not in the database** only has its file's tags set, with a warning.
-    - **Optional extra:** `Library` reaches `db_track_props` only through `_db_track_props()`, which imports it on first use and raises an ImportError naming the extra without it, so the rest of `Library` doesn't need the optional `track_tags` extra.
+    - **Optional extra:** a method that changes track files imports what needs mutagen inside `_needs_track_tags_extra()`, so the rest of `Library` works without the `track_tags` extra.
 - `usb_export.py` composes `Crate`, `SmartCrate`, and `DatabaseV2`: it flattens all tracks into one folder on the drive, dedupes by basename, rewrites crate/database paths to the new layout, and copies only changed files.
 - `SERATO_DIR` (`~/Music/_Serato_`) in `utils/__init__.py` is the default root for all library lookups.
 
