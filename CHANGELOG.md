@@ -2,6 +2,21 @@
 
 Each release groups its changes by the part of the package they're in. Within each part, the most significant changes come first, and each **[BREAKING]** one says how to upgrade past it.
 
+## [Unreleased]
+
+### Database / Crates
+
+- **Feature:** Support libraries on an external drive (e.g. `E:\_Serato_` or `/Volumes/USB/_Serato_`), whose track paths Serato stores relative to that drive's root rather than the home library's drive.
+  - Each database and crate finds that root from where its file is, as `track_path_root`.
+  - `get_relative_path` and `get_full_path` take it as an optional `root`.
+
+### USB Export
+
+- **Feature (CLI):** Add `--source` to `serato_usb_export`: the `_Serato_` folder of a library on another drive to export from, instead of the home library.
+- **Feature:** Add `source_serato_dir` to `copy_crates_to_usb`, and `serato_dir` to `get_crate_files`, for a library on another drive. Each defaults to the home library.
+- **Fix:** `copy_crates_to_usb` now stores tracks' paths relative to the drive when `dest_tracks_dir` is an absolute path on it.
+  - Before, on macOS, `/Volumes/USB/Tracks` was stored as `Volumes/USB/Tracks/...`.
+
 ## [6.0.0] - 2026-11-21
 
 ### Library
@@ -671,6 +686,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** First release on PyPI, for changing Serato's library database and track metadata.
 
+[Unreleased]: https://github.com/bvandrc/serato-tools/compare/v6.0.0...HEAD
 [6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.8.1...v6.0.0
 [5.8.1]: https://github.com/bvandrc/serato-tools/compare/v5.8.0...v5.8.1
 [5.8.0]: https://github.com/bvandrc/serato-tools/compare/v5.7.0...v5.8.0

@@ -169,8 +169,11 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
       - Every file is written before the database, which is saved once, in one `modify_tracks` pass.
     - **A track not in the database** only has its file's tags set, with a warning.
     - **Optional extra:** a method that changes track files imports what needs mutagen inside `_needs_track_tags_extra()`, so the rest of `Library` works without the `track_tags` extra.
-- `usb_export.py` composes `Crate`, `SmartCrate`, and `DatabaseV2`: it flattens all tracks into one folder on the drive, dedupes by basename, rewrites crate/database paths to the new layout, and copies only changed files.
+- `usb_export.py` composes `Crate`, `SmartCrate`, and `DatabaseV2`: it flattens all tracks into one folder on the drive, dedupes by basename, rewrites crate/database paths to the new layout, and copies only changed files. It reads the source library from `source_serato_dir` (the home library by default) and finds each source track from its crate's `track_path_root`, so it can export from a library on another drive.
 - `SERATO_DIR` (`~/Music/_Serato_`) in `utils/__init__.py` is the default root for all library lookups.
+- Serato stores track paths relative to the root of the drive the library's `_Serato_` folder is on.
+  - Each bin file finds that root from its own location (`track_path_root`, from `utils.get_track_path_root`): the drive's mount point for a library on an external drive (`E:\`, `/Volumes/USB`), else the system drive's root for the home library.
+  - Convert a path for a specific file through its `_relative_path` / `_full_path`, or pass its `track_path_root` as `root` to `get_relative_path` / `get_full_path`; without `root` they assume the home library.
 
 ### CLI conventions
 
