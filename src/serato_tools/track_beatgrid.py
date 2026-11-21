@@ -84,6 +84,14 @@ class TrackBeatgrid(SeratoGeobTag):
         # unchecked, so that a grid set in memory prints even when it's invalid
         return "\n".join(str(marker) for marker in self.enhanced_entries[:-1])
 
+    @property
+    def is_dynamic(self) -> bool:
+        """Whether the grid has more than one marker, so a tempo or beat position changes along the track.
+
+        False for a grid of only its terminal marker, one BPM throughout, as Serato's analysis writes, and for no grid.
+        """
+        return any(isinstance(entry, TrackBeatgrid.NonTerminalBeatgridMarker) for entry in self.entries or ())
+
     def delete(self):
         """Deletes the tag in memory, returning whether the file had it; call `save()` to write the deletion."""
         was_deleted = super().delete()
