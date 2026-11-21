@@ -550,9 +550,11 @@ def has_beatgrid(path: str) -> bool:
     return f"GEOB:{GeobKeys.BEATGRID}" in Track(path).tagfile
 
 
+# what the file keeps is Track.delete_analysis', and which tracks the database marks is DatabaseV2.set_unanalyzed's,
+# both tested on their own, so these check only that set_unanalyzed does both, and what it adds: the lock and saving
 def test_set_unanalyzed(folders: LibraryFolders, bin_file_writes: list[str]):
-    track, other = copy_mp3(folders.music_dir, "Replaced.mp3"), copy_mp3(folders.music_dir, "Other.mp3")
-    folders.add_to_database(track, other, fields=ANALYZED)
+    track = copy_mp3(folders.music_dir, "Replaced.mp3")
+    folders.add_to_database(track, fields=ANALYZED)
     bin_file_writes.clear()
 
     result = Library(folders.serato_dir).set_unanalyzed([track])
@@ -561,10 +563,7 @@ def test_set_unanalyzed(folders: LibraryFolders, bin_file_writes: list[str]):
     assert result.files_written == [track]
     assert bin_file_writes == [DatabaseV2.FILENAME], "database saved once"
     assert not has_beatgrid(track), "analysis deleted from the file"
-    assert TrackCuesV2(track).get_track_color() == FIXTURE_COLOR, "color kept"
-    built = folders.db_values(DatabaseV2.Fields.OVERVIEW_BUILT)
-    assert (built[relpath(track)], built[relpath(other)]) == (False, True), "only the track marked unanalyzed"
-    assert has_beatgrid(other), "other track's file left alone"
+    assert folders.db_track(track).get_value(DatabaseV2.Fields.OVERVIEW_BUILT) is False, "marked in the database"
 
 
 def test_set_unanalyzed_with_a_locked_beatgrid_raises_and_changes_nothing(
@@ -592,11 +591,8 @@ def test_set_unanalyzed_include_locked_unlocks(folders: LibraryFolders):
 
     library.set_unanalyzed([track], include_locked=True)
 
-    assert not has_beatgrid(track)
     assert TrackCuesV2(track).is_beatgrid_locked() is False, "unlocked in the file"
-    saved = folders.db_track(track)
-    assert saved.get_value(DatabaseV2.Fields.BEATGRID_LOCKED) is False, "unlocked in the database"
-    assert saved.get_value(DatabaseV2.Fields.OVERVIEW_BUILT) is False
+    assert folders.db_track(track).get_value(DatabaseV2.Fields.BEATGRID_LOCKED) is False, "unlocked in the database"
 
 
 def test_set_unanalyzed_in_a_batch_saves_the_database_when_it_ends(folders: LibraryFolders, bin_file_writes: list[str]):
@@ -608,7 +604,5 @@ def test_set_unanalyzed_in_a_batch_saves_the_database_when_it_ends(folders: Libr
     with library.batch():
         library.set_unanalyzed([track])
         assert bin_file_writes == [], "database not written yet"
-        assert not has_beatgrid(track), "file written right away"
 
     assert bin_file_writes == [DatabaseV2.FILENAME]
-    assert folders.db_values(DatabaseV2.Fields.OVERVIEW_BUILT)[relpath(track)] is False

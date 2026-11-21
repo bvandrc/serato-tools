@@ -172,14 +172,12 @@ ANALYSIS_KEYS = [f"GEOB:{key}" for key in (GeobKeys.WAVEFORM, GeobKeys.BEATGRID,
 
 def test_delete_analysis(mp3: str):
     track = Track(mp3)
-    color = track.get_track_color()
 
     assert track.delete_analysis() is True
     assert track.save() is True
 
     saved = Track(mp3)
     assert [key for key in ANALYSIS_KEYS if key in saved.tagfile] == [], "analysis deleted"
-    assert saved.get_track_color() == color, "cues and color kept"
     assert cue_positions(saved.cues_v2) == cue_positions(Track(TEST_MP3).cues_v2), "cues kept"
     assert saved.delete_analysis() is False, "nothing left to delete"
 

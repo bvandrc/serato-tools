@@ -147,10 +147,10 @@ class Library:
     def batch(self) -> Generator[None]:
         """Holds back this library's saves until the block ends, then writes each changed file once, with `save()`.
 
-        Inside the block, `rename_track_file`, `remove_track_files`, `set_db_tracks_tags`, and `set_unanalyzed` change the database and
-        crates without writing them, so many changes don't rewrite the database once per track. Track files are still
-        renamed, deleted, or tagged right away, so the library is saved when the block ends even if it raises, keeping it
-        pointed at them. A batch inside another saves only when the outermost one ends.
+        Inside the block, this class's methods change the database and crates without writing them, so many changes
+        don't rewrite the database once per track. Track files are still renamed, deleted, or tagged right away, so the
+        library is saved when the block ends even if it raises, keeping it pointed at them. A batch inside another saves
+        only when the outermost one ends.
         """
         self._batch_depth += 1
         try:
