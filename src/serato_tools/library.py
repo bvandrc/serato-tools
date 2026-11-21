@@ -41,20 +41,27 @@ class RemoveTrackFilesResult:
     """
 
 
-def _db_track_props():  # return type left to pyright, which infers the module and so checks its attributes
-    """The db_track_props module, for the methods that change track files.
+@contextmanager
+def _needs_track_tags_extra() -> Generator[None]:
+    """Turns a missing mutagen, imported in the block, into an ImportError saying to install the track_tags extra.
 
-    Raises ImportError, saying how to install it, without the optional track_tags extra, so the rest of Library works
-    without it.
+    For the methods that change track files, which import those modules on first use, so the rest of Library works
+    without the extra.
     """
     try:
-        from serato_tools import db_track_props  # noqa: PLC0415
+        yield
     except ModuleNotFoundError as error:
         if (error.name or "").split(".")[0] != "mutagen":
             raise
         raise ImportError(
             'changing track files needs the track_tags extra: pip install "serato-tools[track_tags]"'
         ) from error
+
+
+def _db_track_props():  # return type left to pyright, which infers the module and so checks its attributes
+    """The db_track_props module; raises ImportError without the track_tags extra."""
+    with _needs_track_tags_extra():
+        from serato_tools import db_track_props  # noqa: PLC0415
     return db_track_props
 
 
