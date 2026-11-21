@@ -2,6 +2,12 @@
 
 Each release groups its changes by the part of the package they're in. Within each part, the most significant changes come first, and each **[BREAKING]** one says how to upgrade past it.
 
+## [Unreleased]
+
+### Track Cues
+
+- **Fix:** `TrackCuesV1` now raises `ValueError` for a `Serato Markers_` tag unlike any Serato writes, rather than risk rewriting one it doesn't understand.
+
 ## [6.0.0] - 2026-11-21
 
 ### Library
@@ -671,6 +677,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** First release on PyPI, for changing Serato's library database and track metadata.
 
+[Unreleased]: https://github.com/bvandrc/serato-tools/compare/v6.0.0...HEAD
 [6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.8.1...v6.0.0
 [5.8.1]: https://github.com/bvandrc/serato-tools/compare/v5.8.0...v5.8.1
 [5.8.0]: https://github.com/bvandrc/serato-tools/compare/v5.7.0...v5.8.0
