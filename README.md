@@ -15,6 +15,7 @@
   - [Renaming or removing track files across the library](#renaming-or-removing-track-files-across-the-library)
   - [Modifying the database file](#modifying-the-database-file)
   - [Listing corrupt tracks](#listing-corrupt-tracks)
+  - [Having Serato analyze tracks again](#having-serato-analyze-tracks-again)
   - [Exporting crates to USB](#exporting-crates-to-usb)
   - [Analyzing and setting a dynamic beatgrid](#analyzing-and-setting-a-dynamic-beatgrid)
   - [Changing several of a track's tags at once](#changing-several-of-a-tracks-tags-at-once)
@@ -156,6 +157,18 @@ db.modify_and_save(
 ```
 
 Or `DatabaseV2().get_corrupt_tracks()`, which returns each track's full path with its reason.
+
+### Having Serato analyze tracks again
+
+For a track whose audio changed, since Serato otherwise keeps its old waveform and beatgrid. Close Serato first, then run Analyze Files once it's open again.
+
+```python
+from serato_tools.database_v2 import DatabaseV2
+
+db = DatabaseV2()
+db.set_unanalyzed(["/Users/Username/Music/Dubstep/Raaket - ILL.mp3"])
+db.save()
+```
 
 ### Exporting crates to USB
 
