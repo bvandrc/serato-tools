@@ -130,9 +130,8 @@ class Track:
         if self._waveform is None:
             with contextlib.suppress(NoWaveformError):  # Serato hasn't built one
                 self._waveform = TrackWaveform(self.tagfile)
-        tags = (self._waveform, self.beatgrid, self.autotags, self.gain)
         # built in full, not any() over a generator, so that every tag is deleted
-        deleted = [tag.delete() for tag in tags if tag is not None]
+        deleted = [tag.delete() for tag in (self._waveform, self.beatgrid, self.autotags, self.gain) if tag is not None]
         return any(deleted)
 
     def snap_cues_to_beats(self, tolerance_beats: float, min_ms_change: int = 2) -> list[TrackCuesV2.SnappedCue]:

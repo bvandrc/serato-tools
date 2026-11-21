@@ -170,7 +170,7 @@ from serato_tools.library import Library
 Library().set_unanalyzed(["/Users/Username/Music/Dubstep/Raaket - ILL.mp3"])
 ```
 
-`DatabaseV2.set_unanalyzed` only marks them in the database, leaving the files as they are until Serato analyzes them.
+`DatabaseV2.set_unanalyzed` works as well to trigger re-analysis, but only marks them in the database, leaving the files as they are until Serato analyzes them.
 
 ### Exporting crates to USB
 
