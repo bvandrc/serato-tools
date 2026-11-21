@@ -182,7 +182,7 @@ Library().set_unanalyzed(["/Users/Username/Music/Dubstep/Raaket - ILL.mp3"])
 
 On macOS, pass the drive's folder, e.g. `--drive /Volumes/USB`.
 
-Every track goes in the drive's `Tracks` folder, copied only when it's changed. A track whose filename another track already has goes in a subfolder named after its own folder.
+Every track goes in the drive's `Tracks` folder, copied only when it's changed. A track whose filename another track already has goes in a subfolder named after its own folder. Track files already on the drive are kept, even ones no crate uses anymore, unless you pass `--delete_unused_tracks`, which deletes every other file in `Tracks`.
 
 ### Analyzing and setting a dynamic beatgrid
 

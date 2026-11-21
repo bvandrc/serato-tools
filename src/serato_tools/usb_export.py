@@ -44,7 +44,11 @@ _STEMS_CRATE_NAME = "Stems"
 
 
 def copy_crates_to_usb(
-    crate_files: Iterable[str], dest_drive_dir: str, dest_tracks_dir: str, root_crate: str | None = None
+    crate_files: Iterable[str],
+    dest_drive_dir: str,
+    dest_tracks_dir: str,
+    root_crate: str | None = None,
+    delete_unused_tracks: bool = False,
 ):
     """Copies the crates in `crate_files`, and their tracks, to the drive at `dest_drive_dir`.
 
@@ -57,6 +61,8 @@ def copy_crates_to_usb(
       order but not their rules, since Serato can't use a smart crate on a drive.
     - A track whose file is already on the drive, unchanged, isn't copied again. Its stems file is copied too.
     - Given `root_crate`, every crate goes inside a crate of that name.
+    - Given `delete_unused_tracks`, every other file in `dest_tracks_dir`, such as a track since taken out of the
+      crates, is deleted.
     - A track whose file is missing is skipped, logging an error. Raises FileNotFoundError if every one is missing, such
       as when the library's music is on a drive that isn't plugged in.
     """
@@ -95,7 +101,10 @@ def copy_crates_to_usb(
         os.makedirs(os.path.dirname(dest_stems_crate), exist_ok=True)
         _export_library_file(Crate(local_stems_crate), dest_stems_crate, dest_paths)
         logger.info(f"copied crate {dest_stems_crate}")
-    _copy_tracks(dest_paths, dest_drive_dir)
+
+    copied = _copy_tracks(dest_paths, dest_drive_dir)
+    if delete_unused_tracks:
+        _delete_other_files(os.path.join(dest_drive_dir, dest_tracks_dir), copied)
 
 
 def _remove_library(dest_serato_dir: str):
@@ -223,15 +232,17 @@ def _copy_pref_file(filename: str, dest_serato_dir: str, root_crate: str | None,
     logger.info(f"copied {dest_file}")
 
 
-def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str):
+def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str) -> set[str]:
     """Copies each track, and its stems file, to its path in `dest_paths` on the drive, unless it's there unchanged.
 
-    Raises for a track with more than one stems file.
+    Returns the paths on the drive of the tracks and stems files it's meant to hold, copied now or before, or whose
+    track is missing, casefolded. Raises for a track with more than one stems file.
     """
     logger.info("copying files over...")
 
     root = LOCAL_SERATO_DRIVE + os.sep if LOCAL_SERATO_DRIVE else os.sep
     not_found: list[str] = []
+    meant_to_hold: set[str] = set()
     stem_files_by_dir: dict[str, list[str]] = {}
 
     def find_stem_files(src_path: str) -> list[str]:
@@ -248,6 +259,7 @@ def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str):
         return [os.path.join(dirname, f) for f in stem_files_by_dir[dirname] if f in stem_names]
 
     def maybe_copy(src_path: str, dst_path: str):
+        meant_to_hold.add(dst_path.casefold())
         if not os.path.exists(src_path):
             not_found.append(src_path)
             return
@@ -273,6 +285,20 @@ def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str):
 
     for n in not_found:
         logger.error(f"does not exist - {n}")
+    return meant_to_hold
+
+
+def _delete_other_files(dest_dir: str, keep: set[str]):
+    """Deletes every file under `dest_dir` whose casefolded path isn't in `keep`, and any folder left empty."""
+    # compared ignoring case, since a FAT32 or exFAT drive keeps a file's old name when it's overwritten under one
+    # differing in case
+    for dirpath, _, filenames in os.walk(dest_dir, topdown=False):
+        for filename in filenames:
+            if (path := os.path.join(dirpath, filename)).casefold() not in keep:
+                logger.info(f"deleting {path}, which no exported crate holds")
+                os.remove(path)
+        if dirpath != dest_dir and not os.listdir(dirpath):
+            os.rmdir(dirpath)
 
 
 def get_crate_files(pattern: str):
@@ -301,11 +327,14 @@ def main():
     # ruff: disable[PLC0415]
     import argparse
 
+    DRIVE_TRACKS_DIR = "Tracks"
+
     @dataclass
     class Args:
         dest_dir: str
         crate_matcher: list[str]
         root_crate: str | None
+        delete_unused_tracks: bool
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -335,6 +364,11 @@ def main():
         default=None,
         help="Not required, but is very nice when plugging your drive into another DJ's laptop. Sets all crates to be within this crate on the destination drive",
     )
+    parser.add_argument(
+        "--delete_unused_tracks",
+        action="store_true",
+        help=f"Delete every other file in the drive's {DRIVE_TRACKS_DIR} folder, such as tracks since taken out of the crates",
+    )
     args = Args(**vars(parser.parse_args()))
 
     crate_files: list[str] = []
@@ -347,8 +381,9 @@ def main():
     copy_crates_to_usb(
         crate_files=crate_files,
         dest_drive_dir=args.dest_dir,
-        dest_tracks_dir="Tracks",
+        dest_tracks_dir=DRIVE_TRACKS_DIR,
         root_crate=args.root_crate,
+        delete_unused_tracks=args.delete_unused_tracks,
     )
     # ruff: enable[PLC0415]
 
