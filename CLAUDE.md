@@ -64,6 +64,7 @@ Subclasses (`DatabaseV2`, `CrateBase` → `Crate` / `SmartCrate`):
   - The smart-crate-only fields (rules and their values) live in `SmartCrate.RuleFields`.
   - Each class lists its valid set in `FIELD_ENUMS`, so a rule field in a database or regular crate is rejected. `__init_subclass__` derives the `FIELDS` frozenset and the `FIELD_NAMES` dict of readable names from it, so a subclass sets only `FIELD_ENUMS`.
 - **Smart crate rule values:** a rule holds exactly one of the `RULE_VALUE_FIELDS`, picked by its comparison's type suffix (`cond_*_str`/`_time`/`_uint`), never by the value's Python type. `set_rule` and `Rule.set_value` coerce the value to match, as Serato does.
+- **Smart crate rules it can't read:** `Rule` raises `ValueError` for a rule with no comparison or field, or one not in `RuleComparison` / `RuleField` (such as a newer Serato's). It's checked when a rule is read (`Rule`, `set_rule`, `delete_rule`), not when the crate loads, so one such crate doesn't stop operations that never read rules (USB export, `Library`'s whole-library methods), and it's saved back unchanged.
 
 The lifecycle is `parse → self._entries → change through the class's methods → to_bytes() → save()`:
 

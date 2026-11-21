@@ -50,6 +50,8 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Change a file through its methods (`modify_tracks`, `modify`, `add_tracks`, `set_rule`, ...), and read it through `get_entries`, `get_tracks`, or `to_json_object`. Its version is the `vrsn` entry `get_entries` gives.
 - **Feature:** A database or crate track's, or a smart crate rule's, `set_value` raises `DataTypeError` for a value of the wrong type, and `ValueError` for an out-of-range number, when it's set rather than only when the file is saved.
   - `modify_tracks` and `modify` now check the tracks they change too.
+- **Fix:** A smart crate rule with no comparison or field, or one this package doesn't know (such as one a newer Serato wrote), raises `ValueError` when `SmartCrate.Rule`, `set_rule`, or `delete_rule` reads it, rather than an `AttributeError` later or changing a rule it can't read.
+  - A crate holding one still loads and saves it unchanged, and printing it shows the comparison or field as `(unknown)` rather than raising.
 - **Feature (CLI):** `serato_smartcrate` now takes each rule field as its own option, e.g. `serato_smartcrate Dubstep.scrate --grouping str_is UNTAGGED --year DELETE`.
   - A bad field, comparison, value, or number of arguments is rejected before any crate is changed.
 - **[BREAKING] Removed (CLI):** `serato_smartcrate`'s `--set_rules`.

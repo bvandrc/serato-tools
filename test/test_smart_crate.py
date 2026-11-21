@@ -1,4 +1,6 @@
 import os
+import re
+from collections.abc import Callable
 
 import pytest
 
@@ -133,6 +135,84 @@ def test_to_regular_crate_keeps_the_tracks_sort_and_columns_but_not_the_rules(tm
     )
 
 
+# rules Rule refuses: a comparison or field a newer Serato could write, or none
+NO_COMPARISON_RULE = [(ValueField.RULE_FIELD.value, Field.ARTIST.value)]
+NO_FIELD_RULE = [(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value)]
+UNKNOWN_COMPARISON_RULE = [(ValueField.RULE_COMPARISON.value, "cond_new_str"), (ValueField.RULE_FIELD.value, 7)]
+UNKNOWN_FIELD_RULE = [(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value), (ValueField.RULE_FIELD.value, 999)]
+# each with the start of its error
+UNREADABLE_RULES = [
+    pytest.param(NO_COMPARISON_RULE, "no comparison (trft)", id="no-comparison"),
+    pytest.param(NO_FIELD_RULE, "no field (urkt)", id="no-field"),
+    pytest.param(UNKNOWN_COMPARISON_RULE, 'unknown comparison "cond_new_str" (trft)', id="unknown-comparison"),
+    pytest.param(UNKNOWN_FIELD_RULE, 'unknown field "999" (urkt)', id="unknown-field"),
+]
+
+
+@pytest.mark.parametrize("entries, message", UNREADABLE_RULES)
+def test_rule_refuses_a_comparison_or_field_it_cant_read(entries: SmartCrate.EntryList, message: str):
+    with pytest.raises(ValueError, match=re.escape(message)):
+        SmartCrate.Rule(entries)
+
+
+@pytest.mark.parametrize("field", [ValueField.RULE_COMPARISON, ValueField.RULE_FIELD], ids=lambda f: f.name)
+def test_rule_cant_remove_its_comparison_or_field(field: ValueField):
+    rule = make_rule(Comparison.STR_IS, Field.ARTIST, ValueField.RULE_VALUE_TEXT, "A")
+    with pytest.raises(ValueError, match="can't remove"):
+        rule.remove_field(field)
+    assert rule.to_entries() == rule_entries(Comparison.STR_IS, Field.ARTIST, ValueField.RULE_VALUE_TEXT, "A")
+
+
+def crate_with_unreadable_rule(tmp_dir: str, entries: SmartCrate.EntryList) -> str:
+    """The path of a copy of the test smart crate, saved with an added rule of `entries`."""
+    crate = SmartCrate(TEST_SMART_CRATE)
+    crate._entries.append((ValueField.SMARTCRATE_RULE.value, entries))
+    path = os.path.join(tmp_dir, "Unreadable.scrate")
+    crate.save(path)
+    return path
+
+
+@pytest.mark.parametrize(
+    "entries",
+    [NO_COMPARISON_RULE, NO_FIELD_RULE, UNKNOWN_COMPARISON_RULE, UNKNOWN_FIELD_RULE],
+    ids=["no-comparison", "no-field", "unknown-comparison", "unknown-field"],
+)
+def test_a_crate_with_a_rule_it_cant_read_loads_and_saves_it_unchanged(tmp_dir: str, entries: SmartCrate.EntryList):
+    path = crate_with_unreadable_rule(tmp_dir, entries)
+    crate = SmartCrate(path)
+    assert crate.to_bytes() == read_bytes(path), "round-trips byte-exact"
+    assert crate.get_track_paths() == SmartCrate(TEST_SMART_CRATE).get_track_paths()
+
+
+@pytest.mark.parametrize(
+    "entries, shown",
+    [
+        pytest.param(UNKNOWN_COMPARISON_RULE, "cond_new_str (unknown)", id="unknown-comparison"),
+        pytest.param(UNKNOWN_FIELD_RULE, "999 (unknown)", id="unknown-field"),
+    ],
+)
+def test_printing_shows_a_comparison_or_field_it_doesnt_know(tmp_dir: str, entries: SmartCrate.EntryList, shown: str):
+    assert shown in str(SmartCrate(crate_with_unreadable_rule(tmp_dir, entries)))
+
+
+@pytest.mark.parametrize("entries, message", UNREADABLE_RULES)
+@pytest.mark.parametrize(
+    "change",
+    [
+        # on a field whose rule comes before the one it can't read, so a change made before raising would show
+        pytest.param(lambda crate: crate.set_rule(Field.GROUPING, Comparison.STR_IS, "changed"), id="set_rule"),
+        pytest.param(lambda crate: crate.delete_rule(Field.GROUPING), id="delete_rule"),
+    ],
+)
+def test_changing_rules_refuses_a_crate_with_one_it_cant_read(
+    tmp_dir: str, entries: SmartCrate.EntryList, message: str, change: Callable[[SmartCrate], object]
+):
+    crate = SmartCrate(crate_with_unreadable_rule(tmp_dir, entries))
+    with pytest.raises(ValueError, match=re.escape(f"{crate.filepath}: {message}")):
+        change(crate)
+    assert not crate.has_changed
+
+
 class TestCli:
     """The serato_smartcrate CLI, run on a copy of the test smart crate."""
 
@@ -190,36 +270,3 @@ class TestCli:
         with pytest.raises(SystemExit):
             self.run_cli(path, *args)
         assert bin_file_writes == []
-
-
-def _crate_file_with_first_rule(tmp_path, rule_entries: SmartCrate.EntryList) -> str:
-    """A copy of the test smart crate, saved with its first rule replaced by `rule_entries`."""
-    crate = SmartCrate(TEST_SMART_CRATE)
-    index = next(i for i, _ in crate._entry_lists(ValueField.SMARTCRATE_RULE))
-    crate._entries[index] = (ValueField.SMARTCRATE_RULE.value, rule_entries)
-    path = str(tmp_path / "rules.scrate")
-    crate.save(path)
-    return path
-
-
-@pytest.mark.parametrize(
-    "rule_entries, message",
-    [
-        pytest.param([(ValueField.RULE_FIELD.value, Field.ARTIST.value)], "has no rule_comparison", id="no-comparison"),
-        pytest.param([(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value)], "has no rule_field", id="no-field"),
-        pytest.param(
-            [(ValueField.RULE_COMPARISON.value, "cond_new_str"), (ValueField.RULE_FIELD.value, Field.ARTIST.value)],
-            'unknown rule_comparison "cond_new_str"',
-            id="unknown-comparison",
-        ),
-        pytest.param(
-            [(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value), (ValueField.RULE_FIELD.value, 999)],
-            'unknown rule_field "999"',
-            id="unknown-field",
-        ),
-    ],
-)
-def test_loading_refuses_a_rule_it_cannot_read(tmp_path, rule_entries: SmartCrate.EntryList, message: str):
-    path = _crate_file_with_first_rule(tmp_path, rule_entries)
-    with pytest.raises(ValueError, match=message):
-        SmartCrate(path)
