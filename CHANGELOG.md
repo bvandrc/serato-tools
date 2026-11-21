@@ -1,6 +1,6 @@
 # Changelog
 
-Each release groups its changes by the part of the package they're in. Within each part, **[BREAKING]** changes come first, each with how to upgrade past it.
+Each release groups its changes by the part of the package they're in. Within each part, the most significant changes come first, and each **[BREAKING]** one says how to upgrade past it.
 
 ## [6.0.0] - 2026-11-10
 
@@ -64,12 +64,12 @@ Each release groups its changes by the part of the package they're in. Within ea
 ### Track Tags
 
 - **Feature:** Add `TrackTextFrames` (`serato_tools.track_text_frames`), which reads and sets a track file's ID3 text frames, and `Track.text_frames`. Setting a frame to `""` removes it.
+  - `TrackTextFrames.Fields` names the frames Serato shows a column for (`Fields.TITLE`, `Fields.GENRE`, etc.).
+  - `Fields.COMMENT` gets and sets the comment the way Serato does.
 - **Feature:** Add `Track.delete_analysis`, which deletes what Serato's analysis writes: the waveform, beatgrid, autotags, and gain.
 - **Feature:** Add `TrackBeatgrid.is_dynamic`, whether a beatgrid has more than one marker.
 - **[BREAKING]** `TrackWaveform` (and `Track(waveform=True)`) loads from a file Serato hasn't built a waveform for, with `data` None, rather than raising `NoWaveformError`. `draw_image()` raises it instead.
   - **Upgrading:** Check `data is None` where you caught `NoWaveformError` on construction.
-  - `TrackTextFrames.Fields` names the frames Serato shows a column for (`Fields.TITLE`, `Fields.GENRE`, etc.).
-  - `Fields.COMMENT` gets and sets the comment the way Serato does.
 - **Feature:** Add `Track.snap_cues_to_beats(tolerance_beats)`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `SnappedCue`.
   - `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)` does the same with the `TrackBeatgrid` passed to it.
   - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to.
@@ -79,6 +79,7 @@ Each release groups its changes by the part of the package they're in. Within ea
     - For `get_snapped_beat_ms`, use `TrackBeatgrid.get_snapped_position` (e.g. `track.beatgrid.get_snapped_position`).
     - For `get_beat_position(entry)`, use `beatgrid.get_beat_position(entry.position)`.
 - **[BREAKING] Removed (CLI):** The CLIs' edit modes: `-e` / `--edit` on `serato_snap_cues_v2`, `python -m serato_tools.track_cues_v1`, and `python -m serato_tools.track_autotags`.
+  - `TrackCuesV2.parse_entries_file`, which read the edit mode's text, is removed with them.
   - **Upgrading:** Change a tag through its class's methods instead, such as `TrackCuesV2.modify_entries` and `set_track_color`, or `TrackAutotags.set`.
 - **[BREAKING]** `TrackBeatgrid.find_nearest_beat` raises `NoBeatgridError` without a beatgrid, rather than returning None.
   - **Upgrading:** Catch `NoBeatgridError` where you checked for None.
