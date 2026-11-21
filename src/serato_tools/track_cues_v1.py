@@ -5,6 +5,7 @@ import io
 import struct
 import sys
 from dataclasses import dataclass
+from typing import ClassVar
 
 from mutagen.mp3 import HeaderNotFoundError
 
@@ -79,6 +80,7 @@ class TrackCuesV1(SeratoGeobTag):
         if self._raw_data is not None:
             self.entries = list(self._parse(self._raw_data))
 
+    @dataclass
     class Entry:
         """A cue or loop slot, with positions in milliseconds, or None where unset, and its color as RGB bytes."""
 
@@ -90,27 +92,7 @@ class TrackCuesV1(SeratoGeobTag):
         color: bytes
         type: "TrackCuesV1.EntryType"
         is_locked: int
-        FORMAT = ">B4sB4s6s4sBB"
-        FIELDS = (
-            "start_position_set",
-            "start_position",
-            "end_position_set",
-            "end_position",
-            "field5",
-            "color",
-            "type",
-            "is_locked",
-        )
-
-        def __init__(self, *args):
-            for field, value in zip(self.FIELDS, args, strict=True):
-                setattr(self, field, value)
-
-        def __repr__(self) -> str:
-            return "{name}({data})".format(
-                name=self.__class__.__name__,
-                data=", ".join(f"{name}={getattr(self, name)!r}" for name in self.FIELDS),
-            )
+        FORMAT: ClassVar[str] = ">B4sB4s6s4sBB"
 
         @classmethod
         def _parse(cls, data: bytes) -> "TrackCuesV1.Entry":
@@ -143,11 +125,12 @@ class TrackCuesV1(SeratoGeobTag):
                 self.is_locked,
             )
 
-    class Color(Entry):
+    @dataclass
+    class Color:
         """The track color, as RGB bytes, which ends the tag."""
 
-        FORMAT = ">4s"
-        FIELDS = ("color",)
+        color: bytes
+        FORMAT: ClassVar[str] = ">4s"
 
         @classmethod
         def _parse(cls, data: bytes) -> "TrackCuesV1.Color":
@@ -216,7 +199,7 @@ if __name__ == "__main__":
             data = fp.read()
         tags = TrackCuesV1(data)
 
-    entries: list[TrackCuesV1.Entry] = tags.entries
+    entries = tags.entries
     if not entries:
         # a parsed tag always has at least the trailing Color entry, so empty means the tag is not set
         print(f'File has no "{TrackCuesV1.GEOB_KEY}" tag.')
