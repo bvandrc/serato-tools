@@ -3,8 +3,6 @@
 Needs the `track_tags` extra (mutagen).
 """
 
-import contextlib
-
 from serato_tools.track_autotags import TrackAutotags
 from serato_tools.track_beatgrid import TrackBeatgrid
 from serato_tools.track_cues_v1 import TrackCuesV1
@@ -12,7 +10,7 @@ from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_gain import TrackGain
 from serato_tools.track_text_frames import TrackTextFrames
 from serato_tools.track_waveform import TrackWaveform
-from serato_tools.utils.track_tags import ID3FileOrPath, ID3FileTag, NoWaveformError, open_tagfile
+from serato_tools.utils.track_tags import ID3FileOrPath, ID3FileTag, open_tagfile
 
 
 class Track:
@@ -38,7 +36,7 @@ class Track:
         """Opens the track file at `file`, or uses `file` if it's an already open mutagen file, and parses its tags.
 
         Each tag passed False isn't parsed or saved, and using it raises ValueError. `waveform` is False by default,
-        since it's display data that's rarely changed, and it raises NoWaveformError if Serato hasn't built it yet.
+        since it's display data that's rarely changed.
         """
         self.tagfile = open_tagfile(file)
         self._cues_v2 = TrackCuesV2(self.tagfile) if cues_v2 else None
@@ -128,10 +126,9 @@ class Track:
         `Library.set_unanalyzed` does both.
         """
         if self._waveform is None:
-            with contextlib.suppress(NoWaveformError):  # Serato hasn't built one
-                self._waveform = TrackWaveform(self.tagfile)
+            self._waveform = TrackWaveform(self.tagfile)
         # built in full, not any() over a generator, so that every tag is deleted
-        deleted = [tag.delete() for tag in (self._waveform, self.beatgrid, self.autotags, self.gain) if tag is not None]
+        deleted = [tag.delete() for tag in (self._waveform, self.beatgrid, self.autotags, self.gain)]
         return any(deleted)
 
     def snap_cues_to_beats(self, tolerance_beats: float, min_ms_change: int = 2) -> list[TrackCuesV2.SnappedCue]:

@@ -65,6 +65,8 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** Add `TrackTextFrames` (`serato_tools.track_text_frames`), which reads and sets a track file's ID3 text frames, and `Track.text_frames`. Setting a frame to `""` removes it.
 - **Feature:** Add `Track.delete_analysis`, which deletes what Serato's analysis writes: the waveform, beatgrid, autotags, and gain.
+- **[BREAKING]** `TrackWaveform` (and `Track(waveform=True)`) loads from a file Serato hasn't built a waveform for, with `data` None, rather than raising `NoWaveformError`. `draw_image()` raises it instead.
+  - **Upgrading:** Check `data is None` where you caught `NoWaveformError` on construction.
   - `TrackTextFrames.Fields` names the frames Serato shows a column for (`Fields.TITLE`, `Fields.GENRE`, etc.).
   - `Fields.COMMENT` gets and sets the comment the way Serato does.
 - **Feature:** Add `Track.snap_cues_to_beats(tolerance_beats)`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `SnappedCue`.
