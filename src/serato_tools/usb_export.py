@@ -30,12 +30,14 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 
 # the extension of the file Serato keeps a track's stems in, beside the track
 STEMS_EXTENSION = ".serato-stems"
-# Serato's crate order file, in UTF-16-BE on every OS
+# Serato's files listing crates by name: their order in its sidebar, and which are collapsed
 _ORDER_FILE = "neworder.pref"
+_COLLAPSED_FILE = "collapsed.pref"
+# the encoding of both, on every OS
 _PREF_FILE_ENCODING = "utf-16-be"
-_BEGIN_RECORD = "[begin record]"
-# how a line in it names a crate
-_CRATE_KEY = "[crate]"
+_BEGIN_RECORD, _END_RECORD = "[begin record]", "[end record]"
+# how a line in either names a crate
+_CRATE_LINE_KEYS = ("[crate]", "[playlist]")
 # the crate Serato keeps tracks with stems in, named so in the order file, never inside a root crate
 _STEMS_CRATE_NAME = "Stems"
 
@@ -81,7 +83,10 @@ def copy_crates_to_usb(
         edit_track=lambda track: track.set_value(DatabaseV2.Fields.PLAYED, False),
     )
     logger.info(f"created database file {dest_db_file}")
-    _copy_order_file(dest_serato_dir, root_crate, _with_parents(name for _, name in crates))
+
+    crate_names = _with_parents(name for _, name in crates)
+    _copy_pref_file(_ORDER_FILE, dest_serato_dir, root_crate, crate_names)
+    _copy_pref_file(_COLLAPSED_FILE, dest_serato_dir, root_crate, crate_names)
     if os.path.exists(local_stems_crate := os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)):
         dest_stems_crate = os.path.join(dest_serato_dir, Crate.SERATO_STEMS_CRATE_PATH)
         os.makedirs(os.path.dirname(dest_stems_crate), exist_ok=True)
@@ -158,15 +163,15 @@ def _export_library_file(
     file.save(dest_file)
 
 
-def _copy_order_file(dest_serato_dir: str, root_crate: str | None, crate_names: set[str]):
-    """Copies Serato's crate order file to the drive, with only the lines of the crates in `crate_names`, each named
-    as it is there.
+def _copy_pref_file(filename: str, dest_serato_dir: str, root_crate: str | None, crate_names: set[str]):
+    """Copies one of Serato's files listing crates by name to the drive, with only the lines of the crates in
+    `crate_names`, each named as it is there.
 
-    Given `root_crate`, it also gets that crate, first.
+    Given `root_crate`, the crate order also gets it, first.
     """
-    local_file = os.path.join(LOCAL_SERATO_DIR, _ORDER_FILE)
+    local_file = os.path.join(LOCAL_SERATO_DIR, filename)
     if not os.path.isfile(local_file):
-        logger.warning(f"no order file to copy: {local_file}")
+        logger.info(f"no {filename} to copy")
         return
     # read and written in binary, since Serato's \n line endings would be written as \r\n on Windows: one byte that
     # misaligns every UTF-16 character after it
@@ -175,18 +180,26 @@ def _copy_order_file(dest_serato_dir: str, root_crate: str | None, crate_names: 
 
     out: list[str] = []
     for line in lines:
-        if not line.startswith(_CRATE_KEY) or (crate := line[len(_CRATE_KEY) :]) == _STEMS_CRATE_NAME:
+        key = next((k for k in _CRATE_LINE_KEYS if line.startswith(k)), None)
+        if key is None:
+            out.append(line)
+            if line == _END_RECORD and out[-2:-1] == [_BEGIN_RECORD]:
+                # its crates all dropped, as a collapsed crate that wasn't exported
+                del out[-2:]
+            continue
+        crate = line[len(key) :]
+        if crate == _STEMS_CRATE_NAME:
             out.append(line)
         elif (name := _drive_crate_name(crate, root_crate)) in crate_names:
-            out.append(_CRATE_KEY + name)
-    if root_crate and out[:1] == [_BEGIN_RECORD]:
+            out.append(key + name)
+    if filename == _ORDER_FILE and root_crate and out[:1] == [_BEGIN_RECORD]:
         # where Serato puts it when it rewrites the drive's order file
-        out.insert(1, _CRATE_KEY + root_crate)
+        out.insert(1, _CRATE_LINE_KEYS[0] + root_crate)
 
-    dest_file = os.path.join(dest_serato_dir, _ORDER_FILE)
+    dest_file = os.path.join(dest_serato_dir, filename)
     with open(dest_file, "wb") as f:
         f.write("\n".join(out).encode(_PREF_FILE_ENCODING))
-    logger.info(f"copied order file {dest_file}")
+    logger.info(f"copied {dest_file}")
 
 
 def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str):
