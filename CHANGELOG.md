@@ -68,6 +68,13 @@ Each release groups its changes by the part of the package they're in. Within ea
     - For the tag classes' read-only `raw_data` (deprecated in 5.1.1), parse, modify, and serialize through each tag's own methods.
     - For the `SeratoTrack` and `SeratoTag` names in `serato_tools.utils.track_tags` (5.4.0), use `ID3FileTag` and `SeratoGeobTag`.
 
+### Track Text Frames
+
+- **Feature:** Add `TrackTextFrames` (`serato_tools.track_text_frames`), which reads and sets a track file's ID3 text frames, and `Track.text_frames`.
+  - `TrackTextFrames.Fields` names the frames Serato shows a column for (`Fields.TITLE`, `Fields.GENRE`, etc.).
+  - `Fields.COMMENT` gets and sets the comment the way Serato does.
+  - Setting a frame to `""` removes it.
+
 ### Track Cues
 
 - **Feature:** Add `Track.snap_cues_to_beats(tolerance_beats)`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `SnappedCue`.
@@ -88,13 +95,6 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Feature (CLI):** `serato_snap_cues_v2 --snap_cues` now says which cue each move was for, and which tag is missing for a track without cues or a beatgrid.
 - **Deprecated:** Passing `delete_tags_v1` to an edit method isn't removed yet: it stays deprecated until a future major release. Pass it to `save()` instead.
 - **Fix:** `TrackCuesV1.Entry`'s `type` is typed as the `TrackCuesV1.EntryType` it holds, rather than `bytes | str`.
-
-### Track Text Frames
-
-- **Feature:** Add `TrackTextFrames` (`serato_tools.track_text_frames`), which reads and sets a track file's ID3 text frames, and `Track.text_frames`.
-  - `TrackTextFrames.Fields` names the frames Serato shows a column for (`Fields.TITLE`, `Fields.GENRE`, etc.).
-  - `Fields.COMMENT` gets and sets the comment the way Serato does.
-  - Setting a frame to `""` removes it.
 
 ### Track Beatgrid
 
