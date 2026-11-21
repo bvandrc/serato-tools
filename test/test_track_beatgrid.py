@@ -158,6 +158,21 @@ def test_a_footer_only_tag_has_no_beatgrid():
         tags.find_nearest_beat(FIRST_CUE_POSITION, 1 / 8)
 
 
+@pytest.mark.parametrize(
+    "markers, dynamic",
+    [
+        pytest.param(GRID, True, id="several markers"),
+        pytest.param((Last(0.5, 120.0),), False, id="terminal marker only"),
+    ],
+)
+def test_is_dynamic(markers: tuple[Marker | Last, ...], dynamic: bool):
+    assert TrackBeatgrid(grid_bytes(markers)).is_dynamic is dynamic
+
+
+def test_without_a_beatgrid_isnt_dynamic(no_beatgrid_mp3: str):
+    assert TrackBeatgrid(no_beatgrid_mp3).is_dynamic is False
+
+
 def test_analyze_and_write_replaces_the_beats_found(mp3: str):
     beatgrid = TrackBeatgrid(mp3)
     beatgrid.get_beats()
