@@ -122,14 +122,14 @@ class SmartCrate(CrateBase):
         if isinstance(value, list):
             return self._stringify_entries(value, indent)
 
-        ret_val = str(value)
-        # an entry's value has its field's type, which loading and set_value check
+        # one this package doesn't know, such as one a newer Serato wrote, is printed as it is rather than refused
         if field == SmartCrate.RuleFields.RULE_FIELD:
-            ret_val += f" ({SmartCrate.RuleField(cast(int, value)).name.lower()})"
+            name = SmartCrate.RuleField(value).name.lower() if value in SmartCrate.RuleField else "unknown"
         elif field == SmartCrate.RuleFields.RULE_COMPARISON:
-            ret_val += f" ({SmartCrate.RuleComparison(cast(str, value)).name})"
-
-        return ret_val
+            name = SmartCrate.RuleComparison(value).name if value in SmartCrate.RuleComparison else "unknown"
+        else:
+            return str(value)
+        return f"{value} ({name})"
 
     class Rule(CrateBase.EntryListCls):
         """One of a smart crate's rules: the track field it tests (`field`), the `comparison`, and the `value`."""
