@@ -9,6 +9,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Feature:** Support libraries on an external drive (e.g. `E:\_Serato_` or `/Volumes/USB/_Serato_`), whose track paths Serato stores relative to that drive's root rather than the home library's drive.
   - Each database and crate finds that root from where its file is, as `track_path_root`.
   - `get_relative_path` and `get_full_path` take it as an optional `root`.
+  - Adding a track that isn't on an external library's drive raises `ValueError`, rather than storing a path that points at nothing.
 
 ### USB Export
 

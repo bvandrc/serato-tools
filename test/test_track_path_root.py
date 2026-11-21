@@ -68,9 +68,20 @@ def test_paths_relative_to_given_root(drive: str):
 def test_path_in_a_sibling_of_the_root_is_outside_it(drive: str):
     # a sibling folder whose name starts with the root's isn't inside it
     sibling_track = os.path.join(drive + "2", "Music", "Track.mp3")
-    assert DatabaseV2.get_relative_path(sibling_track, drive) == DatabaseV2.get_relative_path(sibling_track), (
-        "outside root, only the drive is dropped"
-    )
+    with pytest.raises(ValueError, match="isn't on the library's drive"):
+        DatabaseV2.get_relative_path(sibling_track, drive)
+
+
+def test_relative_path_is_taken_as_relative_to_root(drive: str):
+    assert DatabaseV2.get_relative_path(os.path.join("Music", "Track.mp3"), drive) == "Music/Track.mp3"
+
+
+@WINDOWS_ONLY
+def test_home_library_drops_another_drive():
+    # only Windows has paths outside the home library's root, on another drive; unlike an external library, the home
+    # library keeps the old behavior for one
+    other_drive = "Z:" if not HOME_TRACK_PATH_ROOT.upper().startswith("Z") else "Y:"
+    assert DatabaseV2.get_relative_path(f"{other_drive}\\Music\\Track.mp3", HOME_TRACK_PATH_ROOT) == "Music/Track.mp3"
 
 
 @pytest.mark.parametrize(
@@ -115,3 +126,12 @@ def test_external_drive_library_tracks(drive: str, as_mount: AsMount):
     library.remove_track_files([new])
     assert Crate(crate.filepath).get_track_paths() == ["Music/Kept.mp3"], "removed"
     assert not os.path.exists(new), "file deleted"
+
+
+def test_external_drive_library_rejects_track_on_another_drive(drive: str, as_mount: AsMount):
+    as_mount(drive)
+    crate = Crate.new(os.path.join(drive, "_Serato_", Crate.DIR, "USB.crate"))
+    other_drive_track = os.path.join(os.path.dirname(drive), "Other", "Music", "Track.mp3")
+    with pytest.raises(ValueError, match="isn't on the library's drive"):
+        crate.add_tracks([other_drive_track])
+    assert crate.get_track_paths() == [], "nothing added"
