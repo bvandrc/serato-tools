@@ -7,8 +7,10 @@ Each release groups its changes by the part of the package they're in. Within ea
 ### Library
 
 - **Feature:** `Library.set_db_track_tags` / `set_db_tracks_tags` now also set a track's metadata in its ID3 text frames and the database: `title`, `artist`, `album`, `genre`, `key`, `grouping`, `publisher`, `composer`, `year`, `remixer`, `track_number`, `disc_number`, and `comment`. An empty value removes it from both.
+- **Feature:** Add `Library.set_unanalyzed`, which deletes tracks' analysis from their files (waveform, beatgrid, autotags, and gain) and marks them not yet analyzed, so Serato analyzes them again.
+  - A track with a locked beatgrid raises `ValueError`, unless `include_locked`, which unlocks it.
 - **Feature:** Add `Library.save`, which writes each of the library's parsed files that has changed, once, and returns their paths.
-- **Feature:** Add `Library.batch()`, a context manager: inside `with library.batch():`, `rename_track_file`, `remove_track_files`, and `set_db_tracks_tags` hold back writing the database and crates, and each changed file is written once when the block ends, instead of once per track. It still saves if the block raises.
+- **Feature:** Add `Library.batch()`, a context manager: inside `with library.batch():`, `Library`'s methods hold back writing the database and crates, and each changed file is written once when the block ends, instead of once per track. It still saves if the block raises.
 - **[BREAKING]** `Library.set_db_tracks_tags` and `set_db_track_tags` return a `DbTrackTagsResult` rather than a bool: `database_changed`, as the bool was, and `files_written`, the paths of the track files written.
   - **Upgrading:** Read `.database_changed` where you used the bool, since the result is always truthy.
 - **[BREAKING]** `Library.rename_track_file` returns the paths of the database, crates, and smart crates it changed, rather than a bool, and raises `FileExistsError` when a different file already exists at `dest`, rather than logging an error and returning False.
@@ -62,6 +64,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 ### Track Tags
 
 - **Feature:** Add `TrackTextFrames` (`serato_tools.track_text_frames`), which reads and sets a track file's ID3 text frames, and `Track.text_frames`. Setting a frame to `""` removes it.
+- **Feature:** Add `Track.delete_analysis`, which deletes what Serato's analysis writes: the waveform, beatgrid, autotags, and gain.
   - `TrackTextFrames.Fields` names the frames Serato shows a column for (`Fields.TITLE`, `Fields.GENRE`, etc.).
   - `Fields.COMMENT` gets and sets the comment the way Serato does.
 - **Feature:** Add `Track.snap_cues_to_beats(tolerance_beats)`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `SnappedCue`.
