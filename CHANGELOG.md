@@ -2,12 +2,6 @@
 
 Each release groups its changes by the part of the package they're in. Within each part, **[BREAKING]** changes come first, each with how to upgrade past it.
 
-## [Unreleased]
-
-### Database
-
-- **Feature:** Add `DatabaseV2.set_unanalyzed`, which marks tracks as not yet analyzed, so Serato analyzes them again.
-
 ## [6.0.0] - 2026-11-10
 
 ### Library
@@ -60,6 +54,10 @@ Each release groups its changes by the part of the package they're in. Within ea
   - A database or crate file with no version entry, such as an empty one, now raises `ValueError` rather than `AttributeError`.
   - **Upgrading:** Import those two errors from `serato_tools.utils.bin_file_base`, and catch `ValueError`.
 - **Feature:** A smart crate rule's `comparison` is typed as `str` and its `field` as `int`, rather than as any value an entry can hold.
+
+### Database
+
+- **Feature:** Add `DatabaseV2.set_unanalyzed`, which marks tracks as not yet analyzed, so Serato analyzes them again.
 
 ### Track Tags
 
@@ -655,7 +653,6 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** First release on PyPI, for changing Serato's library database and track metadata.
 
-[Unreleased]: https://github.com/bvandrc/serato-tools/compare/v6.0.0...HEAD
 [6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.8.1...v6.0.0
 [5.8.1]: https://github.com/bvandrc/serato-tools/compare/v5.8.0...v5.8.1
 [5.8.0]: https://github.com/bvandrc/serato-tools/compare/v5.7.0...v5.8.0
