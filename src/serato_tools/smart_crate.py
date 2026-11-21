@@ -97,6 +97,29 @@ class SmartCrate(CrateBase):
         *CrateBase.DEFAULT_VIEW_ENTRIES,
     ]
 
+    def __init__(self, file: str, *, _new: bool = False):
+        """Parses `file` as `SeratoBinFile` does.
+
+        Also raises ValueError for a rule with no comparison or no track field, or with one this package doesn't know
+        (such as a rule written by a newer Serato), naming the rule.
+        """
+        super().__init__(file, _new=_new)
+
+        # refused here, like an untested version, rather than failing later in a property or `set_value`, or never
+        for number, (_, rule_entries) in enumerate(self._entry_lists(SmartCrate.RuleFields.SMARTCRATE_RULE), start=1):
+            values = dict(rule_entries)
+            for field, known in (
+                (SmartCrate.RuleFields.RULE_COMPARISON, {c.value for c in SmartCrate.RuleComparison}),
+                (SmartCrate.RuleFields.RULE_FIELD, {f.value for f in SmartCrate.RuleField}),
+            ):
+                if field.value not in values:
+                    raise ValueError(f"rule {number} in {file} has no {field.name.lower()} ({field.value})")
+                if values[field.value] not in known:
+                    raise ValueError(
+                        f'rule {number} in {file} has an unknown {field.name.lower()} "{values[field.value]}" '
+                        f"({field.value})"
+                    )
+
     @staticmethod
     def _get_rule_value_field(comparison: str) -> "SmartCrate.RuleFields":
         """The field a rule stores its value in.
