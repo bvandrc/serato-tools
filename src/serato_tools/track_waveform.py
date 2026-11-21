@@ -12,9 +12,7 @@ from serato_tools.utils.track_tags import GeobKeys, NoWaveformError, SeratoGeobT
 class TrackWaveform(SeratoGeobTag):
     """The `Serato Overview` tag, which holds the track's waveform overview.
 
-    `data` holds the overview as 240 rows of 16 bytes.
-
-    Raises NoWaveformError when read from a file Serato hasn't built the overview for yet.
+    `data` holds the overview as 240 rows of 16 bytes, or None for a file Serato hasn't built the overview for yet.
     """
 
     GEOB_KEY = GeobKeys.WAVEFORM
@@ -23,11 +21,14 @@ class TrackWaveform(SeratoGeobTag):
     def __init__(self, file_or_data: SeratoGeobTag.FileOrData):
         super().__init__(file_or_data)
 
-        if self._raw_data is None:
-            raise NoWaveformError(self.filename)
-
         # materialize so the version check runs at construction time and the data can be read repeatedly
-        self.data = self._parse(self._raw_data)
+        self.data: list[bytearray] | None = None if self._raw_data is None else self._parse(self._raw_data)
+
+    def delete(self):
+        """Deletes the tag in memory, returning whether the file had it; call `save()` to write the deletion."""
+        was_deleted = super().delete()
+        self.data = None
+        return was_deleted
 
     def _parse(self, data: bytes) -> list[bytearray]:
         """Parse the waveform data into its 16-byte rows.
@@ -48,7 +49,12 @@ class TrackWaveform(SeratoGeobTag):
         return rows
 
     def draw_image(self):
-        """The waveform overview as a 240 x 16 pixel PIL image. Needs the `waveform_drawing` extra (pillow)."""
+        """The waveform overview as a 240 x 16 pixel PIL image. Needs the `waveform_drawing` extra (pillow).
+
+        Raises NoWaveformError if there's no overview.
+        """
+        if self.data is None:
+            raise NoWaveformError(self.filename)
         try:
             from PIL import Image, ImageColor  # noqa: PLC0415
         except ImportError as error:
