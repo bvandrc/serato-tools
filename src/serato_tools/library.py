@@ -45,8 +45,8 @@ class RemoveTrackFilesResult:
 def _needs_track_tags_extra() -> Generator[None]:
     """Turns a missing mutagen, imported in the block, into an ImportError saying to install the track_tags extra.
 
-    For the methods that change track files, which import those modules on first use, so the rest of Library works
-    without the extra.
+    For the methods that change track files, which import those modules in this block on first use, so the rest of
+    Library works without the extra.
     """
     try:
         yield
@@ -56,13 +56,6 @@ def _needs_track_tags_extra() -> Generator[None]:
         raise ImportError(
             'changing track files needs the track_tags extra: pip install "serato-tools[track_tags]"'
         ) from error
-
-
-def _db_track_props():  # return type left to pyright, which infers the module and so checks its attributes
-    """The db_track_props module; raises ImportError without the track_tags extra."""
-    with _needs_track_tags_extra():
-        from serato_tools import db_track_props  # noqa: PLC0415
-    return db_track_props
 
 
 class Library:
@@ -226,7 +219,8 @@ class Library:
         - A track that isn't in the database only has its file's tags set, with a warning.
         - See TrackCuesV2.save for `delete_tags_v1`.
         """
-        props = _db_track_props()
+        with _needs_track_tags_extra():
+            from serato_tools import db_track_props as props  # noqa: PLC0415
         # converted and checked before any file is written, so a value the database can't hold changes nothing
         db_values = {
             DatabaseV2.get_relative_path(filepath).upper(): props.to_db_values(tags)
