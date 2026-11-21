@@ -133,6 +133,16 @@ def test_to_regular_crate_keeps_the_tracks_sort_and_columns_but_not_the_rules(tm
     )
 
 
+def test_printing_shows_a_comparison_or_field_it_doesnt_know():
+    crate = SmartCrate(TEST_SMART_CRATE)
+    # a rule a newer Serato could write
+    rule = [(ValueField.RULE_COMPARISON.value, "cond_new"), (ValueField.RULE_FIELD.value, 999)]
+    crate._entries.append((ValueField.SMARTCRATE_RULE.value, rule))
+    printed = str(crate)
+    assert "cond_new (unknown)" in printed
+    assert "999 (unknown)" in printed
+
+
 class TestCli:
     """The serato_smartcrate CLI, run on a copy of the test smart crate."""
 
