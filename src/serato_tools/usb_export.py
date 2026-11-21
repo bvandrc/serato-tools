@@ -7,6 +7,7 @@ Also the `serato_usb_export` CLI.
 
 import filecmp
 import fnmatch
+import itertools
 import os
 import platform
 import re
@@ -47,7 +48,8 @@ def copy_crates_to_usb(
 ):
     """Copies the crates in `crate_files`, and their tracks, to the drive at `dest_drive_dir`.
 
-    - Every track goes in `dest_tracks_dir` on the drive, and only the first of tracks that share a filename is kept.
+    - Every track goes in `dest_tracks_dir` on the drive. Of tracks that share a filename, a later one goes in a
+      subfolder named after its own folder.
     - The drive's library (its database, crates, and crate order) is replaced by one holding these crates and a
       database of just their tracks, all pointed at the new paths. The rest of its `_Serato_` folder, such as the
       History of sets played from it, is kept.
@@ -140,14 +142,22 @@ def _with_parents(names: Iterable[str]) -> set[str]:
 def _dest_track_paths(track_paths: list[str], dest_tracks_dir: str) -> dict[str, str]:
     """Where on the drive each of `track_paths` goes, relative to its root, by its path as Serato stores it.
 
-    Each goes in `dest_tracks_dir`. Of tracks that share a filename, only the first is kept.
+    Each goes in `dest_tracks_dir`, unless an earlier one has its filename, when it goes in a subfolder named after
+    its own folder. Filenames are compared ignoring case, as a drive formatted FAT32 or exFAT does.
     """
     dest_paths: dict[str, str] = {}
-    basenames: set[str] = set()
+    taken: set[str] = set()
     for path in track_paths:
-        if (basename := os.path.basename(path)) not in basenames:
-            basenames.add(basename)
-            dest_paths[path] = os.path.join(dest_tracks_dir, basename)
+        if path in dest_paths:
+            continue
+        basename = os.path.basename(path)
+        dest = os.path.join(dest_tracks_dir, basename)
+        folder = os.path.basename(os.path.dirname(path)) or "_"
+        subfolders = itertools.chain([folder], (f"{folder} ({n})" for n in itertools.count(2)))
+        while dest.casefold() in taken:
+            dest = os.path.join(dest_tracks_dir, next(subfolders), basename)
+        taken.add(dest.casefold())
+        dest_paths[path] = dest
     return dest_paths
 
 
