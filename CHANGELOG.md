@@ -98,9 +98,9 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Track Beatgrid
 
+- **Feature:** Add `TrackBeatgrid.is_dynamic`, whether a beatgrid has more than one marker.
 - **[BREAKING]** `TrackBeatgrid.find_nearest_beat` raises `NoBeatgridError` without a beatgrid, rather than returning None.
   - **Upgrading:** Catch `NoBeatgridError` where you checked for None.
-- **Feature:** Add `TrackBeatgrid.is_dynamic`, whether a beatgrid has more than one marker.
 
 ### Track Waveform
 
