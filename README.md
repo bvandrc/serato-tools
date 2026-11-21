@@ -174,7 +174,7 @@ Library().set_unanalyzed(["/Users/Username/Music/Dubstep/Raaket - ILL.mp3"])
 
 ### Exporting crates to USB
 
-**NOTE: replaces existing crates on flash drive! (but does not delete existing track files) (TODO: ability to merge with existing)**
+**NOTE: replaces the crates already on the drive!** The rest of the drive's `_Serato_` folder, such as its History, is kept.
 
 ```cmd
 >>> serato_usb_export --drive E --crate_matcher "*house*" "*techno*" --root_crate="Dave USB"
