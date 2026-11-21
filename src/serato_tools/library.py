@@ -41,6 +41,16 @@ class RemoveTrackFilesResult:
     """
 
 
+@dataclass(frozen=True)
+class SetUnanalyzedResult:
+    """What `Library.set_unanalyzed` changed."""
+
+    database_changed: bool
+    """Whether the database changed. Inside `batch()`, it's saved when the block ends."""
+    files_written: list[str]
+    """The track files that had analysis to delete, so were written, as their paths were passed, in the order given."""
+
+
 @contextmanager
 def _needs_track_tags_extra() -> Generator[None]:
     """Turns a missing mutagen, imported in the block, into an ImportError saying to install the track_tags extra.
@@ -137,7 +147,7 @@ class Library:
     def batch(self) -> Generator[None]:
         """Holds back this library's saves until the block ends, then writes each changed file once, with `save()`.
 
-        Inside the block, `rename_track_file`, `remove_track_files`, and `set_db_tracks_tags` change the database and
+        Inside the block, `rename_track_file`, `remove_track_files`, `set_db_tracks_tags`, and `set_unanalyzed` change the database and
         crates without writing them, so many changes don't rewrite the database once per track. Track files are still
         renamed, deleted, or tagged right away, so the library is saved when the block ends even if it raises, keeping it
         pointed at them. A batch inside another saves only when the outermost one ends.
@@ -248,3 +258,46 @@ class Library:
         if changed:
             self._save_unless_batching(self.database)
         return DbTrackTagsResult(database_changed=changed, files_written=files_written)
+
+    def set_unanalyzed(self, filepaths: Collection[str], include_locked: bool = False) -> SetUnanalyzedResult:
+        """Deletes the tracks' analysis from their files and marks them unanalyzed, so Serato analyzes them again.
+
+        For tracks whose audio changed. The analysis is the waveform overview, beatgrid, autotags (BPM and autogain),
+        and gain; cues, color, and the text tags are kept. Returns whether the database changed, and which files were
+        written (see SetUnanalyzedResult).
+
+        - A track whose beatgrid is locked raises ValueError, before any file or the database is changed, unless
+          `include_locked`, which unlocks it too, in the file and the database.
+        - Needs the `track_tags` extra, and raises ImportError without it. Only ID3 files (.mp3, .aiff, .aif) are
+          currently supported.
+        - Every file is written before the database, which is saved once: here, or, inside `batch()`, when it ends.
+        """
+        with _needs_track_tags_extra():
+            from serato_tools.track import Track  # noqa: PLC0415
+        # every file is read and checked before any is written, so a locked or unreadable one changes nothing
+        tracks = {filepath: Track(filepath, cues_v1=False, text_frames=False) for filepath in filepaths}
+        locked = [filepath for filepath, track in tracks.items() if track.is_beatgrid_locked()]
+        if locked and not include_locked:
+            raise ValueError(f"these tracks' beatgrids are locked, so pass include_locked to clear them: {locked}")
+
+        for filepath in locked:
+            tracks[filepath].set_beatgrid_locked(False)
+        files_written: list[str] = []
+        for filepath, track in tracks.items():
+            track.delete_analysis()
+            if track.save():
+                files_written.append(filepath)
+
+        changed = self.database.set_unanalyzed(filepaths)
+        if locked:
+            lock_field = SeratoBinFile.Fields.BEATGRID_LOCKED
+
+            def unlock(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
+                track.set_value(lock_field, False)
+                return track
+
+            unlocked = self.database.modify_tracks(unlock, files=locked)
+            changed = changed or unlocked
+        if changed:
+            self._save_unless_batching(self.database)
+        return SetUnanalyzedResult(database_changed=changed, files_written=files_written)

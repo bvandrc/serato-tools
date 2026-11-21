@@ -163,12 +163,14 @@ Or `DatabaseV2().get_corrupt_tracks()`, which returns each track's full path wit
 For a track whose audio changed, since Serato otherwise keeps its old waveform and beatgrid. Close Serato first, then run Analyze Files once it's open again.
 
 ```python
-from serato_tools.database_v2 import DatabaseV2
+from serato_tools.library import Library
 
-db = DatabaseV2()
-db.set_unanalyzed(["/Users/Username/Music/Dubstep/Raaket - ILL.mp3"])
-db.save()
+# deletes the waveform, beatgrid, autotags, and gain from each file, and marks each not yet analyzed in the database.
+# A locked beatgrid raises ValueError, unless include_locked=True, which unlocks it
+Library().set_unanalyzed(["/Users/Username/Music/Dubstep/Raaket - ILL.mp3"])
 ```
+
+`DatabaseV2.set_unanalyzed` only marks them in the database, leaving the files as they are until Serato analyzes them.
 
 ### Exporting crates to USB
 

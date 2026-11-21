@@ -10,9 +10,11 @@ from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.library import Library
 from serato_tools.smart_crate import SmartCrate
+from serato_tools.track import Track
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_text_frames import TrackTextFrames
 from serato_tools.utils.bin_file_base import DataTypeError, SeratoBinFile
+from serato_tools.utils.track_tags import GeobKeys
 
 from test.helpers.bin_files import LibraryFolders
 from test.helpers.files import mock_files
@@ -539,3 +541,74 @@ def test_set_db_track_tags_without_track_tags_extra(folders: LibraryFolders):
         [sys.executable, "-c", code, folders.serato_dir], capture_output=True, text=True, check=True
     )
     assert 'pip install "serato-tools[track_tags]"' in result.stdout
+
+
+ANALYZED: SeratoBinFile.EntryList = [(DatabaseV2.Fields.OVERVIEW_BUILT, True)]
+
+
+def has_beatgrid(path: str) -> bool:
+    return f"GEOB:{GeobKeys.BEATGRID}" in Track(path).tagfile
+
+
+def test_set_unanalyzed(folders: LibraryFolders, bin_file_writes: list[str]):
+    track, other = copy_mp3(folders.music_dir, "Replaced.mp3"), copy_mp3(folders.music_dir, "Other.mp3")
+    folders.add_to_database(track, other, fields=ANALYZED)
+    bin_file_writes.clear()
+
+    result = Library(folders.serato_dir).set_unanalyzed([track])
+
+    assert result.database_changed
+    assert result.files_written == [track]
+    assert bin_file_writes == [DatabaseV2.FILENAME], "database saved once"
+    assert not has_beatgrid(track), "analysis deleted from the file"
+    assert TrackCuesV2(track).get_track_color() == FIXTURE_COLOR, "color kept"
+    built = folders.db_values(DatabaseV2.Fields.OVERVIEW_BUILT)
+    assert (built[relpath(track)], built[relpath(other)]) == (False, True), "only the track marked unanalyzed"
+    assert has_beatgrid(other), "other track's file left alone"
+
+
+def test_set_unanalyzed_with_a_locked_beatgrid_raises_and_changes_nothing(
+    folders: LibraryFolders, bin_file_writes: list[str]
+):
+    unlocked, locked = copy_mp3(folders.music_dir, "Unlocked.mp3"), copy_mp3(folders.music_dir, "Locked.mp3")
+    folders.add_to_database(unlocked, locked, fields=ANALYZED)
+    library = Library(folders.serato_dir)
+    library.set_db_track_tags(locked, beatgrid_locked=True)
+    bin_file_writes.clear()
+
+    with pytest.raises(ValueError, match="include_locked"):
+        library.set_unanalyzed([unlocked, locked])
+
+    assert has_beatgrid(unlocked), "the unlocked track's file left alone too"
+    assert has_beatgrid(locked)
+    assert bin_file_writes == [], "database not saved"
+
+
+def test_set_unanalyzed_include_locked_unlocks(folders: LibraryFolders):
+    track = copy_mp3(folders.music_dir, "Locked.mp3")
+    folders.add_to_database(track, fields=ANALYZED)
+    library = Library(folders.serato_dir)
+    library.set_db_track_tags(track, beatgrid_locked=True)
+
+    library.set_unanalyzed([track], include_locked=True)
+
+    assert not has_beatgrid(track)
+    assert TrackCuesV2(track).is_beatgrid_locked() is False, "unlocked in the file"
+    saved = folders.db_track(track)
+    assert saved.get_value(DatabaseV2.Fields.BEATGRID_LOCKED) is False, "unlocked in the database"
+    assert saved.get_value(DatabaseV2.Fields.OVERVIEW_BUILT) is False
+
+
+def test_set_unanalyzed_in_a_batch_saves_the_database_when_it_ends(folders: LibraryFolders, bin_file_writes: list[str]):
+    track = copy_mp3(folders.music_dir, "Replaced.mp3")
+    folders.add_to_database(track, fields=ANALYZED)
+    bin_file_writes.clear()
+
+    library = Library(folders.serato_dir)
+    with library.batch():
+        library.set_unanalyzed([track])
+        assert bin_file_writes == [], "database not written yet"
+        assert not has_beatgrid(track), "file written right away"
+
+    assert bin_file_writes == [DatabaseV2.FILENAME]
+    assert folders.db_values(DatabaseV2.Fields.OVERVIEW_BUILT)[relpath(track)] is False

@@ -9,12 +9,14 @@ from serato_tools.track import Track
 from serato_tools.track_autotags import TrackAutotags
 from serato_tools.track_cues_v2 import TrackCuesV2
 from serato_tools.track_gain import TrackGain
+from serato_tools.utils.track_tags import GeobKeys
 
 from test.helpers.track_tags import (
     SNAPPED_CUE_POSITIONS,
     TEST_MP3,
     aiff_with_the_mp3s_tags,
     copy_mp3_with_empty_id3,
+    copy_mp3_without,
     cue_positions,
     has_tags_v1,
     tagfile_saves,
@@ -160,6 +162,35 @@ def test_save_writes_deletions(mp3: str, tag: str, key: str):
 
     assert track.save() is True, "deletion alone is a change"
     assert key not in Track(mp3).tagfile
+
+
+# what Serato's analysis writes, which delete_analysis deletes
+ANALYSIS_KEYS = [f"GEOB:{key}" for key in (GeobKeys.WAVEFORM, GeobKeys.BEATGRID, GeobKeys.AUTOTAGS)] + [
+    TrackGain.RVA2_KEY
+]
+
+
+def test_delete_analysis(mp3: str):
+    track = Track(mp3)
+    color = track.get_track_color()
+
+    assert track.delete_analysis() is True
+    assert track.save() is True
+
+    saved = Track(mp3)
+    assert [key for key in ANALYSIS_KEYS if key in saved.tagfile] == [], "analysis deleted"
+    assert saved.get_track_color() == color, "cues and color kept"
+    assert cue_positions(saved.cues_v2) == cue_positions(Track(TEST_MP3).cues_v2), "cues kept"
+    assert saved.delete_analysis() is False, "nothing left to delete"
+
+
+def test_delete_analysis_without_a_waveform(tmp_dir: str):
+    path = copy_mp3_without(tmp_dir, GeobKeys.WAVEFORM)
+    track = Track(path)
+
+    assert track.delete_analysis() is True, "the rest of the analysis is still there"
+    track.save()
+    assert [key for key in ANALYSIS_KEYS if key in Track(path).tagfile] == []
 
 
 def test_snap_cues_to_beats_with_its_own_beatgrid(mp3: str):

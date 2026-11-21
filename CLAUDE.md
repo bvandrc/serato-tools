@@ -154,7 +154,7 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
     - Pass `Library(database=...)` an already-loaded database so the two don't overwrite each other's saves.
   - **Saving:** `Library.save()` writes each parsed file whose `has_changed` is true.
     - It saves changes made through `library.database`'s or the crates' own methods, such as `modify`.
-    - **Batching:** inside `with library.batch():`, `rename_track_file`, `remove_track_files`, and `set_db_tracks_tags` change the files in memory without writing them (`_save_unless_batching`), and `batch()` calls `save()` when the outermost block ends, so many changes write each file once.
+    - **Batching:** inside `with library.batch():`, `rename_track_file`, `remove_track_files`, `set_db_tracks_tags`, and `set_unanalyzed` change the files in memory without writing them (`_save_unless_batching`), and `batch()` calls `save()` when the outermost block ends, so many changes write each file once.
       - It saves in a `finally`, even when the block raises, since the track files were already changed on disk and the library has to point at them.
       - Nested batches count depth (`_batch_depth`), so only the outermost one saves.
       - A new `Library` method that saves has to go through `_save_unless_batching` too.
