@@ -247,6 +247,21 @@ def _copy_tracks(src_paths: list[str], dest_dir: str):
         logger.error(f"does not exist - {n}")
 
 
+def _find_serato_dir(path: str) -> str:
+    """The `_Serato_` folder `path` names: either that folder itself, or the drive or folder it's in.
+
+    On Windows, a bare drive letter like "D" names that drive's root. Raises `FileNotFoundError` if there's no such
+    folder.
+    """
+    if platform.system() == "Windows" and len(path) == 1:
+        path += ":\\"
+    if os.path.basename(os.path.normpath(path)).lower() != SERATO_DIR_NAME.lower():
+        path = os.path.join(path, SERATO_DIR_NAME)
+    if not os.path.isdir(path):
+        raise FileNotFoundError(f"no Serato library folder: {path}")
+    return path
+
+
 def get_crate_files(pattern: str, serato_dir: str = LOCAL_SERATO_DIR):
     """The crate and smart crate files in `serato_dir`, the home library's by default, whose name matches `pattern`.
 
@@ -298,7 +313,7 @@ def main():
         type=str,
         required=False,
         default=LOCAL_SERATO_DIR,
-        help="The _Serato_ folder of the library to export from. Defaults to the home library, ~/Music/_Serato_",
+        help='The library to export from: its _Serato_ folder, or the drive it\'s on (e.g. "D" on Windows, "/Volumes/Music" on macOS). Defaults to the home library, ~/Music/_Serato_',
     )
     parser.add_argument(
         "-c",
@@ -319,6 +334,11 @@ def main():
         help="Not required, but is very nice when plugging your drive into another DJ's laptop. Sets all crates to be within this crate on the destination drive",
     )
     args = Args(**vars(parser.parse_args()))
+
+    try:
+        args.source_dir = _find_serato_dir(args.source_dir)
+    except FileNotFoundError as e:
+        parser.error(str(e))
 
     crate_files: list[str] = []
     for cm in args.crate_matcher:

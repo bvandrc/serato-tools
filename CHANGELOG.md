@@ -12,7 +12,8 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### USB Export
 
-- **Feature (CLI):** Add `--source` to `serato_usb_export`: the `_Serato_` folder of a library on another drive to export from, instead of the home library.
+- **Feature (CLI):** Add `--source` to `serato_usb_export`: a library on another drive to export from, instead of the home library, given as its `_Serato_` folder or the drive it's on (e.g. `D` or `/Volumes/Music`).
+  - A folder with no library is reported as a usage error.
 - **Feature:** Add `source_serato_dir` to `copy_crates_to_usb`, and `serato_dir` to `get_crate_files`, for a library on another drive. Each defaults to the home library.
 - **Fix:** `copy_crates_to_usb` now stores tracks' paths relative to the drive when `dest_tracks_dir` is an absolute path on it.
   - Before, on macOS, `/Volumes/USB/Tracks` was stored as `Volumes/USB/Tracks/...`.

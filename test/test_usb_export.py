@@ -1,5 +1,7 @@
+import argparse
 import logging
 import os
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 from unittest import mock
@@ -302,6 +304,27 @@ def test_copy_crates_to_usb_stores_a_full_tracks_path_relative_to_the_drive(expo
     assert export.exported_database().get_track_paths() == ["DJ/Tracks/A.mp3"]
 
 
+@pytest.fixture
+def source_library(tmp_dir: str) -> tuple[str, str]:
+    """A drive holding a library to export from, and its _Serato_ folder."""
+    drive = os.path.realpath(tmp_dir)
+    serato_dir = os.path.join(drive, "_Serato_")
+    mock_files({serato_dir: []})
+    return drive, serato_dir
+
+
+def run_cli(*args: str, system: str = "Darwin") -> Mapping[str, Any]:
+    """Runs serato_usb_export with `args` as if on `system`, and returns the keyword arguments it exports with."""
+    with (
+        cli_args("serato_usb_export", "--crates", "*", *args),
+        mock.patch.object(usb_export.platform, "system", return_value=system),
+        mock.patch.object(usb_export, "get_crate_files", return_value=[]),
+        mock.patch.object(usb_export, "copy_crates_to_usb") as copy_crates_to_usb,
+    ):
+        usb_export.main()
+    return copy_crates_to_usb.call_args.kwargs
+
+
 @pytest.mark.parametrize(
     "drive, system, dest",
     [
@@ -309,30 +332,36 @@ def test_copy_crates_to_usb_stores_a_full_tracks_path_relative_to_the_drive(expo
         pytest.param("/Volumes/USB", "Darwin", "/Volumes/USB", id="drive folder kept"),
     ],
 )
-def test_cli_exports_to_the_drive(drive: str, system: str, dest: str):
-    with (
-        cli_args("serato_usb_export", "--drive", drive, "--crates", "*"),
-        mock.patch.object(usb_export.platform, "system", return_value=system),
-        mock.patch.object(usb_export, "get_crate_files", return_value=[]),
-        mock.patch.object(usb_export, "copy_crates_to_usb") as copy_crates_to_usb,
-    ):
-        usb_export.main()
-    assert copy_crates_to_usb.call_args.kwargs["dest_drive_dir"] == dest
+def test_cli_exports_to_the_drive(source_library: tuple[str, str], drive: str, system: str, dest: str):
+    _, serato_dir = source_library
+    assert run_cli("--drive", drive, "--source", serato_dir, system=system)["dest_drive_dir"] == dest
 
 
 @pytest.mark.parametrize(
-    "args, source",
+    "source",
     [
-        pytest.param([], usb_export.LOCAL_SERATO_DIR, id="the home library by default"),
-        pytest.param(["--source", "/Volumes/Library/_Serato_"], "/Volumes/Library/_Serato_", id="the one given"),
+        pytest.param(lambda _drive, serato_dir: serato_dir, id="its _Serato_ folder"),
+        pytest.param(lambda drive, _serato_dir: drive, id="the drive it's on"),
     ],
 )
-def test_cli_exports_from_the_source_library(args: list[str], source: str):
+def test_cli_exports_from_the_source_library(source_library: tuple[str, str], source: Callable[[str, str], str]):
+    drive, serato_dir = source_library
+    exported = run_cli("--drive", "/Volumes/USB", "--source", source(drive, serato_dir))
+    assert exported["source_serato_dir"] == serato_dir
+
+
+def test_cli_source_defaults_to_the_home_library(source_library: tuple[str, str], monkeypatch: pytest.MonkeyPatch):
+    _, serato_dir = source_library
+    monkeypatch.setattr(usb_export, "LOCAL_SERATO_DIR", serato_dir)
+    assert run_cli("--drive", "/Volumes/USB")["source_serato_dir"] == serato_dir
+
+
+def test_cli_source_folder_without_a_library_is_an_error(source_library: tuple[str, str]):
+    drive, _ = source_library
+    # cli_args drops stderr, so the message is read from the call that prints it
     with (
-        cli_args("serato_usb_export", "--drive", "/Volumes/USB", "--crates", "*", *args),
-        mock.patch.object(usb_export, "get_crate_files", return_value=[]) as get_crate_files,
-        mock.patch.object(usb_export, "copy_crates_to_usb") as copy_crates_to_usb,
+        mock.patch.object(argparse.ArgumentParser, "error", autospec=True, side_effect=SystemExit(2)) as error,
+        pytest.raises(SystemExit),
     ):
-        usb_export.main()
-    assert get_crate_files.call_args.args[1] == source, "crates found in it"
-    assert copy_crates_to_usb.call_args.kwargs["source_serato_dir"] == source
+        run_cli("--drive", "/Volumes/USB", "--source", os.path.join(drive, "Nope"))
+    assert "no Serato library folder" in error.call_args.args[1]
