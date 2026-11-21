@@ -123,11 +123,15 @@ class SmartCrate(CrateBase):
             return self._stringify_entries(value, indent)
 
         ret_val = str(value)
-        # an entry's value has its field's type, which loading and set_value check
-        if field == SmartCrate.RuleFields.RULE_FIELD:
-            ret_val += f" ({SmartCrate.RuleField(cast(int, value)).name.lower()})"
-        elif field == SmartCrate.RuleFields.RULE_COMPARISON:
-            ret_val += f" ({SmartCrate.RuleComparison(cast(str, value)).name})"
+        known = {
+            SmartCrate.RuleFields.RULE_FIELD.value: SmartCrate.RuleField,
+            SmartCrate.RuleFields.RULE_COMPARISON.value: SmartCrate.RuleComparison,
+        }.get(field)
+        if known is not None:
+            # one this package doesn't know, such as one a newer Serato wrote, is printed as it is rather than refused
+            name = known(value).name if value in known else "unknown"
+            # a field's name is lowercase (artist), as its CLI option is
+            ret_val += f" ({name.lower() if known is SmartCrate.RuleField else name})"
 
         return ret_val
 
