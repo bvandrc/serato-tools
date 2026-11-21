@@ -13,6 +13,7 @@ Each release groups its changes by the part of the package they're in. Within ea
   - It still saves if the block raises.
 - **Feature:** Add `Library.set_unanalyzed`, which deletes tracks' analysis from their files (waveform, beatgrid, autotags, and gain) and marks them not yet analyzed, so Serato analyzes them again.
   - A track with a locked beatgrid raises `ValueError`, unless `include_locked`, which unlocks it.
+  - `Track.delete_analysis` does the files' part for one track, and `DatabaseV2.set_unanalyzed` the database's.
 - **[BREAKING]** `Library.set_db_track_tags` / `set_db_tracks_tags` return a `DbTrackTagsResult` rather than a bool: `database_changed`, as the bool was, and `files_written`, the paths of the track files written.
   - **Upgrading:** Read `.database_changed` where you used the bool, since the result is always truthy.
 - **[BREAKING]** `Library.rename_track_file` returns the paths of the database, crates, and smart crates it changed, rather than a bool, and raises `FileExistsError` when a different file already exists at `dest`, rather than logging an error and returning False.
@@ -62,7 +63,6 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **[BREAKING] Removed (CLI):** The CLIs' edit modes: `-e` / `--edit` on `serato_snap_cues_v2`, `python -m serato_tools.track_cues_v1`, and `python -m serato_tools.track_autotags`.
   - `TrackCuesV2.parse_entries_file`, which read the edit mode's text, is removed with them.
   - **Upgrading:** Change a tag through its class's methods instead, such as `TrackCuesV2.modify_entries` and `set_track_color`, or `TrackAutotags.set`.
-- **Feature:** Add `Track.delete_analysis`, which deletes what Serato's analysis writes: the waveform, beatgrid, autotags, and gain.
 - **[BREAKING] Removed:** The names earlier releases deprecated.
   - **Upgrading:**
     - For the tag classes' read-only `raw_data` (deprecated in 5.1.1), parse, modify, and serialize through each tag's own methods.
@@ -117,10 +117,6 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Catch `FileNotFoundError` if you call `copy_crates_to_usb`.
 - **Feature:** USB export shows a progress bar while it copies tracks.
   - The package now installs `tqdm` for it.
-
-### Database
-
-- **Feature:** Add `DatabaseV2.set_unanalyzed`, which marks tracks as not yet analyzed, so Serato analyzes them again.
 
 ## [5.8.1] - 2026-11-18
 
