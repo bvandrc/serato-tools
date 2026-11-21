@@ -123,8 +123,11 @@ class SmartCrate(CrateBase):
             return self._stringify_entries(value, indent)
 
         ret_val = str(value)
-        if field in (SmartCrate.RuleFields.RULE_FIELD, SmartCrate.RuleFields.RULE_COMPARISON):
-            known = SmartCrate.RuleField if field == SmartCrate.RuleFields.RULE_FIELD else SmartCrate.RuleComparison
+        known = {
+            SmartCrate.RuleFields.RULE_FIELD.value: SmartCrate.RuleField,
+            SmartCrate.RuleFields.RULE_COMPARISON.value: SmartCrate.RuleComparison,
+        }.get(field)
+        if known is not None:
             # one this package doesn't know, such as one a newer Serato wrote, is printed as it is rather than refused
             name = known(value).name if value in known else "unknown"
             # a field's name is lowercase (artist), as its CLI option is
