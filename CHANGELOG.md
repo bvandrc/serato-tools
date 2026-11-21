@@ -59,10 +59,17 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Track Tags
 
-- **Feature:** Add `TrackTextFrames` (`serato_tools.track_text_frames`), which reads and sets a track file's ID3 text frames, and `Track.text_frames`.
-  - `TrackTextFrames.Fields` names the frames Serato shows a column for (`Fields.TITLE`, `Fields.GENRE`, etc.).
-  - `Fields.COMMENT` gets and sets the comment the way Serato does.
-  - Setting a frame to `""` removes it.
+- **[BREAKING] Removed (CLI):** The CLIs' edit modes: `-e` / `--edit` on `serato_snap_cues_v2`, `python -m serato_tools.track_cues_v1`, and `python -m serato_tools.track_autotags`.
+  - `TrackCuesV2.parse_entries_file`, which read the edit mode's text, is removed with them.
+  - **Upgrading:** Change a tag through its class's methods instead, such as `TrackCuesV2.modify_entries` and `set_track_color`, or `TrackAutotags.set`.
+- **Feature:** Add `Track.delete_analysis`, which deletes what Serato's analysis writes: the waveform, beatgrid, autotags, and gain.
+- **[BREAKING] Removed:** The names earlier releases deprecated.
+  - **Upgrading:**
+    - For the tag classes' read-only `raw_data` (deprecated in 5.1.1), parse, modify, and serialize through each tag's own methods.
+    - For the `SeratoTrack` and `SeratoTag` names in `serato_tools.utils.track_tags` (5.4.0), use `ID3FileTag` and `SeratoGeobTag`.
+
+### Track Cues
+
 - **Feature:** Add `Track.snap_cues_to_beats(tolerance_beats)`, which snaps a track's cues to its beatgrid in memory and returns each move, as a `SnappedCue`.
   - `TrackCuesV2.snap_cues_to_beats(beatgrid, tolerance_beats)` does the same with the `TrackBeatgrid` passed to it.
   - `TrackBeatgrid.get_snapped_position` gives the position a single cue would snap to.
@@ -71,29 +78,35 @@ Each release groups its changes by the part of the package they're in. Within ea
     - For `snap_positions_to_beat` and `snap_positions_to_beat_rule`, use `Track.snap_cues_to_beats`, or `TrackCuesV2.snap_cues_to_beats(beatgrid, ...)`. Both return the moves rather than printing them. There's no rule to pass to `modify_entries`: snap, then make any other edits, before saving.
     - For `get_snapped_beat_ms`, use `TrackBeatgrid.get_snapped_position` (e.g. `track.beatgrid.get_snapped_position`).
     - For `get_beat_position(entry)`, use `beatgrid.get_beat_position(entry.position)`.
-- **[BREAKING] Removed (CLI):** The CLIs' edit modes: `-e` / `--edit` on `serato_snap_cues_v2`, `python -m serato_tools.track_cues_v1`, and `python -m serato_tools.track_autotags`.
-  - `TrackCuesV2.parse_entries_file`, which read the edit mode's text, is removed with them.
-  - **Upgrading:** Change a tag through its class's methods instead, such as `TrackCuesV2.modify_entries` and `set_track_color`, or `TrackAutotags.set`.
-- **Feature:** Add `Track.delete_analysis`, which deletes what Serato's analysis writes: the waveform, beatgrid, autotags, and gain.
-- **[BREAKING]** `TrackWaveform` (and `Track(waveform=True)`) loads from a file Serato hasn't built a waveform for, with `data` None, rather than raising `NoWaveformError`.
-  - `draw_image()` raises it instead.
-  - **Upgrading:** Check `data is None` where you caught `NoWaveformError` on construction.
-- **[BREAKING] Removed:** The names earlier releases deprecated.
-  - **Upgrading:**
-    - For the tag classes' read-only `raw_data` (deprecated in 5.1.1), parse, modify, and serialize through each tag's own methods.
-    - For the `SeratoTrack` and `SeratoTag` names in `serato_tools.utils.track_tags` (5.4.0), use `ID3FileTag` and `SeratoGeobTag`.
-    - For `TrackCuesV2.modified` (5.6.0), use `has_changed`.
 - **[BREAKING]** `TrackCuesV1`'s entries are now dataclasses, and `TrackCuesV1.Color` is no longer a subclass of `TrackCuesV1.Entry`.
   - Entries with the same values compare equal, and can't be hashed (put in a set or used as a dict key).
   - **Upgrading:** Check for `TrackCuesV1.Color` too where `isinstance(entry, TrackCuesV1.Entry)` meant every entry. Key a dict by an entry's index in `entries` rather than the entry.
 - **[BREAKING] Removed:** The `FIELDS` tuple on `TrackCuesV2`'s and `TrackCuesV1`'s entry classes.
   - **Upgrading:** Use `dataclasses.fields`: `[f.name for f in dataclasses.fields(TrackCuesV2.CueEntry)]`.
-- **[BREAKING]** `TrackBeatgrid.find_nearest_beat` raises `NoBeatgridError` without a beatgrid, rather than returning None.
-  - **Upgrading:** Catch `NoBeatgridError` where you checked for None.
-- **Feature:** Add `TrackBeatgrid.is_dynamic`, whether a beatgrid has more than one marker.
+- **[BREAKING] Removed:** `TrackCuesV2.modified`, deprecated in 5.6.0.
+  - **Upgrading:** Use `has_changed`.
 - **Feature (CLI):** `serato_snap_cues_v2 --snap_cues` now says which cue each move was for, and which tag is missing for a track without cues or a beatgrid.
 - **Deprecated:** Passing `delete_tags_v1` to an edit method isn't removed yet: it stays deprecated until a future major release. Pass it to `save()` instead.
 - **Fix:** `TrackCuesV1.Entry`'s `type` is typed as the `TrackCuesV1.EntryType` it holds, rather than `bytes | str`.
+
+### Track Text Frames
+
+- **Feature:** Add `TrackTextFrames` (`serato_tools.track_text_frames`), which reads and sets a track file's ID3 text frames, and `Track.text_frames`.
+  - `TrackTextFrames.Fields` names the frames Serato shows a column for (`Fields.TITLE`, `Fields.GENRE`, etc.).
+  - `Fields.COMMENT` gets and sets the comment the way Serato does.
+  - Setting a frame to `""` removes it.
+
+### Track Beatgrid
+
+- **[BREAKING]** `TrackBeatgrid.find_nearest_beat` raises `NoBeatgridError` without a beatgrid, rather than returning None.
+  - **Upgrading:** Catch `NoBeatgridError` where you checked for None.
+- **Feature:** Add `TrackBeatgrid.is_dynamic`, whether a beatgrid has more than one marker.
+
+### Track Waveform
+
+- **[BREAKING]** `TrackWaveform` (and `Track(waveform=True)`) loads from a file Serato hasn't built a waveform for, with `data` None, rather than raising `NoWaveformError`.
+  - `draw_image()` raises it instead.
+  - **Upgrading:** Check `data is None` where you caught `NoWaveformError` on construction.
 
 ### USB Export
 
