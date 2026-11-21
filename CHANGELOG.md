@@ -54,10 +54,10 @@ Each release groups its changes by the part of the package they're in. Within ea
   - A bad field, comparison, value, or number of arguments is rejected before any crate is changed.
 - **[BREAKING] Removed (CLI):** `serato_smartcrate`'s `--set_rules`.
   - **Upgrading:** Pass the rule options directly, without it.
+- **Fix:** Printing a smart crate shows a rule comparison or field this package doesn't know, such as one a newer Serato wrote, as `(unknown)` rather than raising `ValueError`.
 - **[BREAKING]** `DataTypeError` and `DeeplyNestedListError` move from `serato_tools.utils` to `serato_tools.utils.bin_file_base`.
   - **Upgrading:** Import them from `serato_tools.utils.bin_file_base`.
 - **Feature:** A smart crate rule's `comparison` is typed as `str` and its `field` as `int`, rather than as any value an entry can hold.
-- **Fix:** Printing a smart crate shows a rule comparison or field this package doesn't know, such as one a newer Serato wrote, as `(unknown)` rather than raising `ValueError`.
 
 ### Track Tags
 
