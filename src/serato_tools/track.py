@@ -36,7 +36,7 @@ class Track:
         """Opens the track file at `file`, or uses `file` if it's an already open mutagen file, and parses its tags.
 
         Each tag passed False isn't parsed or saved, and using it raises ValueError. `waveform` is False by default,
-        since it's display data that's rarely changed, and it raises NoWaveformError if Serato hasn't built it yet.
+        since it's display data that's rarely changed.
         """
         self.tagfile = open_tagfile(file)
         self._cues_v2 = TrackCuesV2(self.tagfile) if cues_v2 else None
@@ -117,6 +117,19 @@ class Track:
         whose tags have no lock yet, and for the deprecated `delete_tags_v1`.
         """
         self.cues_v2.set_beatgrid_locked(locked, delete_tags_v1=delete_tags_v1)
+
+    def delete_analysis(self) -> bool:
+        """Deletes what Serato's analysis writes, in memory, and returns whether the file had any; call `save()` to write.
+
+        That's the waveform overview, beatgrid, autotags (BPM and autogain), and gain, so it needs `beatgrid`,
+        `autotags`, and `gain` parsed. Serato analyzes the track again only once its database says to:
+        `Library.set_unanalyzed` does both.
+        """
+        if self._waveform is None:
+            self._waveform = TrackWaveform(self.tagfile)
+        # built in full, not any() over a generator, so that every tag is deleted
+        deleted = [tag.delete() for tag in (self._waveform, self.beatgrid, self.autotags, self.gain)]
+        return any(deleted)
 
     def snap_cues_to_beats(self, tolerance_beats: float, min_ms_change: int = 2) -> list[TrackCuesV2.SnappedCue]:
         """Moves each cue to its nearest beat in memory, and returns the moves; call `save()` to write it to the file.
