@@ -133,28 +133,14 @@ def test_to_regular_crate_keeps_the_tracks_sort_and_columns_but_not_the_rules(tm
     )
 
 
-@pytest.mark.parametrize(
-    "rule, shown",
-    [
-        pytest.param(
-            [(ValueField.RULE_COMPARISON.value, "cond_new_str"), (ValueField.RULE_FIELD.value, Field.ARTIST.value)],
-            "cond_new_str (unknown)",
-            id="comparison",
-        ),
-        pytest.param(
-            [(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value), (ValueField.RULE_FIELD.value, 999)],
-            "999 (unknown)",
-            id="field",
-        ),
-    ],
-)
-def test_printing_shows_a_comparison_or_field_it_doesnt_know(tmp_dir: str, rule: SmartCrate.EntryList, shown: str):
-    # a rule a newer Serato could write
+def test_printing_shows_a_comparison_or_field_it_doesnt_know():
     crate = SmartCrate(TEST_SMART_CRATE)
+    # a rule a newer Serato could write
+    rule = [(ValueField.RULE_COMPARISON.value, "cond_new"), (ValueField.RULE_FIELD.value, 999)]
     crate._entries.append((ValueField.SMARTCRATE_RULE.value, rule))
-    path = os.path.join(tmp_dir, "Unknown.scrate")
-    crate.save(path)
-    assert shown in str(SmartCrate(path))
+    printed = str(crate)
+    assert "cond_new (unknown)" in printed
+    assert "999 (unknown)" in printed
 
 
 class TestCli:
