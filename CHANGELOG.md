@@ -2,6 +2,12 @@
 
 Each release groups its changes by the part of the package they're in. Within each part, the most significant changes come first, and each **[BREAKING]** one says how to upgrade past it.
 
+## [Unreleased]
+
+### Smart Crates
+
+- **Fix:** Smart crates with missing or unknown rule comparisons or fields still load, but editing their rules reports the problem without changing the crate.
+
 ## [6.0.0] - 2026-11-21
 
 ### Library
