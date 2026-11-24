@@ -8,10 +8,13 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  id-token: write # For apply-with-claude
 
 jobs:
   sync:
     uses: bvandrc/bvandrc-conventions/.github/workflows/sync.yml@main
     with:
-      # apply-with-claude is left off, since its Claude can only run JavaScript package managers, not pip.
       files: all.md python.md pypi-publishing.md
+      apply-with-claude: true
+      python-version: '3.12'
+    secrets: inherit
