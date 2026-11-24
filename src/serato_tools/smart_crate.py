@@ -213,16 +213,15 @@ class SmartCrate(CrateBase):
         for i, rule_entries in self._entry_lists(SmartCrate.RuleFields.SMARTCRATE_RULE):
             if SmartCrate._get_rule_field(rule_entries) != field.value:
                 continue
-            # the new comparison goes in before the rule is read, so an unknown or missing one is replaced rather than
-            # refused, and before set_value, since it decides which value field that stores into
-            if any(name == SmartCrate.RuleFields.RULE_COMPARISON.value for name, _ in rule_entries):
-                rule_entries = [
-                    (name, comparison.value if name == SmartCrate.RuleFields.RULE_COMPARISON.value else rule_value)
-                    for name, rule_value in rule_entries
+            # the new comparison replaces the rule's before the rule is read, so an unknown or missing one is replaced
+            # rather than refused, and before set_value, since it decides which value field that stores into; it goes
+            # first, where Serato writes it
+            rule = SmartCrate.Rule(
+                [
+                    (SmartCrate.RuleFields.RULE_COMPARISON.value, comparison.value),
+                    *(entry for entry in rule_entries if entry[0] != SmartCrate.RuleFields.RULE_COMPARISON),
                 ]
-            else:
-                rule_entries = [(SmartCrate.RuleFields.RULE_COMPARISON.value, comparison.value), *rule_entries]
-            rule = SmartCrate.Rule(rule_entries)
+            )
             rule.set_value(value)
             updated_rules.append((i, rule.to_entries()))
         # replaced only once every rule has been read, so one that raises leaves the crate unchanged
