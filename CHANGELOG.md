@@ -2,11 +2,16 @@
 
 Each release groups its changes by the part of the package they're in. Within each part, the most significant changes come first, and each **[BREAKING]** one says how to upgrade past it.
 
-## [Unreleased]
+## [6.0.1] - 2026-11-24
 
 ### Smart Crates
 
 - **Fix:** Smart crates with missing or unknown rule comparisons or fields still load, but editing their rules reports the problem without changing the crate.
+
+### Library
+
+- **[BREAKING]** `Library.set_unanalyzed` is renamed `Library.delete_analysis`, and its result `SetUnanalyzedResult` is renamed `DeleteAnalysisResult`, since it deletes the analysis from the files, unlike `DatabaseV2.set_unanalyzed`.
+  - **Upgrading:** Call `delete_analysis` where you called `Library.set_unanalyzed`.
 
 ## [6.0.0] - 2026-11-21
 
@@ -677,6 +682,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** First release on PyPI, for changing Serato's library database and track metadata.
 
+[6.0.1]: https://github.com/bvandrc/serato-tools/compare/v6.0.0...v6.0.1
 [6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.8.1...v6.0.0
 [5.8.1]: https://github.com/bvandrc/serato-tools/compare/v5.8.0...v5.8.1
 [5.8.0]: https://github.com/bvandrc/serato-tools/compare/v5.7.0...v5.8.0
