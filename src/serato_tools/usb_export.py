@@ -78,7 +78,7 @@ def copy_crates_to_usb(
         dest_crate_file = os.path.join(dest_crate_dir, name + Crate.EXTENSION)
         regular_crate = crate.to_regular_crate(dest_crate_file) if isinstance(crate, SmartCrate) else crate
         _export_library_file(regular_crate, dest_crate_file, dest_tracks_dir)
-        logger.info(f"copied crate {dest_crate_file}")
+        logger.info(f"copied crate file {dest_crate_file}")
 
     dest_db_file = os.path.join(dest_serato_dir, DatabaseV2.FILENAME)
     _export_library_file(
@@ -94,7 +94,7 @@ def copy_crates_to_usb(
         dest_stems_crate = os.path.join(dest_serato_dir, Crate.SERATO_STEMS_CRATE_PATH)
         os.makedirs(os.path.dirname(dest_stems_crate), exist_ok=True)
         _export_library_file(Crate(local_stems_crate), dest_stems_crate, dest_tracks_dir, track_paths_set)
-        logger.info(f"copied crate {dest_stems_crate}")
+        logger.info(f"copied crate file {dest_stems_crate}")
     _copy_tracks(track_paths, os.path.join(dest_drive_dir, dest_tracks_dir))
 
 
