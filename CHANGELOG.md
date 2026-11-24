@@ -6,10 +6,20 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Database / Crates
 
-- **Fix:** A smart crate's `set_rule` and `delete_rule` keep a rule with no track field as it is, rather than raising `AttributeError`, as they keep every rule on another field, even one this package can't read.
+- **Fix:** A smart crate's `set_rule` and `delete_rule` keep its rules on other fields as they are, even ones this package can't read, such as one a newer Serato wrote, rather than raising `ValueError`.
   - A rule on the field they edit is replaced or removed even when its comparison is missing or unknown, so it can be repaired.
-- **Fix:** `SmartCrate.Rule` raises `ValueError` for a rule with no comparison or track field, or one this package doesn't know, when it's read, rather than failing later or never.
-  - Its `remove_field` refuses the comparison and track field.
+
+## [6.0.1] - 2026-11-24
+
+### Library
+
+- **[BREAKING]** `Library.set_unanalyzed` is renamed `Library.delete_analysis`, and its result `SetUnanalyzedResult` is renamed `DeleteAnalysisResult`, since it deletes the analysis from the files, unlike `DatabaseV2.set_unanalyzed`.
+  - **Upgrading:** Call `delete_analysis` where you called `Library.set_unanalyzed`.
+
+### Database / Crates
+
+- **Fix:** A smart crate's `set_rule` and `delete_rule` raise `ValueError` naming the crate, and leave it unchanged, when one of its rules has no comparison or track field, or one this package doesn't know, rather than raising `AttributeError` or editing around the rule.
+  - `SmartCrate.Rule` raises it when it reads such a rule, and its `remove_field` refuses the comparison and track field.
 
 ## [6.0.0] - 2026-11-21
 
@@ -680,7 +690,8 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** First release on PyPI, for changing Serato's library database and track metadata.
 
-[Unreleased]: https://github.com/bvandrc/serato-tools/compare/v6.0.0...HEAD
+[Unreleased]: https://github.com/bvandrc/serato-tools/compare/v6.0.1...HEAD
+[6.0.1]: https://github.com/bvandrc/serato-tools/compare/v6.0.0...v6.0.1
 [6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.8.1...v6.0.0
 [5.8.1]: https://github.com/bvandrc/serato-tools/compare/v5.8.0...v5.8.1
 [5.8.0]: https://github.com/bvandrc/serato-tools/compare/v5.7.0...v5.8.0
