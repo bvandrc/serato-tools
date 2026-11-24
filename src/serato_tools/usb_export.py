@@ -69,6 +69,7 @@ def copy_crates_to_usb(
     track_paths_set = set(track_paths)
 
     dest_serato_dir = os.path.join(dest_drive_dir, SERATO_DIR_NAME)
+    # TODO: merge with existing, instead of replacing
     if os.path.isdir(dest_serato_dir):
         shutil.rmtree(dest_serato_dir)
     dest_crate_dir = os.path.join(dest_serato_dir, Crate.DIR)
