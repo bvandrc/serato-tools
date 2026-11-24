@@ -123,7 +123,7 @@ class Track:
 
         That's the waveform overview, beatgrid, autotags (BPM and autogain), and gain, so it needs `beatgrid`,
         `autotags`, and `gain` parsed. Serato analyzes the track again only once its database says to:
-        `Library.set_unanalyzed` does both.
+        `Library.delete_analysis` does both.
         """
         if self._waveform is None:
             self._waveform = TrackWaveform(self.tagfile)

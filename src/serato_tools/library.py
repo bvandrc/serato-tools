@@ -42,8 +42,8 @@ class RemoveTrackFilesResult:
 
 
 @dataclass(frozen=True)
-class SetUnanalyzedResult:
-    """What `Library.set_unanalyzed` changed."""
+class DeleteAnalysisResult:
+    """What `Library.delete_analysis` changed."""
 
     database_changed: bool
     """Whether the database changed. Inside `batch()`, it's saved when the block ends."""
@@ -259,12 +259,12 @@ class Library:
             self._save_unless_batching(self.database)
         return DbTrackTagsResult(database_changed=changed, files_written=files_written)
 
-    def set_unanalyzed(self, filepaths: Collection[str], include_locked: bool = False) -> SetUnanalyzedResult:
+    def delete_analysis(self, filepaths: Collection[str], include_locked: bool = False) -> DeleteAnalysisResult:
         """Deletes the tracks' analysis from their files and marks them unanalyzed, so Serato analyzes them again.
 
         For tracks whose audio changed. The analysis is the waveform overview, beatgrid, autotags (BPM and autogain),
         and gain; cues, color, and the text tags are kept. Returns whether the database changed, and which files were
-        written (see SetUnanalyzedResult).
+        written (see DeleteAnalysisResult).
 
         - A track whose beatgrid is locked raises ValueError, before any file or the database is changed, unless
           `include_locked`, which unlocks it too, in the file and the database.
@@ -300,4 +300,4 @@ class Library:
             changed = changed or unlocked
         if changed:
             self._save_unless_batching(self.database)
-        return SetUnanalyzedResult(database_changed=changed, files_written=files_written)
+        return DeleteAnalysisResult(database_changed=changed, files_written=files_written)

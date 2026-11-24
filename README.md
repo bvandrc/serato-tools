@@ -167,10 +167,10 @@ from serato_tools.library import Library
 
 # deletes the waveform, beatgrid, autotags, and gain from each file, and marks each not yet analyzed in the database.
 # A locked beatgrid raises ValueError, unless include_locked=True, which unlocks it
-Library().set_unanalyzed(["/Users/Username/Music/Dubstep/Raaket - ILL.mp3"])
+Library().delete_analysis(["/Users/Username/Music/Dubstep/Raaket - ILL.mp3"])
 ```
 
-`DatabaseV2.set_unanalyzed` works as well to trigger re-analysis, but only marks them in the database, leaving the files as they are until Serato analyzes them.
+`DatabaseV2.set_unanalyzed` works as well to trigger re-analysis, but only marks them in the database, leaving the files as they are until Serato analyzes them. A file that keeps its beatgrid keeps it only if Serato's "Set Beatgrid" analysis setting is off, which applies when it analyzes a track on load too.
 
 ### Exporting crates to USB
 
