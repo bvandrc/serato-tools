@@ -221,6 +221,19 @@ def test_copy_crates_to_usb_keeps_the_database_entry_of_the_track_it_copies(expo
     assert [t.get_value(DatabaseV2.Fields.GENRE) for t in tracks] == ["from M1"], "with its own database entry"
 
 
+def test_copy_crates_to_usb_keeps_the_date_added(export: Export):
+    a = export.make_track("A.mp3")
+    added = [(DatabaseV2.Fields.DATE_ADDED_U, 1700000000), (DatabaseV2.Fields.DATE_ADDED_T, "1700000000")]
+    export.add_to_database(a, fields=added)
+
+    usb_export.copy_crates_to_usb([export.make_crate("House", [a])], export.drive, DRIVE_TRACKS)
+
+    (track,) = export.exported_database().get_tracks()
+    assert [track.get_value(field) for field, _ in added] == [value for _, value in added], (
+        "the date the track was added to the library, which Serato's own sync resets to the export's"
+    )
+
+
 def test_copy_crates_to_usb_writes_a_smart_crate_as_a_regular_crate(export: Export):
     a = export.make_track("A.mp3")
     smart_crate = export.make_crate("Parent≫≫Dubstep", [a], SmartCrate)
