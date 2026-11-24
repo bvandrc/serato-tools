@@ -2,6 +2,12 @@
 
 Each release groups its changes by the part of the package they're in. Within each part, the most significant changes come first, and each **[BREAKING]** one says how to upgrade past it.
 
+## [Unreleased]
+
+### USB Export
+
+- **Fix:** An export with a crate it can't read, or a file that isn't a crate, fails before changing the drive, rather than after deleting the drive's `_Serato_` folder and exporting the crates before it.
+
 ## [6.0.2] - 2026-11-24
 
 ### Smart Crates
@@ -686,6 +692,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** First release on PyPI, for changing Serato's library database and track metadata.
 
+[Unreleased]: https://github.com/bvandrc/serato-tools/compare/v6.0.2...HEAD
 [6.0.2]: https://github.com/bvandrc/serato-tools/compare/v6.0.1...v6.0.2
 [6.0.1]: https://github.com/bvandrc/serato-tools/compare/v6.0.0...v6.0.1
 [6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.8.1...v6.0.0
