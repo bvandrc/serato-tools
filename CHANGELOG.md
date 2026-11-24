@@ -6,7 +6,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### USB Export
 
-- **Fix:** An export with a crate it can't read, or a file that isn't a crate, fails before changing the drive, rather than after deleting the drive's `_Serato_` folder and exporting the crates before it.
+- **Fix:** An export with a crate file it can't read fails before changing the drive, rather than partway through.
 
 ## [6.0.2] - 2026-11-24
 
