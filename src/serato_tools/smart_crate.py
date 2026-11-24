@@ -195,50 +195,61 @@ class SmartCrate(CrateBase):
         def set_comparison(self, value: "SmartCrate.RuleComparison"):
             super().set_value(SmartCrate.RuleFields.RULE_COMPARISON, value.value)
 
+    @staticmethod
+    def _get_rule_field(rule_entries: "SmartCrate.EntryList") -> int | None:
+        """The track field a rule tests, or None if it has none, read without reading the rest of the rule."""
+        field = SmartCrate.RuleFields.RULE_FIELD
+        return next((cast(int, value) for name, value in rule_entries if name == field), None)
+
     def set_rule(self, field: "SmartCrate.RuleField", comparison: "SmartCrate.RuleComparison", value: str | int):
         """Sets the rule on `field` to `comparison` and `value`, adding the rule if the crate has none on `field`.
 
         `value` is converted to the type `comparison` compares, e.g. `100` to `"100"` for a text comparison; raises
-        ValueError if a comparison of numbers is given text that isn't one, or if a rule can't be read. The crate
-        remains unchanged if this raises.
+        ValueError, changing nothing, if a comparison of numbers is given text that isn't one. Rules on other fields are
+        kept as they are, even ones this package can't read, such as one a newer Serato wrote, and a rule on `field`
+        whose comparison is missing or unknown is replaced.
         """
+        comparison_field = SmartCrate.RuleFields.RULE_COMPARISON.value
         updated_rules: list[tuple[int, SmartCrate.EntryList]] = []
-        try:
-            for i, rule_entries in self._entry_lists(SmartCrate.RuleFields.SMARTCRATE_RULE):
-                rule = SmartCrate.Rule(rule_entries)
-                if rule.field == field.value:
-                    # the comparison first: it decides which value field set_value stores into
-                    rule.set_comparison(comparison)
-                    rule.set_value(value)
-                    updated_rules.append((i, rule.to_entries()))
-            if not updated_rules:
-                new_rule = SmartCrate.Rule(
-                    [
-                        (SmartCrate.RuleFields.RULE_COMPARISON.value, comparison.value),
-                        (SmartCrate.RuleFields.RULE_FIELD.value, field.value),
-                    ]
-                )
-                new_rule.set_value(value)
-                self._entries.append((SmartCrate.RuleFields.SMARTCRATE_RULE.value, new_rule.to_entries()))
-        except ValueError as error:
-            raise ValueError(f"{self.filepath}: {error}") from error
-
+        for i, rule_entries in self._entry_lists(SmartCrate.RuleFields.SMARTCRATE_RULE):
+            if SmartCrate._get_rule_field(rule_entries) != field.value:
+                continue
+            # the new comparison goes in before the rule is read, so an unknown or missing one is replaced rather than
+            # refused, and before set_value, since it decides which value field that stores into
+            if any(name == comparison_field for name, _ in rule_entries):
+                rule_entries = [
+                    (name, comparison.value if name == comparison_field else rule_value)
+                    for name, rule_value in rule_entries
+                ]
+            else:
+                rule_entries = [(comparison_field, comparison.value), *rule_entries]
+            rule = SmartCrate.Rule(rule_entries)
+            rule.set_value(value)
+            updated_rules.append((i, rule.to_entries()))
         # replaced only once every rule has been read, so one that raises leaves the crate unchanged
         for i, rule_entries in updated_rules:
             self._entries[i] = (SmartCrate.RuleFields.SMARTCRATE_RULE.value, rule_entries)
 
+        if not updated_rules:
+            new_rule = SmartCrate.Rule(
+                [
+                    (comparison_field, comparison.value),
+                    (SmartCrate.RuleFields.RULE_FIELD.value, field.value),
+                ]
+            )
+            new_rule.set_value(value)
+            self._entries.append((SmartCrate.RuleFields.SMARTCRATE_RULE.value, new_rule.to_entries()))
+
     def delete_rule(self, field: "SmartCrate.RuleField") -> bool:
         """Removes every rule on `field`, and returns whether there was one to remove.
 
-        Raises ValueError without changing the crate if a rule can't be read.
+        Rules on other fields are kept as they are, even ones this package can't read, and a rule on `field` is removed
+        whatever its comparison.
         """
-        try:
-            return self._filter_entry_lists(
-                SmartCrate.RuleFields.SMARTCRATE_RULE,
-                lambda rule_entries: SmartCrate.Rule(rule_entries).field != field.value,
-            )
-        except ValueError as error:
-            raise ValueError(f"{self.filepath}: {error}") from error
+        return self._filter_entry_lists(
+            SmartCrate.RuleFields.SMARTCRATE_RULE,
+            lambda rule_entries: SmartCrate._get_rule_field(rule_entries) != field.value,
+        )
 
     def to_regular_crate(self, file: str) -> "Crate":
         """A regular crate for `file`, holding this smart crate's tracks and view settings (its sort and columns), but

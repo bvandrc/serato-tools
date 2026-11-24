@@ -1,5 +1,6 @@
 import os
-from functools import partial
+from collections.abc import Callable
+from typing import cast
 
 import pytest
 
@@ -144,6 +145,92 @@ def test_printing_shows_a_comparison_or_field_it_doesnt_know():
     assert "999 (unknown)" in printed
 
 
+@pytest.mark.parametrize(
+    "entries, message",
+    [
+        pytest.param([(ValueField.RULE_FIELD.value, Field.ARTIST.value)], "has no rule_comparison", id="no-comparison"),
+        pytest.param([(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value)], "has no rule_field", id="no-field"),
+        pytest.param(
+            [(ValueField.RULE_COMPARISON.value, "cond_new_str"), (ValueField.RULE_FIELD.value, Field.ARTIST.value)],
+            'unknown rule_comparison "cond_new_str"',
+            id="unknown-comparison",
+        ),
+        pytest.param(
+            [(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value), (ValueField.RULE_FIELD.value, 999)],
+            'unknown rule_field "999"',
+            id="unknown-field",
+        ),
+    ],
+)
+def test_rule_read_refuses_missing_or_unknown_fields(entries: SmartCrate.EntryList, message: str):
+    with pytest.raises(ValueError, match=message):
+        SmartCrate.Rule(entries)
+
+
+def rules_on(crate: SmartCrate, field: Field) -> list[SmartCrate.EntryList]:
+    """The entries of each of the crate's rules on `field`."""
+    rules = [cast(SmartCrate.EntryList, value) for name, value in crate._entries if name == ValueField.SMARTCRATE_RULE]
+    return [rule for rule in rules if (ValueField.RULE_FIELD.value, field.value) in rule]
+
+
+# editing the grouping rule, and the grouping rules the edit should leave
+GROUPING_EDITS = [
+    pytest.param(
+        lambda crate: crate.set_rule(Field.GROUPING, Comparison.STR_IS, "new"),
+        [rule_entries(Comparison.STR_IS, Field.GROUPING, ValueField.RULE_VALUE_TEXT, "new")],
+        id="set_rule",
+    ),
+    pytest.param(lambda crate: crate.delete_rule(Field.GROUPING), [], id="delete_rule"),
+]
+
+
+@pytest.mark.parametrize("edit, grouping_rules", GROUPING_EDITS)
+def test_rule_edits_keep_rules_on_other_fields_they_cant_read(
+    edit: Callable[[SmartCrate], object], grouping_rules: list[SmartCrate.EntryList]
+):
+    crate = SmartCrate(TEST_SMART_CRATE)
+    # rules a newer Serato could write, or a damaged file hold
+    unreadable_rules: list[SmartCrate.EntryList] = [
+        [(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value), (ValueField.RULE_VALUE_TEXT.value, "no field")],
+        [(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value), (ValueField.RULE_FIELD.value, 999)],
+        [(ValueField.RULE_COMPARISON.value, "cond_new_str"), (ValueField.RULE_FIELD.value, Field.ARTIST.value)],
+    ]
+    crate._entries += [(ValueField.SMARTCRATE_RULE.value, rule) for rule in unreadable_rules]
+    edit(crate)
+    assert rules_on(crate, Field.GROUPING) == grouping_rules
+    assert crate._entries[-len(unreadable_rules) :] == [
+        (ValueField.SMARTCRATE_RULE.value, rule) for rule in unreadable_rules
+    ], "the rules on other fields should be kept as they were"
+
+
+@pytest.mark.parametrize("edit, grouping_rules", GROUPING_EDITS)
+@pytest.mark.parametrize(
+    "comparison",
+    [
+        pytest.param([], id="no-comparison"),
+        pytest.param([(ValueField.RULE_COMPARISON.value, "cond_new_str")], id="unknown"),
+    ],
+)
+def test_rule_edits_repair_a_rule_whose_comparison_they_cant_read(
+    edit: Callable[[SmartCrate], object], grouping_rules: list[SmartCrate.EntryList], comparison: SmartCrate.EntryList
+):
+    crate = SmartCrate(TEST_SMART_CRATE)
+    crate.delete_rule(Field.GROUPING)
+    rule = [*comparison, (ValueField.RULE_FIELD.value, Field.GROUPING.value), (ValueField.RULE_VALUE_TEXT.value, "old")]
+    crate._entries.append((ValueField.SMARTCRATE_RULE.value, rule))
+    edit(crate)
+    assert rules_on(crate, Field.GROUPING) == grouping_rules
+
+
+@pytest.mark.parametrize("field", [ValueField.RULE_COMPARISON, ValueField.RULE_FIELD])
+def test_rule_cannot_remove_required_field(field: ValueField):
+    entries = rule_entries(Comparison.STR_IS, Field.GROUPING, ValueField.RULE_VALUE_TEXT, "GRP")
+    rule = SmartCrate.Rule(entries)
+    with pytest.raises(ValueError, match=field.value):
+        rule.remove_field(field)
+    assert rule.to_entries() == entries
+
+
 class TestCli:
     """The serato_smartcrate CLI, run on a copy of the test smart crate."""
 
@@ -201,57 +288,3 @@ class TestCli:
         with pytest.raises(SystemExit):
             self.run_cli(path, *args)
         assert bin_file_writes == []
-
-
-@pytest.mark.parametrize(
-    "rule_entries, message",
-    [
-        pytest.param([(ValueField.RULE_FIELD.value, Field.ARTIST.value)], "has no rule_comparison", id="no-comparison"),
-        pytest.param([(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value)], "has no rule_field", id="no-field"),
-        pytest.param(
-            [(ValueField.RULE_COMPARISON.value, "cond_new_str"), (ValueField.RULE_FIELD.value, Field.ARTIST.value)],
-            'unknown rule_comparison "cond_new_str"',
-            id="unknown-comparison",
-        ),
-        pytest.param(
-            [(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value), (ValueField.RULE_FIELD.value, 999)],
-            'unknown rule_field "999"',
-            id="unknown-field",
-        ),
-    ],
-)
-def test_rule_read_refuses_missing_or_unknown_fields(rule_entries: SmartCrate.EntryList, message: str):
-    with pytest.raises(ValueError, match=message):
-        SmartCrate.Rule(rule_entries)
-
-
-@pytest.mark.parametrize("operation", ["set", "delete"])
-def test_invalid_rule_does_not_prevent_loading_or_partly_apply_edits(tmp_path, operation: str):
-    path = str(tmp_path / "rules.scrate")
-    original = SmartCrate(TEST_SMART_CRATE)
-    # Put the invalid rule after the valid GROUPING rule, so a partial edit would change the crate before it fails.
-    original._entries.append(
-        (ValueField.SMARTCRATE_RULE.value, [(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value)])
-    )
-    original.save(path)
-
-    crate = SmartCrate(path)
-    assert crate.to_bytes() == read_bytes(path)
-    if operation == "set":
-        change_rule = partial(crate.set_rule, Field.GROUPING, Comparison.STR_IS, "updated")
-    else:
-        change_rule = partial(crate.delete_rule, Field.GROUPING)
-    with pytest.raises(ValueError, match="has no rule_field") as error:
-        change_rule()
-    assert path in str(error.value)
-    assert crate.to_bytes() == read_bytes(path)
-    assert not crate.has_changed
-
-
-@pytest.mark.parametrize("field", [ValueField.RULE_COMPARISON, ValueField.RULE_FIELD])
-def test_rule_cannot_remove_required_field(field: ValueField):
-    entries = rule_entries(Comparison.STR_IS, Field.GROUPING, ValueField.RULE_VALUE_TEXT, "GRP")
-    rule = SmartCrate.Rule(entries)
-    with pytest.raises(ValueError, match=field.value):
-        rule.remove_field(field)
-    assert rule.to_entries() == entries

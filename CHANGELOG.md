@@ -4,9 +4,12 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ## [Unreleased]
 
-### Smart Crates
+### Database / Crates
 
-- **Fix:** Smart crates with missing or unknown rule comparisons or fields still load, but editing their rules reports the problem without changing the crate.
+- **Fix:** A smart crate's `set_rule` and `delete_rule` keep a rule with no track field as it is, rather than raising `AttributeError`, as they keep every rule on another field, even one this package can't read.
+  - A rule on the field they edit is replaced or removed even when its comparison is missing or unknown, so it can be repaired.
+- **Fix:** `SmartCrate.Rule` raises `ValueError` for a rule with no comparison or track field, or one this package doesn't know, when it's read, rather than failing later or never.
+  - Its `remove_field` refuses the comparison and track field.
 
 ## [6.0.0] - 2026-11-21
 
@@ -677,6 +680,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** First release on PyPI, for changing Serato's library database and track metadata.
 
+[Unreleased]: https://github.com/bvandrc/serato-tools/compare/v6.0.0...HEAD
 [6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.8.1...v6.0.0
 [5.8.1]: https://github.com/bvandrc/serato-tools/compare/v5.8.0...v5.8.1
 [5.8.0]: https://github.com/bvandrc/serato-tools/compare/v5.7.0...v5.8.0
