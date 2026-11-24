@@ -4,22 +4,22 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ## [Unreleased]
 
-### Database / Crates
+### Smart Crates
 
 - **Fix:** A smart crate's `set_rule` and `delete_rule` keep its rules on other fields as they are, even ones this package can't read, such as one a newer Serato wrote, rather than raising `ValueError`.
   - A rule on the field they edit is replaced or removed even when its comparison is missing or unknown, so it can be repaired.
 
 ## [6.0.1] - 2026-11-24
 
+### Smart Crates
+
+- **Fix:** A smart crate's `set_rule` and `delete_rule` raise `ValueError` naming the crate, and leave it unchanged, when one of its rules has no comparison or track field, or one this package doesn't know, rather than raising `AttributeError` or editing around the rule.
+  - `SmartCrate.Rule` raises it when it reads such a rule, and its `remove_field` refuses the comparison and track field.
+
 ### Library
 
 - **[BREAKING]** `Library.set_unanalyzed` is renamed `Library.delete_analysis`, and its result `SetUnanalyzedResult` is renamed `DeleteAnalysisResult`, since it deletes the analysis from the files, unlike `DatabaseV2.set_unanalyzed`.
   - **Upgrading:** Call `delete_analysis` where you called `Library.set_unanalyzed`.
-
-### Database / Crates
-
-- **Fix:** A smart crate's `set_rule` and `delete_rule` raise `ValueError` naming the crate, and leave it unchanged, when one of its rules has no comparison or track field, or one this package doesn't know, rather than raising `AttributeError` or editing around the rule.
-  - `SmartCrate.Rule` raises it when it reads such a rule, and its `remove_field` refuses the comparison and track field.
 
 ## [6.0.0] - 2026-11-21
 
