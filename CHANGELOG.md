@@ -4,6 +4,10 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ## [6.0.1] - 2026-11-24
 
+### Smart Crates
+
+- **Fix:** Smart crates with missing or unknown rule comparisons or fields still load, but editing their rules reports the problem without changing the crate.
+
 ### Library
 
 - **[BREAKING]** `Library.set_unanalyzed` is renamed `Library.delete_analysis`, and its result `SetUnanalyzedResult` is renamed `DeleteAnalysisResult`, since it deletes the analysis from the files, unlike `DatabaseV2.set_unanalyzed`.

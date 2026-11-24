@@ -1,4 +1,5 @@
 import os
+from functools import partial
 
 import pytest
 
@@ -200,3 +201,57 @@ class TestCli:
         with pytest.raises(SystemExit):
             self.run_cli(path, *args)
         assert bin_file_writes == []
+
+
+@pytest.mark.parametrize(
+    "rule_entries, message",
+    [
+        pytest.param([(ValueField.RULE_FIELD.value, Field.ARTIST.value)], "has no rule_comparison", id="no-comparison"),
+        pytest.param([(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value)], "has no rule_field", id="no-field"),
+        pytest.param(
+            [(ValueField.RULE_COMPARISON.value, "cond_new_str"), (ValueField.RULE_FIELD.value, Field.ARTIST.value)],
+            'unknown rule_comparison "cond_new_str"',
+            id="unknown-comparison",
+        ),
+        pytest.param(
+            [(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value), (ValueField.RULE_FIELD.value, 999)],
+            'unknown rule_field "999"',
+            id="unknown-field",
+        ),
+    ],
+)
+def test_rule_read_refuses_missing_or_unknown_fields(rule_entries: SmartCrate.EntryList, message: str):
+    with pytest.raises(ValueError, match=message):
+        SmartCrate.Rule(rule_entries)
+
+
+@pytest.mark.parametrize("operation", ["set", "delete"])
+def test_invalid_rule_does_not_prevent_loading_or_partly_apply_edits(tmp_path, operation: str):
+    path = str(tmp_path / "rules.scrate")
+    original = SmartCrate(TEST_SMART_CRATE)
+    # Put the invalid rule after the valid GROUPING rule, so a partial edit would change the crate before it fails.
+    original._entries.append(
+        (ValueField.SMARTCRATE_RULE.value, [(ValueField.RULE_COMPARISON.value, Comparison.STR_IS.value)])
+    )
+    original.save(path)
+
+    crate = SmartCrate(path)
+    assert crate.to_bytes() == read_bytes(path)
+    if operation == "set":
+        change_rule = partial(crate.set_rule, Field.GROUPING, Comparison.STR_IS, "updated")
+    else:
+        change_rule = partial(crate.delete_rule, Field.GROUPING)
+    with pytest.raises(ValueError, match="has no rule_field") as error:
+        change_rule()
+    assert path in str(error.value)
+    assert crate.to_bytes() == read_bytes(path)
+    assert not crate.has_changed
+
+
+@pytest.mark.parametrize("field", [ValueField.RULE_COMPARISON, ValueField.RULE_FIELD])
+def test_rule_cannot_remove_required_field(field: ValueField):
+    entries = rule_entries(Comparison.STR_IS, Field.GROUPING, ValueField.RULE_VALUE_TEXT, "GRP")
+    rule = SmartCrate.Rule(entries)
+    with pytest.raises(ValueError, match=field.value):
+        rule.remove_field(field)
+    assert rule.to_entries() == entries
