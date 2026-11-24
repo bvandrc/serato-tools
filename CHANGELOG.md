@@ -2,6 +2,14 @@
 
 Each release groups its changes by the part of the package they're in. Within each part, the most significant changes come first, and each **[BREAKING]** one says how to upgrade past it.
 
+## [6.0.2] - 2026-11-24
+
+### Smart Crates
+
+- **Fix:** `SmartCrate.Rule` raises `ValueError` for a rule with no comparison or track field, or one this package doesn't know, rather than failing later or never.
+  - `set_rule` and `delete_rule` keep such a rule as it is when it's on another field, rather than raising `AttributeError` for one with no track field.
+  - `Rule.remove_field` refuses the comparison and track field.
+
 ## [6.0.1] - 2026-11-24
 
 ### Library
@@ -678,6 +686,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** First release on PyPI, for changing Serato's library database and track metadata.
 
+[6.0.2]: https://github.com/bvandrc/serato-tools/compare/v6.0.1...v6.0.2
 [6.0.1]: https://github.com/bvandrc/serato-tools/compare/v6.0.0...v6.0.1
 [6.0.0]: https://github.com/bvandrc/serato-tools/compare/v5.8.1...v6.0.0
 [5.8.1]: https://github.com/bvandrc/serato-tools/compare/v5.8.0...v5.8.1
