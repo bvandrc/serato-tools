@@ -198,8 +198,9 @@ class SmartCrate(CrateBase):
     @staticmethod
     def _get_rule_field(rule_entries: "SmartCrate.EntryList") -> int | None:
         """The track field a rule tests, or None if it has none, read without reading the rest of the rule."""
-        field = SmartCrate.RuleFields.RULE_FIELD
-        return next((cast(int, value) for name, value in rule_entries if name == field), None)
+        return next(
+            (cast(int, value) for name, value in rule_entries if name == SmartCrate.RuleFields.RULE_FIELD), None
+        )
 
     def set_rule(self, field: "SmartCrate.RuleField", comparison: "SmartCrate.RuleComparison", value: str | int):
         """Sets the rule on `field` to `comparison` and `value`, adding the rule if the crate has none on `field`.
@@ -209,20 +210,19 @@ class SmartCrate(CrateBase):
         kept as they are, even ones this package can't read, such as one a newer Serato wrote, and a rule on `field`
         whose comparison is missing or unknown is replaced.
         """
-        comparison_field = SmartCrate.RuleFields.RULE_COMPARISON.value
         updated_rules: list[tuple[int, SmartCrate.EntryList]] = []
         for i, rule_entries in self._entry_lists(SmartCrate.RuleFields.SMARTCRATE_RULE):
             if SmartCrate._get_rule_field(rule_entries) != field.value:
                 continue
             # the new comparison goes in before the rule is read, so an unknown or missing one is replaced rather than
             # refused, and before set_value, since it decides which value field that stores into
-            if any(name == comparison_field for name, _ in rule_entries):
+            if any(name == SmartCrate.RuleFields.RULE_COMPARISON.value for name, _ in rule_entries):
                 rule_entries = [
-                    (name, comparison.value if name == comparison_field else rule_value)
+                    (name, comparison.value if name == SmartCrate.RuleFields.RULE_COMPARISON.value else rule_value)
                     for name, rule_value in rule_entries
                 ]
             else:
-                rule_entries = [(comparison_field, comparison.value), *rule_entries]
+                rule_entries = [(SmartCrate.RuleFields.RULE_COMPARISON.value, comparison.value), *rule_entries]
             rule = SmartCrate.Rule(rule_entries)
             rule.set_value(value)
             updated_rules.append((i, rule.to_entries()))
@@ -233,7 +233,7 @@ class SmartCrate(CrateBase):
         if not updated_rules:
             new_rule = SmartCrate.Rule(
                 [
-                    (comparison_field, comparison.value),
+                    (SmartCrate.RuleFields.RULE_COMPARISON.value, comparison.value),
                     (SmartCrate.RuleFields.RULE_FIELD.value, field.value),
                 ]
             )
