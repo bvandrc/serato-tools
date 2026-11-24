@@ -137,16 +137,15 @@ class SmartCrate(CrateBase):
         def __init__(self, entries: "SmartCrate.EntryList"):
             """Reads the entries, raising ValueError for a missing or unknown comparison or track field."""
             super().__init__(entries)
-            comparison, field = SmartCrate.RuleFields.RULE_COMPARISON, SmartCrate.RuleFields.RULE_FIELD
-            for required in (comparison, field):
-                if required not in self.fields:
-                    raise ValueError(f"rule has no {required.name.lower()} ({required.value})")
-            if self.comparison not in SmartCrate.RuleComparison:
-                raise ValueError(
-                    f'rule has an unknown {comparison.name.lower()} "{self.comparison}" ({comparison.value})'
-                )
-            if self.field not in SmartCrate.RuleField:
-                raise ValueError(f'rule has an unknown {field.name.lower()} "{self.field}" ({field.value})')
+            for field, known_values in (
+                (SmartCrate.RuleFields.RULE_COMPARISON, SmartCrate.RuleComparison),
+                (SmartCrate.RuleFields.RULE_FIELD, SmartCrate.RuleField),
+            ):
+                if field not in self.fields:
+                    raise ValueError(f"rule has no {field.name.lower()} ({field.value})")
+                value = self.get_value(field)
+                if value not in known_values:
+                    raise ValueError(f'rule has an unknown {field.name.lower()} "{value}" ({field.value})')
 
         @override
         def remove_field(self, field: str) -> bool:
