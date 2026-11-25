@@ -17,6 +17,7 @@ Each release groups its changes by the part of the package they're in. Within ea
   - A crate order file it can't read is skipped with a warning, as a missing one is, so the drive lists its crates in Serato's default order.
 - **Fix:** Stems files named with their separation's version, as Serato names them (`Track.1.2.serato-stems`), are copied with their track.
   - A track with more than one stems file has them all copied, rather than failing the export.
+- **Performance:** Exporting again to a FAT32 or exFAT drive is much faster when few tracks have changed, since unchanged tracks are no longer read in full.
 - **[BREAKING] Removed:** `usb_export.get_crate_files`, replaced by `Library.find_crate_files`.
   - **Upgrading:** Call `Library().find_crate_files(pattern)`, or pass `Library` a library folder to search another.
 
