@@ -174,7 +174,7 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
   - **Base:** they're UTF-16-BE text, not the bin container, so they subclass neither base above but their own, `_SeratoPrefFile`. It reads and writes them in binary, since a `\n` written as `\r\n` on Windows misaligns every UTF-16 character after it.
   - **A subclass** sets `FILENAME` (which sets `DEFAULT_FILE`, the default library's) and implements `_parse` (the file's lines to its fields) and `_to_lines` (back).
 - `usb_export.py` composes `Crate`, `SmartCrate`, `DatabaseV2`, `CrateOrder`, and `CollapsedCrates`: it flattens all tracks into one folder on the drive, dedupes by basename, rewrites crate/database paths to the new layout, and copies only changed files.
-  - Its file handling that knows nothing about Serato (copying a file only if it changed, comparing paths as a drive does, and deleting files no longer needed) is in `utils/files.py`, which is internal: its docstring says its names aren't API, though they have no `_`.
+  - Its file handling that knows nothing about Serato (copying a file only if it changed, finding the files a folder no longer needs, comparing paths as a drive does, and removing empty folders) is in `utils/files.py`, which is internal: its docstring says its names aren't API, though they have no `_`.
 - `SERATO_DIR` (`~/Music/_Serato_`) in `utils/__init__.py` is the default root for all library lookups.
 
 ### CLI conventions

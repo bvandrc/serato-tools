@@ -424,7 +424,7 @@ def test_copy_crates_to_usb_deletes_the_other_unused_tracks_when_one_cant_be(
             raise PermissionError("read-only")
         remove(path)
 
-    monkeypatch.setattr(files.os, "remove", remove_unless_locked)
+    monkeypatch.setattr(usb_export.os, "remove", remove_unless_locked)
     with caplog.at_level(logging.ERROR):
         usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS, delete_unused_tracks=True)
 

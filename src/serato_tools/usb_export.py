@@ -27,7 +27,7 @@ from serato_tools.utils import (
     logger,
 )
 from serato_tools.utils.bin_file_base import SeratoBinFile
-from serato_tools.utils.files import copy_if_changed, delete_other_files, is_inside_dir
+from serato_tools.utils.files import copy_if_changed, files_not_in, is_inside_dir, remove_empty_folders
 
 # the local library's files the export reads, besides its crates
 LOCAL_SERATO_DATABASE_PATH = os.path.join(LOCAL_SERATO_DIR, DatabaseV2.FILENAME)
@@ -107,7 +107,7 @@ def copy_crates_to_usb(
             _export_pref_file(pref_file, os.path.join(dest_serato_dir, pref_file.FILENAME), root_crate, crate_names)
     copied = _copy_tracks(dest_paths, dest_drive_dir)
     if delete_unused_tracks:
-        delete_other_files(os.path.join(dest_drive_dir, dest_tracks_dir), copied)
+        _delete_unused_tracks(os.path.join(dest_drive_dir, dest_tracks_dir), copied)
 
 
 def _load_crate(crate_file: str, root_crate: str | None) -> tuple[Crate | SmartCrate, str]:
@@ -276,6 +276,20 @@ def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str) -> set[str]
     for n in not_found:
         logger.error(f"does not exist - {n}")
     return meant_to_hold
+
+
+def _delete_unused_tracks(tracks_dir: str, keep: Iterable[str]):
+    """Deletes every file under `tracks_dir` that isn't in `keep`, and any folder left empty.
+
+    A file or folder it can't delete is logged as an error and left, and the rest are still deleted.
+    """
+    for path in files_not_in(tracks_dir, keep):
+        logger.info(f"deleting {path}, which no exported crate holds")
+        try:
+            os.remove(path)
+        except OSError as e:
+            logger.error(f"couldn't delete {path}: {e}")
+    remove_empty_folders(tracks_dir)
 
 
 def main():

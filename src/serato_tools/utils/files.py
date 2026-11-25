@@ -1,4 +1,4 @@
-"""Copying files to a drive only when they've changed, and deleting the files a folder no longer needs.
+"""Copying files to a drive only when they've changed, and finding and clearing out the ones a folder no longer needs.
 
 Internal to the package, not part of its API: these names can change in any release, as `_`-prefixed ones can.
 """
@@ -49,22 +49,28 @@ def _path_key(path: str) -> str:
     return unicodedata.normalize("NFC", path).casefold()
 
 
-def delete_other_files(folder: str, keep: Iterable[str]):
-    """Deletes every file under `folder` that isn't in `keep`, and any folder left empty.
+def files_not_in(folder: str, keep: Iterable[str]) -> list[str]:
+    """The paths of the files under `folder` that aren't in `keep`.
 
-    Paths are compared as a drive compares them, ignoring case and Unicode normalization, so a file kept under a name
-    differing only in those isn't deleted. A file or folder it can't delete is logged as an error and left, and the rest
-    are still deleted.
+    Paths are compared as a drive compares them, ignoring case and Unicode normalization, so a file in `keep` under a
+    name differing only in those isn't listed.
     """
     keep_keys = {_path_key(path) for path in keep}
-    for dirpath, _, filenames in os.walk(folder, topdown=False):
-        for filename in filenames:
-            if _path_key(path := os.path.join(dirpath, filename)) not in keep_keys:
-                logger.info(f"deleting {path}, which isn't among the files to keep")
-                try:
-                    os.remove(path)
-                except OSError as e:
-                    logger.error(f"couldn't delete {path}: {e}")
+    return [
+        path
+        for dirpath, _, filenames in os.walk(folder)
+        for filename in filenames
+        if _path_key(path := os.path.join(dirpath, filename)) not in keep_keys
+    ]
+
+
+def remove_empty_folders(folder: str):
+    """Removes every empty folder under `folder`, and any left empty by that, but not `folder` itself.
+
+    A folder it can't remove is logged as an error and left, and the rest are still removed.
+    """
+    # bottom-up, so a folder holding only empty folders is empty by the time it's reached
+    for dirpath, _, _ in os.walk(folder, topdown=False):
         if dirpath != folder and not os.listdir(dirpath):
             try:
                 os.rmdir(dirpath)
