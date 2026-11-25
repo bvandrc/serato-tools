@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Unpack
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.smart_crate import SmartCrate
-from serato_tools.utils import SERATO_DIR, logger
+from serato_tools.utils import SERATO_DIR, StrPath, logger
 from serato_tools.utils.bin_file_base import SeratoBinFile
 from serato_tools.utils.crate_base import CrateBase
 
@@ -82,18 +82,24 @@ class Library:
     Keep one Library per library folder: another copy's save would overwrite this one's changes, and the reverse.
     """
 
-    def __init__(self, serato_dir: str = SERATO_DIR, database: DatabaseV2 | None = None):
+    def __init__(self, serato_dir: StrPath = SERATO_DIR, database: DatabaseV2 | None = None):
         """Pass `database` to use one already loaded, along with any unsaved changes it has, instead of parsing it."""
-        self.serato_dir = serato_dir
+        # TODO(breaking): remove serato_dir, once deprecated in favor of serato_path
+        self.serato_dir = os.fspath(serato_dir)
         self._database = database
         # how many batch() blocks are open; while any is, this class's methods leave saving to the outermost one
         self._batch_depth = 0
+
+    @property
+    def serato_path(self) -> Path:
+        """The library folder, as a `Path`: `serato_dir`, which is a `str`."""
+        return Path(self.serato_dir)
 
     @cached_property
     def database(self) -> DatabaseV2:
         if self._database is not None:
             return self._database
-        return DatabaseV2(str(Path(self.serato_dir, DatabaseV2.FILENAME)))
+        return DatabaseV2(self.serato_path / DatabaseV2.FILENAME)
 
     @cached_property
     def crates(self) -> list[Crate]:
@@ -134,7 +140,7 @@ class Library:
         return files
 
     @staticmethod
-    def find_stems_files(track_path: str) -> list[str]:
+    def find_stems_files(track_path: StrPath) -> list[str]:
         """The stems files Serato keeps beside the track at `track_path`, sorted: empty if it has none.
 
         Serato names one after the track without its extension, with the version of the separation before the
@@ -157,9 +163,9 @@ class Library:
         return sorted(str(path.parent / name) for name in names)
 
     def _get_crate_files(self, crate_class: type[CrateBase]) -> list[str]:
-        crates_dir = Path(self.serato_dir, crate_class.DIR)
+        crates_dir = self.serato_path / crate_class.DIR
         # Serato only creates the folder once the first crate of its kind is made
-        return crate_class.get_crate_files(str(crates_dir)) if crates_dir.is_dir() else []
+        return crate_class.get_crate_files(crates_dir) if crates_dir.is_dir() else []
 
     def _get_bin_files(self) -> list[SeratoBinFile]:
         """Every file in the library that holds track paths: the database, crates, and smart crates."""
@@ -224,7 +230,7 @@ class Library:
                 changed.append(file.filepath)
         return changed
 
-    def rename_track_file(self, src: str, dest: str) -> list[str]:
+    def rename_track_file(self, src: StrPath, dest: StrPath) -> list[str]:
         """Renames the file, and points the database and crates at the new path, so the track isn't missing in Serato.
 
         Returns the paths of the database, crates, and smart crates that held the track, so were changed: empty when
@@ -244,7 +250,7 @@ class Library:
         return self._change_bin_files(lambda file: file.change_track_path(src, dest))
 
     def remove_track_files(
-        self, filepaths: Collection[str], *, delete_files: bool, missing_ok: bool = True
+        self, filepaths: Collection[StrPath], *, delete_files: bool, missing_ok: bool = True
     ) -> RemoveTrackFilesResult:
         """Removes the tracks from the database and crates, then, with `delete_files=True`, deletes their files.
 
@@ -258,6 +264,8 @@ class Library:
         anything. Only the files that contain one of the tracks are saved, or, inside `batch()`, left for it to save
         once.
         """
+        # as str paths, the type files_deleted lists them as
+        filepaths = [os.fspath(p) for p in filepaths]
         if delete_files and not missing_ok and (missing := [p for p in filepaths if not Path(p).exists()]):
             raise FileNotFoundError(f"Track files not found: {', '.join(missing)}")
         changed = self._change_bin_files(lambda file: file.remove_tracks(filepaths))
@@ -272,12 +280,14 @@ class Library:
         return RemoveTrackFilesResult(files_deleted=deleted, library_files_changed=changed)
 
     def set_db_track_tags(
-        self, filepath: str, *, delete_tags_v1: bool = True, **tags: Unpack["DbTrackTags"]
+        self, filepath: StrPath, *, delete_tags_v1: bool = True, **tags: Unpack["DbTrackTags"]
     ) -> DbTrackTagsResult:
         """Sets values in the track file's tags and in the database, as set_db_tracks_tags does for many tracks."""
         return self.set_db_tracks_tags({filepath: tags}, delete_tags_v1=delete_tags_v1)
 
-    def set_db_tracks_tags(self, tracks: Mapping[str, "DbTrackTags"], delete_tags_v1: bool = True) -> DbTrackTagsResult:
+    def set_db_tracks_tags(
+        self, tracks: Mapping[StrPath, "DbTrackTags"], delete_tags_v1: bool = True
+    ) -> DbTrackTagsResult:
         """Sets values in each track file's tags and in the database, so Serato shows them right away.
 
         `tracks` maps each file's path to the values to set (see DbTrackTags). Returns whether the database changed, and
@@ -293,15 +303,17 @@ class Library:
         """
         with _needs_track_tags_extra():
             from serato_tools import db_track_props as props  # noqa: PLC0415
+        # keyed by str paths, the type files_written lists them as
+        str_tracks = {os.fspath(filepath): tags for filepath, tags in tracks.items()}
         # converted and checked before any file is written, so a value the database can't hold changes nothing
         db_values = {
             DatabaseV2.get_relative_path(filepath).upper(): props.to_db_values(tags)
-            for filepath, tags in tracks.items()
+            for filepath, tags in str_tracks.items()
         }
         for values in db_values.values():
             for field, value in values.items():
                 SeratoBinFile.check_value(field, value)
-        files_written = props.write_db_track_tags_to_files(tracks, delete_tags_v1)
+        files_written = props.write_db_track_tags_to_files(str_tracks, delete_tags_v1)
 
         found: set[str] = set()
 
@@ -313,15 +325,15 @@ class Library:
                 track.set_value(field, value)
             return track
 
-        changed = self.database.modify_tracks(set_values, files=tracks)
-        for filepath in tracks:
+        changed = self.database.modify_tracks(set_values, files=str_tracks)
+        for filepath in str_tracks:
             if DatabaseV2.get_relative_path(filepath).upper() not in found:
                 logger.warning(f"track isn't in the database, so only its file's tags were set: {filepath}")
         if changed:
             self._save_unless_batching(self.database)
         return DbTrackTagsResult(database_changed=changed, files_written=files_written)
 
-    def delete_analysis(self, filepaths: Collection[str], include_locked: bool = False) -> DeleteAnalysisResult:
+    def delete_analysis(self, filepaths: Collection[StrPath], include_locked: bool = False) -> DeleteAnalysisResult:
         """Deletes the tracks' analysis from their files and marks them unanalyzed, so Serato analyzes them again.
 
         For tracks whose audio changed. The analysis is the waveform overview, beatgrid, autotags (BPM and autogain),
@@ -336,6 +348,8 @@ class Library:
         """
         with _needs_track_tags_extra():
             from serato_tools.track import Track  # noqa: PLC0415
+        # as str paths, the type files_written lists them as
+        filepaths = [os.fspath(p) for p in filepaths]
         # every file is read and checked before any is written, so a locked or unreadable one changes nothing
         tracks = {filepath: Track(filepath, cues_v1=False, text_frames=False) for filepath in filepaths}
         locked = [filepath for filepath, track in tracks.items() if track.is_beatgrid_locked()]

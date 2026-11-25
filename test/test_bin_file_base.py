@@ -14,7 +14,7 @@ from serato_tools.database_v2 import DatabaseV2
 from serato_tools.smart_crate import SmartCrate
 from serato_tools.utils.bin_file_base import DataTypeError, DeeplyNestedListError, SeratoBinFile
 
-from test.helpers.bin_files import MP3_FILENAMES, TEST_CRATE, TEST_DATABASE, TRACKS_DIR
+from test.helpers.bin_files import MP3_FILENAMES, TEST_CRATE, TEST_DATABASE, TEST_SMART_CRATE, TRACKS_DIR
 from test.helpers.files import copy_into, mock_files, read_bytes, read_text
 from test.helpers.platforms import POSIX_ONLY, WINDOWS_ONLY
 
@@ -452,6 +452,17 @@ def test_change_track_path_to_a_file_that_doesnt_exist_raises(new_crate: Crate, 
     assert new_crate.get_track_paths() == [SeratoBinFile.get_relative_path(src)]
 
 
+def test_track_paths_can_be_path_objects(new_crate: Crate, tmp_dir: str):
+    src = os.path.join(tmp_dir, "Old.mp3")
+    [dest] = mock_files({tmp_dir: ["New.mp3"]})
+    new_crate.add_tracks([Path(src)])
+    assert new_crate.get_track_paths() == [SeratoBinFile.get_relative_path(src)], "added"
+    assert new_crate.change_track_path(Path(src), Path(dest)) is True
+    assert new_crate.get_track_paths() == [SeratoBinFile.get_relative_path(dest)], "stored as a str path"
+    assert new_crate.remove_tracks([Path(dest)]) is True
+    assert new_crate.get_track_paths() == [], "removed"
+
+
 # a track's fields
 
 
@@ -594,6 +605,23 @@ def test_file_loaded_from_json_hasnt_changed(tmp_dir: str, crate_file: str):
     assert not crate.has_changed
     crate.add_tracks(["/music/track1.mp3"])
     assert crate.has_changed
+
+
+@pytest.mark.parametrize(
+    "cls, fixture",
+    [(DatabaseV2, TEST_DATABASE), (Crate, TEST_CRATE), (SmartCrate, TEST_SMART_CRATE)],
+    ids=["DatabaseV2", "Crate", "SmartCrate"],
+)
+def test_loads_and_saves_path_objects(tmp_dir: str, cls: type[SeratoBinFile], fixture: str):
+    file = cls(Path(fixture))
+    assert file.filepath == os.path.abspath(fixture), "kept as a str path"
+    assert file.path == Path(os.path.abspath(fixture)), "and given as a Path"
+    copy = Path(tmp_dir, os.path.basename(fixture))
+    assert file.save(copy) is True
+    assert read_bytes(str(copy)) == read_bytes(fixture), "saved"
+    json_file = Path(tmp_dir, "Test.json")
+    file.write_json(json_file)
+    assert cls(json_file).to_bytes() == file.to_bytes(), "written and read back as JSON"
 
 
 @pytest.mark.parametrize(

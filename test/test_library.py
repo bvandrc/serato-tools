@@ -684,6 +684,21 @@ def test_delete_analysis(folders: LibraryFolders, bin_file_writes: list[str]):
     assert folders.db_track(track).get_value(DatabaseV2.Fields.OVERVIEW_BUILT) is False, "marked in the database"
 
 
+def test_methods_take_path_objects_and_return_str_paths(folders: LibraryFolders):
+    track = copy_mp3(folders.music_dir, "Track.mp3")
+    renamed = folders.music_path("Renamed.mp3")
+    folders.add_to_database(track)
+    library = Library(Path(folders.serato_dir))
+    assert library.serato_dir == folders.serato_dir, "kept as a str path"
+    assert library.serato_path == Path(folders.serato_dir), "and given as a Path"
+
+    assert library.set_db_track_tags(Path(track), title="A Title").files_written == [track]
+    assert library.delete_analysis([Path(track)]).files_written == [track]
+    assert library.rename_track_file(Path(track), Path(renamed)) == [folders.db_file]
+    assert relpath(renamed) in track_paths(library.database), "renamed in the database"
+    assert library.remove_track_files([Path(renamed)], delete_files=True).files_deleted == [renamed]
+
+
 def test_delete_analysis_with_a_locked_beatgrid_raises_and_changes_nothing(
     folders: LibraryFolders, bin_file_writes: list[str]
 ):

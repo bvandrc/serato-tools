@@ -641,13 +641,13 @@ def main():
 
     @dataclass
     class Args:
-        file: str
+        file: Path
         set_color: str | None
         snap_cues: bool
         snap_tolerance: str | None
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("file")
+    parser.add_argument("file", type=Path)
     parser.add_argument(
         "--set_color",
         dest="set_color",

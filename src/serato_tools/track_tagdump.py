@@ -85,14 +85,14 @@ if __name__ == "__main__":
 
     @dataclass
     class Args:
-        input_file: str
-        output_dir: str | None
+        input_file: Path
+        output_dir: Path | None
         decode: bool
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("input_file")
-    parser.add_argument("output_dir", nargs="?")
+    parser.add_argument("input_file", type=Path)
+    parser.add_argument("output_dir", nargs="?", type=Path)
     parser.add_argument("-d", "--decode", action="store_true")
     args = Args(**vars(parser.parse_args()))
 
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     for field, value in get_serato_tagdata(tagfile, decode=args.decode):
         log_str = f"field {field} {'decoded ' if args.decode else ''}value: {value}"
         if args.output_dir:
-            filepath = Path(args.output_dir, f"{field}.octet-stream")
+            filepath = args.output_dir / f"{field}.octet-stream"
             print(log_str + f" (written to file {filepath})")
             filepath.write_bytes(value)
         else:

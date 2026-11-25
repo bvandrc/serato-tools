@@ -32,14 +32,16 @@ def main():
 
     @dataclass
     class Args:
-        file_or_dir: str | None
+        file_or_dir: Path | None
         all: bool
         list_tracks: bool
         filenames_only: bool
         find_missing: bool
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("file_or_dir", nargs="?", help="Set the crate file, or a directory to do all files in it")
+    parser.add_argument(
+        "file_or_dir", nargs="?", type=Path, help="Set the crate file, or a directory to do all files in it"
+    )
     parser.add_argument("--all", action="store_true", help="Perform actions on all crates.")
     parser.add_argument("-l", "--list_tracks", action="store_true", help="Only list tracks")
     parser.add_argument("-f", "--filenames_only", action="store_true", help="Only list track filenames")
@@ -47,9 +49,9 @@ def main():
     args = Args(**vars(parser.parse_args()))
 
     if args.all:
-        args.file_or_dir = Crate.DIR_PATH
+        args.file_or_dir = Path(Crate.DIR_PATH)
 
-    if not args.file_or_dir:
+    if args.file_or_dir is None:
         print(f"must pass a file or dir, or --all!\nfiles in {Crate.DIR_PATH}:")
         print("\n".join(Crate.get_crate_files()))
         sys.exit()

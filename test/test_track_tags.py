@@ -3,6 +3,7 @@ import os
 import pkgutil
 import runpy
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 from mutagen.mp3 import MP3
@@ -60,6 +61,11 @@ def test_every_tag_class_is_tested():
     # the concrete ones: nothing subclasses them, as SeratoGeobTag is subclassed
     tag_classes = {cls for cls in subclasses(ID3FileTag) if not cls.__subclasses__()}
     assert tag_classes == set(TAG_CLASSES), "a tag class missing from TAG_CLASSES skips the tests run over it"
+
+
+@pytest.mark.parametrize("tag_class", TAG_CLASSES, ids=lambda cls: cls.__name__)
+def test_opens_a_path_object(mp3: str, tag_class):
+    assert tag_class(Path(mp3)).tagfile.filename == mp3
 
 
 @pytest.mark.parametrize("tag_class", GEOB_TAG_CLASSES, ids=lambda cls: cls.__name__)

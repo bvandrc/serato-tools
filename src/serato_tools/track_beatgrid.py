@@ -9,6 +9,7 @@ import math
 import struct
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import NamedTuple, cast, overload
 
 from mutagen import FileType
@@ -383,11 +384,11 @@ def main():
 
     @dataclass
     class Args:
-        file: str
+        file: Path
         analyze: bool
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("file")
+    parser.add_argument("file", type=Path)
     parser.add_argument("-a", "--analyze", action="store_true", help="Analyze dynamic beatgrid and write to file")
     args = Args(**vars(parser.parse_args()))
 
@@ -410,10 +411,10 @@ def main_analyze():
 
     @dataclass
     class Args:
-        file: str
+        file: Path
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("file")
+    parser.add_argument("file", type=Path)
     args = Args(**vars(parser.parse_args()))
     tags = TrackBeatgrid(args.file)
     tags.analyze_and_write()

@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from serato_tools.utils.track_tags import SeratoGeobTag
 
 
-def open_tag_file_or_data[T: SeratoGeobTag](tag_class: type[T], path: str) -> T:
+def open_tag_file_or_data[T: SeratoGeobTag](tag_class: type[T], path: Path) -> T:
     """The tag read from `path`, for a CLI: an audio file, or any other file as the tag's own bytes.
 
     A file of the tag's own bytes is one `serato_tagdump` writes (`Serato Markers2.octet-stream`), or a test fixture.
@@ -17,12 +17,12 @@ def open_tag_file_or_data[T: SeratoGeobTag](tag_class: type[T], path: str) -> T:
     # imported here, not at the top, so the module imports without the track_tags extra (mutagen)
     from serato_tools.utils.track_tags import TAGFILE_EXTENSIONS  # noqa: PLC0415
 
-    if Path(path).suffix.lower() in TAGFILE_EXTENSIONS:
+    if path.suffix.lower() in TAGFILE_EXTENSIONS:
         return tag_class(path)
-    return tag_class(Path(path).read_bytes())
+    return tag_class(path.read_bytes())
 
 
-def save_tag_file_or_data(tag: "SeratoGeobTag", path: str) -> bool:
+def save_tag_file_or_data(tag: "SeratoGeobTag", path: Path) -> bool:
     """Saves a tag `open_tag_file_or_data` read from `path`, if it changed, and returns whether it wrote.
 
     A tag read from an audio file is saved to it; one read from the tag's own bytes writes its bytes back to `path`.
@@ -31,5 +31,5 @@ def save_tag_file_or_data(tag: "SeratoGeobTag", path: str) -> bool:
         return tag.save()
     if not tag.has_changed:
         return False
-    Path(path).write_bytes(tag._raw_data or b"")  # noqa: SLF001
+    path.write_bytes(tag._raw_data or b"")  # noqa: SLF001
     return True

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pytest
 
@@ -44,6 +45,14 @@ def test_saving_unchanged_writes_the_same_bytes(tmp_dir: str):
     dest = os.path.join(tmp_dir, CrateOrder.FILENAME)
     CrateOrder(ORDER_FILE).save(dest)
     assert read_bytes(dest) == read_bytes(ORDER_FILE), "Serato's line endings kept on every OS"
+
+
+def test_loads_and_saves_path_objects(tmp_dir: str):
+    order = CrateOrder(Path(ORDER_FILE))
+    assert order.path == Path(ORDER_FILE)
+    dest = Path(tmp_dir, CrateOrder.FILENAME)
+    order.save(dest)
+    assert read_bytes(str(dest)) == read_bytes(ORDER_FILE), "saved"
 
 
 def test_saving_writes_the_changed_crates_between_the_other_lines(order_file: str):
