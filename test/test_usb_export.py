@@ -121,6 +121,11 @@ def export(tmp_dir: str, monkeypatch: pytest.MonkeyPatch) -> Export:
         drive=os.path.join(tmp_dir, "Drive"),
     )
     monkeypatch.setattr(usb_export, "LOCAL_SERATO_DIR", export.serato_dir)
+    # built from the real library folder at import, so each is pointed at the test's too
+    for name, path in [
+        ("LOCAL_SERATO_STEMS_CRATE_PATH", Crate.SERATO_STEMS_CRATE_PATH),
+    ]:
+        monkeypatch.setattr(usb_export, name, os.path.join(export.serato_dir, path))
     monkeypatch.setattr(usb_export, "LOCAL_SERATO_DRIVE", os.path.splitdrive(tmp_dir)[0])
     return export
 
