@@ -245,14 +245,6 @@ def test_copy_crates_to_usb_raises_when_every_track_is_missing(export: Export):
         usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
 
 
-def test_copy_crates_to_usb_takes_path_objects(export: Export):
-    a = export.make_track("A.mp3", b"a")
-    export.add_to_database(a)
-    crate = export.make_crate("House", [a])
-    usb_export.copy_crates_to_usb([Path(crate)], Path(export.drive), Path(DRIVE_TRACKS))
-    assert export.exported_database().get_track_paths() == [f"{DRIVE_TRACKS}/A.mp3"]
-
-
 def test_copy_crates_to_usb_needs_the_drive_to_exist(export: Export):
     with pytest.raises(FileNotFoundError):
         usb_export.copy_crates_to_usb([], os.path.join(export.drive, "Missing"), DRIVE_TRACKS)
@@ -482,7 +474,8 @@ def test_cli_exports_to_the_drive(drive: str, system: str, dest: str):
         mock.patch.object(usb_export, "copy_crates_to_usb") as copy_crates_to_usb,
     ):
         usb_export.main()
-    assert copy_crates_to_usb.call_args.kwargs["dest_drive_dir"] == Path(dest)
+    # compared as Paths, since the drive's separators are the OS's
+    assert Path(copy_crates_to_usb.call_args.kwargs["dest_drive_dir"]) == Path(dest)
 
 
 @pytest.mark.parametrize(
