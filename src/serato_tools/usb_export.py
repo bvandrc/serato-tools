@@ -32,8 +32,8 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 from serato_tools.utils.files import copy_if_changed, files_not_in, is_inside_dir, remove_empty_folders
 
 # the local library's files the export reads, besides its crates
-LOCAL_SERATO_DATABASE_PATH = str(Path(LOCAL_SERATO_DIR, DatabaseV2.FILENAME))
-LOCAL_SERATO_STEMS_CRATE_PATH = str(Path(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH))
+LOCAL_SERATO_DATABASE_PATH = Path(LOCAL_SERATO_DIR, DatabaseV2.FILENAME)
+LOCAL_SERATO_STEMS_CRATE_PATH = Path(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
 # the folder on the drive the tracks go in, unless the caller names another
 DEFAULT_DRIVE_TRACKS_DIR = "Tracks"
 # the crate Serato keeps tracks with stems in, named so in the crate order, never inside a root crate
@@ -71,7 +71,7 @@ def copy_crates_to_usb(
     crates = [_load_crate(Path(f), root_crate) for f in crate_files if not Path(f).is_dir()]
     # each crate to write to the drive, with its path in the drive's _Serato_ folder
     drive_crates = [(crate, Path(Crate.DIR, name + Crate.EXTENSION)) for crate, name in crates]
-    if Path(LOCAL_SERATO_STEMS_CRATE_PATH).exists():
+    if LOCAL_SERATO_STEMS_CRATE_PATH.exists():
         drive_crates.append((Crate(LOCAL_SERATO_STEMS_CRATE_PATH), Path(Crate.SERATO_STEMS_CRATE_PATH)))
     database = DatabaseV2(LOCAL_SERATO_DATABASE_PATH)
     crate_order = _load_pref_file(CrateOrder, missing_level=logging.WARNING)
