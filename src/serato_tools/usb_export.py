@@ -41,8 +41,8 @@ def copy_crates_to_usb(
     - Every track goes in `dest_tracks_dir` on the drive. Of tracks that share a filename, a later one goes in a
       subfolder named after its own folder.
     - The drive's `_Serato_` folder is replaced by one holding these crates and a database of just their tracks, all
-      pointed at the new paths. Smart crates become regular crates of the tracks they hold, keeping their sort and
-      columns but not their rules, since Serato can't use a smart crate on a drive.
+      pointed at the new paths. Smart crates become regular crates of the tracks they hold, keeping their sort,
+      columns, and place in the crate order but not their rules, since Serato can't use a smart crate on a drive.
     - A track whose file is already on the drive, unchanged, isn't copied again. Its stems file is copied too.
     - Given `root_crate`, every crate goes inside a crate of that name.
     - A track whose file is missing is skipped, logging an error. Raises FileNotFoundError if every one is missing, such
@@ -76,7 +76,7 @@ def copy_crates_to_usb(
         edit_track=lambda track: track.set_value(DatabaseV2.Fields.PLAYED, False),
     )
     logger.info(f"created database file {dest_db_file}")
-    _copy_order_file(dest_serato_dir, root_crate)
+    _copy_order_file(dest_serato_dir, root_crate, _with_parents(name for _, name in crates))
     if os.path.exists(local_stems_crate := os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)):
         dest_stems_crate = os.path.join(dest_serato_dir, Crate.SERATO_STEMS_CRATE_PATH)
         os.makedirs(os.path.dirname(dest_stems_crate), exist_ok=True)
@@ -98,12 +98,22 @@ def _load_crate(crate_file: str, root_crate: str | None) -> tuple[Crate | SmartC
 
 
 def _drive_crate_name(name: str, root_crate: str | None) -> str:
-    """The name on the drive of the crate named `name` in the local library: a smart crate's is the regular crate's
-    it's exported as.
+    """The name on the drive of the crate named `name` in the local library, as its filename and Serato's files say it.
+
+    A smart crate's is the regular crate's it's exported as.
     """
     # a smart crate's subcrate separator is ≫≫, a regular crate's %%
     name = name.replace("≫≫", "%%")
     return f"{root_crate}%%{name}" if root_crate else name
+
+
+def _with_parents(names: Iterable[str]) -> set[str]:
+    """`names`, and the names of every crate they're subcrates of."""
+    result: set[str] = set()
+    for name in names:
+        parts = name.split("%%")
+        result.update("%%".join(parts[:i]) for i in range(1, len(parts) + 1))
+    return result
 
 
 def _dest_track_paths(track_paths: list[str], dest_tracks_dir: str) -> dict[str, str]:
@@ -151,27 +161,44 @@ def _export_library_file(
     file.save(dest_file)
 
 
-def _copy_order_file(dest_serato_dir: str, root_crate: str | None):
-    """Copies Serato's crate order file to the drive, with each crate in `root_crate` if given."""
+def _copy_order_file(dest_serato_dir: str, root_crate: str | None, crate_names: set[str]):
+    """Copies Serato's crate order file to the drive, with only the lines of the crates in `crate_names`, each named
+    as it is there.
+
+    Given `root_crate`, it also gets that crate, first.
+    """
+    # Serato's crate order file, in UTF-16-BE on every OS
     ORDER_FILE = "neworder.pref"
+    PREF_FILE_ENCODING = "utf-16-be"
+    BEGIN_RECORD = "[begin record]"
+    # how a line in it names a crate
+    CRATE_KEY = "[crate]"
+    # the crate Serato keeps tracks with stems in, named so in the order file, never inside a root crate
+    STEMS_CRATE_NAME = "Stems"
+
     LOCAL_ORDER_FILE = os.path.join(LOCAL_SERATO_DIR, ORDER_FILE)
     if not os.path.isfile(LOCAL_ORDER_FILE):
         logger.warning(f"no order file to copy: {LOCAL_ORDER_FILE}")
         return
-    with open(LOCAL_ORDER_FILE, encoding="utf-8") as f:
-        lines = f.read().splitlines()
+    # read and written in binary, since Serato's \n line endings would be written as \r\n on Windows: one byte that
+    # misaligns every UTF-16 character after it
+    with open(LOCAL_ORDER_FILE, "rb") as f:
+        lines = f.read().decode(PREF_FILE_ENCODING).split("\n")
 
-    if root_crate:
-        CRATE_KEY = "[crate]"
-        for i, line in enumerate(lines):
-            if line.startswith(CRATE_KEY) and (crate := line[len(CRATE_KEY) :]) != "Stems":
-                lines[i] = f"{CRATE_KEY}{root_crate}%%{crate}"
+    out: list[str] = []
+    for line in lines:
+        if not line.startswith(CRATE_KEY) or (crate := line[len(CRATE_KEY) :]) == STEMS_CRATE_NAME:
+            out.append(line)
+        elif (name := _drive_crate_name(crate, root_crate)) in crate_names:
+            out.append(CRATE_KEY + name)
+    if root_crate and out[:1] == [BEGIN_RECORD]:
+        # where Serato puts it when it rewrites the drive's order file
+        out.insert(1, CRATE_KEY + root_crate)
 
-    dest_order_file = os.path.join(dest_serato_dir, ORDER_FILE)
-    with open(dest_order_file, "w", encoding="utf-8") as f:
-        # splitlines() strips the newlines, so they must be re-added on write
-        f.write("\n".join(lines) + "\n")
-    logger.info(f"copied order file {dest_order_file}")
+    dest_file = os.path.join(dest_serato_dir, ORDER_FILE)
+    with open(dest_file, "wb") as f:
+        f.write("\n".join(out).encode(PREF_FILE_ENCODING))
+    logger.info(f"copied order file {dest_file}")
 
 
 def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str):

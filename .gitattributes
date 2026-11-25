@@ -1,1 +1,2 @@
 *.octet-stream binary
+test/data/*.pref binary
