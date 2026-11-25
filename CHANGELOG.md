@@ -6,6 +6,8 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### USB Export
 
+- **Fix:** The export keeps the drive's History and the rest of its `_Serato_` folder.
+  - It replaces only the database, crates, crate order, and collapsed crates.
 - **Fix:** Tracks that share a filename are all exported, rather than only the first (a later one goes in a subfolder named after its own folder).
 - **Fix:** The drive keeps your crate order, with a root crate or smart crates.
   - Before, Serato couldn't use the order file the export wrote, and on Windows it was garbled.
