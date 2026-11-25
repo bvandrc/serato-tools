@@ -19,10 +19,12 @@ DRIVE_TRACKS = "Tracks"
 # Serato's crate order file, trimmed from a real library's: UTF-16-BE with \n line endings, and a smart crate's
 # subcrates separated with ≫≫
 ORDER_FILE = "test/data/neworder.pref"
+# Serato's collapsed crates file, from a real library: Pop, Rap, Rock, etc. and Sets, a record each
+COLLAPSED_FILE = "test/data/collapsed.pref"
 
 
 def read_pref_file(path: str) -> list[str]:
-    """The order file's lines, decoded as Serato writes it, so a byte out of place fails to decode."""
+    """The order or collapsed file's lines, decoded as Serato writes it, so a byte out of place fails to decode."""
     return read_bytes(path).decode("utf-16-be").split("\n")
 
 
@@ -55,6 +57,7 @@ def export(tmp_dir: str, monkeypatch: pytest.MonkeyPatch) -> Export:
     for name, path in [
         ("LOCAL_SERATO_DATABASE_PATH", DatabaseV2.FILENAME),
         ("LOCAL_SERATO_CRATE_ORDER_PATH", "neworder.pref"),
+        ("LOCAL_SERATO_COLLAPSED_CRATES_PATH", "collapsed.pref"),
         ("LOCAL_SERATO_STEMS_CRATE_PATH", Crate.SERATO_STEMS_CRATE_PATH),
     ]:
         monkeypatch.setattr(usb_export, name, os.path.join(export.serato_dir, path))
@@ -98,9 +101,10 @@ def test_copy_crates_to_usb(export: Export):
 
 @pytest.fixture
 def fixture_crates(export: Export) -> list[str]:
-    """Crates named as in the order fixture: a regular one, a smart subcrate, and a regular subcrate."""
+    """Crates named as in the order and collapsed fixtures: a regular one, a smart subcrate, and a regular subcrate."""
     a = export.make_track("A.mp3")
     copy_into(export.serato_dir, ORDER_FILE)
+    copy_into(export.serato_dir, COLLAPSED_FILE)
     return [
         export.make_crate("House & Techno", [a]),
         export.make_crate("Bass≫≫Riddim≫≫Wonky Monxxy Riddim", [a], SmartCrate),
@@ -130,6 +134,36 @@ def test_copy_crates_to_usb_copies_the_crate_order(export: Export, fixture_crate
     assert os.path.isfile(export.on_drive("_Serato_", Crate.DIR, f"{prefix}Bass%%Riddim%%Wonky Monxxy Riddim.crate")), (
         "the smart crate's file named as its line is"
     )
+
+
+@pytest.mark.parametrize("root", [None, "Root"])
+def test_copy_crates_to_usb_copies_the_collapsed_crates(export: Export, fixture_crates: list[str], root: str | None):
+    usb_export.copy_crates_to_usb(fixture_crates, export.drive, DRIVE_TRACKS, root_crate=root)
+
+    prefix = f"{root}%%" if root else ""
+    assert read_pref_file(export.on_drive("_Serato_", "collapsed.pref")) == [
+        "[begin record]",
+        f"[playlist]{prefix}Sets",
+        "[end record]",
+        "",
+    ], "only an exported crate's record, without the record of one that isn't"
+
+
+@pytest.mark.parametrize(
+    "content", [pytest.param(None, id="none"), pytest.param("[crate]Sets\n", id="not as Serato writes it")]
+)
+def test_copy_crates_to_usb_skips_a_collapsed_file_it_cant_copy(
+    export: Export, fixture_crates: list[str], content: str | None
+):
+    os.remove(os.path.join(export.serato_dir, "collapsed.pref"))
+    if content is not None:
+        with open(os.path.join(export.serato_dir, "collapsed.pref"), "wb") as f:
+            f.write(content.encode("utf-16-be"))
+
+    usb_export.copy_crates_to_usb(fixture_crates, export.drive, DRIVE_TRACKS)
+
+    assert not os.path.exists(export.on_drive("_Serato_", "collapsed.pref")), "the rest of the export still done"
+    assert os.path.exists(export.on_drive("_Serato_", "neworder.pref"))
 
 
 def test_copy_crates_to_usb_copies_only_changed_files(export: Export):
