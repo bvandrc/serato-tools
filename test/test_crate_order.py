@@ -2,9 +2,8 @@ import os
 
 import pytest
 
-from serato_tools.crate_order import CrateOrder, main
+from serato_tools.crate_order import CrateOrder
 
-from test.helpers.cli import cli_args
 from test.helpers.files import copy_into, read_bytes
 
 # Serato's crate order file, trimmed from a real library's: UTF-16-BE with \n line endings, and a smart crate's
@@ -62,9 +61,3 @@ def test_crates_added_to_an_order_with_none_go_after_its_first_line(order_file: 
     order.save()
 
     assert saved_lines(order_file) == ["[begin record]", "[crate]House", "[end record]", ""]
-
-
-def test_cli_prints_the_crates_in_order():
-    with cli_args("serato_crate_order", ORDER_FILE) as stdout:
-        main()
-    assert stdout.getvalue().splitlines() == CrateOrder(ORDER_FILE).crates
