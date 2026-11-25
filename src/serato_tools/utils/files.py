@@ -1,4 +1,7 @@
-"""Copying files to a drive and clearing out the ones it no longer needs, for the USB export."""
+"""Copying files to a drive and clearing out the ones it no longer needs, as the USB export does.
+
+Internal to the package, not part of its API: these names can change in any release, as `_`-prefixed ones can.
+"""
 
 import filecmp
 import os
@@ -54,7 +57,7 @@ def delete_other_files(dest_dir: str, keep: set[str]):
     for dirpath, _, filenames in os.walk(dest_dir, topdown=False):
         for filename in filenames:
             if path_key(path := os.path.join(dirpath, filename)) not in keep:
-                logger.info(f"deleting {path}, which no exported crate holds")
+                logger.info(f"deleting {path}, which isn't among the files to keep")
                 try:
                     os.remove(path)
                 except OSError as e:
