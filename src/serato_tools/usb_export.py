@@ -302,7 +302,7 @@ def main():
 
     @dataclass
     class Args:
-        dest_dir: str
+        dest_dir: Path
         crate_matcher: list[str]
         root_crate: str | None
         delete_unused_tracks: bool
@@ -313,7 +313,7 @@ def main():
         "--drive",
         "--drive_dir",
         dest="dest_dir",
-        type=str,
+        type=Path,
         required=True,
         help='Directory of the destination drive. Example: "E" on Windows, "/Volumes/USB" on macOS',
     )
@@ -347,12 +347,12 @@ def main():
     for cm in args.crate_matcher:
         crate_files += library.find_crate_files(cm)
 
-    if platform.system() == "Windows" and len(args.dest_dir) == 1:
-        args.dest_dir += ":\\"
+    if platform.system() == "Windows" and len(str(args.dest_dir)) == 1:
+        args.dest_dir = Path(f"{args.dest_dir}:\\")
 
     copy_crates_to_usb(
         crate_files=crate_files,
-        dest_drive_dir=args.dest_dir,
+        dest_drive_dir=str(args.dest_dir),
         root_crate=args.root_crate,
         delete_unused_tracks=args.delete_unused_tracks,
     )

@@ -62,17 +62,17 @@ if __name__ == "__main__":
 
     @dataclass
     class Args:
-        file: str
+        file: Path
         find_missing: bool
         list_corrupt: bool
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("file", nargs="?", default=DatabaseV2.DEFAULT_DATABASE_FILE)
+    parser.add_argument("file", nargs="?", type=Path, default=DatabaseV2.DEFAULT_DATABASE_FILE)
     parser.add_argument("--find_missing", action="store_true", help="List files that do not exist")
     parser.add_argument("--list_corrupt", action="store_true", help="List tracks Serato marked corrupt, and why")
     args = Args(**vars(parser.parse_args()))
 
-    db = DatabaseV2(args.file)
+    db = DatabaseV2(str(args.file))
 
     if args.find_missing:
         # TODO: actually look for that missing flag.

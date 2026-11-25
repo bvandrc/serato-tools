@@ -187,16 +187,16 @@ if __name__ == "__main__":
 
     @dataclass
     class Args:
-        file: str
+        file: Path
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("file")
+    parser.add_argument("file", type=Path)
     args = Args(**vars(parser.parse_args()))
 
     try:
-        tags = TrackCuesV1(args.file)
+        tags = TrackCuesV1(str(args.file))
     except HeaderNotFoundError:
-        tags = TrackCuesV1(Path(args.file).read_bytes())
+        tags = TrackCuesV1(args.file.read_bytes())
 
     entries = tags.entries
     if not entries:

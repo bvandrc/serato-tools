@@ -122,12 +122,13 @@ def main():
 
     @dataclass
     class Args:
-        file: str | None
+        file: Path | None
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "file",
         nargs="?",
+        type=Path,
         default=None,
         help="A pref file to print (crate order or collapsed). Default: the library's crate order and collapsed crates,"
         f" {CrateOrder.DEFAULT_FILE} and {CollapsedCrates.DEFAULT_FILE}",
@@ -136,8 +137,8 @@ def main():
 
     if args.file is not None:
         # the two files' records look alike, so the file's name says which it is
-        is_collapsed = Path(args.file).name.casefold() == CollapsedCrates.FILENAME
-        print("\n".join((CollapsedCrates if is_collapsed else CrateOrder)(args.file).crates))
+        is_collapsed = args.file.name.casefold() == CollapsedCrates.FILENAME
+        print("\n".join((CollapsedCrates if is_collapsed else CrateOrder)(str(args.file)).crates))
         return
     sections = [
         (heading, cls().crates)
