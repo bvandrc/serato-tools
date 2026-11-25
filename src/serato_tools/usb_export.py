@@ -32,8 +32,6 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 
 # the local library's files the export reads, besides its crates
 LOCAL_SERATO_STEMS_CRATE_PATH = os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
-# the extension of the file Serato keeps a track's stems in, beside the track
-STEMS_EXTENSION = ".serato-stems"
 # the folder on the drive the tracks go in, unless the caller names another
 _DRIVE_TRACKS_DIR = "Tracks"
 # the crate Serato keeps tracks with stems in, named so in the crate order, never inside a root crate
@@ -53,7 +51,7 @@ def copy_crates_to_usb(
     - The drive's `_Serato_` folder is replaced by one holding these crates and a database of just their tracks, all
       pointed at the new paths. Smart crates become regular crates of the tracks they hold, keeping their sort,
       columns, and place in the crate order but not their rules, since Serato can't use a smart crate on a drive.
-    - A track whose file is already on the drive, unchanged, isn't copied again. Its stems file is copied too.
+    - A track whose file is already on the drive, unchanged, isn't copied again. Its stems files are copied too.
     - Given `root_crate`, every crate goes inside a crate of that name.
     - A track whose file is missing is skipped, logging an error. Raises FileNotFoundError if every one is missing, such
       as when the library's music is on a drive that isn't plugged in.
@@ -218,28 +216,11 @@ def _with_parents(names: Iterable[str]) -> set[str]:
 
 
 def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str):
-    """Copies each track, and its stems file, to its path in `dest_paths` on the drive, unless it's there unchanged.
-
-    Raises for a track with more than one stems file.
-    """
+    """Copies each track, and its stems files, to its path in `dest_paths` on the drive, unless it's there unchanged."""
     logger.info("copying files over...")
 
     root = LOCAL_SERATO_DRIVE + os.sep if LOCAL_SERATO_DRIVE else os.sep
     not_found: list[str] = []
-    stem_files_by_dir: dict[str, list[str]] = {}
-
-    def find_stem_files(src_path: str) -> list[str]:
-        dirname, basename = os.path.split(src_path)
-        if dirname not in stem_files_by_dir:
-            try:
-                dir_filenames = os.listdir(dirname)
-            except OSError:
-                dir_filenames = []
-            stem_files_by_dir[dirname] = [f for f in dir_filenames if f.endswith(STEMS_EXTENSION)]
-        # named after the track, with or without its extension: matching by prefix would also find another track's,
-        # such as "B Extended.serato-stems" for "B.mp3"
-        stem_names = {os.path.splitext(basename)[0] + STEMS_EXTENSION, basename + STEMS_EXTENSION}
-        return [os.path.join(dirname, f) for f in stem_files_by_dir[dirname] if f in stem_names]
 
     def maybe_copy(src_path: str, dst_path: str):
         if not os.path.exists(src_path):
@@ -255,11 +236,8 @@ def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str):
         dst_path = os.path.join(dest_drive_dir, dest_path)
         maybe_copy(src_path, dst_path)
 
-        stem_files = find_stem_files(src_path)
-        if len(stem_files) > 1:
-            raise ValueError(f"more than 1 stems file for {src_path}: {', '.join(stem_files)}")
-        if stem_files:
-            maybe_copy(stem_files[0], os.path.join(os.path.dirname(dst_path), os.path.basename(stem_files[0])))
+        for stems_file in Library.find_stems_files(src_path):
+            maybe_copy(stems_file, os.path.join(os.path.dirname(dst_path), os.path.basename(stems_file)))
 
     if dest_paths and len(not_found) == len(dest_paths):
         uniq_dirs = sorted({os.path.dirname(os.path.join(root, d)) for d in dest_paths})

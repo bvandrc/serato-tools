@@ -103,7 +103,7 @@ library.rename_track_file(
 library.remove_track_files(["/Users/Username/Music/Dubstep/Raaket - ILL (Radio Edit).mp3"], delete_files=True)
 ```
 
-Each of those writes the library files that contain the track. `rename_track_file` returns their paths, and raises `FileExistsError` if a different file is already at `dest`. `remove_track_files` deletes the track files too with `delete_files=True`, or leaves them with `delete_files=False`, and returns the library files as `library_files_changed`, along with the track files it deleted, as `files_deleted`. For many changes, put them in a `batch()`, which writes each changed file once, when the block ends. The track files themselves still change right away, so the library is saved even if the block raises:
+Each of those writes the library files that contain the track. `rename_track_file` returns their paths, and raises `FileExistsError` if a different file is already at `dest`. `remove_track_files` deletes the track files and their stems files too with `delete_files=True`, or leaves them with `delete_files=False`, and returns the library files as `library_files_changed`, along with the files it deleted, as `files_deleted`. For many changes, put them in a `batch()`, which writes each changed file once, when the block ends. The track files themselves still change right away, so the library is saved even if the block raises:
 
 ```python
 with library.batch():

@@ -12,6 +12,8 @@ Each release groups its changes by the part of the package they're in. Within ea
   - The order lists only the exported crates, with the root crate first.
 - **Feature:** `copy_crates_to_usb`'s `dest_tracks_dir` defaults to `Tracks`, the folder `serato_usb_export` uses.
 - **Fix:** An export with a crate file it can't read fails before writing anything to the drive, rather than after deleting the drive's `_Serato_` folder.
+- **Fix:** Stems files named with their separation's version, as Serato names them (`Track.1.2.serato-stems`), are copied with their track.
+  - A track with more than one stems file has them all copied, rather than failing the export.
 
 ### Crate Order
 
@@ -23,6 +25,8 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **[BREAKING]** `Library.remove_track_files` takes a required keyword argument, `delete_files`, so each call says whether it deletes the track files.
   - **Upgrading:** Pass `delete_files=True`, which does what it did before.
   - With `delete_files=False`, it removes the tracks from the database and crates and leaves their files.
+- **Fix:** `Library.remove_track_files` with `delete_files=True` deletes the tracks' stems files too, and lists them in `files_deleted`.
+- **Feature:** Add `Library.find_stems_files(track_path)`, which finds the stems files Serato keeps beside a track.
 
 ## [6.0.2] - 2026-11-24
 
