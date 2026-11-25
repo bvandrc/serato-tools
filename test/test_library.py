@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import subprocess
 import sys
 from unittest import mock
@@ -274,6 +275,19 @@ def test_remove_track_files_deletes_their_stems_files(folders: LibraryFolders):
 
     assert not any(os.path.exists(path) for path in stems), "every stems file deleted, even the missing track's"
     assert result.files_deleted == [removed, *stems], "each track's file, then its stems files"
+
+
+def test_remove_track_files_refuses_missing_files(folders: LibraryFolders, bin_file_writes: list[str]):
+    present, missing = folders.make_track("Present.mp3"), folders.music_path("Missing.mp3")
+    folders.add_to_database(present, missing)
+    bin_file_writes.clear()
+
+    with pytest.raises(FileNotFoundError, match=re.escape("Missing.mp3")):
+        Library(folders.serato_dir).remove_track_files([present, missing], delete_files=True, missing_ok=False)
+
+    assert os.path.exists(present), "the other file kept"
+    assert bin_file_writes == [], "nothing saved"
+    assert relpath(present) in track_paths(DatabaseV2(folders.db_file)), "db unchanged"
 
 
 def test_batch_writes_each_changed_file_once(folders: LibraryFolders, bin_file_writes: list[str]):

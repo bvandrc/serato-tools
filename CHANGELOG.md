@@ -33,6 +33,7 @@ Each release groups its changes by the part of the package they're in. Within ea
   - **Upgrading:** Pass `delete_files=True`, which does what it did before.
   - With `delete_files=False`, it removes the tracks from the database and crates and leaves their files.
 - **Fix:** `Library.remove_track_files` with `delete_files=True` deletes the tracks' stems files too, and lists them in `files_deleted`.
+- **Feature:** `Library.remove_track_files` takes `missing_ok`, and with `delete_files=True, missing_ok=False` raises `FileNotFoundError` for track files that don't exist, before changing anything.
 - **Feature:** Add `Library.find_stems_files(track_path)`, which finds the stems files Serato keeps beside a track.
 - **Feature:** Add `Library.find_crate_files(pattern)`, which finds the library's crate and smart crate files by name, with a glob or a regex.
 

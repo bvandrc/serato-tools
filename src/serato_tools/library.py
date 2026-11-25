@@ -241,7 +241,9 @@ class Library:
 
         return self._change_bin_files(lambda file: file.change_track_path(src, dest))
 
-    def remove_track_files(self, filepaths: Collection[str], *, delete_files: bool) -> RemoveTrackFilesResult:
+    def remove_track_files(
+        self, filepaths: Collection[str], *, delete_files: bool, missing_ok: bool = True
+    ) -> RemoveTrackFilesResult:
         """Removes the tracks from the database and crates, then, with `delete_files=True`, deletes their files.
 
         With `delete_files=False`, the files are left as they are, so the tracks are only gone from the library.
@@ -249,9 +251,13 @@ class Library:
         already gone.
 
         Returns which files it deleted, and which library files it changed (see RemoveTrackFilesResult). Paths whose
-        file is already gone are still removed from the library, which cleans up missing tracks. Only the files that
-        contain one of the tracks are saved, or, inside `batch()`, left for it to save once.
+        file is already gone are still removed from the library, which cleans up missing tracks. With
+        `delete_files=True` and `missing_ok=False`, it raises `FileNotFoundError` naming them instead, before changing
+        anything. Only the files that contain one of the tracks are saved, or, inside `batch()`, left for it to save
+        once.
         """
+        if delete_files and not missing_ok and (missing := [p for p in filepaths if not os.path.exists(p)]):
+            raise FileNotFoundError(f"Track files not found: {', '.join(missing)}")
         changed = self._change_bin_files(lambda file: file.remove_tracks(filepaths))
         deleted: list[str] = []
         if delete_files:
