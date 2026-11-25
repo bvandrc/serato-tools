@@ -68,7 +68,7 @@ def copy_crates_to_usb(
 
     # everything is read from the local library before anything on the drive changes, so a file that can't be read
     # leaves the drive as it was
-    crates = [_load_crate(Path(f), root_crate) for f in crate_files if not Path(f).is_dir()]
+    crates = [_load_crate(file, root_crate) for file in map(Path, crate_files) if not file.is_dir()]
     # each crate to write to the drive, with its path in the drive's _Serato_ folder
     drive_crates = [(crate, Path(Crate.DIR, name + Crate.EXTENSION)) for crate, name in crates]
     if LOCAL_SERATO_STEMS_CRATE_PATH.exists():
