@@ -93,9 +93,7 @@ def copy_crates_to_usb(
         edit_track=lambda track: track.set_value(DatabaseV2.Fields.PLAYED, False),
     )
     logger.info(f"created database file {dest_db_file}")
-    _export_crate_order(
-        os.path.join(dest_serato_dir, CrateOrder.FILENAME), root_crate, _with_parents(name for _, name in crates)
-    )
+    _export_crate_order(os.path.join(dest_serato_dir, CrateOrder.FILENAME), root_crate, [name for _, name in crates])
     _copy_tracks(dest_paths, dest_drive_dir)
 
 
@@ -187,9 +185,9 @@ def _export_library_file(
     file.save(dest_file)
 
 
-def _export_crate_order(dest_file: str, root_crate: str | None, crate_names: set[str]):
-    """Copies the local library's crate order file to `dest_file`, with only the crates in `crate_names`, each named
-    as it is on the drive.
+def _export_crate_order(dest_file: str, root_crate: str | None, crate_names: Iterable[str]):
+    """Copies the local library's crate order file to `dest_file`, with only the crates in `crate_names` and their
+    parents, each named as it is on the drive.
 
     Given `root_crate`, it also gets that crate, first.
     """
@@ -198,6 +196,7 @@ def _export_crate_order(dest_file: str, root_crate: str | None, crate_names: set
         logger.warning(f"no order file to copy: {local_file}")
         return
     order = CrateOrder(local_file)
+    crate_names = _with_parents(crate_names)
     crates: list[str] = []
     for crate in order.crates:
         if crate == _STEMS_CRATE_NAME:
@@ -229,22 +228,17 @@ def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str):
     root = LOCAL_SERATO_DRIVE + os.sep if LOCAL_SERATO_DRIVE else os.sep
     not_found: list[str] = []
 
-    def maybe_copy(src_path: str, dst_path: str):
-        if not os.path.exists(src_path):
-            not_found.append(src_path)
-            return
-        if not os.path.exists(dst_path) or not filecmp.cmp(src_path, dst_path, shallow=True):
-            os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-            logger.info(f"copying {src_path}")
-            shutil.copy2(src_path, dst_path)
-
     for track_path, dest_path in tqdm(dest_paths.items(), desc="Copying tracks", unit="track"):
         src_path = os.path.join(root, track_path)
         dst_path = os.path.join(dest_drive_dir, dest_path)
-        maybe_copy(src_path, dst_path)
+        if not _copy_if_changed(src_path, dst_path):
+            not_found.append(src_path)
 
         if stems_file := Library.find_stems_file(src_path):
-            maybe_copy(stems_file, os.path.join(os.path.dirname(dst_path), os.path.basename(stems_file)))
+            stems_dest = os.path.join(os.path.dirname(dst_path), os.path.basename(stems_file))
+            if not _copy_if_changed(stems_file, stems_dest):
+                # found just now, so gone since; not counted with the tracks, which it isn't one of
+                logger.error(f"does not exist - {stems_file}")
 
     if dest_paths and len(not_found) == len(dest_paths):
         uniq_dirs = sorted({os.path.dirname(os.path.join(root, d)) for d in dest_paths})
@@ -252,6 +246,17 @@ def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str):
 
     for n in not_found:
         logger.error(f"does not exist - {n}")
+
+
+def _copy_if_changed(src_path: str, dst_path: str) -> bool:
+    """Copies `src_path` to `dst_path`, unless it's there unchanged, and returns False if `src_path` doesn't exist."""
+    if not os.path.exists(src_path):
+        return False
+    if not os.path.exists(dst_path) or not filecmp.cmp(src_path, dst_path, shallow=True):
+        os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+        logger.info(f"copying {src_path}")
+        shutil.copy2(src_path, dst_path)
+    return True
 
 
 def main():
