@@ -4,6 +4,7 @@
 - Serato library database parsing and modification
 - Serato crate parsing and modification
 - Serato smart crate parsing and rule modification
+- Serato crate order reading and modification
 - Dynamic beatgrid analysis that can be saved to a track's beatgrid.
 - Serato USB export that beats Serato's sync by putting all files in 1 folder (without duplicates) and only copying changed files, unlike Serato's sync which takes forever and creates many duplicate file locations
 
@@ -23,6 +24,7 @@
   - [Snapping cue positions to the beatgrid](#snapping-cue-positions-to-the-beatgrid)
   - [Modifying track metadata / hot cues](#modifying-track-metadata--hot-cues)
   - [Listing available crates or smart crates](#listing-available-crates-or-smart-crates)
+  - [Reordering crates](#reordering-crates)
   - [Modifying a SmartCrate Rule](#modifying-a-smartcrate-rule)
   - [Crate details and adding a track](#crate-details-and-adding-a-track)
   - [Smart Crate details](#smart-crate-details)
@@ -336,6 +338,18 @@ from serato_tools.smart_crate import SmartCrate
 
 print("\n".join(SmartCrate.get_crate_files()))
 ``` 
+
+### Reordering crates
+
+`CrateOrder` reads and writes Serato's crate order file, `neworder.pref`. Its `crates` lists the crates and smart crates in the order Serato shows them, each name including its parents': `%%` separates a regular crate's (`Bass%%DnB`), `≫≫` a smart crate's.
+
+```python
+from serato_tools.crate_order import CrateOrder
+
+order = CrateOrder()  # the default library's; or pass a path
+order.crates.sort()
+order.save()  # or save(path) to write it elsewhere
+```
 
 ### Modifying a SmartCrate Rule
 

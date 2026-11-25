@@ -13,6 +13,10 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Feature:** `copy_crates_to_usb`'s `dest_tracks_dir` defaults to `Tracks`, the folder `serato_usb_export` uses.
 - **Fix:** An export with a crate file it can't read fails before writing anything to the drive, rather than after deleting the drive's `_Serato_` folder.
 
+### Crate Order
+
+- **Feature:** Add `CrateOrder` (`serato_tools.crate_order`), which reads and writes Serato's crate order file, `neworder.pref`, so you can reorder, add, or remove crates in it.
+
 ## [6.0.2] - 2026-11-24
 
 ### Smart Crates
