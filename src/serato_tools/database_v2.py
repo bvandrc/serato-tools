@@ -19,6 +19,7 @@ class DatabaseV2(SeratoBinFile):
 
     TESTED_VERSIONS = frozenset({"2.0/Serato Scratch LIVE Database"})
     FILENAME = "database V2"
+    # TODO(breaking): change to a Path
     DEFAULT_DATABASE_FILE = str(Path(SERATO_DIR, FILENAME))
     TRACK_PATH_KEY = SeratoBinFile.Fields.FILE_PATH
 

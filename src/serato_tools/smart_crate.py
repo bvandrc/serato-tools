@@ -20,6 +20,7 @@ class SmartCrate(CrateBase):
     TESTED_VERSIONS = frozenset({"1.0/Serato ScratchLive Smart Crate"})
     EXTENSION = ".scrate"
     DIR = "SmartCrates"
+    # TODO(breaking): change to a Path
     DIR_PATH = str(Path(SERATO_DIR, DIR))
 
     @unique
