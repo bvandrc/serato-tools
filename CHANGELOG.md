@@ -12,6 +12,7 @@ Each release groups its changes by the part of the package they're in. Within ea
   - The order lists only the exported crates, with the root crate first.
 - **Feature (CLI):** `delete_unused_tracks` on `copy_crates_to_usb`, and `--delete_unused_tracks` on `serato_usb_export`, delete the other files in the drive's tracks folder, such as tracks no exported crate uses.
 - **Feature (CLI):** `source_serato_dir` on `copy_crates_to_usb`, and `--source` on `serato_usb_export`, export from a library on another drive instead of the home library.
+  - `--source` takes the library's `_Serato_` folder or the drive it's on (e.g. `D` or `/Volumes/Music`), and reports a folder with no library as a usage error.
 - **Feature:** The drive keeps which crates are collapsed.
 - **Feature:** `copy_crates_to_usb`'s `dest_tracks_dir` defaults to `Tracks`, the folder `serato_usb_export` uses.
 - **Fix:** An export with a library file it can't read (a crate, the database, or the stems crate) fails before writing anything to the drive, rather than after deleting the drive's `_Serato_` folder.

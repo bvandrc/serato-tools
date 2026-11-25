@@ -298,6 +298,21 @@ def _delete_unused_tracks(tracks_dir: str, keep: Iterable[str]):
     remove_empty_folders(tracks_dir)
 
 
+def _find_serato_dir(path: str) -> str:
+    """The `_Serato_` folder `path` names: either that folder itself, or the drive or folder it's in.
+
+    On Windows, a bare drive letter like "D" names that drive's root. Raises `FileNotFoundError` if there's no such
+    folder.
+    """
+    if platform.system() == "Windows" and len(path) == 1:
+        path += ":\\"
+    if os.path.basename(os.path.normpath(path)).lower() != SERATO_DIR_NAME.lower():
+        path = os.path.join(path, SERATO_DIR_NAME)
+    if not os.path.isdir(path):
+        raise FileNotFoundError(f"no Serato library folder: {path}")
+    return path
+
+
 def main():
     """The `serato_usb_export` CLI: exports the crates matching the patterns given to a drive, under `Tracks`."""
     # ruff: disable[PLC0415]
@@ -329,7 +344,7 @@ def main():
         type=str,
         required=False,
         default=LOCAL_SERATO_DIR,
-        help="The _Serato_ folder of the library to export from. Defaults to the home library, ~/Music/_Serato_",
+        help='The library to export from: its _Serato_ folder, or the drive it\'s on (e.g. "D" on Windows, "/Volumes/Music" on macOS). Defaults to the home library, ~/Music/_Serato_',
     )
     parser.add_argument(
         "-c",
@@ -355,6 +370,11 @@ def main():
         help=f"Delete every other file in the drive's {DEFAULT_DRIVE_TRACKS_DIR} folder, such as tracks since taken out of the crates",
     )
     args = Args(**vars(parser.parse_args()))
+
+    try:
+        args.source_dir = _find_serato_dir(args.source_dir)
+    except FileNotFoundError as e:
+        parser.error(str(e))
 
     library = Library(args.source_dir)
     crate_files: list[str] = []
