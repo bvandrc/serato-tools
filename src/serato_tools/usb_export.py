@@ -27,7 +27,7 @@ from serato_tools.utils import (
     logger,
 )
 from serato_tools.utils.bin_file_base import SeratoBinFile
-from serato_tools.utils.files import copy_if_changed, delete_other_files, is_inside
+from serato_tools.utils.files import copy_if_changed, delete_other_files, is_inside_dir
 
 # the local library's files the export reads, besides its crates
 LOCAL_SERATO_DATABASE_PATH = os.path.join(LOCAL_SERATO_DIR, DatabaseV2.FILENAME)
@@ -177,7 +177,7 @@ def _check_unused_tracks_can_be_deleted(dest_drive_dir: str, dest_tracks_dir: st
     """
     tracks_dir = os.path.realpath(os.path.join(dest_drive_dir, dest_tracks_dir))
     # not the drive itself, which would hold its _Serato_ folder
-    if not is_inside(tracks_dir, dest_drive_dir):
+    if not is_inside_dir(tracks_dir, dest_drive_dir):
         raise ValueError(f"delete_unused_tracks needs a tracks folder inside the drive, not {tracks_dir}")
     if not dest_paths:
         raise ValueError("delete_unused_tracks needs a track to export, or it would delete every track on the drive")

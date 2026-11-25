@@ -72,7 +72,7 @@ def delete_other_files(folder: str, keep: Iterable[str]):
                 logger.error(f"couldn't delete {dirpath}: {e}")
 
 
-def is_inside(path: str, folder: str) -> bool:
+def is_inside_dir(path: str, folder: str) -> bool:
     """Whether `path` is inside `folder`, and not `folder` itself, once both are resolved to real paths."""
     path, folder = os.path.realpath(path), os.path.realpath(folder)
     # commonpath raises for paths on different Windows drives
