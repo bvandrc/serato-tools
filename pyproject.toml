@@ -55,7 +55,7 @@ serato_analyze_beatgrid = "serato_tools.track_beatgrid:main_analyze"
 serato_usb_export = "serato_tools.usb_export:main"
 serato_smartcrate = "serato_tools.smart_crate:main"
 serato_crate = "serato_tools.crate:main"
-serato_crate_order = "serato_tools.crate_order:main"
+serato_pref_files = "serato_tools.pref_files:main"
 serato_snap_cues_v2 = "serato_tools.track_cues_v2:main"
 
 [tool.setuptools.packages.find]

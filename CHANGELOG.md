@@ -15,10 +15,11 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Fix:** Stems files named with their separation's version, as Serato names them (`Track.1.2.serato-stems`), are copied with their track.
   - A track with more than one stems file has them all copied, rather than failing the export.
 
-### Crate Order
+### Crate Order / Collapsed Crates
 
-- **Feature:** Add `CrateOrder` (`serato_tools.crate_order`), which reads and writes Serato's crate order file, `neworder.pref`, so you can reorder, add, or remove crates in it.
-  - The `serato_crate_order` CLI prints a library's crate order.
+- **Feature:** Add `CrateOrder` (`serato_tools.pref_files`), which reads and writes Serato's crate order file, `neworder.pref`, so you can reorder, add, or remove crates in it.
+- **Feature:** Add `CollapsedCrates` (`serato_tools.pref_files`), which reads and writes which crates Serato's sidebar shows collapsed, `collapsed.pref`.
+- **Feature (CLI):** Add `serato_pref_files`, which prints a library's crate order and collapsed crates, or a given crate order or collapsed crates file's.
 
 ### Library
 
