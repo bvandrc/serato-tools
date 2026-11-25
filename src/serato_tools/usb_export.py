@@ -32,8 +32,6 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 
 # the local library's files the export reads, besides its crates
 LOCAL_SERATO_DATABASE_PATH = os.path.join(LOCAL_SERATO_DIR, DatabaseV2.FILENAME)
-LOCAL_SERATO_CRATE_ORDER_PATH = os.path.join(LOCAL_SERATO_DIR, CrateOrder.FILENAME)
-LOCAL_SERATO_COLLAPSED_CRATES_PATH = os.path.join(LOCAL_SERATO_DIR, CollapsedCrates.FILENAME)
 LOCAL_SERATO_STEMS_CRATE_PATH = os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
 # the folder on the drive the tracks go in, unless the caller names another
 DEFAULT_DRIVE_TRACKS_DIR = "Tracks"
@@ -76,9 +74,9 @@ def copy_crates_to_usb(
     if os.path.exists(LOCAL_SERATO_STEMS_CRATE_PATH):
         drive_crates.append((Crate(LOCAL_SERATO_STEMS_CRATE_PATH), Crate.SERATO_STEMS_CRATE_PATH))
     database = DatabaseV2(LOCAL_SERATO_DATABASE_PATH)
-    crate_order = _load_pref_file(CrateOrder, LOCAL_SERATO_CRATE_ORDER_PATH, missing_level=logging.WARNING)
+    crate_order = _load_pref_file(CrateOrder, missing_level=logging.WARNING)
     # unlike the crate order, a library doesn't necessarily have one
-    collapsed_crates = _load_pref_file(CollapsedCrates, LOCAL_SERATO_COLLAPSED_CRATES_PATH, missing_level=logging.INFO)
+    collapsed_crates = _load_pref_file(CollapsedCrates, missing_level=logging.INFO)
     dest_paths = _dest_track_paths(
         [os.path.normpath(p) for crate, _ in crates for p in crate.get_track_paths()], dest_tracks_dir
     )
@@ -137,12 +135,13 @@ def _drive_crate_name(name: str, root_crate: str | None) -> str:
     return f"{root_crate}%%{name}" if root_crate else name
 
 
-def _load_pref_file[T: (CrateOrder, CollapsedCrates)](cls: type[T], file: str, missing_level: int) -> T | None:
+def _load_pref_file[T: (CrateOrder, CollapsedCrates)](cls: type[T], missing_level: int) -> T | None:
     """The local library's crate order or collapsed crates, or None if it has none, logged at `missing_level`, or if
     it can't be read, logging a warning.
 
     The drive then gets no such file, and Serato lists its crates in its default order, or shows them all expanded.
     """
+    file = os.path.join(LOCAL_SERATO_DIR, cls.FILENAME)
     if not os.path.isfile(file):
         logger.log(missing_level, f"no {cls.FILENAME} to copy: {file}")
         return None

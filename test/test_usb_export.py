@@ -57,8 +57,6 @@ def export(tmp_dir: str, monkeypatch: pytest.MonkeyPatch) -> Export:
     # built from the real library folder at import, so each is pointed at the test's too
     for name, path in [
         ("LOCAL_SERATO_DATABASE_PATH", DatabaseV2.FILENAME),
-        ("LOCAL_SERATO_CRATE_ORDER_PATH", "neworder.pref"),
-        ("LOCAL_SERATO_COLLAPSED_CRATES_PATH", "collapsed.pref"),
         ("LOCAL_SERATO_STEMS_CRATE_PATH", Crate.SERATO_STEMS_CRATE_PATH),
     ]:
         monkeypatch.setattr(usb_export, name, os.path.join(export.serato_dir, path))
