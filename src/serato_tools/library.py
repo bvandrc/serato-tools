@@ -1,6 +1,8 @@
 """A Serato library folder as a whole, for changes that have to reach its database and every crate together."""
 
+import fnmatch
 import os
+import re
 from collections.abc import Callable, Collection, Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -105,6 +107,26 @@ class Library:
         Read from disk on each access, so it includes crates made since the Library was.
         """
         return self._get_crate_files(Crate) + self._get_crate_files(SmartCrate)
+
+    def find_crate_files(self, pattern: str) -> list[str]:
+        """The paths of the library's crate and smart crate files whose name matches `pattern`, crates first.
+
+        The name is the filename without its extension, so `"*crate*"` matches only crates with "crate" in their name. A
+        subcrate's name includes its parents' (`Bass%%DnB`), so `"Bass*"` matches a crate and its subcrates. `pattern` is
+        tried as a glob, and if nothing matches it, as a regex.
+        """
+        names = {f: os.path.splitext(os.path.basename(f))[0] for f in self.crate_files}
+
+        # try the pattern as a glob first: most globs (e.g. "house*") are also valid regexes, so
+        # checking re.compile first would silently give glob-looking patterns regex semantics
+        files = [f for f, name in names.items() if fnmatch.fnmatch(name, pattern)]
+        if not files:
+            try:
+                regex = re.compile(pattern)
+            except re.error:
+                return []
+            files = [f for f, name in names.items() if regex.search(name)]
+        return files
 
     def _get_crate_files(self, crate_class: type[CrateBase]) -> list[str]:
         crates_dir = os.path.join(self.serato_dir, crate_class.DIR)
