@@ -30,6 +30,8 @@ from serato_tools.utils import (
 )
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
+# the local library's files the export reads, besides its crates
+LOCAL_SERATO_STEMS_CRATE_PATH = os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
 # the extension of the file Serato keeps a track's stems in, beside the track
 STEMS_EXTENSION = ".serato-stems"
 # the folder on the drive the tracks go in, unless the caller names another
@@ -68,10 +70,15 @@ def copy_crates_to_usb(
     # TODO: merge with existing, instead of replacing
     if os.path.isdir(dest_serato_dir):
         shutil.rmtree(dest_serato_dir)
-    dest_crate_dir = os.path.join(dest_serato_dir, Crate.DIR)
-    os.makedirs(dest_crate_dir, exist_ok=True)
-    for crate, name in crates:
-        dest_crate_file = os.path.join(dest_crate_dir, name + Crate.EXTENSION)
+    # each crate to write to the drive, with its path in the drive's _Serato_ folder
+    drive_crates = [(crate, os.path.join(Crate.DIR, name + Crate.EXTENSION)) for crate, name in crates]
+    if os.path.exists(LOCAL_SERATO_STEMS_CRATE_PATH):
+        drive_crates.append((Crate(LOCAL_SERATO_STEMS_CRATE_PATH), Crate.SERATO_STEMS_CRATE_PATH))
+    # Subcrates even with no crates, and the stems crate's own folder
+    for folder in {Crate.DIR, *(os.path.dirname(path) for _, path in drive_crates)}:
+        os.makedirs(os.path.join(dest_serato_dir, folder), exist_ok=True)
+    for crate, path in drive_crates:
+        dest_crate_file = os.path.join(dest_serato_dir, path)
         regular_crate = crate.to_regular_crate(dest_crate_file) if isinstance(crate, SmartCrate) else crate
         _export_library_file(regular_crate, dest_crate_file, dest_paths)
         logger.info(f"copied crate file {dest_crate_file}")
@@ -87,11 +94,6 @@ def copy_crates_to_usb(
     _export_crate_order(
         os.path.join(dest_serato_dir, CrateOrder.FILENAME), root_crate, _with_parents(name for _, name in crates)
     )
-    if os.path.exists(local_stems_crate := os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)):
-        dest_stems_crate = os.path.join(dest_serato_dir, Crate.SERATO_STEMS_CRATE_PATH)
-        os.makedirs(os.path.dirname(dest_stems_crate), exist_ok=True)
-        _export_library_file(Crate(local_stems_crate), dest_stems_crate, dest_paths)
-        logger.info(f"copied crate file {dest_stems_crate}")
     _copy_tracks(dest_paths, dest_drive_dir)
 
 
