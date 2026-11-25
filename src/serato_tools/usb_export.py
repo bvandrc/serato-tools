@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from tqdm import tqdm
 
 from serato_tools.crate import Crate
+from serato_tools.crate_order import CrateOrder
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.library import Library
 from serato_tools.smart_crate import SmartCrate
@@ -33,6 +34,8 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 STEMS_EXTENSION = ".serato-stems"
 # the folder on the drive the tracks go in, unless the caller names another
 _DRIVE_TRACKS_DIR = "Tracks"
+# the crate Serato keeps tracks with stems in, named so in the crate order, never inside a root crate
+_STEMS_CRATE_NAME = "Stems"
 
 
 def copy_crates_to_usb(
@@ -81,7 +84,9 @@ def copy_crates_to_usb(
         edit_track=lambda track: track.set_value(DatabaseV2.Fields.PLAYED, False),
     )
     logger.info(f"created database file {dest_db_file}")
-    _copy_order_file(dest_serato_dir, root_crate, _with_parents(name for _, name in crates))
+    _export_crate_order(
+        os.path.join(dest_serato_dir, CrateOrder.FILENAME), root_crate, _with_parents(name for _, name in crates)
+    )
     if os.path.exists(local_stems_crate := os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)):
         dest_stems_crate = os.path.join(dest_serato_dir, Crate.SERATO_STEMS_CRATE_PATH)
         os.makedirs(os.path.dirname(dest_stems_crate), exist_ok=True)
@@ -166,43 +171,26 @@ def _export_library_file(
     file.save(dest_file)
 
 
-def _copy_order_file(dest_serato_dir: str, root_crate: str | None, crate_names: set[str]):
-    """Copies Serato's crate order file to the drive, with only the lines of the crates in `crate_names`, each named
-    as it is there.
+def _export_crate_order(dest_file: str, root_crate: str | None, crate_names: set[str]):
+    """Copies the local library's crate order file to `dest_file`, with only the crates in `crate_names`, each named
+    as it is on the drive.
 
     Given `root_crate`, it also gets that crate, first.
     """
-    # Serato's crate order file, in UTF-16-BE on every OS
-    ORDER_FILE = "neworder.pref"
-    PREF_FILE_ENCODING = "utf-16-be"
-    BEGIN_RECORD = "[begin record]"
-    # how a line in it names a crate
-    CRATE_KEY = "[crate]"
-    # the crate Serato keeps tracks with stems in, named so in the order file, never inside a root crate
-    STEMS_CRATE_NAME = "Stems"
-
-    LOCAL_ORDER_FILE = os.path.join(LOCAL_SERATO_DIR, ORDER_FILE)
-    if not os.path.isfile(LOCAL_ORDER_FILE):
-        logger.warning(f"no order file to copy: {LOCAL_ORDER_FILE}")
+    local_file = os.path.join(LOCAL_SERATO_DIR, CrateOrder.FILENAME)
+    if not os.path.isfile(local_file):
+        logger.warning(f"no order file to copy: {local_file}")
         return
-    # read and written in binary, since Serato's \n line endings would be written as \r\n on Windows: one byte that
-    # misaligns every UTF-16 character after it
-    with open(LOCAL_ORDER_FILE, "rb") as f:
-        lines = f.read().decode(PREF_FILE_ENCODING).split("\n")
-
-    out: list[str] = []
-    for line in lines:
-        if not line.startswith(CRATE_KEY) or (crate := line[len(CRATE_KEY) :]) == STEMS_CRATE_NAME:
-            out.append(line)
+    order = CrateOrder(local_file)
+    crates: list[str] = []
+    for crate in order.crates:
+        if crate == _STEMS_CRATE_NAME:
+            crates.append(crate)
         elif (name := _drive_crate_name(crate, root_crate)) in crate_names:
-            out.append(CRATE_KEY + name)
-    if root_crate and out[:1] == [BEGIN_RECORD]:
-        # where Serato puts it when it rewrites the drive's order file
-        out.insert(1, CRATE_KEY + root_crate)
-
-    dest_file = os.path.join(dest_serato_dir, ORDER_FILE)
-    with open(dest_file, "wb") as f:
-        f.write("\n".join(out).encode(PREF_FILE_ENCODING))
+            crates.append(name)
+    # first, where Serato puts it when it rewrites the drive's order file
+    order.crates = [root_crate, *crates] if root_crate else crates
+    order.save(dest_file)
     logger.info(f"copied order file {dest_file}")
 
 

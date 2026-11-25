@@ -169,7 +169,8 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
       - Every file is written before the database, which is saved once, in one `modify_tracks` pass.
     - **A track not in the database** only has its file's tags set, with a warning.
     - **Optional extra:** a method that changes track files imports what needs mutagen inside `_needs_track_tags_extra()`, so the rest of `Library` works without the `track_tags` extra.
-- `usb_export.py` composes `Crate`, `SmartCrate`, and `DatabaseV2`: it flattens all tracks into one folder on the drive, dedupes by basename, rewrites crate/database paths to the new layout, and copies only changed files.
+- `crate_order.py`'s `CrateOrder` reads and writes Serato's crate order file, `neworder.pref`. It's UTF-16-BE text, not the bin container, so it subclasses neither base. It's read and written in binary, since a `\n` written as `\r\n` on Windows misaligns every UTF-16 character after it.
+- `usb_export.py` composes `Crate`, `SmartCrate`, `DatabaseV2`, and `CrateOrder`: it flattens all tracks into one folder on the drive, dedupes by basename, rewrites crate/database paths to the new layout, and copies only changed files.
 - `SERATO_DIR` (`~/Music/_Serato_`) in `utils/__init__.py` is the default root for all library lookups.
 
 ### CLI conventions
