@@ -18,6 +18,12 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Feature:** Add `CrateOrder` (`serato_tools.crate_order`), which reads and writes Serato's crate order file, `neworder.pref`, so you can reorder, add, or remove crates in it.
   - The `serato_crate_order` CLI prints a library's crate order.
 
+### Library
+
+- **[BREAKING]** `Library.remove_track_files` takes a required keyword argument, `delete_files`, so each call says whether it deletes the track files.
+  - **Upgrading:** Pass `delete_files=True`, which does what it did before.
+  - With `delete_files=False`, it removes the tracks from the database and crates and leaves their files.
+
 ## [6.0.2] - 2026-11-24
 
 ### Smart Crates

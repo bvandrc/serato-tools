@@ -159,7 +159,7 @@ def test_remove_track_files(folders: LibraryFolders, bin_file_writes: list[str])
     bin_file_writes.clear()
 
     library = Library(folders.serato_dir)
-    result = library.remove_track_files([removed, missing])
+    result = library.remove_track_files([removed, missing], delete_files=True)
 
     assert not os.path.exists(removed), "file deleted"
     assert os.path.exists(kept), "other file kept"
@@ -176,6 +176,20 @@ def test_remove_track_files(folders: LibraryFolders, bin_file_writes: list[str])
     assert track_paths(library.smart_crates[0]) == [], "missing track removed from smart crate"
 
 
+def test_remove_track_files_from_the_library_only(folders: LibraryFolders, bin_file_writes: list[str]):
+    removed = folders.make_track("Removed.mp3")
+    folders.add_to_database(removed)
+    bin_file_writes.clear()
+
+    library = Library(folders.serato_dir)
+    result = library.remove_track_files([removed], delete_files=False)
+
+    assert os.path.exists(removed), "file kept"
+    assert result.files_deleted == [], "no file deleted"
+    assert relpath(removed) not in track_paths(library.database), "removed from the db"
+    assert bin_file_writes == [DatabaseV2.FILENAME]
+
+
 def test_batch_writes_each_changed_file_once(folders: LibraryFolders, bin_file_writes: list[str]):
     first, second, removed = (folders.make_track(name) for name in ["First.mp3", "Second.mp3", "Removed.mp3"])
     folders.add_to_database(first, second, removed)
@@ -188,7 +202,7 @@ def test_batch_writes_each_changed_file_once(folders: LibraryFolders, bin_file_w
     with library.batch():
         library.rename_track_file(first, new_first)
         library.rename_track_file(second, new_second)
-        removed_result = library.remove_track_files([removed])
+        removed_result = library.remove_track_files([removed], delete_files=True)
 
         assert bin_file_writes == [], "nothing written yet"
         # though they aren't written until the block ends
