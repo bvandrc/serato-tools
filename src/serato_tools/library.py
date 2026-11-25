@@ -33,7 +33,8 @@ class RemoveTrackFilesResult:
     """What `Library.remove_track_files` changed."""
 
     files_deleted: list[str]
-    """The track files deleted, as their paths were passed, in the order given. A file already gone isn't listed."""
+    """The track files deleted, as their paths were passed, in the order given. A file already gone isn't listed, and
+    none are with `delete_files=False`."""
     library_files_changed: list[str]
     """The paths of the database, crates, and smart crates that held one of the tracks, so had it removed.
 
@@ -193,8 +194,10 @@ class Library:
 
         return self._change_bin_files(lambda file: file.change_track_path(src, dest))
 
-    def remove_track_files(self, filepaths: Collection[str]) -> RemoveTrackFilesResult:
-        """Removes the tracks from the database and crates, then deletes their files.
+    def remove_track_files(self, filepaths: Collection[str], *, delete_files: bool) -> RemoveTrackFilesResult:
+        """Removes the tracks from the database and crates, then, with `delete_files=True`, deletes their files.
+
+        With `delete_files=False`, the files are left as they are, so the tracks are only gone from the library.
 
         Returns which track files it deleted, and which library files it changed (see RemoveTrackFilesResult). Paths
         whose file is already gone are still removed from the library, which cleans up missing tracks. Only the files
@@ -202,7 +205,7 @@ class Library:
         """
         changed = self._change_bin_files(lambda file: file.remove_tracks(filepaths))
         deleted: list[str] = []
-        for filepath in filepaths:
+        for filepath in filepaths if delete_files else []:
             if os.path.exists(filepath):
                 os.remove(filepath)
                 logger.info(f"deleted {filepath}")
