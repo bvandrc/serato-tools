@@ -62,21 +62,23 @@ def copy_crates_to_usb(
     if not os.path.isdir(dest_drive_dir):
         raise FileNotFoundError(f"destination drive directory does not exist: {dest_drive_dir}")
 
+    crates = [_load_crate(f, root_crate) for f in crate_files if not os.path.isdir(f)]
+    # of tracks that share a filename, the first in the crates is the one copied, so it's the one whose entries are kept
+    track_paths = _uniq_by_basename([os.path.normpath(p) for crate, _ in crates for p in crate.get_track_paths()])
+    # a set: each library file's tracks are checked against it
+    track_paths_set = set(track_paths)
+
     dest_serato_dir = os.path.join(dest_drive_dir, SERATO_DIR_NAME)
     # TODO: merge with existing, instead of replacing
     if os.path.isdir(dest_serato_dir):
         shutil.rmtree(dest_serato_dir)
-
     dest_crate_dir = os.path.join(dest_serato_dir, Crate.DIR)
     os.makedirs(dest_crate_dir, exist_ok=True)
-    track_paths: list[str] = []
-    for crate_file in crate_files:
-        if not os.path.isdir(crate_file):
-            track_paths += _export_crate(crate_file, dest_crate_dir, root_crate, dest_tracks_dir)
-    # of tracks that share a filename, the first in the crates is the one copied, so it's the one whose entries are kept
-    track_paths = _uniq_by_basename([os.path.normpath(f) for f in track_paths])
-    # a set: each library file's tracks are checked against it
-    track_paths_set = set(track_paths)
+    for crate, name in crates:
+        dest_crate_file = os.path.join(dest_crate_dir, name + Crate.EXTENSION)
+        regular_crate = crate.to_regular_crate(dest_crate_file) if isinstance(crate, SmartCrate) else crate
+        _export_library_file(regular_crate, dest_crate_file, dest_tracks_dir)
+        logger.info(f"copied crate file {dest_crate_file}")
 
     dest_db_file = os.path.join(dest_serato_dir, DatabaseV2.FILENAME)
     _export_library_file(
@@ -92,19 +94,12 @@ def copy_crates_to_usb(
         dest_stems_crate = os.path.join(dest_serato_dir, Crate.SERATO_STEMS_CRATE_PATH)
         os.makedirs(os.path.dirname(dest_stems_crate), exist_ok=True)
         _export_library_file(Crate(local_stems_crate), dest_stems_crate, dest_tracks_dir, track_paths_set)
-        logger.info(f"copied crate {dest_stems_crate}")
+        logger.info(f"copied crate file {dest_stems_crate}")
     _copy_tracks(track_paths, os.path.join(dest_drive_dir, dest_tracks_dir))
 
 
-def _export_crate(crate_file: str, dest_crate_dir: str, root_crate: str | None, dest_tracks_dir: str) -> list[str]:
-    """Writes the crate to the drive's crate folder, pointed at its tracks' paths there, and returns the paths it held.
-
-    The paths returned are as Serato stores them, without a drive or leading slash, in the crate's order and with
-    any duplicates.
-
-    A smart crate is written as a regular crate of the tracks it holds, keeping its sort and columns but not its
-    rules, since Serato can't use one on a drive.
-    """
+def _load_crate(crate_file: str, root_crate: str | None) -> tuple[Crate | SmartCrate, str]:
+    """The crate or smart crate in `crate_file`, and its name on the drive."""
     crate: Crate | SmartCrate
     if crate_file.endswith(Crate.EXTENSION):
         crate = Crate(crate_file)
@@ -112,21 +107,16 @@ def _export_crate(crate_file: str, dest_crate_dir: str, root_crate: str | None, 
         crate = SmartCrate(crate_file)
     else:
         raise ValueError(f"not a crate file, should end with {Crate.EXTENSION} or {SmartCrate.EXTENSION}: {crate_file}")
+    return crate, _drive_crate_name(os.path.splitext(os.path.basename(crate_file))[0], root_crate)
 
-    track_paths = crate.get_track_paths()
 
-    crate_filename = os.path.basename(crate_file)
-    if isinstance(crate, SmartCrate):
-        # a smart crate's subcrate separator in its filename is ≫≫, a regular crate's %%
-        crate_filename = os.path.splitext(crate_filename.replace("≫≫", "%%"))[0] + Crate.EXTENSION
-    if root_crate is not None:
-        crate_filename = root_crate + "%%" + crate_filename
-    dest_crate_file = os.path.join(dest_crate_dir, crate_filename)
-    if isinstance(crate, SmartCrate):
-        crate = crate.to_regular_crate(dest_crate_file)
-    _export_library_file(crate, dest_crate_file, dest_tracks_dir)
-    logger.info(f"copied crate {dest_crate_file}")
-    return track_paths
+def _drive_crate_name(name: str, root_crate: str | None) -> str:
+    """The name on the drive of the crate named `name` in the local library: a smart crate's is the regular crate's
+    it's exported as.
+    """
+    # a smart crate's subcrate separator is ≫≫, a regular crate's %%
+    name = name.replace("≫≫", "%%")
+    return f"{root_crate}%%{name}" if root_crate else name
 
 
 def _export_library_file(

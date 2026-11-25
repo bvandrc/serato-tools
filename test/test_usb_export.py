@@ -192,6 +192,28 @@ def test_copy_crates_to_usb_needs_the_drive_to_exist(export: Export):
         usb_export.copy_crates_to_usb([], os.path.join(export.drive, "Missing"), DRIVE_TRACKS)
 
 
+@pytest.mark.parametrize(
+    "bad_file, error",
+    [
+        pytest.param(os.path.join(Crate.DIR, "Notes.txt"), "not a crate file", id="not a crate"),
+        pytest.param(os.path.join(Crate.DIR, "Broken.crate"), "file ends partway", id="unreadable crate"),
+    ],
+)
+def test_copy_crates_to_usb_writes_nothing_to_the_drive_for_a_crate_it_cant_read(
+    export: Export, bad_file: str, error: str
+):
+    crates = [export.make_crate("House", [export.make_track("A.mp3", b"a")])]
+    (bad,) = mock_files({export.serato_dir: [bad_file]})
+    with open(bad, "wb") as f:
+        f.write(b"not a crate")
+    mock_files({export.on_drive("_Serato_"): ["Old.txt"]})
+
+    with pytest.raises(ValueError, match=error):
+        usb_export.copy_crates_to_usb([*crates, bad], export.drive, DRIVE_TRACKS)
+
+    assert os.listdir(export.on_drive("_Serato_")) == ["Old.txt"], "the drive's library left as it was"
+
+
 def test_copy_crates_to_usb_copies_each_tracks_own_stems(export: Export):
     # named after the track with or without its extension; the old prefix match took "A Extended"'s for "A.mp3" too
     tracks = [export.make_track(name) for name in ["A.mp3", "A Extended.mp3", "C.mp3"]]
