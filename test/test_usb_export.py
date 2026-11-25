@@ -302,8 +302,12 @@ def test_copy_crates_to_usb_raises_for_a_track_with_two_stems_files(export: Expo
     a = export.make_track("A.mp3")
     export.make_track("A.serato-stems")
     export.make_track("A.mp3.serato-stems")
+    mock_files({export.on_drive("_Serato_"): ["Old.txt"]})
+
     with pytest.raises(ValueError, match="more than 1 stems file"):
         usb_export.copy_crates_to_usb([export.make_crate("House", [a])], export.drive, DRIVE_TRACKS)
+
+    assert os.listdir(export.on_drive("_Serato_")) == ["Old.txt"], "the drive's library left as it was"
 
 
 @pytest.mark.parametrize(

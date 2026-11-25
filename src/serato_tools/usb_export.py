@@ -58,6 +58,7 @@ def copy_crates_to_usb(
     - Given `root_crate`, every crate goes inside a crate of that name.
     - A track whose file is missing is skipped, logging an error. Raises FileNotFoundError if every one is missing, such
       as when the library's music is on a drive that isn't plugged in.
+    - Raises ValueError, before changing anything on the drive, for a track with more than one stems file.
     """
     if not os.path.isdir(dest_drive_dir):
         raise FileNotFoundError(f"destination drive directory does not exist: {dest_drive_dir}")
@@ -74,6 +75,7 @@ def copy_crates_to_usb(
     dest_paths = _dest_track_paths(
         [os.path.normpath(p) for crate, _ in crates for p in crate.get_track_paths()], dest_tracks_dir
     )
+    stems_files = _find_stems_files(dest_paths)
 
     dest_serato_dir = os.path.join(dest_drive_dir, SERATO_DIR_NAME)
     # TODO: merge with existing, instead of replacing
@@ -100,7 +102,7 @@ def copy_crates_to_usb(
         _export_crate_order(
             crate_order, os.path.join(dest_serato_dir, CrateOrder.FILENAME), root_crate, [name for _, name in crates]
         )
-    _copy_tracks(dest_paths, dest_drive_dir)
+    _copy_tracks(dest_paths, stems_files, dest_drive_dir)
 
 
 def get_crate_files(pattern: str) -> list[str]:
@@ -223,39 +225,53 @@ def _with_parents(names: Iterable[str]) -> set[str]:
     return result
 
 
-def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str):
-    """Copies each track, and its stems file, to its path in `dest_paths` on the drive, unless it's there unchanged.
+def _find_stems_files(track_paths: Iterable[str]) -> dict[str, str]:
+    """Each track's stems file, by its path in `track_paths`, for the tracks that have one.
 
-    Raises for a track with more than one stems file.
+    Raises ValueError for a track with more than one, since which to copy isn't known.
+    """
+    # each folder's stems files, listed once for all its tracks
+    stems_files_by_dir: dict[str, list[str]] = {}
+    found: dict[str, str] = {}
+    for track_path in track_paths:
+        stems_files = _stems_files(_local_path(track_path), stems_files_by_dir)
+        if len(stems_files) > 1:
+            raise ValueError(f"more than 1 stems file for {_local_path(track_path)}: {', '.join(stems_files)}")
+        if stems_files:
+            found[track_path] = stems_files[0]
+    return found
+
+
+def _copy_tracks(dest_paths: Mapping[str, str], stems_files: Mapping[str, str], dest_drive_dir: str):
+    """Copies each track, and its stems file in `stems_files`, to its path in `dest_paths` on the drive, unless it's
+    there unchanged.
     """
     logger.info("copying files over...")
 
-    root = LOCAL_SERATO_DRIVE + os.sep if LOCAL_SERATO_DRIVE else os.sep
     not_found: list[str] = []
-    # each folder's stems files, listed once for all its tracks
-    stems_files_by_dir: dict[str, list[str]] = {}
-
     for track_path, dest_path in tqdm(dest_paths.items(), desc="Copying tracks", unit="track"):
-        src_path = os.path.join(root, track_path)
+        src_path = _local_path(track_path)
         dst_path = os.path.join(dest_drive_dir, dest_path)
         if not _copy_if_changed(src_path, dst_path):
             not_found.append(src_path)
 
-        stems_files = _stems_files(src_path, stems_files_by_dir)
-        if len(stems_files) > 1:
-            raise ValueError(f"more than 1 stems file for {src_path}: {', '.join(stems_files)}")
-        if stems_files:
-            stems_dest = os.path.join(os.path.dirname(dst_path), os.path.basename(stems_files[0]))
-            if not _copy_if_changed(stems_files[0], stems_dest):
-                # found when its folder was listed, so gone since; not counted with the tracks, which it isn't one of
-                logger.error(f"does not exist - {stems_files[0]}")
+        if stems_file := stems_files.get(track_path):
+            stems_dest = os.path.join(os.path.dirname(dst_path), os.path.basename(stems_file))
+            if not _copy_if_changed(stems_file, stems_dest):
+                # found before the export began, so gone since; not counted with the tracks, which it isn't one of
+                logger.error(f"does not exist - {stems_file}")
 
     if dest_paths and len(not_found) == len(dest_paths):
-        uniq_dirs = sorted({os.path.dirname(os.path.join(root, d)) for d in dest_paths})
+        uniq_dirs = sorted({os.path.dirname(_local_path(d)) for d in dest_paths})
         raise FileNotFoundError("none of the tracks were found, in these folders:\n    " + "\n    ".join(uniq_dirs))
 
     for n in not_found:
         logger.error(f"does not exist - {n}")
+
+
+def _local_path(track_path: str) -> str:
+    """The track's path on this computer, from its path as Serato stores it: from the root of the library's drive."""
+    return os.path.join(LOCAL_SERATO_DRIVE + os.sep if LOCAL_SERATO_DRIVE else os.sep, track_path)
 
 
 def _stems_files(track_path: str, stems_files_by_dir: dict[str, list[str]]) -> list[str]:
