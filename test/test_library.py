@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import os
 import subprocess
@@ -390,6 +391,56 @@ def test_save_skips_unchanged_and_unparsed_files(folders: LibraryFolders, bin_fi
 
     _ = library.database, library.crates
     assert library.save() == [], "nothing changed"
+    assert bin_file_writes == []
+
+
+def make_smart_crate(
+    folders: LibraryFolders,
+    name: str,
+    rule: tuple[SmartCrate.RuleField, SmartCrate.RuleComparison, str],
+    tracks: list[str],
+) -> str:
+    """A smart crate of `tracks` in the library folder, with `rule`, saved."""
+    path = folders.make_crate(name, tracks, SmartCrate)
+    crate = SmartCrate(path)
+    crate.set_rule(*rule)
+    crate.save()
+    return path
+
+
+HOUSE_RULE = (SmartCrate.RuleField.GENRE, SmartCrate.RuleComparison.STR_IS, "House")
+
+
+@pytest.mark.parametrize("batched", [False, True], ids=["unbatched", "batched"])
+def test_update_smart_crates(folders: LibraryFolders, bin_file_writes: list[str], batched: bool):
+    house = folders.music_path("House.mp3")
+    folders.add_to_database(house, fields=[(DatabaseV2.Fields.GENRE, "House")])
+    make_smart_crate(folders, "Stale", HOUSE_RULE, [folders.music_path("Not House.mp3")])
+    make_smart_crate(folders, "Current", HOUSE_RULE, [house])
+    bin_file_writes.clear()
+
+    library = Library(folders.serato_dir)
+    with library.batch() if batched else contextlib.nullcontext():
+        changed = library.update_smart_crates()
+        assert bin_file_writes == ([] if batched else ["Stale.scrate"]), "saved now unless batching"
+
+    assert bin_file_writes == ["Stale.scrate"], "only the crate whose tracks changed"
+    assert changed == file_paths_named(library, ["Stale.scrate"])
+    assert [track_paths(crate) for crate in library.smart_crates] == [[relpath(house)]] * 2
+
+
+def test_update_smart_crates_changes_nothing_when_a_crate_cant_be_matched(
+    folders: LibraryFolders, bin_file_writes: list[str]
+):
+    folders.add_to_database(folders.music_path("House.mp3"), fields=[(DatabaseV2.Fields.GENRE, "House")])
+    make_smart_crate(folders, "A", HOUSE_RULE, [])
+    make_smart_crate(folders, "B", (SmartCrate.RuleField.YEAR, SmartCrate.RuleComparison.STR_DATE_BEFORE, "2000"), [])
+    bin_file_writes.clear()
+
+    library = Library(folders.serato_dir)
+    with pytest.raises(NotImplementedError):
+        library.update_smart_crates()
+    assert not any(crate.has_changed for crate in library.smart_crates), "no crate changed, whichever is listed first"
     assert bin_file_writes == []
 
 

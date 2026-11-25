@@ -3,7 +3,7 @@
 - Serato track tag parsing and modification, including cue points, track color, beatgrid, waveform, autogain, etc.
 - Serato library database parsing and modification
 - Serato crate parsing and modification
-- Serato smart crate parsing and rule modification
+- Serato smart crate parsing and rule modification, rewriting a smart crate's tracks from its rules as Serato does
 - Serato crate order reading and modification
 - Dynamic beatgrid analysis that can be saved to a track's beatgrid.
 - Serato USB export that beats Serato's sync by putting all files in 1 folder (without duplicates) and only copying changed files, unlike Serato's sync which takes forever and creates many duplicate file locations
@@ -63,6 +63,7 @@
 **Smart Crate:**
 - Read a smart crate's tracks and rules
 - Modify a smart crate's rules
+- Rewrite a smart crate's tracks from its rules, as Serato does when a rule is edited
 - List available smart crates
 
 # Installation
@@ -355,6 +356,12 @@ _all crates_
 >>> serato_smartcrate --all --grouping str_is UNTAGGED
 ```
 
+Add `--update_tracks` to also rewrite each crate's tracks as the database's tracks its rules match, as Serato does when a rule is edited. It reads the default library's database, or the one `--database` gives. Without rule options, it only updates the tracks.
+
+```cmd
+>>> serato_smartcrate --all --grouping str_is UNTAGGED --update_tracks
+```
+
 __via code__
 
 ```python
@@ -367,6 +374,23 @@ crate = SmartCrate("/Users/Username/Music/_Serato_/SmartCrates/Dubstep.scrate")
 crate.set_rule(SmartCrate.RuleField.GROUPING, SmartCrate.RuleComparison.STR_IS, "UNTAGGED")
 crate.save()
 ```
+
+Serato rewrites a smart crate's tracks when one of its rules is edited. Pass `update_tracks` a database to do the same, or call `update_tracks` on its own. `Library.update_smart_crates()` does it for every smart crate in the library.
+
+```python
+from serato_tools.database_v2 import DatabaseV2
+from serato_tools.smart_crate import SmartCrate
+
+db = DatabaseV2()
+crate = SmartCrate("/Users/Username/Music/_Serato_/SmartCrates/Dubstep.scrate")
+
+crate.set_rule(SmartCrate.RuleField.GROUPING, SmartCrate.RuleComparison.STR_IS, "UNTAGGED", update_tracks=db)
+crate.delete_rule(SmartCrate.RuleField.YEAR, update_tracks=db)
+crate.update_tracks(db)  # without changing a rule
+crate.save()
+```
+
+How Serato matches a few comparisons hasn't been checked against Serato itself yet, so `update_tracks`'s docstring lists how it matches each. It raises `NotImplementedError` for the date comparisons of text (`str_date_before`, `str_date_after`), whose matching isn't known yet.
 
 ### Crate details and adding a track
 
