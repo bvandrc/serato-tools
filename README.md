@@ -357,11 +357,10 @@ order.save()  # or save(path) to write it elsewhere
 __via command line__
 
 ```cmd
->>> serato_crate_order > order.txt
->>> serato_crate_order --set order.txt
+>>> serato_crate_order
 ```
 
-The first prints the default library's crates in order, one per line, here into a file to edit. The second sets the order to the names in the file. Pass a crate order file's path first to use another one.
+Prints the default library's crates in order, one per line. Pass a crate order file's path to print another one.
 
 ### Modifying a SmartCrate Rule
 

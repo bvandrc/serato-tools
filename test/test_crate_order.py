@@ -73,13 +73,3 @@ def run_cli(*args: str) -> str:
 
 def test_cli_prints_the_crates_in_order():
     assert run_cli(ORDER_FILE).splitlines() == CrateOrder(ORDER_FILE).crates
-
-
-def test_cli_sets_the_crates_from_a_names_file(order_file: str, tmp_dir: str):
-    names_file = os.path.join(tmp_dir, "order.txt")
-    with open(names_file, "w", encoding="utf-8-sig") as f:
-        f.write("Sets\nBass≫≫Riddim\n\nHouse\n")
-
-    run_cli(order_file, "--set", names_file)
-
-    assert CrateOrder(order_file).crates == ["Sets", "Bass≫≫Riddim", "House"], "blank lines skipped, BOM dropped"

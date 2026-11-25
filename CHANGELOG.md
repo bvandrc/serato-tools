@@ -16,7 +16,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 ### Crate Order
 
 - **Feature:** Add `CrateOrder` (`serato_tools.crate_order`), which reads and writes Serato's crate order file, `neworder.pref`, so you can reorder, add, or remove crates in it.
-- **Feature (CLI):** Add `serato_crate_order`, which prints a library's crate order, or sets it from a text file of crate names.
+- **Feature (CLI):** Add `serato_crate_order`, which prints a library's crate order.
 
 ## [6.0.2] - 2026-11-24
 
