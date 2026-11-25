@@ -84,16 +84,22 @@ class Library:
 
     def __init__(self, serato_dir: str = SERATO_DIR, database: DatabaseV2 | None = None):
         """Pass `database` to use one already loaded, along with any unsaved changes it has, instead of parsing it."""
+        # TODO(breaking): remove serato_dir, once deprecated in favor of serato_path
         self.serato_dir = serato_dir
         self._database = database
         # how many batch() blocks are open; while any is, this class's methods leave saving to the outermost one
         self._batch_depth = 0
 
+    @property
+    def serato_path(self) -> Path:
+        """The library folder, as a `Path`: `serato_dir`, which is a `str`."""
+        return Path(self.serato_dir)
+
     @cached_property
     def database(self) -> DatabaseV2:
         if self._database is not None:
             return self._database
-        return DatabaseV2(str(Path(self.serato_dir, DatabaseV2.FILENAME)))
+        return DatabaseV2(str(self.serato_path / DatabaseV2.FILENAME))
 
     @cached_property
     def crates(self) -> list[Crate]:
@@ -157,7 +163,7 @@ class Library:
         return sorted(str(path.parent / name) for name in names)
 
     def _get_crate_files(self, crate_class: type[CrateBase]) -> list[str]:
-        crates_dir = Path(self.serato_dir, crate_class.DIR)
+        crates_dir = self.serato_path / crate_class.DIR
         # Serato only creates the folder once the first crate of its kind is made
         return crate_class.get_crate_files(str(crates_dir)) if crates_dir.is_dir() else []
 

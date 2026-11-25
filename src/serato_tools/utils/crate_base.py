@@ -61,7 +61,7 @@ class CrateBase(SeratoBinFile):
 
     def save(self, file: str | None = None, force: bool = False) -> bool:
         """As `SeratoBinFile.save`, but raises ValueError if `file` doesn't end with this class's `EXTENSION`."""
-        path = Path(self.filepath if file is None else file)
+        path = self.path if file is None else Path(file)
         if not path.name.endswith(self.EXTENSION):
             raise ValueError(f"file should end with {self.EXTENSION}: {path}")
         return super().save(str(path), force)

@@ -4,6 +4,10 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ## [Unreleased]
 
+### General
+
+- **Feature:** Database, crate, and smart crate files have a `path` property, their path as a `pathlib.Path`, and `Library` a `serato_path` property, its folder as one.
+
 ### USB Export
 
 - **Fix:** Tracks that share a filename are all exported, rather than only the first (a later one goes in a subfolder named after its own folder).

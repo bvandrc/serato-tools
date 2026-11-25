@@ -192,6 +192,7 @@ class SeratoBinFile:
         not in `TESTED_VERSIONS`.
         """
         path = Path(file)
+        # TODO(breaking): remove filepath, once deprecated in favor of path
         # abspath, since unlike Path.absolute it collapses "..", and unlike Path.resolve it doesn't follow symlinks
         self.filepath = os.path.abspath(path)  # noqa: PTH100
 
@@ -599,6 +600,11 @@ class SeratoBinFile:
         return hashlib.sha256(data).digest()
 
     @property
+    def path(self) -> Path:
+        """The file's absolute path, as a `Path`: `filepath`, which is a `str`."""
+        return Path(self.filepath)
+
+    @property
     def has_changed(self) -> bool:
         """Whether saving would change the file's bytes from those loaded or last saved, however `entries` was edited.
 
@@ -616,11 +622,11 @@ class SeratoBinFile:
     def _is_own_path(self, file: str | Path) -> bool:
         """Whether `file` is the file this was loaded from, by any path to it."""
         # abspath, as filepath was made with; Path equality ignores case only on Windows, as os.path.normcase does
-        if Path(os.path.abspath(file)) == Path(self.filepath):  # noqa: PTH100
+        if Path(os.path.abspath(file)) == self.path:  # noqa: PTH100
             return True
         # the same file by another name: a symlink or hard link, or another case on a case-insensitive filesystem
         try:
-            return Path(file).samefile(self.filepath)
+            return Path(file).samefile(self.path)
         except OSError:  # either doesn't exist, so they can't be the same file
             return False
 
@@ -718,7 +724,7 @@ class SeratoBinFile:
         """
         if not self._parsed:
             raise RuntimeError(f"cannot save a {type(self).__name__} before it has finished parsing")
-        path = Path(self.filepath if file is None else file)
+        path = self.path if file is None else Path(file)
         if path.suffix.lower() == ".json":
             raise ValueError("cannot save raw data to .json")
         # serialize before opening, since opening truncates and a serialization error would leave the file empty
