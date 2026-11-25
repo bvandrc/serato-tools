@@ -36,6 +36,10 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Feature:** Add `Library.find_stems_files(track_path)`, which finds the stems files Serato keeps beside a track.
 - **Feature:** Add `Library.find_crate_files(pattern)`, which finds the library's crate and smart crate files by name, with a glob or a regex.
 
+### Track Cues
+
+- **Fix:** `TrackCuesV1` now raises `ValueError` for a `Serato Markers_` tag unlike any Serato writes, rather than risk rewriting one it doesn't understand.
+
 ## [6.0.2] - 2026-11-24
 
 ### Smart Crates

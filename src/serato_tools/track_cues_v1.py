@@ -11,6 +11,21 @@ from mutagen.mp3 import HeaderNotFoundError
 
 from serato_tools.utils.track_tags import GeobKeys, SeratoGeobTag
 
+# the bytes Serato writes for a position that isn't set
+_NO_POSITION = b"\x7f\x7f\x7f\x7f"
+# the bytes Serato writes in every entry's field5, whose meaning is unknown
+_FIELD5 = b"\x00\x7f\x7f\x7f\x7f\x7f"
+# Serato always writes this many cue entries, then this many loop entries, whether they're set or not
+_NUM_CUES = 5
+_NUM_LOOPS = 9
+
+
+def _unpack_exactly(fmt: str, data: bytes, name: str) -> tuple:
+    """`data` unpacked as `fmt`; raises ValueError, naming the `name` entry, unless it's exactly `fmt`'s size."""
+    if len(data) != (size := struct.calcsize(fmt)):
+        raise ValueError(f"{name} entry is {len(data)} bytes, not {size}")
+    return struct.unpack(fmt, data)
+
 
 def _decode_bytes_32(data: bytes) -> bytes:
     """Decode 4 byte Serato binary format into 3 byte plain text."""
@@ -51,7 +66,7 @@ def _serialize_position(position: int | None) -> bytes:
     """A position's 4 stored bytes."""
     # an unset position is stored as 7f bytes, as Serato writes it; FORMAT packs the field as 4s, so
     # it has to be bytes, not the int 0x7F7F7F7F
-    return b"\x7f\x7f\x7f\x7f" if position is None else _encode_bytes_32(struct.pack(">I", position)[1:])
+    return _NO_POSITION if position is None else _encode_bytes_32(struct.pack(">I", position)[1:])
 
 
 class TrackCuesV1(SeratoGeobTag):
@@ -96,9 +111,19 @@ class TrackCuesV1(SeratoGeobTag):
 
         @classmethod
         def _parse(cls, data: bytes) -> "TrackCuesV1.Entry":
-            start_set, start, end_set, end, field5, color, entry_type, is_locked = struct.unpack(
-                cls.FORMAT, data[: struct.calcsize(cls.FORMAT)]
+            start_set, start, end_set, end, field5, color, entry_type, is_locked = _unpack_exactly(
+                cls.FORMAT, data, cls.__name__
             )
+            # every tag Serato DJ Pro 2 was seen writing passes these checks, so a tag that doesn't is one this class
+            # may not understand, and rewriting it could corrupt it. Mixxx's parser checks the same fields, with
+            # comments on them: https://github.com/mixxxdj/mixxx/blob/main/src/track/serato/markers.cpp
+            for name, position_set, position in (("start_position", start_set, start), ("end_position", end_set, end)):
+                if position_set == 0x7F and position != _NO_POSITION:
+                    raise ValueError(f"unset {name} isn't {_NO_POSITION!r}: {position!r}")
+            if field5 != _FIELD5:
+                raise ValueError(f"field5 isn't {_FIELD5!r}: {field5!r}")
+            if is_locked and entry_type != TrackCuesV1.EntryType.LOOP:
+                raise ValueError("only a loop can be locked")
             start_position_set = _parse_position_set("start_position_set", start_set)
             end_position_set = _parse_position_set("end_position_set", end_set)
             return cls(
@@ -134,7 +159,7 @@ class TrackCuesV1(SeratoGeobTag):
 
         @classmethod
         def _parse(cls, data: bytes) -> "TrackCuesV1.Color":
-            (color,) = struct.unpack(cls.FORMAT, data[: struct.calcsize(cls.FORMAT)])
+            (color,) = _unpack_exactly(cls.FORMAT, data, cls.__name__)
             return cls(_decode_bytes_32(color))
 
         def _serialize(self) -> bytes:
@@ -146,12 +171,19 @@ class TrackCuesV1(SeratoGeobTag):
         self._check_version(fp.read(self.VERSION_LEN))
 
         num_entries = struct.unpack(">I", fp.read(4))[0]
-        for _ in range(num_entries):
+        if num_entries != _NUM_CUES + _NUM_LOOPS:
+            raise ValueError(f"tag has {num_entries} entries, not {_NUM_CUES + _NUM_LOOPS}")
+        for i in range(num_entries):
             entry_data = fp.read(0x16)
             if len(entry_data) != 0x16:
                 raise ValueError(f"tag ends partway through an entry: {len(entry_data)} of its 22 bytes")
 
             entry = TrackCuesV1.Entry._parse(entry_data)  # noqa: SLF001
+            # an unset cue has type INVALID, but an unset loop keeps type LOOP
+            if i < _NUM_CUES and entry.type not in (TrackCuesV1.EntryType.INVALID, TrackCuesV1.EntryType.CUE):
+                raise ValueError(f"entry {i} should be a cue, but has type {entry.type!r}")
+            if i >= _NUM_CUES and entry.type != TrackCuesV1.EntryType.LOOP:
+                raise ValueError(f"entry {i} should be a loop, but has type {entry.type!r}")
             yield entry
 
         yield TrackCuesV1.Color._parse(fp.read())  # noqa: SLF001
