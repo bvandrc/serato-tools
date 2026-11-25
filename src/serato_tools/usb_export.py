@@ -18,9 +18,9 @@ from dataclasses import dataclass
 from tqdm import tqdm
 
 from serato_tools.crate import Crate
-from serato_tools.crate_order import CrateOrder
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.library import Library
+from serato_tools.pref_files import CrateOrder
 from serato_tools.smart_crate import SmartCrate
 from serato_tools.utils import (
     SERATO_DIR as LOCAL_SERATO_DIR,

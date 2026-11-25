@@ -421,7 +421,7 @@ print(s_crate)
 ```python
 import re
 
-from serato_tools.crate_order import CrateOrder
+from serato_tools.pref_files import CrateOrder
 
 order = CrateOrder()  # the default library's; or pass a path
 # sorted by each name's parts, so a crate's subcrates stay right after it
@@ -432,10 +432,12 @@ order.save()  # or save(path) to write it elsewhere
 __via command line__
 
 ```cmd
->>> serato_crate_order
+>>> serato_pref_files
 ```
 
-Prints the default library's crates in order, one per line. Pass a crate order file's path to print another one.
+Prints the default library's crates in order, one per line, and then the crates it shows collapsed, each list under a heading. A list the library has no file for is left out. Pass a crate order or collapsed crates file's path (`neworder.pref` or `collapsed.pref`) to print just its crates.
+
+`CollapsedCrates` reads and writes which crates Serato's sidebar shows collapsed, `collapsed.pref`, the same way: change its `crates` and `save()`.
 
 # Track Tags
 
