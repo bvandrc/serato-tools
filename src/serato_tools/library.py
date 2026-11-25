@@ -287,7 +287,7 @@ class Library:
             from serato_tools import db_track_props as props  # noqa: PLC0415
         # converted and checked before any file is written, so a value the database can't hold changes nothing
         db_values = {
-            DatabaseV2.get_relative_path(filepath).upper(): props.to_db_values(tags)
+            DatabaseV2.get_relative_path(filepath, self.database.track_path_root).upper(): props.to_db_values(tags)
             for filepath, tags in tracks.items()
         }
         for values in db_values.values():
@@ -307,7 +307,7 @@ class Library:
 
         changed = self.database.modify_tracks(set_values, files=tracks)
         for filepath in tracks:
-            if DatabaseV2.get_relative_path(filepath).upper() not in found:
+            if DatabaseV2.get_relative_path(filepath, self.database.track_path_root).upper() not in found:
                 logger.warning(f"track isn't in the database, so only its file's tags were set: {filepath}")
         if changed:
             self._save_unless_batching(self.database)

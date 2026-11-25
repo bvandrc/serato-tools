@@ -2,6 +2,7 @@ import logging
 import os
 import unicodedata
 from dataclasses import dataclass
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -40,6 +41,12 @@ class Export(LibraryFolders):
         super().__post_init__()
         mock_files({os.path.join(self.serato_dir, Crate.DIR): [], self.drive: []})
 
+    def export_crates(self, crate_files: list[str], dest_tracks_dir: str = DRIVE_TRACKS, **kwargs: Any):
+        """Exports `crate_files` from this library to the drive, under `dest_tracks_dir`."""
+        usb_export.copy_crates_to_usb(
+            crate_files, self.drive, dest_tracks_dir, source_serato_dir=self.serato_dir, **kwargs
+        )
+
     def exported_database(self) -> DatabaseV2:
         return DatabaseV2(self.on_drive("_Serato_", DatabaseV2.FILENAME))
 
@@ -48,21 +55,27 @@ class Export(LibraryFolders):
 
 
 @pytest.fixture
-def export(tmp_dir: str, monkeypatch: pytest.MonkeyPatch) -> Export:
-    export = Export(
+def export(tmp_dir: str) -> Export:
+    """A library in tmp_dir, which isn't a drive's root, so its track paths are stored as the home library's are."""
+    return Export(
         serato_dir=os.path.join(tmp_dir, "_Serato_"),
         music_dir=os.path.join(tmp_dir, "Music"),
         drive=os.path.join(tmp_dir, "Drive"),
     )
-    monkeypatch.setattr(usb_export, "LOCAL_SERATO_DIR", export.serato_dir)
-    # built from the real library folder at import, so each is pointed at the test's too
-    for name, path in [
-        ("LOCAL_SERATO_DATABASE_PATH", DatabaseV2.FILENAME),
-        ("LOCAL_SERATO_STEMS_CRATE_PATH", Crate.SERATO_STEMS_CRATE_PATH),
-    ]:
-        monkeypatch.setattr(usb_export, name, os.path.join(export.serato_dir, path))
-    monkeypatch.setattr(usb_export, "LOCAL_SERATO_DRIVE", os.path.splitdrive(tmp_dir)[0])
-    return export
+
+
+@pytest.fixture
+def external_export(tmp_dir: str, monkeypatch: pytest.MonkeyPatch) -> Export:
+    """A library at the root of a drive of its own, Source, as Serato keeps one on an external drive."""
+    # resolved, so the paths the library resolves its tracks to match the ones the test made them at
+    source = os.path.join(os.path.realpath(tmp_dir), "Source")
+    mounted = os.path.normcase(source)
+    monkeypatch.setattr(os.path, "ismount", lambda p: os.path.normcase(p) == mounted)
+    return Export(
+        serato_dir=os.path.join(source, "_Serato_"),
+        music_dir=os.path.join(source, "Music"),
+        drive=os.path.join(os.path.realpath(tmp_dir), "USB"),
+    )
 
 
 def test_copy_crates_to_usb(export: Export):
@@ -73,7 +86,7 @@ def test_copy_crates_to_usb(export: Export):
     export.make_crate(os.path.join("Serato Stems", "Stems"), [b, not_exported])
     (stale,) = mock_files({export.on_drive("_Serato_"): ["Stale.txt"]})
 
-    usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS, root_crate="Root")
+    export.export_crates(crates, root_crate="Root")
 
     # as Serato stores paths on a drive: from its root
     on_drive = [f"{DRIVE_TRACKS}/A.mp3", f"{DRIVE_TRACKS}/B.mp3"]
@@ -114,7 +127,7 @@ def fixture_crates(export: Export) -> list[str]:
 
 @pytest.mark.parametrize("root", [None, "Root"])
 def test_copy_crates_to_usb_copies_the_crate_order(export: Export, fixture_crates: list[str], root: str | None):
-    usb_export.copy_crates_to_usb(fixture_crates, export.drive, DRIVE_TRACKS, root_crate=root)
+    export.export_crates(fixture_crates, root_crate=root)
 
     prefix = f"{root}%%" if root else ""
     assert read_pref_file(export.on_drive("_Serato_", "neworder.pref")) == [
@@ -138,7 +151,7 @@ def test_copy_crates_to_usb_copies_the_crate_order(export: Export, fixture_crate
 
 @pytest.mark.parametrize("root", [None, "Root"])
 def test_copy_crates_to_usb_copies_the_collapsed_crates(export: Export, fixture_crates: list[str], root: str | None):
-    usb_export.copy_crates_to_usb(fixture_crates, export.drive, DRIVE_TRACKS, root_crate=root)
+    export.export_crates(fixture_crates, root_crate=root)
 
     prefix = f"{root}%%" if root else ""
     assert read_pref_file(export.on_drive("_Serato_", "collapsed.pref")) == [
@@ -160,7 +173,7 @@ def test_copy_crates_to_usb_skips_a_collapsed_file_it_cant_copy(
         with open(os.path.join(export.serato_dir, "collapsed.pref"), "wb") as f:
             f.write(content.encode("utf-16-be"))
 
-    usb_export.copy_crates_to_usb(fixture_crates, export.drive, DRIVE_TRACKS)
+    export.export_crates(fixture_crates)
 
     assert not os.path.exists(export.on_drive("_Serato_", "collapsed.pref")), "the rest of the export still done"
     assert os.path.exists(export.on_drive("_Serato_", "neworder.pref"))
@@ -169,14 +182,14 @@ def test_copy_crates_to_usb_skips_a_collapsed_file_it_cant_copy(
 def test_copy_crates_to_usb_copies_only_changed_files(export: Export):
     a, b = export.make_track("A.mp3", b"a"), export.make_track("B.mp3", b"b")
     crates = [export.make_crate("House", [a, b])]
-    usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
+    export.export_crates(crates)
 
     with mock.patch.object(files.shutil, "copy2", wraps=files.shutil.copy2) as copy2:
-        usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
+        export.export_crates(crates)
         assert copy2.call_count == 0, "nothing changed, so nothing copied"
 
         export.make_track("B.mp3", b"b changed")
-        usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
+        export.export_crates(crates)
     assert [os.path.basename(c.args[0]) for c in copy2.call_args_list] == ["B.mp3"]
     assert read_bytes(export.on_drive(DRIVE_TRACKS, "B.mp3")) == b"b changed"
 
@@ -195,7 +208,7 @@ def test_copy_crates_to_usb_compares_a_copy_only_when_needed(
 ):
     a = export.make_track("A.mp3", b"a")
     crates = [export.make_crate("House", [a])]
-    usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
+    export.export_crates(crates)
     copy = export.on_drive(DRIVE_TRACKS, "A.mp3")
     with open(copy, "wb") as f:
         f.write(content)
@@ -205,7 +218,7 @@ def test_copy_crates_to_usb_compares_a_copy_only_when_needed(
         mock.patch.object(files.filecmp, "cmp", wraps=files.filecmp.cmp) as cmp,
         mock.patch.object(files.shutil, "copy2", wraps=files.shutil.copy2) as copy2,
     ):
-        usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
+        export.export_crates(crates)
 
     assert cmp.called == compared, "contents read only when the times are further apart than the drive rounds them"
     assert copy2.called == copied
@@ -217,7 +230,7 @@ def test_copy_crates_to_usb_logs_a_missing_file(export: Export, caplog: pytest.L
     crates = [export.make_crate("House", [a, gone])]
 
     with caplog.at_level(logging.ERROR):
-        usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
+        export.export_crates(crates)
 
     assert f"does not exist - {gone}" in caplog.text
     assert read_bytes(export.on_drive(DRIVE_TRACKS, "A.mp3")) == b"a", "the other track still copied"
@@ -232,7 +245,7 @@ def test_copy_crates_to_usb_logs_a_stems_file_gone_before_its_copied(export: Exp
         caplog.at_level(logging.ERROR),
         mock.patch.object(usb_export.Library, "find_stems_files", return_value=[gone]),
     ):
-        usb_export.copy_crates_to_usb([export.make_crate("House", [a])], export.drive, DRIVE_TRACKS)
+        export.export_crates([export.make_crate("House", [a])])
 
     assert f"does not exist - {gone}" in caplog.text
     assert read_bytes(export.on_drive(DRIVE_TRACKS, "A.mp3")) == b"a", "the track still copied"
@@ -241,7 +254,7 @@ def test_copy_crates_to_usb_logs_a_stems_file_gone_before_its_copied(export: Exp
 def test_copy_crates_to_usb_raises_when_every_track_is_missing(export: Export):
     crates = [export.make_crate("House", [os.path.join(export.music_dir, "Gone.mp3")])]
     with pytest.raises(FileNotFoundError, match="none of the tracks were found"):
-        usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
+        export.export_crates(crates)
 
 
 def test_copy_crates_to_usb_needs_the_drive_to_exist(export: Export):
@@ -269,7 +282,7 @@ def test_copy_crates_to_usb_writes_nothing_to_the_drive_for_a_file_it_cant_read(
     mock_files({export.on_drive("_Serato_"): ["Old.txt"]})
 
     with pytest.raises(ValueError, match=error):
-        usb_export.copy_crates_to_usb([*crates, bad] if exported else crates, export.drive, DRIVE_TRACKS)
+        export.export_crates([*crates, bad] if exported else crates)
 
     assert os.listdir(export.on_drive("_Serato_")) == ["Old.txt"], "the drive's library left as it was"
 
@@ -281,7 +294,7 @@ def test_copy_crates_to_usb_skips_an_order_file_it_cant_read(export: Export, cap
         f.write(b"abc")
 
     with caplog.at_level(logging.WARNING):
-        usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
+        export.export_crates(crates)
 
     assert "can't read neworder.pref" in caplog.text
     assert not os.path.exists(export.on_drive("_Serato_", "neworder.pref")), "Serato's default order on the drive"
@@ -302,7 +315,7 @@ def test_copy_crates_to_usb_copies_each_tracks_own_stems(export: Export):
         ]
     }
 
-    usb_export.copy_crates_to_usb([export.make_crate("House", tracks)], export.drive, DRIVE_TRACKS)
+    export.export_crates([export.make_crate("House", tracks)])
 
     for name, src in stems.items():
         assert read_bytes(export.on_drive(DRIVE_TRACKS, name)) == read_bytes(src), f"{name} copied"
@@ -321,7 +334,7 @@ def test_copy_crates_to_usb_puts_tracks_sharing_a_filename_in_subfolders(export:
     for i, track in reversed(list(enumerate(tracks.values()))):
         export.add_to_database(track, fields=[(DatabaseV2.Fields.GENRE, str(i))])
 
-    usb_export.copy_crates_to_usb([export.make_crate("House", list(tracks.values()))], export.drive, DRIVE_TRACKS)
+    export.export_crates([export.make_crate("House", list(tracks.values()))])
 
     for on_drive, src in tracks.items():
         assert read_bytes(export.on_drive(on_drive)) == read_bytes(src), f"{on_drive} copied"
@@ -337,10 +350,10 @@ def test_copy_crates_to_usb_deletes_unused_tracks_only_when_asked(export: Export
     a, b = export.make_track("A.mp3", b"a"), export.make_track("Sub/A.mp3", b"sub a")
     stems = export.make_track("A.serato-stems", b"stems")
     house, deep = export.make_crate("House", [a]), export.make_crate("Deep", [b])
-    usb_export.copy_crates_to_usb([house, deep], export.drive, DRIVE_TRACKS)
+    export.export_crates([house, deep])
     (other,) = mock_files({export.on_drive(DRIVE_TRACKS): ["Other.mp3"]})
 
-    usb_export.copy_crates_to_usb([house], export.drive, DRIVE_TRACKS, delete_unused_tracks=delete_unused_tracks)
+    export.export_crates([house], delete_unused_tracks=delete_unused_tracks)
 
     assert os.path.exists(export.on_drive(DRIVE_TRACKS, "A.mp3")), "an exported track kept"
     assert read_bytes(export.on_drive(DRIVE_TRACKS, "A.serato-stems")) == read_bytes(stems), "its stems kept"
@@ -360,12 +373,12 @@ def test_copy_crates_to_usb_keeps_a_missing_tracks_stems_on_the_drive(export: Ex
     a, b = export.make_track("A.mp3", b"a"), export.make_track("B.mp3", b"b")
     stems = [export.make_track(name, b"stems") for name in stems_names]
     crates = [export.make_crate("House", [a, b])]
-    usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
+    export.export_crates(crates)
     # as when the library's music is on a drive that isn't plugged in
     for f in [b, *stems]:
         os.remove(f)
 
-    usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS, delete_unused_tracks=True)
+    export.export_crates(crates, delete_unused_tracks=True)
 
     assert sorted(os.listdir(export.on_drive(DRIVE_TRACKS))) == sorted(["A.mp3", "B.mp3", *stems_names]), (
         "kept with its track"
@@ -386,7 +399,7 @@ def test_copy_crates_to_usb_refuses_to_delete_more_than_unused_tracks(export: Ex
     old_files = mock_files({export.drive: ["Notes.txt", {"_Serato_": ["Old.txt"], DRIVE_TRACKS: ["Old.mp3"]}]})
 
     with pytest.raises(ValueError, match="delete_unused_tracks"):
-        usb_export.copy_crates_to_usb(crates, export.drive, tracks_dir, delete_unused_tracks=True)
+        export.export_crates(crates, tracks_dir, delete_unused_tracks=True)
 
     assert all(os.path.exists(f) for f in old_files), "nothing on the drive deleted"
     assert os.listdir(export.on_drive("_Serato_")) == ["Old.txt"], "nor anything written"
@@ -405,9 +418,7 @@ def test_copy_crates_to_usb_keeps_a_track_the_drive_lists_decomposed(
 
     monkeypatch.setattr(files.os, "walk", walk_decomposed)
     with caplog.at_level(logging.INFO):
-        usb_export.copy_crates_to_usb(
-            [export.make_crate("House", [track])], export.drive, DRIVE_TRACKS, delete_unused_tracks=True
-        )
+        export.export_crates([export.make_crate("House", [track])], delete_unused_tracks=True)
 
     assert "delet" not in caplog.text, "the track it just copied isn't deleted"
 
@@ -426,7 +437,7 @@ def test_copy_crates_to_usb_deletes_the_other_unused_tracks_when_one_cant_be(
 
     monkeypatch.setattr(usb_export.os, "remove", remove_unless_locked)
     with caplog.at_level(logging.ERROR):
-        usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS, delete_unused_tracks=True)
+        export.export_crates(crates, delete_unused_tracks=True)
 
     assert f"couldn't delete {locked}" in caplog.text
     assert os.path.exists(locked), "left"
@@ -438,7 +449,7 @@ def test_copy_crates_to_usb_keeps_the_date_added(export: Export):
     added = [(DatabaseV2.Fields.DATE_ADDED_U, 1700000000), (DatabaseV2.Fields.DATE_ADDED_T, "1700000000")]
     export.add_to_database(a, fields=added)
 
-    usb_export.copy_crates_to_usb([export.make_crate("House", [a])], export.drive, DRIVE_TRACKS)
+    export.export_crates([export.make_crate("House", [a])])
 
     (track,) = export.exported_database().get_tracks()
     assert [track.get_value(field) for field, _ in added] == [value for _, value in added], (
@@ -450,12 +461,48 @@ def test_copy_crates_to_usb_writes_a_smart_crate_as_a_regular_crate(export: Expo
     a = export.make_track("A.mp3")
     smart_crate = export.make_crate("Parent≫≫Dubstep", [a], SmartCrate)
 
-    usb_export.copy_crates_to_usb([smart_crate], export.drive, DRIVE_TRACKS)
+    export.export_crates([smart_crate])
 
     # a smart crate's subcrate separator in its filename is ≫≫, a regular crate's %%
     exported = Crate(export.on_drive("_Serato_", Crate.DIR, "Parent%%Dubstep.crate"))
     assert exported._version == Crate.DEFAULT_ENTRIES[0][1], "a regular crate, which Crate opens"
     assert exported.get_track_paths() == [f"{DRIVE_TRACKS}/A.mp3"]
+
+
+def test_copy_crates_to_usb_leaves_the_library_as_it_was(export: Export):
+    house = export.make_crate("House", [export.make_track("A.mp3")])
+    crate_bytes, db_bytes = read_bytes(house), read_bytes(export.db_file)
+
+    export.export_crates([house])
+
+    assert read_bytes(house) == crate_bytes, "crate unchanged"
+    assert read_bytes(export.db_file) == db_bytes, "database unchanged"
+
+
+def test_copy_crates_to_usb_from_a_library_on_an_external_drive(external_export: Export):
+    a, b = external_export.make_track("A.mp3", b"a"), external_export.make_track("B.mp3", b"b")
+    external_export.add_to_database(a, b)
+    house = external_export.make_crate("House", [a, b])
+    assert Crate(house).get_track_paths() == ["Music/A.mp3", "Music/B.mp3"], "stored relative to its drive"
+
+    external_export.export_crates([house])
+
+    on_drive = [f"{DRIVE_TRACKS}/A.mp3", f"{DRIVE_TRACKS}/B.mp3"]
+    assert Crate(external_export.on_drive("_Serato_", Crate.DIR, "House.crate")).get_track_paths() == on_drive
+    assert sorted(external_export.exported_database().get_track_paths()) == on_drive, "only the copied tracks"
+    assert read_bytes(external_export.on_drive(DRIVE_TRACKS, "A.mp3")) == b"a", "found on the source drive"
+    assert read_bytes(external_export.on_drive(DRIVE_TRACKS, "B.mp3")) == b"b", "found on the source drive"
+
+
+def test_copy_crates_to_usb_stores_a_full_tracks_path_relative_to_the_drive(export: Export):
+    a = export.make_track("A.mp3")
+    export.add_to_database(a)
+
+    export.export_crates([export.make_crate("House", [a])], export.on_drive("DJ", "Tracks"))
+
+    assert os.path.isfile(export.on_drive("DJ", "Tracks", "A.mp3")), "copied"
+    assert Crate(export.on_drive("_Serato_", Crate.DIR, "House.crate")).get_track_paths() == ["DJ/Tracks/A.mp3"]
+    assert export.exported_database().get_track_paths() == ["DJ/Tracks/A.mp3"]
 
 
 @pytest.mark.parametrize(
@@ -474,6 +521,25 @@ def test_cli_exports_to_the_drive(drive: str, system: str, dest: str):
     ):
         usb_export.main()
     assert copy_crates_to_usb.call_args.kwargs["dest_drive_dir"] == dest
+
+
+@pytest.mark.parametrize(
+    "args, source",
+    [
+        pytest.param([], usb_export.LOCAL_SERATO_DIR, id="the home library by default"),
+        pytest.param(["--source", "/Volumes/Library/_Serato_"], "/Volumes/Library/_Serato_", id="the one given"),
+    ],
+)
+def test_cli_exports_from_the_source_library(args: list[str], source: str):
+    with (
+        cli_args("serato_usb_export", "--drive", "/Volumes/USB", "--crates", "*", *args),
+        mock.patch.object(usb_export, "Library") as library,
+        mock.patch.object(usb_export, "copy_crates_to_usb") as copy_crates_to_usb,
+    ):
+        library.return_value.find_crate_files.return_value = []
+        usb_export.main()
+    assert library.call_args.args[0] == source, "crates found in it"
+    assert copy_crates_to_usb.call_args.kwargs["source_serato_dir"] == source
 
 
 @pytest.mark.parametrize(
