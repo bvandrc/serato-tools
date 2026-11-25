@@ -12,10 +12,18 @@ from serato_tools.smart_crate import SmartCrate
 
 from test.helpers.bin_files import LibraryFolders
 from test.helpers.cli import cli_args
-from test.helpers.files import mock_files, read_bytes
+from test.helpers.files import copy_into, mock_files, read_bytes
 
 # the folder on the drive the tests export tracks to
 DRIVE_TRACKS = "Tracks"
+# Serato's crate order file, trimmed from a real library's: UTF-16-BE with \n line endings, and a smart crate's
+# subcrates separated with ≫≫
+ORDER_FILE = "test/data/neworder.pref"
+
+
+def read_pref_file(path: str) -> list[str]:
+    """The order file's lines, decoded as Serato writes it, so a byte out of place fails to decode."""
+    return read_bytes(path).decode("utf-16-be").split("\n")
 
 
 @pytest.fixture
@@ -123,8 +131,6 @@ def test_copy_crates_to_usb(export: Export):
     export.add_to_database(a, b, fields=[(DatabaseV2.Fields.PLAYED, True)])
     crates = [export.make_crate("House", [a, b]), export.make_crate("Deep", [b])]
     export.make_crate(os.path.join("Serato Stems", "Stems"), [b, not_exported])
-    with open(os.path.join(export.serato_dir, "neworder.pref"), "w", encoding="utf-8") as f:
-        f.write("[begin record]\n[crate]House\n[crate]Deep\n[crate]Stems\n[end record]\n")
     (stale,) = mock_files({export.on_drive("_Serato_"): ["Stale.txt"]})
 
     usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS, root_crate="Root")
@@ -146,13 +152,47 @@ def test_copy_crates_to_usb(export: Export):
     assert db.get_track_paths() == on_drive, "only the crates' tracks, at their new paths"
     assert all(t.get_value(DatabaseV2.Fields.PLAYED) is False for t in db.get_tracks()), "played reset"
 
-    with open(export.on_drive("_Serato_", "neworder.pref"), encoding="utf-8") as f:
-        assert f.read() == "[begin record]\n[crate]Root%%House\n[crate]Root%%Deep\n[crate]Stems\n[end record]\n"
     assert not os.path.exists(stale), "the drive's old library replaced"
     copied = {"A.mp3": a, "B.mp3": b, "B.serato-stems": stems}
     assert sorted(os.listdir(export.on_drive(DRIVE_TRACKS))) == sorted(copied), "only the exported crates' tracks"
     for name, src in copied.items():
         assert read_bytes(export.on_drive(DRIVE_TRACKS, name)) == read_bytes(src), f"{name} copied"
+
+
+@pytest.fixture
+def fixture_crates(export: Export) -> list[str]:
+    """Crates named as in the order fixture: a regular one, a smart subcrate, and a regular subcrate."""
+    a = export.make_track("A.mp3")
+    copy_into(export.serato_dir, ORDER_FILE)
+    return [
+        export.make_crate("House & Techno", [a]),
+        export.make_crate("Bass≫≫Riddim≫≫Wonky Monxxy Riddim", [a], SmartCrate),
+        export.make_crate("Sets%%Riddim TODO%%Riddim MIX", [a]),
+    ]
+
+
+@pytest.mark.parametrize("root", [None, "Root"])
+def test_copy_crates_to_usb_copies_the_crate_order(export: Export, fixture_crates: list[str], root: str | None):
+    usb_export.copy_crates_to_usb(fixture_crates, export.drive, DRIVE_TRACKS, root_crate=root)
+
+    prefix = f"{root}%%" if root else ""
+    assert read_pref_file(export.on_drive("_Serato_", "neworder.pref")) == [
+        "[begin record]",
+        *([f"[crate]{root}"] if root else []),
+        "[crate]Stems",
+        f"[crate]{prefix}House & Techno",
+        f"[crate]{prefix}Bass",
+        f"[crate]{prefix}Bass%%Riddim",
+        f"[crate]{prefix}Bass%%Riddim%%Wonky Monxxy Riddim",
+        f"[crate]{prefix}Sets",
+        f"[crate]{prefix}Sets%%Riddim TODO",
+        f"[crate]{prefix}Sets%%Riddim TODO%%Riddim MIX",
+        "[end record]",
+        "",
+    ], "only the exported crates and their parents, a smart crate named as the regular crate it's exported as"
+    assert os.path.isfile(export.on_drive("_Serato_", Crate.DIR, f"{prefix}Bass%%Riddim%%Wonky Monxxy Riddim.crate")), (
+        "the smart crate's file named as its line is"
+    )
 
 
 def test_copy_crates_to_usb_copies_only_changed_files(export: Export):
