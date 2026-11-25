@@ -97,6 +97,27 @@ def copy_crates_to_usb(
     _copy_tracks(dest_paths, dest_drive_dir)
 
 
+def get_crate_files(pattern: str):
+    """The crate and smart crate files in the default Serato folder whose name matches `pattern`.
+
+    The name is the filename without its extension, so `"*crate*"` matches only crates with "crate" in their name. A
+    subcrate's name includes its parents' (`Bass%%DnB`), so `"Bass*"` matches a crate and its subcrates. `pattern` is
+    tried as a glob, and if nothing matches it, as a regex.
+    """
+    crate_names = {f: os.path.splitext(os.path.basename(f))[0] for f in Library(LOCAL_SERATO_DIR).crate_files}
+
+    # try the pattern as a glob first: most globs (e.g. "house*") are also valid regexes, so
+    # checking re.compile first would silently give glob-looking patterns regex semantics
+    files = [f for f, name in crate_names.items() if fnmatch.fnmatch(name, pattern)]
+    if not files:
+        try:
+            regex = re.compile(pattern)
+        except re.error:
+            return []
+        files = [f for f, name in crate_names.items() if regex.search(name)]
+    return files
+
+
 def _load_crate(crate_file: str, root_crate: str | None) -> tuple[Crate | SmartCrate, str]:
     """The crate or smart crate in `crate_file`, and its name on the drive."""
     crate: Crate | SmartCrate
@@ -117,15 +138,6 @@ def _drive_crate_name(name: str, root_crate: str | None) -> str:
     # a smart crate's subcrate separator is ≫≫, a regular crate's %%
     name = name.replace("≫≫", "%%")
     return f"{root_crate}%%{name}" if root_crate else name
-
-
-def _with_parents(names: Iterable[str]) -> set[str]:
-    """`names`, and the names of every crate they're subcrates of."""
-    result: set[str] = set()
-    for name in names:
-        parts = name.split("%%")
-        result.update("%%".join(parts[:i]) for i in range(1, len(parts) + 1))
-    return result
 
 
 def _dest_track_paths(track_paths: list[str], dest_tracks_dir: str) -> dict[str, str]:
@@ -196,6 +208,15 @@ def _export_crate_order(dest_file: str, root_crate: str | None, crate_names: set
     logger.info(f"copied order file {dest_file}")
 
 
+def _with_parents(names: Iterable[str]) -> set[str]:
+    """`names`, and the names of every crate they're subcrates of."""
+    result: set[str] = set()
+    for name in names:
+        parts = name.split("%%")
+        result.update("%%".join(parts[:i]) for i in range(1, len(parts) + 1))
+    return result
+
+
 def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str):
     """Copies each track, and its stems file, to its path in `dest_paths` on the drive, unless it's there unchanged.
 
@@ -246,27 +267,6 @@ def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str):
 
     for n in not_found:
         logger.error(f"does not exist - {n}")
-
-
-def get_crate_files(pattern: str):
-    """The crate and smart crate files in the default Serato folder whose name matches `pattern`.
-
-    The name is the filename without its extension, so `"*crate*"` matches only crates with "crate" in their name. A
-    subcrate's name includes its parents' (`Bass%%DnB`), so `"Bass*"` matches a crate and its subcrates. `pattern` is
-    tried as a glob, and if nothing matches it, as a regex.
-    """
-    crate_names = {f: os.path.splitext(os.path.basename(f))[0] for f in Library(LOCAL_SERATO_DIR).crate_files}
-
-    # try the pattern as a glob first: most globs (e.g. "house*") are also valid regexes, so
-    # checking re.compile first would silently give glob-looking patterns regex semantics
-    files = [f for f, name in crate_names.items() if fnmatch.fnmatch(name, pattern)]
-    if not files:
-        try:
-            regex = re.compile(pattern)
-        except re.error:
-            return []
-        files = [f for f, name in crate_names.items() if regex.search(name)]
-    return files
 
 
 def main():
