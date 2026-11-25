@@ -265,18 +265,18 @@ class Library:
         anything. Only the files that contain one of the tracks are saved, or, inside `batch()`, left for it to save
         once.
         """
-        if delete_files and not missing_ok and (missing := [p for p in filepaths if not Path(p).exists()]):
+        paths = [Path(p) for p in filepaths]
+        if delete_files and not missing_ok and (missing := [str(p) for p in paths if not p.exists()]):
             raise FileNotFoundError(f"Track files not found: {', '.join(missing)}")
         changed = self._change_bin_files(lambda file: file.remove_tracks(filepaths))
         deleted: list[str] = []
         if delete_files:
-            for filepath in filepaths:
-                for path in (filepath, *self.find_stems_files(filepath)):
-                    file = Path(path)
+            for path in paths:
+                for file in (path, *map(Path, self.find_stems_files(str(path)))):
                     if file.exists():
                         file.unlink()
-                        logger.info(f"deleted {path}")
-                        deleted.append(path)
+                        logger.info(f"deleted {file}")
+                        deleted.append(str(file))
         return RemoveTrackFilesResult(files_deleted=deleted, library_files_changed=changed)
 
     def set_db_track_tags(
