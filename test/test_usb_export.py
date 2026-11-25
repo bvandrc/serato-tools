@@ -10,6 +10,7 @@ from serato_tools import usb_export
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.smart_crate import SmartCrate
+from serato_tools.utils import files
 
 from test.helpers.bin_files import LibraryFolders
 from test.helpers.cli import cli_args
@@ -172,7 +173,7 @@ def test_copy_crates_to_usb_copies_only_changed_files(export: Export):
     crates = [export.make_crate("House", [a, b])]
     usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
 
-    with mock.patch.object(usb_export.shutil, "copy2", wraps=usb_export.shutil.copy2) as copy2:
+    with mock.patch.object(files.shutil, "copy2", wraps=files.shutil.copy2) as copy2:
         usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
         assert copy2.call_count == 0, "nothing changed, so nothing copied"
 
@@ -203,8 +204,8 @@ def test_copy_crates_to_usb_compares_a_copy_only_when_needed(
     os.utime(copy, (os.stat(a).st_atime, os.stat(a).st_mtime - mtime_offset))
 
     with (
-        mock.patch.object(usb_export.filecmp, "cmp", wraps=usb_export.filecmp.cmp) as cmp,
-        mock.patch.object(usb_export.shutil, "copy2", wraps=usb_export.shutil.copy2) as copy2,
+        mock.patch.object(files.filecmp, "cmp", wraps=files.filecmp.cmp) as cmp,
+        mock.patch.object(files.shutil, "copy2", wraps=files.shutil.copy2) as copy2,
     ):
         usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
 
@@ -404,7 +405,7 @@ def test_copy_crates_to_usb_keeps_a_track_the_drive_lists_decomposed(
         for dirpath, dirnames, filenames in walk(top, topdown=topdown):
             yield dirpath, dirnames, [unicodedata.normalize("NFD", f) for f in filenames]
 
-    monkeypatch.setattr(usb_export.os, "walk", walk_decomposed)
+    monkeypatch.setattr(files.os, "walk", walk_decomposed)
     with caplog.at_level(logging.INFO):
         usb_export.copy_crates_to_usb(
             [export.make_crate("House", [track])], export.drive, DRIVE_TRACKS, delete_unused_tracks=True
@@ -425,7 +426,7 @@ def test_copy_crates_to_usb_deletes_the_other_unused_tracks_when_one_cant_be(
             raise PermissionError("read-only")
         remove(path)
 
-    monkeypatch.setattr(usb_export.os, "remove", remove_unless_locked)
+    monkeypatch.setattr(files.os, "remove", remove_unless_locked)
     with caplog.at_level(logging.ERROR):
         usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS, delete_unused_tracks=True)
 

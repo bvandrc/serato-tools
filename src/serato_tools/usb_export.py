@@ -5,12 +5,10 @@ The crates' tracks are copied to one folder on the drive, with a library that po
 Also the `serato_usb_export` CLI.
 """
 
-import filecmp
 import itertools
 import os
 import platform
 import shutil
-import unicodedata
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 
@@ -28,6 +26,7 @@ from serato_tools.utils import (
     logger,
 )
 from serato_tools.utils.bin_file_base import SeratoBinFile
+from serato_tools.utils.files import copy_if_changed, delete_other_files, is_inside, path_key
 
 # the local library's files the export reads, besides its crates
 LOCAL_SERATO_DATABASE_PATH = os.path.join(LOCAL_SERATO_DIR, DatabaseV2.FILENAME)
@@ -36,8 +35,6 @@ LOCAL_SERATO_COLLAPSED_CRATES_PATH = os.path.join(LOCAL_SERATO_DIR, CollapsedCra
 LOCAL_SERATO_STEMS_CRATE_PATH = os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
 # the folder on the drive the tracks go in, unless the caller names another
 DEFAULT_DRIVE_TRACKS_DIR = "Tracks"
-# how far apart, in seconds, a track's and its copy's modification times can be: FAT32 stores them to 2 seconds
-_COPY_MTIME_TOLERANCE = 2
 # the crate Serato keeps tracks with stems in, named so in the crate order, never inside a root crate
 _STEMS_CRATE_NAME = "Stems"
 
@@ -113,7 +110,7 @@ def copy_crates_to_usb(
         )
     copied = _copy_tracks(dest_paths, dest_drive_dir)
     if delete_unused_tracks:
-        _delete_other_files(os.path.join(dest_drive_dir, dest_tracks_dir), copied)
+        delete_other_files(os.path.join(dest_drive_dir, dest_tracks_dir), copied)
 
 
 def _load_crate(crate_file: str, root_crate: str | None) -> tuple[Crate | SmartCrate, str]:
@@ -195,14 +192,9 @@ def _check_unused_tracks_can_be_deleted(dest_drive_dir: str, dest_tracks_dir: st
     """Raises ValueError if deleting the files under `dest_tracks_dir` that the export doesn't hold would delete more
     than unused tracks: when it isn't a folder inside the drive, or there's no track to export.
     """
-    drive = os.path.realpath(dest_drive_dir)
     tracks_dir = os.path.realpath(os.path.join(dest_drive_dir, dest_tracks_dir))
-    # the drive itself would hold its _Serato_ folder, and commonpath raises for paths on different Windows drives
-    try:
-        inside = tracks_dir != drive and os.path.commonpath([drive, tracks_dir]) == drive
-    except ValueError:
-        inside = False
-    if not inside:
+    # not the drive itself, which would hold its _Serato_ folder
+    if not is_inside(tracks_dir, dest_drive_dir):
         raise ValueError(f"delete_unused_tracks needs a tracks folder inside the drive, not {tracks_dir}")
     if not dest_paths:
         raise ValueError("delete_unused_tracks needs a track to export, or it would delete every track on the drive")
@@ -281,7 +273,7 @@ def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str) -> set[str]
     """Copies each track, and its stems files, to its path in `dest_paths` on the drive, unless it's there unchanged.
 
     Returns the paths on the drive of the tracks and stems files it's meant to hold, copied now or before, or whose
-    track is missing, as `_path_key` gives them.
+    track is missing, as `path_key` gives them.
     """
     logger.info("copying files over...")
 
@@ -293,20 +285,20 @@ def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str) -> set[str]
         src_path = os.path.join(root, track_path)
         dst_path = os.path.join(dest_drive_dir, dest_path)
         # kept whether or not it's copied now, as a track missing from the library still is
-        meant_to_hold.add(_path_key(dst_path))
-        if not _copy_if_changed(src_path, dst_path):
+        meant_to_hold.add(path_key(dst_path))
+        if not copy_if_changed(src_path, dst_path):
             not_found.append(src_path)
 
         stems_files = Library.find_stems_files(src_path)
         for stems_file in stems_files:
             stems_dest = os.path.join(os.path.dirname(dst_path), os.path.basename(stems_file))
-            meant_to_hold.add(_path_key(stems_dest))
-            if not _copy_if_changed(stems_file, stems_dest):
+            meant_to_hold.add(path_key(stems_dest))
+            if not copy_if_changed(stems_file, stems_dest):
                 # found just now, so gone since; not counted with the tracks, which it isn't one of
                 logger.error(f"does not exist - {stems_file}")
         if not stems_files and not os.path.exists(src_path):
             # a missing track's file on the drive is kept, so its stems files there are too
-            meant_to_hold.update(_path_key(f) for f in Library.find_stems_files(dst_path))
+            meant_to_hold.update(path_key(f) for f in Library.find_stems_files(dst_path))
 
     if dest_paths and len(not_found) == len(dest_paths):
         uniq_dirs = sorted({os.path.dirname(os.path.join(root, d)) for d in dest_paths})
@@ -315,61 +307,6 @@ def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str) -> set[str]
     for n in not_found:
         logger.error(f"does not exist - {n}")
     return meant_to_hold
-
-
-def _path_key(path: str) -> str:
-    """`path` as the export compares paths on the drive: ignoring case and Unicode normalization."""
-    # a FAT32 or exFAT drive keeps a file's old name when it's overwritten under one differing in case, and macOS lists
-    # an HFS+ drive's filenames decomposed (NFD), while the library's paths are usually composed
-    return unicodedata.normalize("NFC", path).casefold()
-
-
-def _delete_other_files(dest_dir: str, keep: set[str]):
-    """Deletes every file under `dest_dir` whose path, as `_path_key` gives it, isn't in `keep`, and any folder left
-    empty.
-
-    A file or folder it can't delete is logged as an error and left, and the rest are still deleted.
-    """
-    for dirpath, _, filenames in os.walk(dest_dir, topdown=False):
-        for filename in filenames:
-            if _path_key(path := os.path.join(dirpath, filename)) not in keep:
-                logger.info(f"deleting {path}, which no exported crate holds")
-                try:
-                    os.remove(path)
-                except OSError as e:
-                    logger.error(f"couldn't delete {path}: {e}")
-        if dirpath != dest_dir and not os.listdir(dirpath):
-            try:
-                os.rmdir(dirpath)
-            except OSError as e:
-                logger.error(f"couldn't delete {dirpath}: {e}")
-
-
-def _copy_if_changed(src_path: str, dst_path: str) -> bool:
-    """Copies `src_path` to `dst_path`, unless it's there unchanged, and returns False if `src_path` doesn't exist."""
-    if not os.path.exists(src_path):
-        return False
-    if not os.path.exists(dst_path) or _is_changed_copy(src_path, dst_path):
-        os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-        logger.info(f"copying {src_path}")
-        shutil.copy2(src_path, dst_path)
-    return True
-
-
-def _is_changed_copy(src_path: str, dst_path: str) -> bool:
-    """Whether the file at `dst_path` differs from `src_path`, so has to be copied again.
-
-    Reads neither file when they're the same size and were modified within 2 seconds of each other, as a copy made
-    since `src_path` last changed is; otherwise compares their contents.
-    """
-    src, dst = os.stat(src_path), os.stat(dst_path)
-    if src.st_size != dst.st_size:
-        return True
-    # copy2 gives the copy src's modification time, but FAT32 stores it to 2 seconds (exFAT to 10 ms), so it rarely
-    # matches exactly, which made filecmp's quick check fail and read both files in full on every export
-    if abs(src.st_mtime - dst.st_mtime) <= _COPY_MTIME_TOLERANCE:
-        return False
-    return not filecmp.cmp(src_path, dst_path, shallow=False)
 
 
 def main():
