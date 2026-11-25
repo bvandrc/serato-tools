@@ -91,9 +91,7 @@ def copy_crates_to_usb(
         edit_track=lambda track: track.set_value(DatabaseV2.Fields.PLAYED, False),
     )
     logger.info(f"created database file {dest_db_file}")
-    _export_crate_order(
-        os.path.join(dest_serato_dir, CrateOrder.FILENAME), root_crate, _with_parents(name for _, name in crates)
-    )
+    _export_crate_order(os.path.join(dest_serato_dir, CrateOrder.FILENAME), root_crate, [name for _, name in crates])
     _copy_tracks(dest_paths, dest_drive_dir)
 
 
@@ -185,9 +183,9 @@ def _export_library_file(
     file.save(dest_file)
 
 
-def _export_crate_order(dest_file: str, root_crate: str | None, crate_names: set[str]):
-    """Copies the local library's crate order file to `dest_file`, with only the crates in `crate_names`, each named
-    as it is on the drive.
+def _export_crate_order(dest_file: str, root_crate: str | None, crate_names: Iterable[str]):
+    """Copies the local library's crate order file to `dest_file`, with only the crates in `crate_names` and their
+    parents, each named as it is on the drive.
 
     Given `root_crate`, it also gets that crate, first.
     """
@@ -196,6 +194,7 @@ def _export_crate_order(dest_file: str, root_crate: str | None, crate_names: set
         logger.warning(f"no order file to copy: {local_file}")
         return
     order = CrateOrder(local_file)
+    crate_names = _with_parents(crate_names)
     crates: list[str] = []
     for crate in order.crates:
         if crate == _STEMS_CRATE_NAME:
@@ -226,40 +225,23 @@ def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str):
 
     root = LOCAL_SERATO_DRIVE + os.sep if LOCAL_SERATO_DRIVE else os.sep
     not_found: list[str] = []
-    stem_files_by_dir: dict[str, list[str]] = {}
-
-    def find_stem_files(src_path: str) -> list[str]:
-        dirname, basename = os.path.split(src_path)
-        if dirname not in stem_files_by_dir:
-            try:
-                dir_filenames = os.listdir(dirname)
-            except OSError:
-                dir_filenames = []
-            stem_files_by_dir[dirname] = [f for f in dir_filenames if f.endswith(STEMS_EXTENSION)]
-        # named after the track, with or without its extension: matching by prefix would also find another track's,
-        # such as "B Extended.serato-stems" for "B.mp3"
-        stem_names = {os.path.splitext(basename)[0] + STEMS_EXTENSION, basename + STEMS_EXTENSION}
-        return [os.path.join(dirname, f) for f in stem_files_by_dir[dirname] if f in stem_names]
-
-    def maybe_copy(src_path: str, dst_path: str):
-        if not os.path.exists(src_path):
-            not_found.append(src_path)
-            return
-        if not os.path.exists(dst_path) or not filecmp.cmp(src_path, dst_path, shallow=True):
-            os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-            logger.info(f"copying {src_path}")
-            shutil.copy2(src_path, dst_path)
+    # each folder's stems files, listed once for all its tracks
+    stems_files_by_dir: dict[str, list[str]] = {}
 
     for track_path, dest_path in tqdm(dest_paths.items(), desc="Copying tracks", unit="track"):
         src_path = os.path.join(root, track_path)
         dst_path = os.path.join(dest_drive_dir, dest_path)
-        maybe_copy(src_path, dst_path)
+        if not _copy_if_changed(src_path, dst_path):
+            not_found.append(src_path)
 
-        stem_files = find_stem_files(src_path)
-        if len(stem_files) > 1:
-            raise ValueError(f"more than 1 stems file for {src_path}: {', '.join(stem_files)}")
-        if stem_files:
-            maybe_copy(stem_files[0], os.path.join(os.path.dirname(dst_path), os.path.basename(stem_files[0])))
+        stems_files = _stems_files(src_path, stems_files_by_dir)
+        if len(stems_files) > 1:
+            raise ValueError(f"more than 1 stems file for {src_path}: {', '.join(stems_files)}")
+        if stems_files:
+            stems_dest = os.path.join(os.path.dirname(dst_path), os.path.basename(stems_files[0]))
+            if not _copy_if_changed(stems_files[0], stems_dest):
+                # found when its folder was listed, so gone since; not counted with the tracks, which it isn't one of
+                logger.error(f"does not exist - {stems_files[0]}")
 
     if dest_paths and len(not_found) == len(dest_paths):
         uniq_dirs = sorted({os.path.dirname(os.path.join(root, d)) for d in dest_paths})
@@ -267,6 +249,35 @@ def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str):
 
     for n in not_found:
         logger.error(f"does not exist - {n}")
+
+
+def _stems_files(track_path: str, stems_files_by_dir: dict[str, list[str]]) -> list[str]:
+    """The stems files of the track at `track_path`: normally none or one.
+
+    `stems_files_by_dir` caches each folder's stems files, so a folder is listed once for all its tracks.
+    """
+    dirname, basename = os.path.split(track_path)
+    if dirname not in stems_files_by_dir:
+        try:
+            dir_filenames = os.listdir(dirname)
+        except OSError:
+            dir_filenames = []
+        stems_files_by_dir[dirname] = [f for f in dir_filenames if f.endswith(STEMS_EXTENSION)]
+    # named after the track, with or without its extension: matching by prefix would also find another track's, such
+    # as "B Extended.serato-stems" for "B.mp3"
+    stems_names = {os.path.splitext(basename)[0] + STEMS_EXTENSION, basename + STEMS_EXTENSION}
+    return [os.path.join(dirname, f) for f in stems_files_by_dir[dirname] if f in stems_names]
+
+
+def _copy_if_changed(src_path: str, dst_path: str) -> bool:
+    """Copies `src_path` to `dst_path`, unless it's there unchanged, and returns False if `src_path` doesn't exist."""
+    if not os.path.exists(src_path):
+        return False
+    if not os.path.exists(dst_path) or not filecmp.cmp(src_path, dst_path, shallow=True):
+        os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+        logger.info(f"copying {src_path}")
+        shutil.copy2(src_path, dst_path)
+    return True
 
 
 def main():

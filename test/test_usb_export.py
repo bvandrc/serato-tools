@@ -226,6 +226,24 @@ def test_copy_crates_to_usb_logs_a_missing_file(export: Export, caplog: pytest.L
     assert read_bytes(export.on_drive(DRIVE_TRACKS, "A.mp3")) == b"a", "the other track still copied"
 
 
+def test_copy_crates_to_usb_logs_a_stems_file_gone_before_its_copied(export: Export, caplog: pytest.LogCaptureFixture):
+    a, b = export.make_track("A.mp3", b"a"), export.make_track("B.mp3", b"b")
+    b_stems = export.make_track("B.serato-stems", b"stems")
+    copy2 = usb_export.shutil.copy2
+
+    def copy_losing_b_stems(src: str, dst: str):
+        # another program moves B's stems file away after the export found it, while it copies B
+        if src == b:
+            os.remove(b_stems)
+        return copy2(src, dst)
+
+    with caplog.at_level(logging.ERROR), mock.patch.object(usb_export.shutil, "copy2", side_effect=copy_losing_b_stems):
+        usb_export.copy_crates_to_usb([export.make_crate("House", [a, b])], export.drive, DRIVE_TRACKS)
+
+    assert f"does not exist - {b_stems}" in caplog.text
+    assert read_bytes(export.on_drive(DRIVE_TRACKS, "B.mp3")) == b"b", "the track still copied"
+
+
 def test_copy_crates_to_usb_raises_when_every_track_is_missing(export: Export):
     crates = [export.make_crate("House", [os.path.join(export.music_dir, "Gone.mp3")])]
     with pytest.raises(FileNotFoundError, match="none of the tracks were found"):
