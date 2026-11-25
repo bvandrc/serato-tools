@@ -26,76 +26,6 @@ def read_pref_file(path: str) -> list[str]:
     return read_bytes(path).decode("utf-16-be").split("\n")
 
 
-@pytest.fixture
-def crate_dirs(tmp_dir: str, monkeypatch: pytest.MonkeyPatch) -> tuple[str, str]:
-    """Empty Subcrates and SmartCrates folders, which get_crate_files looks in, in that order."""
-    crate_dir = os.path.join(tmp_dir, usb_export.Crate.DIR)
-    smart_crate_dir = os.path.join(tmp_dir, usb_export.SmartCrate.DIR)
-    mock_files({crate_dir: [], smart_crate_dir: []})
-    monkeypatch.setattr(usb_export, "LOCAL_SERATO_DIR", tmp_dir)
-    return crate_dir, smart_crate_dir
-
-
-def add_files(crate_dirs: tuple[str, str], *names: str):
-    """Adds an empty file for each of `names`: a smart crate's to SmartCrates, anything else to Subcrates."""
-    crate_dir, smart_crate_dir = crate_dirs
-    smart = usb_export.SmartCrate.EXTENSION
-    mock_files(
-        {
-            crate_dir: [name for name in names if not name.endswith(smart)],
-            smart_crate_dir: [name for name in names if name.endswith(smart)],
-        }
-    )
-
-
-def matched_names(pattern: str) -> set[str]:
-    return {os.path.basename(f) for f in usb_export.get_crate_files(pattern)}
-
-
-@pytest.mark.parametrize(
-    "names, pattern, matched",
-    [
-        # "house*" is also a valid regex whose .search() would match "housing"
-        pytest.param(["house.crate", "housing.crate"], "house*", {"house.crate"}, id="glob tried before regex"),
-        pytest.param(
-            ["house.crate", "house.scrate"], "*house*", {"house.crate", "house.scrate"}, id="glob matches both kinds"
-        ),
-        pytest.param(
-            ["deep.crate", "house.crate", "techno.crate"],
-            "deep|house",
-            {"deep.crate", "house.crate"},
-            id="invalid as a glob match, so regex",
-        ),
-        pytest.param(["house.crate", ".DS_Store", "notes.txt"], "*", {"house.crate"}, id="non-crate files never"),
-        pytest.param(["house.crate"], "*[techno*", set(), id="invalid regex and no glob match"),
-        pytest.param(
-            ["house.crate", "test crate.crate", "house.scrate"],
-            "*crate*",
-            {"test crate.crate"},
-            id="glob ignores the extension",
-        ),
-        pytest.param(["house.crate", "house.scrate"], "*.scrate", set(), id="glob can't match the extension"),
-        pytest.param(["house.crate", "deep.crate"], "use$", {"house.crate"}, id="regex ignores the extension"),
-        pytest.param(["Pop, Rock, etc..crate"], "*etc.", {"Pop, Rock, etc..crate"}, id="name ending in a dot"),
-        pytest.param(
-            ["Bass.crate", "Bass%%DnB.crate", "House.crate"],
-            "Bass*",
-            {"Bass.crate", "Bass%%DnB.crate"},
-            id="subcrates match their parent's name",
-        ),
-    ],
-)
-def test_get_crate_files(crate_dirs: tuple[str, str], names: list[str], pattern: str, matched: set[str]):
-    add_files(crate_dirs, *names)
-    assert matched_names(pattern) == matched
-
-
-def test_get_crate_files_without_a_smart_crates_folder(crate_dirs: tuple[str, str]):
-    add_files(crate_dirs, "house.crate")
-    os.rmdir(crate_dirs[1])
-    assert matched_names("*") == {"house.crate"}
-
-
 @dataclass
 class Export(LibraryFolders):
     """A local library and music folder, and a drive to export them to."""
@@ -373,7 +303,7 @@ def test_cli_exports_to_the_drive(drive: str, system: str, dest: str):
     with (
         cli_args("serato_usb_export", "--drive", drive, "--crates", "*"),
         mock.patch.object(usb_export.platform, "system", return_value=system),
-        mock.patch.object(usb_export, "get_crate_files", return_value=[]),
+        mock.patch.object(usb_export.Library, "find_crate_files", return_value=[]),
         mock.patch.object(usb_export, "copy_crates_to_usb") as copy_crates_to_usb,
     ):
         usb_export.main()

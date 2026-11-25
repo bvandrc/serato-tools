@@ -15,6 +15,8 @@ Each release groups its changes by the part of the package they're in. Within ea
   - A crate order file it can't read is skipped with a warning, as a missing one is, so the drive lists its crates in Serato's default order.
 - **Fix:** Stems files named with their separation's version, as Serato names them (`Track.1.2.serato-stems`), are copied with their track.
   - A track with more than one stems file has them all copied, rather than failing the export.
+- **[BREAKING] Removed:** `usb_export.get_crate_files`, replaced by `Library.find_crate_files`.
+  - **Upgrading:** Call `Library().find_crate_files(pattern)`, or pass `Library` a library folder to search another.
 
 ### Crate Order / Collapsed Crates
 
@@ -29,6 +31,7 @@ Each release groups its changes by the part of the package they're in. Within ea
   - With `delete_files=False`, it removes the tracks from the database and crates and leaves their files.
 - **Fix:** `Library.remove_track_files` with `delete_files=True` deletes the tracks' stems files too, and lists them in `files_deleted`.
 - **Feature:** Add `Library.find_stems_files(track_path)`, which finds the stems files Serato keeps beside a track.
+- **Feature:** Add `Library.find_crate_files(pattern)`, which finds the library's crate and smart crate files by name, with a glob or a regex.
 
 ## [6.0.2] - 2026-11-24
 

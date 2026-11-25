@@ -76,6 +76,51 @@ def test_crate_files(folders: LibraryFolders):
 
 
 @pytest.mark.parametrize(
+    "names, pattern, matched",
+    [
+        # "house*" is also a valid regex whose .search() would match "housing"
+        pytest.param(["house.crate", "housing.crate"], "house*", {"house.crate"}, id="glob tried before regex"),
+        pytest.param(
+            ["house.crate", "house.scrate"], "*house*", {"house.crate", "house.scrate"}, id="glob matches both kinds"
+        ),
+        pytest.param(
+            ["deep.crate", "house.crate", "techno.crate"],
+            "deep|house",
+            {"deep.crate", "house.crate"},
+            id="invalid as a glob match, so regex",
+        ),
+        pytest.param(["house.crate", ".DS_Store", "notes.txt"], "*", {"house.crate"}, id="non-crate files never"),
+        pytest.param(["house.crate"], "*[techno*", set(), id="invalid regex and no glob match"),
+        pytest.param(
+            ["house.crate", "test crate.crate", "house.scrate"],
+            "*crate*",
+            {"test crate.crate"},
+            id="glob ignores the extension",
+        ),
+        pytest.param(["house.crate", "house.scrate"], "*.scrate", set(), id="glob can't match the extension"),
+        pytest.param(["house.crate", "deep.crate"], "use$", {"house.crate"}, id="regex ignores the extension"),
+        pytest.param(["Pop, Rock, etc..crate"], "*etc.", {"Pop, Rock, etc..crate"}, id="name ending in a dot"),
+        pytest.param(
+            ["Bass.crate", "Bass%%DnB.crate", "House.crate"],
+            "Bass*",
+            {"Bass.crate", "Bass%%DnB.crate"},
+            id="subcrates match their parent's name",
+        ),
+    ],
+)
+def test_find_crate_files(folders: LibraryFolders, names: list[str], pattern: str, matched: set[str]):
+    smart = SmartCrate.EXTENSION
+    mock_files(
+        {
+            os.path.join(folders.serato_dir, Crate.DIR): [name for name in names if not name.endswith(smart)],
+            os.path.join(folders.serato_dir, SmartCrate.DIR): [name for name in names if name.endswith(smart)],
+        }
+    )
+    found = Library(folders.serato_dir).find_crate_files(pattern)
+    assert {os.path.basename(f) for f in found} == matched
+
+
+@pytest.mark.parametrize(
     "files, found",
     [
         pytest.param([], [], id="none"),
