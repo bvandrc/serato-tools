@@ -10,6 +10,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Fix:** The drive keeps your crate order, with a root crate or smart crates.
   - Before, Serato couldn't use the order file the export wrote, and on Windows it was garbled.
   - The order lists only the exported crates, with the root crate first.
+- **Feature:** `copy_crates_to_usb`'s `dest_tracks_dir` defaults to `Tracks`, the folder `serato_usb_export` uses.
 - **Fix:** An export with a crate file it can't read fails before writing anything to the drive, rather than after deleting the drive's `_Serato_` folder.
 
 ## [6.0.2] - 2026-11-24
