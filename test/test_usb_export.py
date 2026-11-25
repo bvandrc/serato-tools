@@ -181,6 +181,37 @@ def test_copy_crates_to_usb_copies_only_changed_files(export: Export):
     assert read_bytes(export.on_drive(DRIVE_TRACKS, "B.mp3")) == b"b changed"
 
 
+@pytest.mark.parametrize(
+    "mtime_offset, content, compared, copied",
+    [
+        # FAT32 stores modification times to 2 seconds, so a copy's is rarely exactly the track's
+        pytest.param(1.5, b"a", False, False, id="copy's time rounded by the drive"),
+        pytest.param(60, b"a", True, False, id="same contents, older copy"),
+        pytest.param(60, b"x", True, True, id="same size, changed"),
+    ],
+)
+def test_copy_crates_to_usb_compares_a_copy_only_when_needed(
+    export: Export, mtime_offset: float, content: bytes, compared: bool, copied: bool
+):
+    a = export.make_track("A.mp3", b"a")
+    crates = [export.make_crate("House", [a])]
+    usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
+    copy = export.on_drive(DRIVE_TRACKS, "A.mp3")
+    with open(copy, "wb") as f:
+        f.write(content)
+    os.utime(copy, (os.stat(a).st_atime, os.stat(a).st_mtime - mtime_offset))
+
+    with (
+        mock.patch.object(usb_export.filecmp, "cmp", wraps=usb_export.filecmp.cmp) as cmp,
+        mock.patch.object(usb_export.shutil, "copy2", wraps=usb_export.shutil.copy2) as copy2,
+    ):
+        usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
+
+    assert cmp.called == compared, "contents read only when the times are further apart than the drive rounds them"
+    assert copy2.called == copied
+    assert read_bytes(copy) == (b"a" if copied else content)
+
+
 def test_copy_crates_to_usb_logs_a_missing_file(export: Export, caplog: pytest.LogCaptureFixture):
     a, gone = export.make_track("A.mp3", b"a"), os.path.join(export.music_dir, "Gone.mp3")
     crates = [export.make_crate("House", [a, gone])]

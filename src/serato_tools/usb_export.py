@@ -35,6 +35,8 @@ LOCAL_SERATO_COLLAPSED_CRATES_PATH = os.path.join(LOCAL_SERATO_DIR, CollapsedCra
 LOCAL_SERATO_STEMS_CRATE_PATH = os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
 # the folder on the drive the tracks go in, unless the caller names another
 DEFAULT_DRIVE_TRACKS_DIR = "Tracks"
+# how far apart, in seconds, a track's and its copy's modification times can be: FAT32 stores them to 2 seconds
+_COPY_MTIME_TOLERANCE = 2
 # the crate Serato keeps tracks with stems in, named so in the crate order, never inside a root crate
 _STEMS_CRATE_NAME = "Stems"
 
@@ -280,11 +282,27 @@ def _copy_if_changed(src_path: str, dst_path: str) -> bool:
     """Copies `src_path` to `dst_path`, unless it's there unchanged, and returns False if `src_path` doesn't exist."""
     if not os.path.exists(src_path):
         return False
-    if not os.path.exists(dst_path) or not filecmp.cmp(src_path, dst_path, shallow=True):
+    if not os.path.exists(dst_path) or _is_changed_copy(src_path, dst_path):
         os.makedirs(os.path.dirname(dst_path), exist_ok=True)
         logger.info(f"copying {src_path}")
         shutil.copy2(src_path, dst_path)
     return True
+
+
+def _is_changed_copy(src_path: str, dst_path: str) -> bool:
+    """Whether the file at `dst_path` differs from `src_path`, so has to be copied again.
+
+    Reads neither file when they're the same size and were modified within 2 seconds of each other, as a copy made
+    since `src_path` last changed is; otherwise compares their contents.
+    """
+    src, dst = os.stat(src_path), os.stat(dst_path)
+    if src.st_size != dst.st_size:
+        return True
+    # copy2 gives the copy src's modification time, but FAT32 stores it to 2 seconds (exFAT to 10 ms), so it rarely
+    # matches exactly, which made filecmp's quick check fail and read both files in full on every export
+    if abs(src.st_mtime - dst.st_mtime) <= _COPY_MTIME_TOLERANCE:
+        return False
+    return not filecmp.cmp(src_path, dst_path, shallow=False)
 
 
 def main():
