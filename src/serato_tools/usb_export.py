@@ -10,6 +10,7 @@ import itertools
 import os
 import platform
 import shutil
+import unicodedata
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 
@@ -44,6 +45,7 @@ def copy_crates_to_usb(
     dest_drive_dir: str,
     dest_tracks_dir: str = DEFAULT_DRIVE_TRACKS_DIR,
     root_crate: str | None = None,
+    delete_unused_tracks: bool = False,
 ):
     """Copies the crates in `crate_files`, and their tracks, to the drive at `dest_drive_dir`.
 
@@ -54,6 +56,9 @@ def copy_crates_to_usb(
       columns, and place in the crate order but not their rules, since Serato can't use a smart crate on a drive.
     - A track whose file is already on the drive, unchanged, isn't copied again. Its stems files are copied too.
     - Given `root_crate`, every crate goes inside a crate of that name.
+    - Given `delete_unused_tracks`, every other file under `dest_tracks_dir`, such as a track since taken out of the
+      crates, is deleted. Raises ValueError, before writing anything, if `dest_tracks_dir` isn't a folder inside the
+      drive or there's no track to export, since that would delete more than unused tracks.
     - A track whose file is missing is skipped, logging an error. Raises FileNotFoundError if every one is missing, such
       as when the library's music is on a drive that isn't plugged in.
     """
@@ -73,6 +78,8 @@ def copy_crates_to_usb(
     dest_paths = _dest_track_paths(
         [os.path.normpath(p) for crate, _ in crates for p in crate.get_track_paths()], dest_tracks_dir
     )
+    if delete_unused_tracks:
+        _check_unused_tracks_can_be_deleted(dest_drive_dir, dest_tracks_dir, dest_paths)
 
     dest_serato_dir = os.path.join(dest_drive_dir, SERATO_DIR_NAME)
     # TODO: merge with existing, instead of replacing
@@ -102,7 +109,9 @@ def copy_crates_to_usb(
         _export_collapsed_crates(
             collapsed_crates, os.path.join(dest_serato_dir, CollapsedCrates.FILENAME), root_crate, crate_names
         )
-    _copy_tracks(dest_paths, dest_drive_dir)
+    copied = _copy_tracks(dest_paths, dest_drive_dir)
+    if delete_unused_tracks:
+        _delete_other_files(os.path.join(dest_drive_dir, dest_tracks_dir), copied)
 
 
 def _load_crate(crate_file: str, root_crate: str | None) -> tuple[Crate | SmartCrate, str]:
@@ -180,6 +189,23 @@ def _dest_track_paths(track_paths: list[str], dest_tracks_dir: str) -> dict[str,
     return dest_paths
 
 
+def _check_unused_tracks_can_be_deleted(dest_drive_dir: str, dest_tracks_dir: str, dest_paths: Mapping[str, str]):
+    """Raises ValueError if deleting the files under `dest_tracks_dir` that the export doesn't hold would delete more
+    than unused tracks: when it isn't a folder inside the drive, or there's no track to export.
+    """
+    drive = os.path.realpath(dest_drive_dir)
+    tracks_dir = os.path.realpath(os.path.join(dest_drive_dir, dest_tracks_dir))
+    # the drive itself would hold its _Serato_ folder, and commonpath raises for paths on different Windows drives
+    try:
+        inside = tracks_dir != drive and os.path.commonpath([drive, tracks_dir]) == drive
+    except ValueError:
+        inside = False
+    if not inside:
+        raise ValueError(f"delete_unused_tracks needs a tracks folder inside the drive, not {tracks_dir}")
+    if not dest_paths:
+        raise ValueError("delete_unused_tracks needs a track to export, or it would delete every track on the drive")
+
+
 def _export_library_file(
     file: SeratoBinFile,
     dest_file: str,
@@ -249,24 +275,36 @@ def _with_parents(names: Iterable[str]) -> set[str]:
     return result
 
 
-def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str):
-    """Copies each track, and its stems files, to its path in `dest_paths` on the drive, unless it's there unchanged."""
+def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str) -> set[str]:
+    """Copies each track, and its stems files, to its path in `dest_paths` on the drive, unless it's there unchanged.
+
+    Returns the paths on the drive of the tracks and stems files it's meant to hold, copied now or before, or whose
+    track is missing, as `_path_key` gives them.
+    """
     logger.info("copying files over...")
 
     root = LOCAL_SERATO_DRIVE + os.sep if LOCAL_SERATO_DRIVE else os.sep
     not_found: list[str] = []
+    meant_to_hold: set[str] = set()
 
     for track_path, dest_path in tqdm(dest_paths.items(), desc="Copying tracks", unit="track"):
         src_path = os.path.join(root, track_path)
         dst_path = os.path.join(dest_drive_dir, dest_path)
+        # kept whether or not it's copied now, as a track missing from the library still is
+        meant_to_hold.add(_path_key(dst_path))
         if not _copy_if_changed(src_path, dst_path):
             not_found.append(src_path)
 
-        for stems_file in Library.find_stems_files(src_path):
+        stems_files = Library.find_stems_files(src_path)
+        for stems_file in stems_files:
             stems_dest = os.path.join(os.path.dirname(dst_path), os.path.basename(stems_file))
+            meant_to_hold.add(_path_key(stems_dest))
             if not _copy_if_changed(stems_file, stems_dest):
                 # found just now, so gone since; not counted with the tracks, which it isn't one of
                 logger.error(f"does not exist - {stems_file}")
+        if not stems_files and not os.path.exists(src_path):
+            # a missing track's file on the drive is kept, so its stems files there are too
+            meant_to_hold.update(_path_key(f) for f in Library.find_stems_files(dst_path))
 
     if dest_paths and len(not_found) == len(dest_paths):
         uniq_dirs = sorted({os.path.dirname(os.path.join(root, d)) for d in dest_paths})
@@ -274,6 +312,35 @@ def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str):
 
     for n in not_found:
         logger.error(f"does not exist - {n}")
+    return meant_to_hold
+
+
+def _path_key(path: str) -> str:
+    """`path` as the export compares paths on the drive: ignoring case and Unicode normalization."""
+    # a FAT32 or exFAT drive keeps a file's old name when it's overwritten under one differing in case, and macOS lists
+    # an HFS+ drive's filenames decomposed (NFD), while the library's paths are usually composed
+    return unicodedata.normalize("NFC", path).casefold()
+
+
+def _delete_other_files(dest_dir: str, keep: set[str]):
+    """Deletes every file under `dest_dir` whose path, as `_path_key` gives it, isn't in `keep`, and any folder left
+    empty.
+
+    A file or folder it can't delete is logged as an error and left, and the rest are still deleted.
+    """
+    for dirpath, _, filenames in os.walk(dest_dir, topdown=False):
+        for filename in filenames:
+            if _path_key(path := os.path.join(dirpath, filename)) not in keep:
+                logger.info(f"deleting {path}, which no exported crate holds")
+                try:
+                    os.remove(path)
+                except OSError as e:
+                    logger.error(f"couldn't delete {path}: {e}")
+        if dirpath != dest_dir and not os.listdir(dirpath):
+            try:
+                os.rmdir(dirpath)
+            except OSError as e:
+                logger.error(f"couldn't delete {dirpath}: {e}")
 
 
 def _copy_if_changed(src_path: str, dst_path: str) -> bool:
@@ -297,6 +364,7 @@ def main():
         dest_dir: str
         crate_matcher: list[str]
         root_crate: str | None
+        delete_unused_tracks: bool
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -326,6 +394,11 @@ def main():
         default=None,
         help="Not required, but is very nice when plugging your drive into another DJ's laptop. Sets all crates to be within this crate on the destination drive",
     )
+    parser.add_argument(
+        "--delete_unused_tracks",
+        action="store_true",
+        help=f"Delete every other file in the drive's {DEFAULT_DRIVE_TRACKS_DIR} folder, such as tracks since taken out of the crates",
+    )
     args = Args(**vars(parser.parse_args()))
 
     library = Library(LOCAL_SERATO_DIR)
@@ -340,6 +413,7 @@ def main():
         crate_files=crate_files,
         dest_drive_dir=args.dest_dir,
         root_crate=args.root_crate,
+        delete_unused_tracks=args.delete_unused_tracks,
     )
     # ruff: enable[PLC0415]
 

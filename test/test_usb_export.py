@@ -1,5 +1,6 @@
 import logging
 import os
+import unicodedata
 from dataclasses import dataclass
 from unittest import mock
 
@@ -301,6 +302,107 @@ def test_copy_crates_to_usb_puts_tracks_sharing_a_filename_in_subfolders(export:
     assert db_genres == {path: str(i) for i, path in enumerate(tracks)}, "each with its own database entry"
 
 
+@pytest.mark.parametrize("delete_unused_tracks", [False, True])
+def test_copy_crates_to_usb_deletes_unused_tracks_only_when_asked(export: Export, delete_unused_tracks: bool):
+    a, b = export.make_track("A.mp3", b"a"), export.make_track("Sub/A.mp3", b"sub a")
+    stems = export.make_track("A.serato-stems", b"stems")
+    house, deep = export.make_crate("House", [a]), export.make_crate("Deep", [b])
+    usb_export.copy_crates_to_usb([house, deep], export.drive, DRIVE_TRACKS)
+    (other,) = mock_files({export.on_drive(DRIVE_TRACKS): ["Other.mp3"]})
+
+    usb_export.copy_crates_to_usb([house], export.drive, DRIVE_TRACKS, delete_unused_tracks=delete_unused_tracks)
+
+    assert os.path.exists(export.on_drive(DRIVE_TRACKS, "A.mp3")), "an exported track kept"
+    assert read_bytes(export.on_drive(DRIVE_TRACKS, "A.serato-stems")) == read_bytes(stems), "its stems kept"
+    unused = [export.on_drive(DRIVE_TRACKS, "Sub", "A.mp3"), other]
+    assert [os.path.exists(f) for f in unused] == [not delete_unused_tracks] * 2, "the rest deleted only when asked"
+    assert os.path.isdir(export.on_drive(DRIVE_TRACKS, "Sub")) != delete_unused_tracks, "and an emptied folder"
+
+
+@pytest.mark.parametrize(
+    "stems_names",
+    [
+        pytest.param(["B.serato-stems"], id="unversioned"),
+        pytest.param(["B.1.2.serato-stems", "B.1.3.serato-stems"], id="two versions"),
+    ],
+)
+def test_copy_crates_to_usb_keeps_a_missing_tracks_stems_on_the_drive(export: Export, stems_names: list[str]):
+    a, b = export.make_track("A.mp3", b"a"), export.make_track("B.mp3", b"b")
+    stems = [export.make_track(name, b"stems") for name in stems_names]
+    crates = [export.make_crate("House", [a, b])]
+    usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
+    # as when the library's music is on a drive that isn't plugged in
+    for f in [b, *stems]:
+        os.remove(f)
+
+    usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS, delete_unused_tracks=True)
+
+    assert sorted(os.listdir(export.on_drive(DRIVE_TRACKS))) == sorted(["A.mp3", "B.mp3", *stems_names]), (
+        "kept with its track"
+    )
+
+
+@pytest.mark.parametrize(
+    "tracks_dir, exported",
+    [
+        pytest.param("", True, id="drive root"),
+        pytest.param(".", True, id="drive root as dot"),
+        pytest.param("..", True, id="outside the drive"),
+        pytest.param(DRIVE_TRACKS, False, id="no track to export"),
+    ],
+)
+def test_copy_crates_to_usb_refuses_to_delete_more_than_unused_tracks(export: Export, tracks_dir: str, exported: bool):
+    crates = [export.make_crate("House", [export.make_track("A.mp3", b"a")])] if exported else []
+    old_files = mock_files({export.drive: ["Notes.txt", {"_Serato_": ["Old.txt"], DRIVE_TRACKS: ["Old.mp3"]}]})
+
+    with pytest.raises(ValueError, match="delete_unused_tracks"):
+        usb_export.copy_crates_to_usb(crates, export.drive, tracks_dir, delete_unused_tracks=True)
+
+    assert all(os.path.exists(f) for f in old_files), "nothing on the drive deleted"
+    assert os.listdir(export.on_drive("_Serato_")) == ["Old.txt"], "nor anything written"
+
+
+def test_copy_crates_to_usb_keeps_a_track_the_drive_lists_decomposed(
+    export: Export, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    track = export.make_track(unicodedata.normalize("NFC", "Caf\u00e9.mp3"), b"a")
+    walk = os.walk
+
+    def walk_decomposed(top: str, topdown: bool = True):
+        # as macOS lists an HFS+ drive's filenames
+        for dirpath, dirnames, filenames in walk(top, topdown=topdown):
+            yield dirpath, dirnames, [unicodedata.normalize("NFD", f) for f in filenames]
+
+    monkeypatch.setattr(usb_export.os, "walk", walk_decomposed)
+    with caplog.at_level(logging.INFO):
+        usb_export.copy_crates_to_usb(
+            [export.make_crate("House", [track])], export.drive, DRIVE_TRACKS, delete_unused_tracks=True
+        )
+
+    assert "delet" not in caplog.text, "the track it just copied isn't deleted"
+
+
+def test_copy_crates_to_usb_deletes_the_other_unused_tracks_when_one_cant_be(
+    export: Export, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    crates = [export.make_crate("House", [export.make_track("A.mp3", b"a")])]
+    locked, unused = mock_files({export.on_drive(DRIVE_TRACKS): ["Locked.mp3", "Unused.mp3"]})
+    remove = os.remove
+
+    def remove_unless_locked(path: str):
+        if path == locked:
+            raise PermissionError("read-only")
+        remove(path)
+
+    monkeypatch.setattr(usb_export.os, "remove", remove_unless_locked)
+    with caplog.at_level(logging.ERROR):
+        usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS, delete_unused_tracks=True)
+
+    assert f"couldn't delete {locked}" in caplog.text
+    assert os.path.exists(locked), "left"
+    assert not os.path.exists(unused), "the other still deleted"
+
+
 def test_copy_crates_to_usb_keeps_the_date_added(export: Export):
     a = export.make_track("A.mp3")
     added = [(DatabaseV2.Fields.DATE_ADDED_U, 1700000000), (DatabaseV2.Fields.DATE_ADDED_T, "1700000000")]
@@ -342,3 +444,16 @@ def test_cli_exports_to_the_drive(drive: str, system: str, dest: str):
     ):
         usb_export.main()
     assert copy_crates_to_usb.call_args.kwargs["dest_drive_dir"] == dest
+
+
+@pytest.mark.parametrize(
+    "flag, delete", [pytest.param([], False, id="off"), pytest.param(["--delete_unused_tracks"], True, id="on")]
+)
+def test_cli_deletes_unused_tracks_only_when_asked(flag: list[str], delete: bool):
+    with (
+        cli_args("serato_usb_export", "--drive", "/Volumes/USB", "--crates", "*", *flag),
+        mock.patch.object(usb_export.Library, "find_crate_files", return_value=[]),
+        mock.patch.object(usb_export, "copy_crates_to_usb") as copy_crates_to_usb,
+    ):
+        usb_export.main()
+    assert copy_crates_to_usb.call_args.kwargs["delete_unused_tracks"] is delete
