@@ -7,6 +7,7 @@ import pytest
 
 from serato_tools import usb_export
 from serato_tools.crate import Crate
+from serato_tools.crate_order import CrateOrder
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.smart_crate import SmartCrate
 
@@ -16,14 +17,8 @@ from test.helpers.files import copy_into, mock_files, read_bytes
 
 # the folder on the drive the tests export tracks to
 DRIVE_TRACKS = "Tracks"
-# Serato's crate order file, trimmed from a real library's: UTF-16-BE with \n line endings, and a smart crate's
-# subcrates separated with ≫≫
+# Serato's crate order file, trimmed from a real library's, with a smart crate's subcrates separated with ≫≫
 ORDER_FILE = "test/data/neworder.pref"
-
-
-def read_pref_file(path: str) -> list[str]:
-    """The order file's lines, decoded as Serato writes it, so a byte out of place fails to decode."""
-    return read_bytes(path).decode("utf-16-be").split("\n")
 
 
 @pytest.fixture
@@ -176,19 +171,16 @@ def test_copy_crates_to_usb_copies_the_crate_order(export: Export, fixture_crate
     usb_export.copy_crates_to_usb(fixture_crates, export.drive, DRIVE_TRACKS, root_crate=root)
 
     prefix = f"{root}%%" if root else ""
-    assert read_pref_file(export.on_drive("_Serato_", "neworder.pref")) == [
-        "[begin record]",
-        *([f"[crate]{root}"] if root else []),
-        "[crate]Stems",
-        f"[crate]{prefix}House & Techno",
-        f"[crate]{prefix}Bass",
-        f"[crate]{prefix}Bass%%Riddim",
-        f"[crate]{prefix}Bass%%Riddim%%Wonky Monxxy Riddim",
-        f"[crate]{prefix}Sets",
-        f"[crate]{prefix}Sets%%Riddim TODO",
-        f"[crate]{prefix}Sets%%Riddim TODO%%Riddim MIX",
-        "[end record]",
-        "",
+    assert CrateOrder(export.on_drive("_Serato_", CrateOrder.FILENAME)).crates == [
+        *([root] if root else []),
+        "Stems",
+        f"{prefix}House & Techno",
+        f"{prefix}Bass",
+        f"{prefix}Bass%%Riddim",
+        f"{prefix}Bass%%Riddim%%Wonky Monxxy Riddim",
+        f"{prefix}Sets",
+        f"{prefix}Sets%%Riddim TODO",
+        f"{prefix}Sets%%Riddim TODO%%Riddim MIX",
     ], "only the exported crates and their parents, a smart crate named as the regular crate it's exported as"
     assert os.path.isfile(export.on_drive("_Serato_", Crate.DIR, f"{prefix}Bass%%Riddim%%Wonky Monxxy Riddim.crate")), (
         "the smart crate's file named as its line is"
