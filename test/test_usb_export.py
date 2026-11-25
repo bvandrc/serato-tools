@@ -57,8 +57,6 @@ def export(tmp_dir: str, monkeypatch: pytest.MonkeyPatch) -> Export:
     # built from the real library folder at import, so each is pointed at the test's too
     for name, path in [
         ("LOCAL_SERATO_DATABASE_PATH", DatabaseV2.FILENAME),
-        ("LOCAL_SERATO_CRATE_ORDER_PATH", "neworder.pref"),
-        ("LOCAL_SERATO_COLLAPSED_CRATES_PATH", "collapsed.pref"),
         ("LOCAL_SERATO_STEMS_CRATE_PATH", Crate.SERATO_STEMS_CRATE_PATH),
     ]:
         monkeypatch.setattr(usb_export, name, os.path.join(export.serato_dir, path))
@@ -284,7 +282,7 @@ def test_copy_crates_to_usb_skips_an_order_file_it_cant_read(export: Export, cap
     with caplog.at_level(logging.WARNING):
         usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
 
-    assert "can't read the order file" in caplog.text
+    assert "can't read neworder.pref" in caplog.text
     assert not os.path.exists(export.on_drive("_Serato_", "neworder.pref")), "Serato's default order on the drive"
     assert os.path.isfile(export.on_drive("_Serato_", Crate.DIR, "House.crate")), "the crates still exported"
     assert read_bytes(export.on_drive(DRIVE_TRACKS, "A.mp3")) == b"a", "the tracks still copied"

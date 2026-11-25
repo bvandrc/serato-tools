@@ -7,6 +7,7 @@ Also the `serato_usb_export` CLI.
 
 import filecmp
 import itertools
+import logging
 import os
 import platform
 import shutil
@@ -31,8 +32,6 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 
 # the local library's files the export reads, besides its crates
 LOCAL_SERATO_DATABASE_PATH = os.path.join(LOCAL_SERATO_DIR, DatabaseV2.FILENAME)
-LOCAL_SERATO_CRATE_ORDER_PATH = os.path.join(LOCAL_SERATO_DIR, CrateOrder.FILENAME)
-LOCAL_SERATO_COLLAPSED_CRATES_PATH = os.path.join(LOCAL_SERATO_DIR, CollapsedCrates.FILENAME)
 LOCAL_SERATO_STEMS_CRATE_PATH = os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
 # the folder on the drive the tracks go in, unless the caller names another
 DEFAULT_DRIVE_TRACKS_DIR = "Tracks"
@@ -75,8 +74,9 @@ def copy_crates_to_usb(
     if os.path.exists(LOCAL_SERATO_STEMS_CRATE_PATH):
         drive_crates.append((Crate(LOCAL_SERATO_STEMS_CRATE_PATH), Crate.SERATO_STEMS_CRATE_PATH))
     database = DatabaseV2(LOCAL_SERATO_DATABASE_PATH)
-    crate_order = _load_crate_order(LOCAL_SERATO_CRATE_ORDER_PATH)
-    collapsed_crates = _load_collapsed_crates(LOCAL_SERATO_COLLAPSED_CRATES_PATH)
+    crate_order = _load_pref_file(CrateOrder, missing_level=logging.WARNING)
+    # unlike the crate order, a library doesn't necessarily have one
+    collapsed_crates = _load_pref_file(CollapsedCrates, missing_level=logging.INFO)
     dest_paths = _dest_track_paths(
         [os.path.normpath(p) for crate, _ in crates for p in crate.get_track_paths()], dest_tracks_dir
     )
@@ -105,12 +105,9 @@ def copy_crates_to_usb(
     )
     logger.info(f"created database file {dest_db_file}")
     crate_names = [name for _, name in crates]
-    if crate_order is not None:
-        _export_crate_order(crate_order, os.path.join(dest_serato_dir, CrateOrder.FILENAME), root_crate, crate_names)
-    if collapsed_crates is not None:
-        _export_collapsed_crates(
-            collapsed_crates, os.path.join(dest_serato_dir, CollapsedCrates.FILENAME), root_crate, crate_names
-        )
+    for pref_file in (crate_order, collapsed_crates):
+        if pref_file is not None:
+            _export_pref_file(pref_file, os.path.join(dest_serato_dir, pref_file.FILENAME), root_crate, crate_names)
     copied = _copy_tracks(dest_paths, dest_drive_dir)
     if delete_unused_tracks:
         _delete_other_files(os.path.join(dest_drive_dir, dest_tracks_dir), copied)
@@ -138,34 +135,20 @@ def _drive_crate_name(name: str, root_crate: str | None) -> str:
     return f"{root_crate}%%{name}" if root_crate else name
 
 
-def _load_crate_order(file: str) -> CrateOrder | None:
-    """The local library's crate order, or None, logging a warning, if it has none or it can't be read.
+def _load_pref_file[T: (CrateOrder, CollapsedCrates)](cls: type[T], missing_level: int) -> T | None:
+    """The local library's crate order or collapsed crates, or None if it has none, logged at `missing_level`, or if
+    it can't be read, logging a warning.
 
-    The drive then gets no crate order file, and Serato lists its crates in its default order.
+    The drive then gets no such file, and Serato lists its crates in its default order, or shows them all expanded.
     """
+    file = os.path.join(LOCAL_SERATO_DIR, cls.FILENAME)
     if not os.path.isfile(file):
-        logger.warning(f"no order file to copy: {file}")
+        logger.log(missing_level, f"no {cls.FILENAME} to copy: {file}")
         return None
     try:
-        return CrateOrder(file)
+        return cls(file)
     except ValueError as e:
-        logger.warning(f"can't read the order file, so not copying it: {file}: {e}")
-        return None
-
-
-def _load_collapsed_crates(file: str) -> CollapsedCrates | None:
-    """The local library's collapsed crates, or None if it has none, or, logging a warning, if they can't be read.
-
-    The drive then gets no collapsed crates file, and Serato shows every crate expanded.
-    """
-    if not os.path.isfile(file):
-        # unlike the crate order, a library doesn't necessarily have one
-        logger.info(f"no collapsed crates file to copy: {file}")
-        return None
-    try:
-        return CollapsedCrates(file)
-    except ValueError as e:
-        logger.warning(f"can't read the collapsed crates file, so not copying it: {file}: {e}")
+        logger.warning(f"can't read {cls.FILENAME}, so not copying it: {file}: {e}")
         return None
 
 
@@ -231,41 +214,27 @@ def _export_library_file(
     file.save(dest_file)
 
 
-def _export_crate_order(order: CrateOrder, dest_file: str, root_crate: str | None, crate_names: Iterable[str]):
-    """Writes the crate order to `dest_file`, with only the crates in `crate_names` and their parents, each named as
-    it is on the drive.
-
-    Given `root_crate`, it also gets that crate, first.
-    """
-    crate_names = _with_parents(crate_names)
-    crates: list[str] = []
-    for crate in order.crates:
-        if crate == _STEMS_CRATE_NAME:
-            crates.append(crate)
-        elif (name := _drive_crate_name(crate, root_crate)) in crate_names:
-            crates.append(name)
-    # first, where Serato puts it when it rewrites the drive's order file
-    order.crates = [root_crate, *crates] if root_crate else crates
-    order.save(dest_file)
-    logger.info(f"copied order file {dest_file}")
-
-
-def _export_collapsed_crates(
-    collapsed: CollapsedCrates, dest_file: str, root_crate: str | None, crate_names: Iterable[str]
+def _export_pref_file(
+    pref_file: CrateOrder | CollapsedCrates, dest_file: str, root_crate: str | None, crate_names: Iterable[str]
 ):
-    """Writes the collapsed crates to `dest_file`, with only the crates in `crate_names` and their parents, each named
-    as it is on the drive.
+    """Writes the crate order or collapsed crates to `dest_file`, with only the crates in `crate_names` and their
+    parents, each named as it is on the drive.
+
+    Given `root_crate`, a crate order also gets that crate, first.
     """
     crate_names = _with_parents(crate_names)
     crates: list[str] = []
-    for crate in collapsed.crates:
+    for crate in pref_file.crates:
         if crate == _STEMS_CRATE_NAME:
             crates.append(crate)
         elif (name := _drive_crate_name(crate, root_crate)) in crate_names:
             crates.append(name)
-    collapsed.crates = crates
-    collapsed.save(dest_file)
-    logger.info(f"copied collapsed crates file {dest_file}")
+    if root_crate and isinstance(pref_file, CrateOrder):
+        # first, where Serato puts it when it rewrites the drive's order file
+        crates.insert(0, root_crate)
+    pref_file.crates = crates
+    pref_file.save(dest_file)
+    logger.info(f"copied {dest_file}")
 
 
 def _with_parents(names: Iterable[str]) -> set[str]:
