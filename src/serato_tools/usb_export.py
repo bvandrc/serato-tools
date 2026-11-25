@@ -49,9 +49,11 @@ def copy_crates_to_usb(
 
     - Every track goes in `dest_tracks_dir` on the drive, `Tracks` by default. Of tracks that share a filename, a later
       one goes in a subfolder named after its own folder.
-    - The drive's `_Serato_` folder is replaced by one holding these crates and a database of just their tracks, all
-      pointed at the new paths. Smart crates become regular crates of the tracks they hold, keeping their sort,
-      columns, and place in the crate order but not their rules, since Serato can't use a smart crate on a drive.
+    - The drive's library (its database, crates, crate order, and collapsed crates) is replaced by one holding these
+      crates and a database of just their tracks, all pointed at the new paths. The rest of its `_Serato_` folder, such
+      as the History of sets played from it, is kept.
+    - Smart crates become regular crates of the tracks they hold, keeping their sort, columns, and place in the crate
+      order but not their rules, since Serato can't use a smart crate on a drive.
     - A track whose file is already on the drive, unchanged, isn't copied again. Its stems files are copied too.
     - Given `root_crate`, every crate goes inside a crate of that name.
     - Given `delete_unused_tracks`, every other file under `dest_tracks_dir`, such as a track since taken out of the
@@ -81,9 +83,7 @@ def copy_crates_to_usb(
         _check_unused_tracks_can_be_deleted(dest_drive_dir, dest_tracks_dir, dest_paths)
 
     dest_serato_dir = os.path.join(dest_drive_dir, SERATO_DIR_NAME)
-    # TODO: merge with existing, instead of replacing
-    if os.path.isdir(dest_serato_dir):
-        shutil.rmtree(dest_serato_dir)
+    _remove_library(dest_serato_dir)
     # Subcrates even with no crates, and the stems crate's own folder
     for folder in {Crate.DIR, *(os.path.dirname(path) for _, path in drive_crates)}:
         os.makedirs(os.path.join(dest_serato_dir, folder), exist_ok=True)
@@ -181,6 +181,16 @@ def _check_unused_tracks_can_be_deleted(dest_drive_dir: str, dest_tracks_dir: st
         raise ValueError(f"delete_unused_tracks needs a tracks folder inside the drive, not {tracks_dir}")
     if not dest_paths:
         raise ValueError("delete_unused_tracks needs a track to export, or it would delete every track on the drive")
+
+
+def _remove_library(dest_serato_dir: str):
+    """Removes the library files an export writes from the drive's `_Serato_` folder, keeping everything else."""
+    for folder in (Crate.DIR, SmartCrate.DIR):
+        if os.path.isdir(path := os.path.join(dest_serato_dir, folder)):
+            shutil.rmtree(path)
+    for filename in (DatabaseV2.FILENAME, CrateOrder.FILENAME, CollapsedCrates.FILENAME):
+        if os.path.isfile(path := os.path.join(dest_serato_dir, filename)):
+            os.remove(path)
 
 
 def _export_library_file(

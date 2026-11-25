@@ -71,7 +71,9 @@ def test_copy_crates_to_usb(export: Export):
     export.add_to_database(a, b, fields=[(DatabaseV2.Fields.PLAYED, True)])
     crates = [export.make_crate("House", [a, b]), export.make_crate("Deep", [b])]
     export.make_crate(os.path.join("Serato Stems", "Stems"), [b, not_exported])
-    (stale,) = mock_files({export.on_drive("_Serato_"): ["Stale.txt"]})
+    stale, history = mock_files(
+        {export.on_drive("_Serato_"): [{Crate.DIR: ["Old.crate"], "History": ["history.database"]}]}
+    )
 
     usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS, root_crate="Root")
 
@@ -92,7 +94,8 @@ def test_copy_crates_to_usb(export: Export):
     assert db.get_track_paths() == on_drive, "only the crates' tracks, at their new paths"
     assert all(t.get_value(DatabaseV2.Fields.PLAYED) is False for t in db.get_tracks()), "played reset"
 
-    assert not os.path.exists(stale), "the drive's old library replaced"
+    assert not os.path.exists(stale), "the drive's old crates replaced"
+    assert os.path.exists(history), "the rest of the drive's _Serato_ folder kept"
     copied = {"A.mp3": a, "B.mp3": b, "B.serato-stems": stems}
     assert sorted(os.listdir(export.on_drive(DRIVE_TRACKS))) == sorted(copied), "only the exported crates' tracks"
     for name, src in copied.items():
