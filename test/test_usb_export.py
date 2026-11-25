@@ -474,7 +474,8 @@ def test_cli_exports_to_the_drive(drive: str, system: str, dest: str):
         mock.patch.object(usb_export, "copy_crates_to_usb") as copy_crates_to_usb,
     ):
         usb_export.main()
-    assert copy_crates_to_usb.call_args.kwargs["dest_drive_dir"] == dest
+    # compared as Paths, since the drive's separators are the OS's
+    assert Path(copy_crates_to_usb.call_args.kwargs["dest_drive_dir"]) == Path(dest)
 
 
 @pytest.mark.parametrize(
