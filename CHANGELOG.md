@@ -32,9 +32,21 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **[BREAKING]** `Library.remove_track_files` takes a required keyword argument, `delete_files`, so each call says whether it deletes the track files.
   - **Upgrading:** Pass `delete_files=True`, which does what it did before.
   - With `delete_files=False`, it removes the tracks from the database and crates and leaves their files.
+- **Feature:** Add `Library.update_smart_crates`, which rewrites every smart crate's tracks from its rules, matched against the library's database, as Serato does when a rule is edited.
+  - It matches every crate before changing any, and saves only those whose tracks changed, or, inside `batch()`, leaves them for it to save once.
 - **Fix:** `Library.remove_track_files` with `delete_files=True` deletes the tracks' stems files too, and lists them in `files_deleted`.
 - **Feature:** Add `Library.find_stems_files(track_path)`, which finds the stems files Serato keeps beside a track.
 - **Feature:** Add `Library.find_crate_files(pattern)`, which finds the library's crate and smart crate files by name, with a glob or a regex.
+
+### Database / Crates
+
+- **Feature:** Add `SmartCrate.update_tracks(database)`, which rewrites a smart crate's tracks as the tracks in `database` its rules match, as Serato does when a rule is edited.
+  - The tracks it already held that still match keep their order.
+  - It raises `NotImplementedError` for the date comparisons of text (`STR_DATE_BEFORE`, `STR_DATE_AFTER`), whose matching isn't known yet, before changing any track.
+- **Feature:** `SmartCrate.set_rule` and `delete_rule` take `update_tracks`, a database, to also rewrite the crate's tracks from its rules.
+  - If that raises, the rule is left as it was too.
+- **Feature (CLI):** `serato_smartcrate --update_tracks` rewrites each crate's tracks after setting any rules given, from the default library's database or the one `--database` gives.
+  - A crate whose rules it can't match is left unsaved, and it exits with status 1.
 
 ## [6.0.2] - 2026-11-24
 

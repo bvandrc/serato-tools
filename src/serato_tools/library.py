@@ -263,6 +263,24 @@ class Library:
                         deleted.append(path)
         return RemoveTrackFilesResult(files_deleted=deleted, library_files_changed=changed)
 
+    def update_smart_crates(self) -> list[str]:
+        """Rewrites every smart crate's tracks as the database's tracks its rules match, as Serato does when a rule is
+        edited, and returns the paths of the smart crates whose tracks changed.
+
+        Matches as `SmartCrate.update_tracks` does, and raises as it does, before any smart crate is changed. Only the
+        smart crates that changed are saved, or, inside `batch()`, left for it to save once.
+        """
+        # read once for every crate, rather than a pass over the whole database per crate
+        tracks = list(self.database.get_tracks())
+        # every crate matched before any is changed, so one whose rules can't be matched changes nothing
+        matches = [(crate, crate._matching_paths(tracks)) for crate in self.smart_crates]  # noqa: SLF001
+        changed: list[str] = []
+        for crate, relpaths in matches:
+            if crate._set_tracks(relpaths):  # noqa: SLF001
+                self._save_unless_batching(crate)
+                changed.append(crate.filepath)
+        return changed
+
     def set_db_track_tags(
         self, filepath: str, *, delete_tags_v1: bool = True, **tags: Unpack["DbTrackTags"]
     ) -> DbTrackTagsResult:
