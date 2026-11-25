@@ -1,6 +1,7 @@
 """Serato's crate order file, `neworder.pref` in the library folder."""
 
 import os
+from dataclasses import dataclass
 
 from serato_tools.utils import SERATO_DIR
 
@@ -46,3 +47,40 @@ class CrateOrder:
     @classmethod
     def _is_crate(cls, line: str) -> bool:
         return line.startswith(cls._CRATE_KEY)
+
+
+def main():
+    """The `serato_crate_order` CLI: prints a crate order file's crates, or sets them from a text file."""
+    # ruff: disable[PLC0415, T201]
+    import argparse
+
+    @dataclass
+    class Args:
+        file: str
+        names_file: str | None
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "file", nargs="?", default=CrateOrder.DEFAULT_FILE, help="The crate order file. Default: the library's"
+    )
+    parser.add_argument(
+        "--set",
+        dest="names_file",
+        metavar="NAMES_FILE",
+        help="Set the crates to the names in this UTF-8 text file, in order, one per line, as this prints them",
+    )
+    args = Args(**vars(parser.parse_args()))
+
+    order = CrateOrder(args.file)
+    if args.names_file is None:
+        print("\n".join(order.crates))
+    else:
+        # utf-8-sig, so a file an editor saved with a byte order mark doesn't put it in the first name
+        with open(args.names_file, encoding="utf-8-sig") as f:
+            order.crates = [line for line in f.read().splitlines() if line.strip()]
+        order.save()
+    # ruff: enable[PLC0415, T201]
+
+
+if __name__ == "__main__":
+    main()

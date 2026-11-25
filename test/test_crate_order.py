@@ -2,8 +2,9 @@ import os
 
 import pytest
 
-from serato_tools.crate_order import CrateOrder
+from serato_tools.crate_order import CrateOrder, main
 
+from test.helpers.cli import cli_args
 from test.helpers.files import copy_into, read_bytes
 
 # Serato's crate order file, trimmed from a real library's: UTF-16-BE with \n line endings, and a smart crate's
@@ -61,3 +62,24 @@ def test_crates_added_to_an_order_with_none_go_after_its_first_line(order_file: 
     order.save()
 
     assert saved_lines(order_file) == ["[begin record]", "[crate]House", "[end record]", ""]
+
+
+def run_cli(*args: str) -> str:
+    """Runs `serato_crate_order` with `args`, and returns what it printed."""
+    with cli_args("serato_crate_order", *args) as stdout:
+        main()
+    return stdout.getvalue()
+
+
+def test_cli_prints_the_crates_in_order():
+    assert run_cli(ORDER_FILE).splitlines() == CrateOrder(ORDER_FILE).crates
+
+
+def test_cli_sets_the_crates_from_a_names_file(order_file: str, tmp_dir: str):
+    names_file = os.path.join(tmp_dir, "order.txt")
+    with open(names_file, "w", encoding="utf-8-sig") as f:
+        f.write("Sets\nBass≫≫Riddim\n\nHouse\n")
+
+    run_cli(order_file, "--set", names_file)
+
+    assert CrateOrder(order_file).crates == ["Sets", "Bass≫≫Riddim", "House"], "blank lines skipped, BOM dropped"

@@ -344,12 +344,24 @@ print("\n".join(SmartCrate.get_crate_files()))
 `CrateOrder` reads and writes Serato's crate order file, `neworder.pref`. Its `crates` lists the crates and smart crates in the order Serato shows them, each name including its parents': `%%` separates a regular crate's (`Bass%%DnB`), `≫≫` a smart crate's.
 
 ```python
+import re
+
 from serato_tools.crate_order import CrateOrder
 
 order = CrateOrder()  # the default library's; or pass a path
-order.crates.sort()
+# sorted by each name's parts, so a crate's subcrates stay right after it
+order.crates.sort(key=lambda name: re.split("%%|≫≫", name.casefold()))
 order.save()  # or save(path) to write it elsewhere
 ```
+
+__via command line__
+
+```cmd
+>>> serato_crate_order > order.txt
+>>> serato_crate_order --set order.txt
+```
+
+The first prints the default library's crates in order, one per line, here into a file to edit. The second sets the order to the names in the file. Pass a crate order file's path first to use another one.
 
 ### Modifying a SmartCrate Rule
 
