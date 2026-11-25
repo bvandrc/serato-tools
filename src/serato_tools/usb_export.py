@@ -31,9 +31,11 @@ from serato_tools.utils import (
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
 # the local library's files the export reads, besides its crates
+LOCAL_SERATO_DATABASE_PATH = os.path.join(LOCAL_SERATO_DIR, DatabaseV2.FILENAME)
+LOCAL_SERATO_CRATE_ORDER_PATH = os.path.join(LOCAL_SERATO_DIR, CrateOrder.FILENAME)
 LOCAL_SERATO_STEMS_CRATE_PATH = os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
 # the folder on the drive the tracks go in, unless the caller names another
-_DRIVE_TRACKS_DIR = "Tracks"
+DEFAULT_DRIVE_TRACKS_DIR = "Tracks"
 # the crate Serato keeps tracks with stems in, named so in the crate order, never inside a root crate
 _STEMS_CRATE_NAME = "Stems"
 
@@ -41,7 +43,7 @@ _STEMS_CRATE_NAME = "Stems"
 def copy_crates_to_usb(
     crate_files: Iterable[str],
     dest_drive_dir: str,
-    dest_tracks_dir: str = _DRIVE_TRACKS_DIR,
+    dest_tracks_dir: str = DEFAULT_DRIVE_TRACKS_DIR,
     root_crate: str | None = None,
 ):
     """Copies the crates in `crate_files`, and their tracks, to the drive at `dest_drive_dir`.
@@ -59,7 +61,15 @@ def copy_crates_to_usb(
     if not os.path.isdir(dest_drive_dir):
         raise FileNotFoundError(f"destination drive directory does not exist: {dest_drive_dir}")
 
+    # everything is read from the local library before anything on the drive changes, so a file that can't be read
+    # leaves the drive as it was
     crates = [_load_crate(f, root_crate) for f in crate_files if not os.path.isdir(f)]
+    # each crate to write to the drive, with its path in the drive's _Serato_ folder
+    drive_crates = [(crate, os.path.join(Crate.DIR, name + Crate.EXTENSION)) for crate, name in crates]
+    if os.path.exists(LOCAL_SERATO_STEMS_CRATE_PATH):
+        drive_crates.append((Crate(LOCAL_SERATO_STEMS_CRATE_PATH), Crate.SERATO_STEMS_CRATE_PATH))
+    database = DatabaseV2(LOCAL_SERATO_DATABASE_PATH)
+    crate_order = _load_crate_order(LOCAL_SERATO_CRATE_ORDER_PATH)
     dest_paths = _dest_track_paths(
         [os.path.normpath(p) for crate, _ in crates for p in crate.get_track_paths()], dest_tracks_dir
     )
@@ -68,10 +78,6 @@ def copy_crates_to_usb(
     # TODO: merge with existing, instead of replacing
     if os.path.isdir(dest_serato_dir):
         shutil.rmtree(dest_serato_dir)
-    # each crate to write to the drive, with its path in the drive's _Serato_ folder
-    drive_crates = [(crate, os.path.join(Crate.DIR, name + Crate.EXTENSION)) for crate, name in crates]
-    if os.path.exists(LOCAL_SERATO_STEMS_CRATE_PATH):
-        drive_crates.append((Crate(LOCAL_SERATO_STEMS_CRATE_PATH), Crate.SERATO_STEMS_CRATE_PATH))
     # Subcrates even with no crates, and the stems crate's own folder
     for folder in {Crate.DIR, *(os.path.dirname(path) for _, path in drive_crates)}:
         os.makedirs(os.path.join(dest_serato_dir, folder), exist_ok=True)
@@ -83,13 +89,16 @@ def copy_crates_to_usb(
 
     dest_db_file = os.path.join(dest_serato_dir, DatabaseV2.FILENAME)
     _export_library_file(
-        DatabaseV2(os.path.join(LOCAL_SERATO_DIR, DatabaseV2.FILENAME)),
+        database,
         dest_db_file,
         dest_paths,
         edit_track=lambda track: track.set_value(DatabaseV2.Fields.PLAYED, False),
     )
     logger.info(f"created database file {dest_db_file}")
-    _export_crate_order(os.path.join(dest_serato_dir, CrateOrder.FILENAME), root_crate, [name for _, name in crates])
+    if crate_order is not None:
+        _export_crate_order(
+            crate_order, os.path.join(dest_serato_dir, CrateOrder.FILENAME), root_crate, [name for _, name in crates]
+        )
     _copy_tracks(dest_paths, dest_drive_dir)
 
 
@@ -134,6 +143,21 @@ def _drive_crate_name(name: str, root_crate: str | None) -> str:
     # a smart crate's subcrate separator is ≫≫, a regular crate's %%
     name = name.replace("≫≫", "%%")
     return f"{root_crate}%%{name}" if root_crate else name
+
+
+def _load_crate_order(file: str) -> CrateOrder | None:
+    """The local library's crate order, or None, logging a warning, if it has none or it can't be read.
+
+    The drive then gets no crate order file, and Serato lists its crates in its default order.
+    """
+    if not os.path.isfile(file):
+        logger.warning(f"no order file to copy: {file}")
+        return None
+    try:
+        return CrateOrder(file)
+    except ValueError as e:
+        logger.warning(f"can't read the order file, so not copying it: {file}: {e}")
+        return None
 
 
 def _dest_track_paths(track_paths: list[str], dest_tracks_dir: str) -> dict[str, str]:
@@ -181,17 +205,12 @@ def _export_library_file(
     file.save(dest_file)
 
 
-def _export_crate_order(dest_file: str, root_crate: str | None, crate_names: Iterable[str]):
-    """Copies the local library's crate order file to `dest_file`, with only the crates in `crate_names` and their
-    parents, each named as it is on the drive.
+def _export_crate_order(order: CrateOrder, dest_file: str, root_crate: str | None, crate_names: Iterable[str]):
+    """Writes the crate order to `dest_file`, with only the crates in `crate_names` and their parents, each named as
+    it is on the drive.
 
     Given `root_crate`, it also gets that crate, first.
     """
-    local_file = os.path.join(LOCAL_SERATO_DIR, CrateOrder.FILENAME)
-    if not os.path.isfile(local_file):
-        logger.warning(f"no order file to copy: {local_file}")
-        return
-    order = CrateOrder(local_file)
     crate_names = _with_parents(crate_names)
     crates: list[str] = []
     for crate in order.crates:
