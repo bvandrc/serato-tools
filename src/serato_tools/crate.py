@@ -16,6 +16,7 @@ class Crate(CrateBase):
     TESTED_VERSIONS = frozenset({"1.0/Serato ScratchLive Crate"})
     EXTENSION = ".crate"
     DIR = "Subcrates"
+    # TODO(breaking): change these to Paths
     DIR_PATH = str(Path(SERATO_DIR, DIR))
     SERATO_STEMS_CRATE_PATH = str(Path(DIR, "Serato Stems", "Stems.crate"))
 

@@ -181,6 +181,7 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
   - **Per-track cost:** code run for every track of a library (12,000 tracks is a large one) is checked for it. `Library.find_stems_files` lists the track's folder with `os.listdir` rather than `Path.iterdir`, whose `Path` per file in the folder made a USB export of 12,000 tracks twice as slow.
   - **Public results:** every path the API returns, or keeps in a released attribute such as `filepath`, is still a `str`.
     - A released `str` attribute gets a read-only `Path` property beside it, which the class's own code uses: `SeratoBinFile.path` for `filepath`, `Library.serato_path` for `serato_dir`. Rather than change the `str` attribute's type in place, which would break callers' `str` code without warning, a later release deprecates it in favor of the property, and a breaking one removes it (the `TODO(breaking)` at each).
+    - A released `str` constant (`SERATO_DIR`, `DIR_PATH`, `DEFAULT_DATABASE_FILE`, ...) can't have a property beside it, so a `TODO(breaking)` marks it to change to a `Path` in a breaking release.
     - Code not yet released has only the `Path`, as the pref files do.
 
 ### CLI conventions
