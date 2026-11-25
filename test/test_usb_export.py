@@ -228,19 +228,28 @@ def test_copy_crates_to_usb_copies_each_tracks_own_stems(export: Export):
         assert read_bytes(export.on_drive(DRIVE_TRACKS, name)) == read_bytes(src), f"{name} copied"
 
 
-def test_copy_crates_to_usb_keeps_the_database_entry_of_the_track_it_copies(export: Export):
-    # two tracks with one filename: the crate lists M1's first, the database M2's
-    m1, m2 = export.make_track("M1/A.mp3", b"m1"), export.make_track("M2/A.mp3", b"m2")
-    export.add_to_database(m2, fields=[(DatabaseV2.Fields.GENRE, "from M2")])
-    export.add_to_database(m1, fields=[(DatabaseV2.Fields.GENRE, "from M1")])
+def test_copy_crates_to_usb_puts_tracks_sharing_a_filename_in_subfolders(export: Export):
+    # FAT32 and exFAT drives ignore case, so "a.MP3" would overwrite "A.mp3"
+    tracks = {
+        f"{DRIVE_TRACKS}/A.mp3": export.make_track("M1/A.mp3", b"m1"),
+        f"{DRIVE_TRACKS}/M2/A.mp3": export.make_track("M2/A.mp3", b"m2"),
+        f"{DRIVE_TRACKS}/M3/a.MP3": export.make_track("M3/a.MP3", b"m3"),
+        f"{DRIVE_TRACKS}/M2 (2)/A.mp3": export.make_track("Other/M2/A.mp3", b"other m2"),
+    }
+    export.make_track("M2/A.serato-stems", b"stems")
+    # the database lists them in another order than the crate
+    for i, track in reversed(list(enumerate(tracks.values()))):
+        export.add_to_database(track, fields=[(DatabaseV2.Fields.GENRE, str(i))])
 
-    usb_export.copy_crates_to_usb([export.make_crate("House", [m1, m2])], export.drive, DRIVE_TRACKS)
+    usb_export.copy_crates_to_usb([export.make_crate("House", list(tracks.values()))], export.drive, DRIVE_TRACKS)
 
-    assert read_bytes(export.on_drive(DRIVE_TRACKS, "A.mp3")) == b"m1", "the first in the crates copied"
+    for on_drive, src in tracks.items():
+        assert read_bytes(export.on_drive(on_drive)) == read_bytes(src), f"{on_drive} copied"
+    assert read_bytes(export.on_drive(DRIVE_TRACKS, "M2", "A.serato-stems")) == b"stems", "stems beside their track"
     exported_crate = Crate(export.on_drive("_Serato_", Crate.DIR, "House.crate"))
-    assert exported_crate.get_track_paths() == [f"{DRIVE_TRACKS}/A.mp3"], "the crate lists it once"
-    tracks = export.exported_database().get_tracks()
-    assert [t.get_value(DatabaseV2.Fields.GENRE) for t in tracks] == ["from M1"], "with its own database entry"
+    assert exported_crate.get_track_paths() == list(tracks), "the crate pointed at each"
+    db_genres = {t.relpath: t.get_value(DatabaseV2.Fields.GENRE) for t in export.exported_database().get_tracks()}
+    assert db_genres == {path: str(i) for i, path in enumerate(tracks)}, "each with its own database entry"
 
 
 def test_copy_crates_to_usb_keeps_the_date_added(export: Export):
