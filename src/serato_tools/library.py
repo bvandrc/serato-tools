@@ -272,12 +272,11 @@ class Library:
         if delete_files:
             for filepath in filepaths:
                 for path in (filepath, *self.find_stems_files(filepath)):
-                    try:
-                        Path(path).unlink()
-                    except FileNotFoundError:
-                        continue
-                    logger.info(f"deleted {path}")
-                    deleted.append(path)
+                    file = Path(path)
+                    if file.exists():
+                        file.unlink()
+                        logger.info(f"deleted {path}")
+                        deleted.append(path)
         return RemoveTrackFilesResult(files_deleted=deleted, library_files_changed=changed)
 
     def set_db_track_tags(
