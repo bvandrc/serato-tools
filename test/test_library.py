@@ -75,6 +75,31 @@ def test_crate_files(folders: LibraryFolders):
     assert "crates" not in vars(library), "listing the files doesn't parse them"
 
 
+@pytest.mark.parametrize(
+    "files, found",
+    [
+        pytest.param([], [], id="none"),
+        pytest.param(
+            ["A.1.2.serato-stems"], ["A.1.2.serato-stems"], id="with the separation's version, as Serato names it"
+        ),
+        pytest.param(["A.serato-stems"], ["A.serato-stems"], id="without a version"),
+        pytest.param(
+            ["A.1.2.serato-stems", "A.2.0.serato-stems"],
+            ["A.1.2.serato-stems", "A.2.0.serato-stems"],
+            id="separated again with a newer version",
+        ),
+        pytest.param(["a.1.2.serato-stems"], ["a.1.2.serato-stems"], id="in another case"),
+        # a prefix match would take another track's
+        pytest.param(["A Extended.1.2.serato-stems"], [], id="another track's, with the same start"),
+        pytest.param(["A.1.1.2.serato-stems"], [], id="the stems of A.1.mp3"),
+    ],
+)
+def test_find_stems_files(folders: LibraryFolders, files: list[str], found: list[str]):
+    for name in files:
+        folders.make_track(name)
+    assert Library.find_stems_files(folders.music_path("A.mp3")) == [folders.music_path(name) for name in found]
+
+
 def test_rename_track_file(folders: LibraryFolders, bin_file_writes: list[str]):
     src, dest = folders.make_track("Old.mp3"), folders.music_path("New.mp3")
     folders.add_to_database(src)
@@ -178,6 +203,7 @@ def test_remove_track_files(folders: LibraryFolders, bin_file_writes: list[str])
 
 def test_remove_track_files_from_the_library_only(folders: LibraryFolders, bin_file_writes: list[str]):
     removed = folders.make_track("Removed.mp3")
+    stems = folders.make_track("Removed.1.2.serato-stems")
     folders.add_to_database(removed)
     bin_file_writes.clear()
 
@@ -185,9 +211,24 @@ def test_remove_track_files_from_the_library_only(folders: LibraryFolders, bin_f
     result = library.remove_track_files([removed], delete_files=False)
 
     assert os.path.exists(removed), "file kept"
+    assert os.path.exists(stems), "stems file kept"
     assert result.files_deleted == [], "no file deleted"
     assert relpath(removed) not in track_paths(library.database), "removed from the db"
     assert bin_file_writes == [DatabaseV2.FILENAME]
+
+
+def test_remove_track_files_deletes_their_stems_files(folders: LibraryFolders):
+    removed, missing = folders.make_track("Removed.mp3"), folders.music_path("Missing.mp3")
+    stems = [
+        folders.make_track("Removed.1.2.serato-stems"),
+        folders.make_track("Removed.2.0.serato-stems"),
+        folders.make_track("Missing.1.2.serato-stems"),
+    ]
+
+    result = Library(folders.serato_dir).remove_track_files([removed, missing], delete_files=True)
+
+    assert not any(os.path.exists(path) for path in stems), "every stems file deleted, even the missing track's"
+    assert result.files_deleted == [removed, *stems], "each track's file, then its stems files"
 
 
 def test_batch_writes_each_changed_file_once(folders: LibraryFolders, bin_file_writes: list[str]):

@@ -260,11 +260,16 @@ def test_copy_crates_to_usb_writes_nothing_to_the_drive_for_a_crate_it_cant_read
 
 
 def test_copy_crates_to_usb_copies_each_tracks_own_stems(export: Export):
-    # named after the track with or without its extension; the old prefix match took "A Extended"'s for "A.mp3" too
-    tracks = [export.make_track(name) for name in ["A.mp3", "A Extended.mp3", "C.mp3"]]
+    # the old prefix match took "A Extended"'s for "A.mp3" too
+    tracks = [export.make_track(name) for name in ["A.mp3", "A Extended.mp3", "D.mp3"]]
     stems = {
         name: export.make_track(name, name.encode())
-        for name in ["A.serato-stems", "A Extended.serato-stems", "C.mp3.serato-stems"]
+        for name in [
+            "A.1.2.serato-stems",
+            "A.2.0.serato-stems",
+            "A Extended.1.2.serato-stems",
+            "D.serato-stems",
+        ]
     }
 
     usb_export.copy_crates_to_usb([export.make_crate("House", tracks)], export.drive, DRIVE_TRACKS)
@@ -320,15 +325,6 @@ def test_copy_crates_to_usb_writes_a_smart_crate_as_a_regular_crate(export: Expo
     exported = Crate(export.on_drive("_Serato_", Crate.DIR, "Parent%%Dubstep.crate"))
     assert exported._version == Crate.DEFAULT_ENTRIES[0][1], "a regular crate, which Crate opens"
     assert exported.get_track_paths() == [f"{DRIVE_TRACKS}/A.mp3"]
-
-
-def test_copy_crates_to_usb_raises_for_a_track_with_two_stems_files(export: Export):
-    # stems files named both with the track's extension and without it, so which to copy isn't known
-    a = export.make_track("A.mp3")
-    export.make_track("A.serato-stems")
-    export.make_track("A.mp3.serato-stems")
-    with pytest.raises(ValueError, match="more than 1 stems file"):
-        usb_export.copy_crates_to_usb([export.make_crate("House", [a])], export.drive, DRIVE_TRACKS)
 
 
 @pytest.mark.parametrize(
