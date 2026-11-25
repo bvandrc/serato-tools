@@ -6,12 +6,11 @@ Also the `serato_usb_export` CLI.
 """
 
 import filecmp
-import fnmatch
 import itertools
 import os
 import platform
-import re
 import shutil
+import warnings
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 
@@ -106,25 +105,14 @@ def copy_crates_to_usb(
     _copy_tracks(dest_paths, dest_drive_dir)
 
 
-def get_crate_files(pattern: str):
-    """The crate and smart crate files in the default Serato folder whose name matches `pattern`.
-
-    The name is the filename without its extension, so `"*crate*"` matches only crates with "crate" in their name. A
-    subcrate's name includes its parents' (`Bass%%DnB`), so `"Bass*"` matches a crate and its subcrates. `pattern` is
-    tried as a glob, and if nothing matches it, as a regex.
-    """
-    crate_names = {f: os.path.splitext(os.path.basename(f))[0] for f in Library(LOCAL_SERATO_DIR).crate_files}
-
-    # try the pattern as a glob first: most globs (e.g. "house*") are also valid regexes, so
-    # checking re.compile first would silently give glob-looking patterns regex semantics
-    files = [f for f, name in crate_names.items() if fnmatch.fnmatch(name, pattern)]
-    if not files:
-        try:
-            regex = re.compile(pattern)
-        except re.error:
-            return []
-        files = [f for f, name in crate_names.items() if regex.search(name)]
-    return files
+def get_crate_files(pattern: str) -> list[str]:
+    """Deprecated: use `Library().find_crate_files(pattern)`, which this calls on the default Serato folder."""
+    warnings.warn(
+        "usb_export.get_crate_files is deprecated and will be removed in 7.0, use Library().find_crate_files instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return Library(LOCAL_SERATO_DIR).find_crate_files(pattern)
 
 
 def _load_crate(crate_file: str, root_crate: str | None) -> tuple[Crate | SmartCrate, str]:
@@ -319,9 +307,10 @@ def main():
     )
     args = Args(**vars(parser.parse_args()))
 
+    library = Library(LOCAL_SERATO_DIR)
     crate_files: list[str] = []
     for cm in args.crate_matcher:
-        crate_files += get_crate_files(cm)
+        crate_files += library.find_crate_files(cm)
 
     if platform.system() == "Windows" and len(args.dest_dir) == 1:
         args.dest_dir += ":\\"

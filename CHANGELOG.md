@@ -13,6 +13,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 - **Feature:** `copy_crates_to_usb`'s `dest_tracks_dir` defaults to `Tracks`, the folder `serato_usb_export` uses.
 - **Fix:** An export with a library file it can't read (a crate, the database, or the stems crate) fails before writing anything to the drive, rather than after deleting the drive's `_Serato_` folder.
   - A crate order file it can't read is skipped with a warning, as a missing one is, so the drive lists its crates in Serato's default order.
+- **Deprecated:** `usb_export.get_crate_files`, in favor of `Library.find_crate_files`. It still works until 7.0 removes it.
 
 ### Crate Order
 
@@ -23,6 +24,7 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Fix:** `Library.remove_track_files` deletes the tracks' stems files too, and lists them in `files_deleted`.
 - **Feature:** Add `Library.find_stems_file(track_path)`, which finds the stems file Serato keeps beside a track.
+- **Feature:** Add `Library.find_crate_files(pattern)`, which finds the library's crate and smart crate files by name, with a glob or a regex.
 
 ## [6.0.2] - 2026-11-24
 
