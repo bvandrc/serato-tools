@@ -18,7 +18,7 @@ from tqdm import tqdm
 from serato_tools.crate import Crate
 from serato_tools.database_v2 import DatabaseV2
 from serato_tools.library import Library
-from serato_tools.pref_files import CrateOrder
+from serato_tools.pref_files import CollapsedCrates, CrateOrder
 from serato_tools.smart_crate import SmartCrate
 from serato_tools.utils import (
     SERATO_DIR as LOCAL_SERATO_DIR,
@@ -31,6 +31,7 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 # the local library's files the export reads, besides its crates
 LOCAL_SERATO_DATABASE_PATH = os.path.join(LOCAL_SERATO_DIR, DatabaseV2.FILENAME)
 LOCAL_SERATO_CRATE_ORDER_PATH = os.path.join(LOCAL_SERATO_DIR, CrateOrder.FILENAME)
+LOCAL_SERATO_COLLAPSED_CRATES_PATH = os.path.join(LOCAL_SERATO_DIR, CollapsedCrates.FILENAME)
 LOCAL_SERATO_STEMS_CRATE_PATH = os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
 # the folder on the drive the tracks go in, unless the caller names another
 DEFAULT_DRIVE_TRACKS_DIR = "Tracks"
@@ -68,6 +69,7 @@ def copy_crates_to_usb(
         drive_crates.append((Crate(LOCAL_SERATO_STEMS_CRATE_PATH), Crate.SERATO_STEMS_CRATE_PATH))
     database = DatabaseV2(LOCAL_SERATO_DATABASE_PATH)
     crate_order = _load_crate_order(LOCAL_SERATO_CRATE_ORDER_PATH)
+    collapsed_crates = _load_collapsed_crates(LOCAL_SERATO_COLLAPSED_CRATES_PATH)
     dest_paths = _dest_track_paths(
         [os.path.normpath(p) for crate, _ in crates for p in crate.get_track_paths()], dest_tracks_dir
     )
@@ -93,9 +95,12 @@ def copy_crates_to_usb(
         edit_track=lambda track: track.set_value(DatabaseV2.Fields.PLAYED, False),
     )
     logger.info(f"created database file {dest_db_file}")
+    crate_names = [name for _, name in crates]
     if crate_order is not None:
-        _export_crate_order(
-            crate_order, os.path.join(dest_serato_dir, CrateOrder.FILENAME), root_crate, [name for _, name in crates]
+        _export_crate_order(crate_order, os.path.join(dest_serato_dir, CrateOrder.FILENAME), root_crate, crate_names)
+    if collapsed_crates is not None:
+        _export_collapsed_crates(
+            collapsed_crates, os.path.join(dest_serato_dir, CollapsedCrates.FILENAME), root_crate, crate_names
         )
     _copy_tracks(dest_paths, dest_drive_dir)
 
@@ -134,6 +139,22 @@ def _load_crate_order(file: str) -> CrateOrder | None:
         return CrateOrder(file)
     except ValueError as e:
         logger.warning(f"can't read the order file, so not copying it: {file}: {e}")
+        return None
+
+
+def _load_collapsed_crates(file: str) -> CollapsedCrates | None:
+    """The local library's collapsed crates, or None if it has none, or, logging a warning, if they can't be read.
+
+    The drive then gets no collapsed crates file, and Serato shows every crate expanded.
+    """
+    if not os.path.isfile(file):
+        # unlike the crate order, a library doesn't necessarily have one
+        logger.info(f"no collapsed crates file to copy: {file}")
+        return None
+    try:
+        return CollapsedCrates(file)
+    except ValueError as e:
+        logger.warning(f"can't read the collapsed crates file, so not copying it: {file}: {e}")
         return None
 
 
@@ -199,6 +220,24 @@ def _export_crate_order(order: CrateOrder, dest_file: str, root_crate: str | Non
     order.crates = [root_crate, *crates] if root_crate else crates
     order.save(dest_file)
     logger.info(f"copied order file {dest_file}")
+
+
+def _export_collapsed_crates(
+    collapsed: CollapsedCrates, dest_file: str, root_crate: str | None, crate_names: Iterable[str]
+):
+    """Writes the collapsed crates to `dest_file`, with only the crates in `crate_names` and their parents, each named
+    as it is on the drive.
+    """
+    crate_names = _with_parents(crate_names)
+    crates: list[str] = []
+    for crate in collapsed.crates:
+        if crate == _STEMS_CRATE_NAME:
+            crates.append(crate)
+        elif (name := _drive_crate_name(crate, root_crate)) in crate_names:
+            crates.append(name)
+    collapsed.crates = crates
+    collapsed.save(dest_file)
+    logger.info(f"copied collapsed crates file {dest_file}")
 
 
 def _with_parents(names: Iterable[str]) -> set[str]:
