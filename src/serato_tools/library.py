@@ -240,11 +240,12 @@ class Library:
         # rename only raises FileExistsError on Windows; on POSIX it silently overwrites, so check
         # first. A case-only rename is fine: on case-insensitive filesystems dest is then the same file.
         # If src is missing, samefile raises FileNotFoundError, just as the rename itself would.
-        if Path(dest).exists() and not Path(src).samefile(dest):
+        src_path, dest_path = Path(src), Path(dest)
+        if dest_path.exists() and not src_path.samefile(dest_path):
             raise FileExistsError(f"can't rename {src}: a different file already exists at {dest}")
         # where exists misses a clash, e.g. a case change on some filesystems, rename raises FileExistsError itself on
         # Windows
-        Path(src).rename(dest)
+        src_path.rename(dest_path)
         logger.info(f"renamed {src} to {dest}")
 
         return self._change_bin_files(lambda file: file.change_track_path(src, dest))
@@ -271,10 +272,12 @@ class Library:
         if delete_files:
             for filepath in filepaths:
                 for path in (filepath, *self.find_stems_files(filepath)):
-                    if Path(path).exists():
+                    try:
                         Path(path).unlink()
-                        logger.info(f"deleted {path}")
-                        deleted.append(path)
+                    except FileNotFoundError:
+                        continue
+                    logger.info(f"deleted {path}")
+                    deleted.append(path)
         return RemoveTrackFilesResult(files_deleted=deleted, library_files_changed=changed)
 
     def set_db_track_tags(
