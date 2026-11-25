@@ -31,15 +31,20 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 
 # the extension of the file Serato keeps a track's stems in, beside the track
 STEMS_EXTENSION = ".serato-stems"
+# the folder on the drive the tracks go in, unless the caller names another
+_DRIVE_TRACKS_DIR = "Tracks"
 
 
 def copy_crates_to_usb(
-    crate_files: Iterable[str], dest_drive_dir: str, dest_tracks_dir: str, root_crate: str | None = None
+    crate_files: Iterable[str],
+    dest_drive_dir: str,
+    dest_tracks_dir: str = _DRIVE_TRACKS_DIR,
+    root_crate: str | None = None,
 ):
     """Copies the crates in `crate_files`, and their tracks, to the drive at `dest_drive_dir`.
 
-    - Every track goes in `dest_tracks_dir` on the drive. Of tracks that share a filename, a later one goes in a
-      subfolder named after its own folder.
+    - Every track goes in `dest_tracks_dir` on the drive, `Tracks` by default. Of tracks that share a filename, a later
+      one goes in a subfolder named after its own folder.
     - The drive's `_Serato_` folder is replaced by one holding these crates and a database of just their tracks, all
       pointed at the new paths. Smart crates become regular crates of the tracks they hold, keeping their sort,
       columns, and place in the crate order but not their rules, since Serato can't use a smart crate on a drive.
@@ -325,7 +330,6 @@ def main():
     copy_crates_to_usb(
         crate_files=crate_files,
         dest_drive_dir=args.dest_dir,
-        dest_tracks_dir="Tracks",
         root_crate=args.root_crate,
     )
     # ruff: enable[PLC0415]
