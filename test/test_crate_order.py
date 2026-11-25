@@ -64,12 +64,7 @@ def test_crates_added_to_an_order_with_none_go_after_its_first_line(order_file: 
     assert saved_lines(order_file) == ["[begin record]", "[crate]House", "[end record]", ""]
 
 
-def run_cli(*args: str) -> str:
-    """Runs `serato_crate_order` with `args`, and returns what it printed."""
-    with cli_args("serato_crate_order", *args) as stdout:
-        main()
-    return stdout.getvalue()
-
-
 def test_cli_prints_the_crates_in_order():
-    assert run_cli(ORDER_FILE).splitlines() == CrateOrder(ORDER_FILE).crates
+    with cli_args("serato_crate_order", ORDER_FILE) as stdout:
+        main()
+    assert stdout.getvalue().splitlines() == CrateOrder(ORDER_FILE).crates
