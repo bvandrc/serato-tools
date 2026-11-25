@@ -8,7 +8,6 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Fix:** Tracks that share a filename are all exported, rather than only the first.
   - A later one goes in a subfolder named after its own folder.
-  - That includes filenames that differ only in case, which would be one file in the drive's `Tracks` folder, since FAT32 and exFAT drives ignore case.
 - **Fix:** An export with a crate file it can't read fails before writing anything to the drive, rather than after deleting the drive's `_Serato_` folder.
 
 ## [6.0.2] - 2026-11-24
