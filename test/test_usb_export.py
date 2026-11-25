@@ -199,7 +199,7 @@ def test_copy_crates_to_usb_needs_the_drive_to_exist(export: Export):
         pytest.param(os.path.join(Crate.DIR, "Broken.crate"), "file ends partway", id="unreadable crate"),
     ],
 )
-def test_copy_crates_to_usb_changes_nothing_on_the_drive_for_a_crate_it_cant_read(
+def test_copy_crates_to_usb_writes_nothing_to_the_drive_for_a_crate_it_cant_read(
     export: Export, bad_file: str, error: str
 ):
     crates = [export.make_crate("House", [export.make_track("A.mp3", b"a")])]
