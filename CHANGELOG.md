@@ -8,7 +8,8 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 - **Feature:** Every function and method that takes a file or folder's path also takes a path object, such as a `pathlib.Path`.
   - Paths it returns, or keeps in an attribute such as `filepath`, are still `str`.
-- **Feature:** Database, crate, and smart crate files have a `path` property, their path as a `pathlib.Path`, and `Library` a `serato_path` property, its folder as one.
+- **Feature:** Database, crate, and smart crate files have a `path` property, their path as a `pathlib.Path`.
+  - `Library` has a `serato_path` property, its folder as a `pathlib.Path`.
 
 ### USB Export
 
