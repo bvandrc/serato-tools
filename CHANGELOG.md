@@ -7,7 +7,8 @@ Each release groups its changes by the part of the package they're in. Within ea
 ### USB Export
 
 - **Fix:** Tracks that share a filename are all exported, rather than only the first.
-  - A later one goes in a subfolder named after its own folder. Filenames differing only in case count as shared, since FAT32 and exFAT drives ignore case.
+  - This is done by putting a later one in its own subfolder.
+  - NOTE: Filenames differing only in case count as shared, since FAT32 and exFAT drives ignore case.
 - **Fix:** An export with a crate file it can't read fails before writing anything to the drive, rather than after deleting the drive's `_Serato_` folder.
 
 ## [6.0.2] - 2026-11-24
