@@ -1,9 +1,9 @@
 # This is from this repo: https://github.com/sharst/seratopy
 """Serato crate files (`.crate`), and the `serato_crate` CLI for listing their tracks and fixing missing ones."""
 
-import os
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import ClassVar
 
 from serato_tools.utils import SERATO_DIR
@@ -16,8 +16,8 @@ class Crate(CrateBase):
     TESTED_VERSIONS = frozenset({"1.0/Serato ScratchLive Crate"})
     EXTENSION = ".crate"
     DIR = "Subcrates"
-    DIR_PATH = os.path.join(SERATO_DIR, DIR)
-    SERATO_STEMS_CRATE_PATH = os.path.join(DIR, "Serato Stems", "Stems.crate")
+    DIR_PATH = str(Path(SERATO_DIR, DIR))
+    SERATO_STEMS_CRATE_PATH = str(Path(DIR, "Serato Stems", "Stems.crate"))
 
     DEFAULT_ENTRIES: ClassVar[CrateBase.EntryList] = [
         (CrateBase.Fields.VERSION, "1.0/Serato ScratchLive Crate"),

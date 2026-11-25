@@ -2,6 +2,7 @@ import logging
 import os
 import unicodedata
 from dataclasses import dataclass
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -396,14 +397,15 @@ def test_copy_crates_to_usb_keeps_a_track_the_drive_lists_decomposed(
     export: Export, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     track = export.make_track(unicodedata.normalize("NFC", "Caf\u00e9.mp3"), b"a")
-    walk = os.walk
+    # the real one, for the patch below to call, since calling Path.walk once it's patched would call the patch
+    walk = Path.walk
 
-    def walk_decomposed(top: str, topdown: bool = True):
+    def walk_decomposed(top: Path, top_down: bool = True):
         # as macOS lists an HFS+ drive's filenames
-        for dirpath, dirnames, filenames in walk(top, topdown=topdown):
+        for dirpath, dirnames, filenames in walk(top, top_down=top_down):
             yield dirpath, dirnames, [unicodedata.normalize("NFD", f) for f in filenames]
 
-    monkeypatch.setattr(files.os, "walk", walk_decomposed)
+    monkeypatch.setattr(Path, "walk", walk_decomposed)
     with caplog.at_level(logging.INFO):
         usb_export.copy_crates_to_usb(
             [export.make_crate("House", [track])], export.drive, DRIVE_TRACKS, delete_unused_tracks=True
@@ -417,14 +419,15 @@ def test_copy_crates_to_usb_deletes_the_other_unused_tracks_when_one_cant_be(
 ):
     crates = [export.make_crate("House", [export.make_track("A.mp3", b"a")])]
     locked, unused = mock_files({export.on_drive(DRIVE_TRACKS): ["Locked.mp3", "Unused.mp3"]})
-    remove = os.remove
+    # the real one, for the patch below to call, since calling Path.unlink once it's patched would call the patch
+    unlink = Path.unlink
 
-    def remove_unless_locked(path: str):
-        if path == locked:
+    def unlink_unless_locked(path: Path, missing_ok: bool = False):
+        if path == Path(locked):
             raise PermissionError("read-only")
-        remove(path)
+        unlink(path, missing_ok)
 
-    monkeypatch.setattr(usb_export.os, "remove", remove_unless_locked)
+    monkeypatch.setattr(Path, "unlink", unlink_unless_locked)
     with caplog.at_level(logging.ERROR):
         usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS, delete_unused_tracks=True)
 

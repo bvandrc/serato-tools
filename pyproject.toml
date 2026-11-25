@@ -73,7 +73,6 @@ ignore = [
     # whole families that don't fit this codebase
     "ANN",  # type annotations everywhere: pyright checks the types
     "D",  # docstring style: the repo's docstrings follow its own conventions
-    "PTH",  # pathlib: the API takes and returns str paths
     "FBT",  # boolean positional arguments: changing them would change the public API, e.g. save(file, force)
     "EM",  # exception messages assigned to a variable before raising
     "CPY",  # copyright notices
@@ -105,14 +104,13 @@ ignore = [
 extend-select = [
     "D419",  # empty docstrings
     "N999",  # module names that aren't valid identifiers
-    "PTH124",  # the py.path library
-    "PTH210",  # invalid suffixes passed to Path.with_suffix
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# tests reach into internals to set up and check state the public API doesn't expose, and import what only some of
-# them need (the track_tags extra) inside the fixtures that need it
-"test/**" = ["SLF001", "PLC0415"]
+# tests reach into internals to set up and check state the public API doesn't expose, import what only some of them
+# need (the track_tags extra) inside the fixtures that need it, and build the str paths the API is called with and
+# returns, as callers do
+"test/**" = ["SLF001", "PLC0415", "PTH"]
 # USB export prints its progress as it copies tracks
 "src/serato_tools/usb_export.py" = ["T201"]
 

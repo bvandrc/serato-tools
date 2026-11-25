@@ -4,10 +4,10 @@ Internal to the package, not part of its API: these names can change in any rele
 """
 
 import filecmp
-import os
 import shutil
 import unicodedata
 from collections.abc import Iterable
+from pathlib import Path
 
 from serato_tools.utils import logger
 
@@ -15,24 +15,24 @@ from serato_tools.utils import logger
 _COPY_MTIME_TOLERANCE = 2
 
 
-def copy_if_changed(src_path: str, dst_path: str) -> bool:
+def copy_if_changed(src_path: Path, dst_path: Path) -> bool:
     """Copies `src_path` to `dst_path`, unless it's there unchanged, and returns False if `src_path` doesn't exist."""
-    if not os.path.exists(src_path):
+    if not src_path.exists():
         return False
-    if not os.path.exists(dst_path) or _is_changed_copy(src_path, dst_path):
-        os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+    if not dst_path.exists() or _is_changed_copy(src_path, dst_path):
+        dst_path.parent.mkdir(parents=True, exist_ok=True)
         logger.info(f"copying {src_path}")
         shutil.copy2(src_path, dst_path)
     return True
 
 
-def _is_changed_copy(src_path: str, dst_path: str) -> bool:
+def _is_changed_copy(src_path: Path, dst_path: Path) -> bool:
     """Whether the file at `dst_path` differs from `src_path`, so has to be copied again.
 
     Reads neither file when they're the same size and were modified within 2 seconds of each other, as a copy made
     since `src_path` last changed is; otherwise compares their contents.
     """
-    src, dst = os.stat(src_path), os.stat(dst_path)
+    src, dst = src_path.stat(), dst_path.stat()
     if src.st_size != dst.st_size:
         return True
     # copy2 gives the copy src's modification time, but FAT32 stores it to 2 seconds (exFAT to 10 ms), so it rarely
@@ -42,14 +42,14 @@ def _is_changed_copy(src_path: str, dst_path: str) -> bool:
     return not filecmp.cmp(src_path, dst_path, shallow=False)
 
 
-def _path_key(path: str) -> str:
+def _path_key(path: Path) -> str:
     """`path` as a drive compares paths: ignoring case and Unicode normalization."""
     # a FAT32 or exFAT drive keeps a file's old name when it's overwritten under one differing in case, and macOS lists
     # an HFS+ drive's filenames decomposed (NFD), while paths from elsewhere are usually composed
-    return unicodedata.normalize("NFC", path).casefold()
+    return unicodedata.normalize("NFC", str(path)).casefold()
 
 
-def files_not_in(folder: str, keep: Iterable[str]) -> list[str]:
+def files_not_in(folder: Path, keep: Iterable[Path]) -> list[Path]:
     """The paths of the files under `folder` that aren't in `keep`.
 
     Paths are compared as a drive compares them, ignoring case and Unicode normalization, so a file in `keep` under a
@@ -58,31 +58,27 @@ def files_not_in(folder: str, keep: Iterable[str]) -> list[str]:
     keep_keys = {_path_key(path) for path in keep}
     return [
         path
-        for dirpath, _, filenames in os.walk(folder)
+        for dirpath, _, filenames in folder.walk()
         for filename in filenames
-        if _path_key(path := os.path.join(dirpath, filename)) not in keep_keys
+        if _path_key(path := dirpath / filename) not in keep_keys
     ]
 
 
-def remove_empty_folders(folder: str):
+def remove_empty_folders(folder: Path):
     """Removes every empty folder under `folder`, and any left empty by that, but not `folder` itself.
 
     A folder it can't remove is logged as an error and left, and the rest are still removed.
     """
     # bottom-up, so a folder holding only empty folders is empty by the time it's reached
-    for dirpath, _, _ in os.walk(folder, topdown=False):
-        if dirpath != folder and not os.listdir(dirpath):
+    for dirpath, _, _ in folder.walk(top_down=False):
+        if dirpath != folder and not any(dirpath.iterdir()):
             try:
-                os.rmdir(dirpath)
+                dirpath.rmdir()
             except OSError as e:
                 logger.error(f"couldn't delete {dirpath}: {e}")
 
 
-def is_inside_dir(path: str, folder: str) -> bool:
+def is_inside_dir(path: Path, folder: Path) -> bool:
     """Whether `path` is inside `folder`, and not `folder` itself, once both are resolved to real paths."""
-    path, folder = os.path.realpath(path), os.path.realpath(folder)
-    # commonpath raises for paths on different Windows drives
-    try:
-        return path != folder and os.path.commonpath([folder, path]) == folder
-    except ValueError:
-        return False
+    path, folder = path.resolve(), folder.resolve()
+    return path != folder and path.is_relative_to(folder)

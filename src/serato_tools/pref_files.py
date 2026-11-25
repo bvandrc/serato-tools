@@ -1,8 +1,8 @@
 """Serato's pref files that list crates by name, in the library folder: its crate order, `neworder.pref`, and its
 collapsed crates, `collapsed.pref`."""
 
-import os
 from dataclasses import dataclass
+from pathlib import Path
 
 from serato_tools.utils import SERATO_DIR
 
@@ -15,29 +15,27 @@ class _SeratoPrefFile:
 
     FILENAME: str
     # the subclass's file in the default library, set from FILENAME
-    DEFAULT_FILE: str
+    DEFAULT_FILE: Path
     # in UTF-16-BE on every OS
     _ENCODING = "utf-16-be"
 
     def __init_subclass__(cls, **kwargs: object):
         super().__init_subclass__(**kwargs)
-        cls.DEFAULT_FILE = os.path.join(SERATO_DIR, cls.FILENAME)
+        cls.DEFAULT_FILE = Path(SERATO_DIR, cls.FILENAME)
 
     def __init__(self, file: str | None = None):
         """Loads the file at `file`, the default library's by default.
 
         Raises FileNotFoundError if it doesn't exist, and ValueError if it isn't UTF-16-BE text.
         """
-        self.filepath = file or self.DEFAULT_FILE
+        self.path = Path(file) if file else self.DEFAULT_FILE
         # read and written in binary, since Serato's \n line endings would be written as \r\n on Windows: one byte that
         # misaligns every UTF-16 character after it
-        with open(self.filepath, "rb") as f:
-            self._parse(f.read().decode(self._ENCODING).split("\n"))
+        self._parse(self.path.read_bytes().decode(self._ENCODING).split("\n"))
 
     def save(self, file: str | None = None):
         """Writes the file to `file`, or to the path it was loaded from."""
-        with open(file or self.filepath, "wb") as f:
-            f.write("\n".join(self._to_lines()).encode(self._ENCODING))
+        (Path(file) if file else self.path).write_bytes("\n".join(self._to_lines()).encode(self._ENCODING))
 
     def _parse(self, lines: list[str]):
         """Sets the subclass's fields from the file's lines."""
@@ -92,7 +90,7 @@ class CollapsedCrates(_SeratoPrefFile):
     def _parse(self, lines: list[str]):
         # each crate is a record of three lines, and the file ends with a \n
         if lines[-1:] != [""] or (len(lines) - 1) % 3:
-            raise ValueError(f"not a record per crate: {self.filepath}")
+            raise ValueError(f"not a record per crate: {self.path}")
         self.crates: list[str] = []
         # each crate's key, so an unchanged file is written back as it was
         self._keys: dict[str, str] = {}
@@ -100,7 +98,7 @@ class CollapsedCrates(_SeratoPrefFile):
             begin, line, end = lines[i : i + 3]
             key = next((k for k in self._CRATE_KEYS if line.startswith(k)), None)
             if (begin, end) != (self._BEGIN_RECORD, self._END_RECORD) or key is None:
-                raise ValueError(f"not a record per crate, at line {i + 1}: {self.filepath}")
+                raise ValueError(f"not a record per crate, at line {i + 1}: {self.path}")
             name = line.removeprefix(key)
             self.crates.append(name)
             self._keys[name] = key
@@ -138,13 +136,13 @@ def main():
 
     if args.file is not None:
         # the two files' records look alike, so the file's name says which it is
-        is_collapsed = os.path.basename(args.file).casefold() == CollapsedCrates.FILENAME
+        is_collapsed = Path(args.file).name.casefold() == CollapsedCrates.FILENAME
         print("\n".join((CollapsedCrates if is_collapsed else CrateOrder)(args.file).crates))
         return
     sections = [
         (heading, cls().crates)
         for heading, cls in (("Crate order", CrateOrder), ("Collapsed crates", CollapsedCrates))
-        if os.path.isfile(cls.DEFAULT_FILE)
+        if cls.DEFAULT_FILE.is_file()
     ]
     print("\n\n".join(f"{heading}:\n" + "\n".join(f"  {crate}" for crate in crates) for heading, crates in sections))
     # ruff: enable[PLC0415, T201]

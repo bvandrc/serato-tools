@@ -1,8 +1,8 @@
 """Serato's library database (`database V2`), which holds every track's path and the values Serato shows for it."""
 
-import os
 from collections.abc import Iterable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import ClassVar
 
 from serato_tools.utils import SERATO_DIR
@@ -19,7 +19,7 @@ class DatabaseV2(SeratoBinFile):
 
     TESTED_VERSIONS = frozenset({"2.0/Serato Scratch LIVE Database"})
     FILENAME = "database V2"
-    DEFAULT_DATABASE_FILE = os.path.join(SERATO_DIR, FILENAME)
+    DEFAULT_DATABASE_FILE = str(Path(SERATO_DIR, FILENAME))
     TRACK_PATH_KEY = SeratoBinFile.Fields.FILE_PATH
 
     DEFAULT_ENTRIES: ClassVar[SeratoBinFile.EntryList] = [

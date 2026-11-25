@@ -1,5 +1,6 @@
 """What the CLIs share: reading and saving a tag's file."""
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -16,10 +17,9 @@ def open_tag_file_or_data[T: SeratoGeobTag](tag_class: type[T], path: str) -> T:
     # imported here, not at the top, so the module imports without the track_tags extra (mutagen)
     from serato_tools.utils.track_tags import TAGFILE_EXTENSIONS  # noqa: PLC0415
 
-    if path.lower().endswith(TAGFILE_EXTENSIONS):
+    if Path(path).suffix.lower() in TAGFILE_EXTENSIONS:
         return tag_class(path)
-    with open(path, "rb") as f:
-        return tag_class(f.read())
+    return tag_class(Path(path).read_bytes())
 
 
 def save_tag_file_or_data(tag: "SeratoGeobTag", path: str) -> bool:
@@ -31,6 +31,5 @@ def save_tag_file_or_data(tag: "SeratoGeobTag", path: str) -> bool:
         return tag.save()
     if not tag.has_changed:
         return False
-    with open(path, "wb") as f:
-        f.write(tag._raw_data or b"")  # noqa: SLF001
+    Path(path).write_bytes(tag._raw_data or b"")  # noqa: SLF001
     return True

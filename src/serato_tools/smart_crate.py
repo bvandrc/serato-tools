@@ -1,10 +1,10 @@
 """Serato smart crate files (`.scrate`), and the `serato_smartcrate` CLI for listing their tracks and setting rules."""
 
-import os
 import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import IntEnum, StrEnum, unique
+from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, cast, override
 
 from serato_tools.utils import SERATO_DIR
@@ -20,7 +20,7 @@ class SmartCrate(CrateBase):
     TESTED_VERSIONS = frozenset({"1.0/Serato ScratchLive Smart Crate"})
     EXTENSION = ".scrate"
     DIR = "SmartCrates"
-    DIR_PATH = os.path.join(SERATO_DIR, DIR)
+    DIR_PATH = str(Path(SERATO_DIR, DIR))
 
     @unique
     class RuleFields(StrEnum):

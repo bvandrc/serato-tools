@@ -13,6 +13,7 @@ import re
 import struct
 from collections.abc import Callable, Collection, Generator, Iterable, Mapping
 from enum import StrEnum, unique
+from pathlib import Path
 from re import Pattern
 from typing import (
     Any,
@@ -190,7 +191,9 @@ class SeratoBinFile:
         Raises FileNotFoundError if it doesn't exist (a crate's `new` starts one instead), and ValueError for a version
         not in `TESTED_VERSIONS`.
         """
-        self.filepath = os.path.abspath(file)
+        path = Path(file)
+        # abspath, since unlike Path.absolute it collapses "..", and unlike Path.resolve it doesn't follow symlinks
+        self.filepath = os.path.abspath(path)  # noqa: PTH100
 
         # every value's type matches its field's, as checked wherever one comes in (parsing, JSON, set_value), so
         # code reading a value can rely on its field's type rather than check it
@@ -203,31 +206,30 @@ class SeratoBinFile:
 
         if _new:
             # CrateBase.new's empty file, from the defaults, which save() creates
-            if os.path.exists(file):
-                raise FileExistsError(f"file already exists: {file}")
+            if path.exists():
+                raise FileExistsError(f"file already exists: {path}")
             # copied down to the nested lists (osrt, ovct, ...): a shallow copy would leave every instance sharing —
             # and able to mutate — the class-level DEFAULT_ENTRIES sublists.
             self._entries = copy.deepcopy(self.DEFAULT_ENTRIES)
             self._version = self._check_version(self._entries[0][1])
-        elif os.path.exists(file):
-            if file.lower().endswith(".json"):
-                with open(file, encoding="utf-8") as f:
+        elif path.exists():
+            if path.suffix.lower() == ".json":
+                with path.open(encoding="utf-8") as f:
                     self.from_json_object(json.load(f))
                 # what saving the entries as loaded would write
                 self._saved_hash = self._hash(self.to_bytes())
             else:
-                with open(file, "rb") as f:
-                    data = f.read()
+                data = path.read_bytes()
                 self._entries = list(self._parse_item(data))
                 # hashes the bytes already read rather than copying the entries, so a load that only reads pays
                 # next to nothing for has_changed
                 self._saved_hash = self._hash(data)
         else:
-            raise FileNotFoundError(f"file does not exist: {file}")
+            raise FileNotFoundError(f"file does not exist: {path}")
 
         # a file with no version entry, such as an empty one, would otherwise load with no version checked
         if not hasattr(self, "_version"):
-            raise ValueError(f"no version entry ({SeratoBinFile.Fields.VERSION.value}) in {file}")
+            raise ValueError(f"no version entry ({SeratoBinFile.Fields.VERSION.value}) in {path}")
 
         self._parsed = True
 
@@ -361,8 +363,7 @@ class SeratoBinFile:
         json_content = write_json_array(self.to_json_object(), indent=0)
 
         json.loads(json_content)  # check validity before opening (and truncating) the destination file
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(json_content)
+        Path(filepath).write_text(json_content, encoding="utf-8")
 
     def print(self):
         print(self)  # noqa: T201
@@ -614,11 +615,12 @@ class SeratoBinFile:
 
     def _is_own_path(self, file: str) -> bool:
         """Whether `file` is the file this was loaded from, by any path to it."""
-        if os.path.normcase(os.path.abspath(file)) == os.path.normcase(self.filepath):
+        # abspath, as filepath was made with; Path equality ignores case only on Windows, as os.path.normcase does
+        if Path(os.path.abspath(file)) == Path(self.filepath):  # noqa: PTH100
             return True
         # the same file by another name: a symlink or hard link, or another case on a case-insensitive filesystem
         try:
-            return os.path.samefile(file, self.filepath)
+            return Path(file).samefile(self.filepath)
         except OSError:  # either doesn't exist, so they can't be the same file
             return False
 
@@ -716,17 +718,15 @@ class SeratoBinFile:
         """
         if not self._parsed:
             raise RuntimeError(f"cannot save a {type(self).__name__} before it has finished parsing")
-        if file is None:
-            file = self.filepath
-        if file.lower().endswith(".json"):
+        path = Path(self.filepath if file is None else file)
+        if path.suffix.lower() == ".json":
             raise ValueError("cannot save raw data to .json")
         # serialize before opening, since opening truncates and a serialization error would leave the file empty
         data = self.to_bytes()
-        own_path = self._is_own_path(file)
+        own_path = self._is_own_path(str(path))
         if own_path and not force and not self._differs_from_saved(data):
             return False
-        with open(file, "wb") as f:
-            f.write(data)
+        path.write_bytes(data)
         # saving a copy elsewhere leaves this file's own changes unsaved
         if own_path:
             self._saved_hash = self._hash(data)
@@ -747,6 +747,7 @@ class SeratoBinFile:
     @staticmethod
     def get_relative_path(filepath: str) -> str:
         """`filepath` as Serato stores a track path: without its drive or leading slash, and `/`-separated."""
+        # strings rather than Path, which costs far more per track and doesn't collapse ".." as normpath does
         filepath = os.path.splitdrive(filepath)[1]
         relpath = os.path.normpath(filepath).replace(os.path.sep, "/").lstrip("/")
         return relpath  # noqa: RET504
@@ -760,9 +761,10 @@ class SeratoBinFile:
 
         Doesn't check that the file exists.
         """
+        # strings rather than Path, which costs far more per track and doesn't collapse ".." as normpath does
         # with no drive, splitdrive's path half is the whole of filepath, so filepath serves both branches
         drive = os.path.splitdrive(filepath)[0]
-        return os.path.normpath(filepath if drive else os.path.join(SERATO_DRIVE, os.sep, filepath))
+        return os.path.normpath(filepath if drive else os.path.join(SERATO_DRIVE, os.sep, filepath))  # noqa: PTH118
 
     def get_entries(self, track_matcher: str | Pattern[str] | None = None) -> Generator[EntryFull, None, None]:
         """Each entry with its field's readable name, as is each entry in a nested entry list.
@@ -842,7 +844,7 @@ class SeratoBinFile:
 
                 if field == self.TRACK_PATH_KEY:
                     maybe_new_val = expect_type(maybe_new_val, str, field)
-                    if not os.path.exists(SeratoBinFile.get_full_path(maybe_new_val)):
+                    if not Path(SeratoBinFile.get_full_path(maybe_new_val)).exists():
                         raise FileNotFoundError(f"set track location to {maybe_new_val}, but doesn't exist")
                     maybe_new_val = SeratoBinFile.get_relative_path(maybe_new_val)
 
@@ -874,17 +876,16 @@ class SeratoBinFile:
         Each answer can be the file's new path; a folder, where it and later missing tracks are looked for by name; or
         "s" to skip it. Interrupting a prompt (Ctrl-C, or input running out) leaves every track as it was.
         """
-        new_dir: str | None = None
+        new_dir: Path | None = None
 
         def relocate(track: SeratoBinFile.Track) -> SeratoBinFile.Track:
             nonlocal new_dir
-            track_path = track.full_path
-            if os.path.isfile(track_path):
+            track_path = Path(track.full_path)
+            if track_path.is_file():
                 return track
             print(f"missing: {track_path}")  # noqa: T201
-            filename = os.path.basename(track_path)
             new_location = None
-            if new_dir is not None and os.path.isfile(in_new_dir := os.path.join(new_dir, filename)):
+            if new_dir is not None and (in_new_dir := new_dir / track_path.name).is_file():
                 new_location = in_new_dir
             while not new_location:
                 answer = os.path.normpath(
@@ -894,13 +895,14 @@ class SeratoBinFile:
                 )
                 if answer == "s":
                     return track
-                if os.path.isdir(answer):
-                    new_dir = answer
-                    answer = os.path.join(new_dir, filename)
-                if os.path.exists(answer):
-                    new_location = answer
-            print("   new_location: " + new_location)  # noqa: T201
-            track.set_path(new_location)
+                answer_path = Path(answer)
+                if answer_path.is_dir():
+                    new_dir = answer_path
+                    answer_path = new_dir / track_path.name
+                if answer_path.exists():
+                    new_location = answer_path
+            print(f"   new_location: {new_location}")  # noqa: T201
+            track.set_path(str(new_location))
             return track
 
         if self.modify_tracks(relocate):

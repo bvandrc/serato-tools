@@ -3,6 +3,7 @@
 import io
 import struct
 from enum import StrEnum, unique
+from pathlib import Path
 from typing import ClassVar
 
 from mutagen.aiff import AIFF
@@ -78,16 +79,18 @@ def open_tagfile(file: ID3FileOrPath) -> ID3File:
     """
     if not isinstance(file, str):
         return file
+    path = Path(file)
+    extension = path.suffix.lower()
     try:
-        if file.lower().endswith(_MP3_EXTENSIONS):
-            return MP3(file)
-        if file.lower().endswith(_AIFF_EXTENSIONS):
-            return AIFF(file)
+        if extension in _MP3_EXTENSIONS:
+            return MP3(path)
+        if extension in _AIFF_EXTENSIONS:
+            return AIFF(path)
     except Exception as e:
         # mutagen's errors don't always name the file
-        e.add_note(f"file: {file}")
+        e.add_note(f"file: {path}")
         raise
-    raise ValueError(f"unsupported file type (only .mp3, .aiff, and .aif are supported): {file}")
+    raise ValueError(f"unsupported file type (only .mp3, .aiff, and .aif are supported): {path}")
 
 
 def del_tag(tagfile: ID3File, key: str) -> bool:

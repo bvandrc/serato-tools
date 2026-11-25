@@ -172,10 +172,13 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
     - **Optional extra:** a method that changes track files imports what needs mutagen inside `_needs_track_tags_extra()`, so the rest of `Library` works without the `track_tags` extra.
 - `pref_files.py` holds Serato's pref files that list crates by name: `CrateOrder` for its crate order file, `neworder.pref`, and `CollapsedCrates` for which crates its sidebar shows collapsed, `collapsed.pref`.
   - **Base:** they're UTF-16-BE text, not the bin container, so they subclass neither base above but their own, `_SeratoPrefFile`. It reads and writes them in binary, since a `\n` written as `\r\n` on Windows misaligns every UTF-16 character after it.
-  - **A subclass** sets `FILENAME` (which sets `DEFAULT_FILE`, the default library's) and implements `_parse` (the file's lines to its fields) and `_to_lines` (back).
+  - **A subclass** sets `FILENAME` (which sets `DEFAULT_FILE`, the default library's, as a `Path`) and implements `_parse` (the file's lines to its fields) and `_to_lines` (back). A loaded file keeps its own path, as a `Path`, in `path`.
 - `usb_export.py` composes `Crate`, `SmartCrate`, `DatabaseV2`, `CrateOrder`, and `CollapsedCrates`: it flattens all tracks into one folder on the drive, dedupes by basename, rewrites crate/database paths to the new layout, and copies only changed files.
   - Its file handling that knows nothing about Serato (copying a file only if it changed, finding the files a folder no longer needs, comparing paths as a drive does, and removing empty folders) is in `utils/files.py`, which is internal: its docstring says its names aren't API, though they have no `_`.
 - `SERATO_DIR` (`~/Music/_Serato_`) in `utils/__init__.py` is the default root for all library lookups.
+- **Paths:** code working on files and folders uses `pathlib`, which Ruff's `PTH` rules check outside `test/`.
+  - **Track paths as Serato stores them** stay strings, in `get_relative_path`, `get_full_path`, the USB export's `_dest_track_paths`, and wherever they're matched: they aren't local paths (no drive, `/`-separated, matched ignoring case), a `Path` per track costs far more, and `Path` doesn't collapse `..` as `os.path.normpath` does. Each `os.path` call `PTH` flags there is marked `# noqa` with that reason.
+  - **Per-track cost:** code run for every track of a library (12,000 tracks is a large one) is checked for it. `Library.find_stems_files` lists the track's folder with `os.listdir` rather than `Path.iterdir`, whose `Path` per file in the folder made a USB export of 12,000 tracks twice as slow.
 
 ### CLI conventions
 
@@ -188,7 +191,7 @@ Console scripts are declared in `[project.scripts]` in `pyproject.toml` and poin
   - `tmp_dir`: pytest's `tmp_path` as the `str` path `serato_tools` takes.
   - `new_crate`: a new, empty, unsaved crate at `Test.crate` in `tmp_dir`.
   - `mp3` / `no_cues_mp3` / `no_beatgrid_mp3`: a copy of the test mp3, with every Serato tag, without its Serato Markers2 and Serato Markers_ tags, or without its Serato BeatGrid tag. They import the track_tags helpers inside the fixture, so `conftest.py` doesn't need the track_tags extra.
-  - `bin_file_writes`: the names of the database and crate files the test writes, which is how tests check what was saved or that nothing was. A test whose setup writes files clears it first.
+  - `bin_file_writes`: the names of the database, crate, and pref files the test writes (through `Path.write_bytes`), which is how tests check what was saved or that nothing was. A test whose setup writes files clears it first.
 - `test/helpers/` — shared helpers that aren't fixtures, a module for each kind (imported from the module, e.g. `from test.helpers.files import read_bytes`):
   - `files`: `copy_into` a folder, `mock_files` (empty files and folders, from a tree of their names), and `read_bytes` / `read_text`.
   - `bin_files`: the database and crate fixture paths (`TEST_DATABASE`, `TEST_CRATE`, `TEST_SMART_CRATE`), and the tracks' paths: `TRACKS_DIR`, the folder they're in, and `MP3_FILENAMES`, the track filenames the tests use; and `LibraryFolders`, a library folder holding a copy of the test database and a music folder, with methods to add tracks, crates, and database entries and read the saved database back.

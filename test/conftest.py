@@ -50,17 +50,20 @@ def no_beatgrid_mp3(tmp_dir: str) -> str:
 
 @pytest.fixture
 def bin_file_writes(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """The name of each Serato bin file (database or crate) the test writes, in order, filled in as they're written.
+    """The name of each Serato library file (database, crate, or pref file) the test writes, in order, filled in as
+    they're written.
 
     Clear it once the test's setup is done to record only what the test itself writes.
     """
     written: list[str] = []
+    # the real one, for the patch below to call, since calling Path.write_bytes once it's patched would call the patch
+    write_bytes = Path.write_bytes
 
-    def record_write(file, *args, **kwargs):
-        if "w" in (args[0] if args else kwargs.get("mode", "r")):
-            written.append(os.path.basename(file))
-        return open(file, *args, **kwargs)
+    def record_write(path: Path, data: bytes) -> int:
+        written.append(path.name)
+        return write_bytes(path, data)
 
-    # every way of saving a bin file opens it for writing in its module, which has no open of its own to replace
-    monkeypatch.setattr("serato_tools.utils.bin_file_base.open", record_write, raising=False)
+    # every way of saving a library file writes it with Path.write_bytes; so do the tag CLIs, which the tests using
+    # this don't run
+    monkeypatch.setattr(Path, "write_bytes", record_write)
     return written
