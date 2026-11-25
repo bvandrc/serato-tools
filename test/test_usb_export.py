@@ -123,7 +123,9 @@ def export(tmp_dir: str, monkeypatch: pytest.MonkeyPatch) -> Export:
     monkeypatch.setattr(usb_export, "LOCAL_SERATO_DIR", export.serato_dir)
     # built from the real library folder at import, so each is pointed at the test's too
     for name, path in [
+        ("LOCAL_SERATO_DATABASE_PATH", DatabaseV2.FILENAME),
         ("LOCAL_SERATO_STEMS_CRATE_PATH", Crate.SERATO_STEMS_CRATE_PATH),
+        ("LOCAL_SERATO_CRATE_ORDER_PATH", "neworder.pref"),
     ]:
         monkeypatch.setattr(usb_export, name, os.path.join(export.serato_dir, path))
     monkeypatch.setattr(usb_export, "LOCAL_SERATO_DRIVE", os.path.splitdrive(tmp_dir)[0])
@@ -256,25 +258,43 @@ def test_copy_crates_to_usb_needs_the_drive_to_exist(export: Export):
 
 
 @pytest.mark.parametrize(
-    "bad_file, error",
+    "bad_file, exported, error",
     [
-        pytest.param(os.path.join(Crate.DIR, "Notes.txt"), "not a crate file", id="not a crate"),
-        pytest.param(os.path.join(Crate.DIR, "Broken.crate"), "file ends partway", id="unreadable crate"),
+        pytest.param(os.path.join(Crate.DIR, "Notes.txt"), True, "not a crate file", id="not a crate"),
+        pytest.param(os.path.join(Crate.DIR, "Broken.crate"), True, "file ends partway", id="unreadable crate"),
+        pytest.param(DatabaseV2.FILENAME, False, "file ends partway", id="unreadable database"),
+        pytest.param(Crate.SERATO_STEMS_CRATE_PATH, False, "file ends partway", id="unreadable stems crate"),
     ],
 )
-def test_copy_crates_to_usb_writes_nothing_to_the_drive_for_a_crate_it_cant_read(
-    export: Export, bad_file: str, error: str
+def test_copy_crates_to_usb_writes_nothing_to_the_drive_for_a_file_it_cant_read(
+    export: Export, bad_file: str, exported: bool, error: str
 ):
     crates = [export.make_crate("House", [export.make_track("A.mp3", b"a")])]
-    (bad,) = mock_files({export.serato_dir: [bad_file]})
+    bad = os.path.join(export.serato_dir, bad_file)
+    os.makedirs(os.path.dirname(bad), exist_ok=True)
     with open(bad, "wb") as f:
         f.write(b"not a crate")
     mock_files({export.on_drive("_Serato_"): ["Old.txt"]})
 
     with pytest.raises(ValueError, match=error):
-        usb_export.copy_crates_to_usb([*crates, bad], export.drive, DRIVE_TRACKS)
+        usb_export.copy_crates_to_usb([*crates, bad] if exported else crates, export.drive, DRIVE_TRACKS)
 
     assert os.listdir(export.on_drive("_Serato_")) == ["Old.txt"], "the drive's library left as it was"
+
+
+def test_copy_crates_to_usb_skips_an_order_file_it_cant_read(export: Export, caplog: pytest.LogCaptureFixture):
+    crates = [export.make_crate("House", [export.make_track("A.mp3", b"a")])]
+    with open(os.path.join(export.serato_dir, "neworder.pref"), "wb") as f:
+        # an odd number of bytes, which isn't UTF-16
+        f.write(b"abc")
+
+    with caplog.at_level(logging.WARNING):
+        usb_export.copy_crates_to_usb(crates, export.drive, DRIVE_TRACKS)
+
+    assert "can't read the order file" in caplog.text
+    assert not os.path.exists(export.on_drive("_Serato_", "neworder.pref")), "Serato's default order on the drive"
+    assert os.path.isfile(export.on_drive("_Serato_", Crate.DIR, "House.crate")), "the crates still exported"
+    assert read_bytes(export.on_drive(DRIVE_TRACKS, "A.mp3")) == b"a", "the tracks still copied"
 
 
 def test_copy_crates_to_usb_copies_each_tracks_own_stems(export: Export):
