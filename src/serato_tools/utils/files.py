@@ -1,4 +1,4 @@
-"""Copying files to a drive and clearing out the ones it no longer needs, as the USB export does.
+"""Copying files to a drive only when they've changed, and deleting the files a folder no longer needs.
 
 Internal to the package, not part of its API: these names can change in any release, as `_`-prefixed ones can.
 """
@@ -7,6 +7,7 @@ import filecmp
 import os
 import shutil
 import unicodedata
+from collections.abc import Iterable
 
 from serato_tools.utils import logger
 
@@ -35,34 +36,36 @@ def _is_changed_copy(src_path: str, dst_path: str) -> bool:
     if src.st_size != dst.st_size:
         return True
     # copy2 gives the copy src's modification time, but FAT32 stores it to 2 seconds (exFAT to 10 ms), so it rarely
-    # matches exactly, which made filecmp's quick check fail and read both files in full on every export
+    # matches exactly, which made filecmp's quick check fail and read both files in full on every copy
     if abs(src.st_mtime - dst.st_mtime) <= _COPY_MTIME_TOLERANCE:
         return False
     return not filecmp.cmp(src_path, dst_path, shallow=False)
 
 
-def path_key(path: str) -> str:
+def _path_key(path: str) -> str:
     """`path` as a drive compares paths: ignoring case and Unicode normalization."""
     # a FAT32 or exFAT drive keeps a file's old name when it's overwritten under one differing in case, and macOS lists
-    # an HFS+ drive's filenames decomposed (NFD), while the library's paths are usually composed
+    # an HFS+ drive's filenames decomposed (NFD), while paths from elsewhere are usually composed
     return unicodedata.normalize("NFC", path).casefold()
 
 
-def delete_other_files(dest_dir: str, keep: set[str]):
-    """Deletes every file under `dest_dir` whose path, as `path_key` gives it, isn't in `keep`, and any folder left
-    empty.
+def delete_other_files(folder: str, keep: Iterable[str]):
+    """Deletes every file under `folder` that isn't in `keep`, and any folder left empty.
 
-    A file or folder it can't delete is logged as an error and left, and the rest are still deleted.
+    Paths are compared as a drive compares them, ignoring case and Unicode normalization, so a file kept under a name
+    differing only in those isn't deleted. A file or folder it can't delete is logged as an error and left, and the rest
+    are still deleted.
     """
-    for dirpath, _, filenames in os.walk(dest_dir, topdown=False):
+    keep_keys = {_path_key(path) for path in keep}
+    for dirpath, _, filenames in os.walk(folder, topdown=False):
         for filename in filenames:
-            if path_key(path := os.path.join(dirpath, filename)) not in keep:
+            if _path_key(path := os.path.join(dirpath, filename)) not in keep_keys:
                 logger.info(f"deleting {path}, which isn't among the files to keep")
                 try:
                     os.remove(path)
                 except OSError as e:
                     logger.error(f"couldn't delete {path}: {e}")
-        if dirpath != dest_dir and not os.listdir(dirpath):
+        if dirpath != folder and not os.listdir(dirpath):
             try:
                 os.rmdir(dirpath)
             except OSError as e:

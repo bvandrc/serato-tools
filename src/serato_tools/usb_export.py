@@ -27,7 +27,7 @@ from serato_tools.utils import (
     logger,
 )
 from serato_tools.utils.bin_file_base import SeratoBinFile
-from serato_tools.utils.files import copy_if_changed, delete_other_files, is_inside, path_key
+from serato_tools.utils.files import copy_if_changed, delete_other_files, is_inside
 
 # the local library's files the export reads, besides its crates
 LOCAL_SERATO_DATABASE_PATH = os.path.join(LOCAL_SERATO_DIR, DatabaseV2.FILENAME)
@@ -242,7 +242,7 @@ def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str) -> set[str]
     """Copies each track, and its stems files, to its path in `dest_paths` on the drive, unless it's there unchanged.
 
     Returns the paths on the drive of the tracks and stems files it's meant to hold, copied now or before, or whose
-    track is missing, as `path_key` gives them.
+    track is missing.
     """
     logger.info("copying files over...")
 
@@ -254,20 +254,20 @@ def _copy_tracks(dest_paths: Mapping[str, str], dest_drive_dir: str) -> set[str]
         src_path = os.path.join(root, track_path)
         dst_path = os.path.join(dest_drive_dir, dest_path)
         # kept whether or not it's copied now, as a track missing from the library still is
-        meant_to_hold.add(path_key(dst_path))
+        meant_to_hold.add(dst_path)
         if not copy_if_changed(src_path, dst_path):
             not_found.append(src_path)
 
         stems_files = Library.find_stems_files(src_path)
         for stems_file in stems_files:
             stems_dest = os.path.join(os.path.dirname(dst_path), os.path.basename(stems_file))
-            meant_to_hold.add(path_key(stems_dest))
+            meant_to_hold.add(stems_dest)
             if not copy_if_changed(stems_file, stems_dest):
                 # found just now, so gone since; not counted with the tracks, which it isn't one of
                 logger.error(f"does not exist - {stems_file}")
         if not stems_files and not os.path.exists(src_path):
             # a missing track's file on the drive is kept, so its stems files there are too
-            meant_to_hold.update(path_key(f) for f in Library.find_stems_files(dst_path))
+            meant_to_hold.update(Library.find_stems_files(dst_path))
 
     if dest_paths and len(not_found) == len(dest_paths):
         uniq_dirs = sorted({os.path.dirname(os.path.join(root, d)) for d in dest_paths})
