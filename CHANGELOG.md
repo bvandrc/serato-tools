@@ -23,6 +23,10 @@ Each release groups its changes by the part of the package they're in. Within ea
 
 ### Library
 
+- **Fix:** `Library.rename_track_file` renames the track's stems file too, so Serato still finds the track's stems.
+  - It raises `ValueError`, changing nothing, for a track with two stems files, and `FileExistsError` if the stems file's new name is taken.
+- **Fix:** `Library.remove_track_files` deletes the tracks' stems files too, and lists them in `files_deleted`.
+- **Feature:** Add `Library.find_stems_file(track_path)`, which finds the stems file Serato keeps beside a track.
 - **Feature:** Add `Library.find_crate_files(pattern)`, which finds the library's crate and smart crate files by name, with a glob or a regex.
 
 ## [6.0.2] - 2026-11-24

@@ -19,7 +19,11 @@ from tqdm import tqdm
 from serato_tools.crate import Crate
 from serato_tools.crate_order import CrateOrder
 from serato_tools.database_v2 import DatabaseV2
-from serato_tools.library import Library
+from serato_tools.library import (
+    # re-exported, since it was this module's before Library took it
+    STEMS_EXTENSION,  # noqa: F401
+    Library,
+)
 from serato_tools.smart_crate import SmartCrate
 from serato_tools.utils import (
     SERATO_DIR as LOCAL_SERATO_DIR,
@@ -33,8 +37,6 @@ from serato_tools.utils.bin_file_base import SeratoBinFile
 LOCAL_SERATO_DATABASE_PATH = os.path.join(LOCAL_SERATO_DIR, DatabaseV2.FILENAME)
 LOCAL_SERATO_STEMS_CRATE_PATH = os.path.join(LOCAL_SERATO_DIR, Crate.SERATO_STEMS_CRATE_PATH)
 LOCAL_SERATO_CRATE_ORDER_PATH = os.path.join(LOCAL_SERATO_DIR, CrateOrder.FILENAME)
-# the extension of the file Serato keeps a track's stems in, beside the track
-STEMS_EXTENSION = ".serato-stems"
 # the folder on the drive the tracks go in, unless the caller names another
 DEFAULT_DRIVE_TRACKS_DIR = "Tracks"
 # the crate Serato keeps tracks with stems in, named so in the crate order, never inside a root crate
@@ -230,15 +232,10 @@ def _find_stems_files(track_paths: Iterable[str]) -> dict[str, str]:
 
     Raises ValueError for a track with more than one, since which to copy isn't known.
     """
-    # each folder's stems files, listed once for all its tracks
-    stems_files_by_dir: dict[str, list[str]] = {}
     found: dict[str, str] = {}
     for track_path in track_paths:
-        stems_files = _stems_files(_local_path(track_path), stems_files_by_dir)
-        if len(stems_files) > 1:
-            raise ValueError(f"more than 1 stems file for {_local_path(track_path)}: {', '.join(stems_files)}")
-        if stems_files:
-            found[track_path] = stems_files[0]
+        if (stems_file := Library.find_stems_file(_local_path(track_path))) is not None:
+            found[track_path] = stems_file
     return found
 
 
@@ -272,24 +269,6 @@ def _copy_tracks(dest_paths: Mapping[str, str], stems_files: Mapping[str, str], 
 def _local_path(track_path: str) -> str:
     """The track's path on this computer, from its path as Serato stores it: from the root of the library's drive."""
     return os.path.join(LOCAL_SERATO_DRIVE + os.sep if LOCAL_SERATO_DRIVE else os.sep, track_path)
-
-
-def _stems_files(track_path: str, stems_files_by_dir: dict[str, list[str]]) -> list[str]:
-    """The stems files of the track at `track_path`: normally none or one.
-
-    `stems_files_by_dir` caches each folder's stems files, so a folder is listed once for all its tracks.
-    """
-    dirname, basename = os.path.split(track_path)
-    if dirname not in stems_files_by_dir:
-        try:
-            dir_filenames = os.listdir(dirname)
-        except OSError:
-            dir_filenames = []
-        stems_files_by_dir[dirname] = [f for f in dir_filenames if f.endswith(STEMS_EXTENSION)]
-    # named after the track, with or without its extension: matching by prefix would also find another track's, such
-    # as "B Extended.serato-stems" for "B.mp3"
-    stems_names = {os.path.splitext(basename)[0] + STEMS_EXTENSION, basename + STEMS_EXTENSION}
-    return [os.path.join(dirname, f) for f in stems_files_by_dir[dirname] if f in stems_names]
 
 
 def _copy_if_changed(src_path: str, dst_path: str) -> bool:

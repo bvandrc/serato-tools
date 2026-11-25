@@ -19,6 +19,9 @@ from serato_tools.utils.crate_base import CrateBase
 if TYPE_CHECKING:
     from serato_tools.db_track_props import DbTrackTags
 
+# the extension of the file Serato keeps a track's stems in, beside the track
+STEMS_EXTENSION = ".serato-stems"
+
 
 @dataclass(frozen=True)
 class DbTrackTagsResult:
@@ -35,7 +38,8 @@ class RemoveTrackFilesResult:
     """What `Library.remove_track_files` changed."""
 
     files_deleted: list[str]
-    """The track files deleted, as their paths were passed, in the order given. A file already gone isn't listed."""
+    """The track files deleted, as their paths were passed, in the order given, each followed by its stems file if it
+    had one. A file already gone isn't listed."""
     library_files_changed: list[str]
     """The paths of the database, crates, and smart crates that held one of the tracks, so had it removed.
 
@@ -128,6 +132,20 @@ class Library:
             files = [f for f, name in names.items() if regex.search(name)]
         return files
 
+    @staticmethod
+    def find_stems_file(track_path: str) -> str | None:
+        """The stems file Serato keeps beside the track at `track_path`, or None if it has none.
+
+        Serato names it after the track, with or without the track's extension: `A.serato-stems` or
+        `A.mp3.serato-stems`. Raises ValueError if both exist, since which is the track's isn't known.
+        """
+        # dict.fromkeys drops the second name when the track has no extension, so both are the same file
+        names = dict.fromkeys([os.path.splitext(track_path)[0] + STEMS_EXTENSION, track_path + STEMS_EXTENSION])
+        found = [name for name in names if os.path.isfile(name)]
+        if len(found) > 1:
+            raise ValueError(f"more than 1 stems file for {track_path}: {', '.join(found)}")
+        return found[0] if found else None
+
     def _get_crate_files(self, crate_class: type[CrateBase]) -> list[str]:
         crates_dir = os.path.join(self.serato_dir, crate_class.DIR)
         # Serato only creates the folder once the first crate of its kind is made
@@ -199,36 +217,55 @@ class Library:
     def rename_track_file(self, src: str, dest: str) -> list[str]:
         """Renames the file, and points the database and crates at the new path, so the track isn't missing in Serato.
 
+        Its stems file, if it has one (see `find_stems_file`), is renamed to match, keeping its form: with the track's
+        extension or without it.
+
         Returns the paths of the database, crates, and smart crates that held the track, so were changed: empty when
         none did, e.g. for a file Serato hasn't imported. Only those are saved, or, inside `batch()`, left for it to
-        save once. Raises FileExistsError, changing nothing, if a different file already exists at `dest`.
+        save once. Raises FileExistsError, changing nothing, if a different file already exists at `dest` or where its
+        stems file would go, and ValueError, changing nothing, if the track has two stems files.
         """
+        stems_src = self.find_stems_file(src)
+        stems_dest = None
+        if stems_src is not None:
+            with_extension = stems_src == src + STEMS_EXTENSION
+            stems_dest = (dest if with_extension else os.path.splitext(dest)[0]) + STEMS_EXTENSION
         # os.rename only raises FileExistsError on Windows; on POSIX it silently overwrites, so check
         # first. A case-only rename is fine: on case-insensitive filesystems dest is then the same file.
         # If src is missing, samefile raises FileNotFoundError, just as the rename itself would.
-        if os.path.exists(dest) and not os.path.samefile(src, dest):
-            raise FileExistsError(f"can't rename {src}: a different file already exists at {dest}")
+        for from_path, to_path in [(src, dest), (stems_src, stems_dest)]:
+            if from_path and to_path and os.path.exists(to_path) and not os.path.samefile(from_path, to_path):
+                raise FileExistsError(f"can't rename {from_path}: a different file already exists at {to_path}")
         # where os.path.exists misses a clash, e.g. a case change on some filesystems, os.rename raises
         # FileExistsError itself on Windows
         os.rename(src=src, dst=dest)
         logger.info(f"renamed {src} to {dest}")
+        if stems_src is not None and stems_dest is not None:
+            os.rename(src=stems_src, dst=stems_dest)
+            logger.info(f"renamed {stems_src} to {stems_dest}")
 
         return self._change_bin_files(lambda file: file.change_track_path(src, dest))
 
     def remove_track_files(self, filepaths: Collection[str]) -> RemoveTrackFilesResult:
         """Removes the tracks from the database and crates, then deletes their files.
 
-        Returns which track files it deleted, and which library files it changed (see RemoveTrackFilesResult). Paths
-        whose file is already gone are still removed from the library, which cleans up missing tracks. Only the files
-        that contain one of the tracks are saved, or, inside `batch()`, left for it to save once.
+        Each track's stems file (see `find_stems_file`) is deleted too, even when the track's own file is already gone.
+
+        Returns which files it deleted, and which library files it changed (see RemoveTrackFilesResult). Paths whose
+        file is already gone are still removed from the library, which cleans up missing tracks. Only the files that
+        contain one of the tracks are saved, or, inside `batch()`, left for it to save once. Raises ValueError, changing
+        nothing, if a track has two stems files.
         """
+        # every stems file found before anything changes, so a track with two raises first
+        stems_files = {filepath: self.find_stems_file(filepath) for filepath in filepaths}
         changed = self._change_bin_files(lambda file: file.remove_tracks(filepaths))
         deleted: list[str] = []
         for filepath in filepaths:
-            if os.path.exists(filepath):
-                os.remove(filepath)
-                logger.info(f"deleted {filepath}")
-                deleted.append(filepath)
+            for path in (filepath, stems_files[filepath]):
+                if path is not None and os.path.exists(path):
+                    os.remove(path)
+                    logger.info(f"deleted {path}")
+                    deleted.append(path)
         return RemoveTrackFilesResult(files_deleted=deleted, library_files_changed=changed)
 
     def set_db_track_tags(
