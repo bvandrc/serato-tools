@@ -613,7 +613,7 @@ class SeratoBinFile:
         """Whether `data` differs from the bytes loaded or last saved, or there were none, as for a new file."""
         return self._saved_hash is None or self._hash(data) != self._saved_hash
 
-    def _is_own_path(self, file: str) -> bool:
+    def _is_own_path(self, file: str | Path) -> bool:
         """Whether `file` is the file this was loaded from, by any path to it."""
         # abspath, as filepath was made with; Path equality ignores case only on Windows, as os.path.normcase does
         if Path(os.path.abspath(file)) == Path(self.filepath):  # noqa: PTH100
@@ -723,7 +723,7 @@ class SeratoBinFile:
             raise ValueError("cannot save raw data to .json")
         # serialize before opening, since opening truncates and a serialization error would leave the file empty
         data = self.to_bytes()
-        own_path = self._is_own_path(str(path))
+        own_path = self._is_own_path(path)
         if own_path and not force and not self._differs_from_saved(data):
             return False
         path.write_bytes(data)
