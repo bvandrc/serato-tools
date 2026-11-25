@@ -71,15 +71,17 @@ class LibraryFolders:
         """Adds `tracks` to the database, in order, each with `fields` beside its path."""
         db = DatabaseV2(self.db_file)
         for track in tracks:
-            entries = [(DatabaseV2.Fields.FILE_PATH, DatabaseV2.get_relative_path(track)), *(fields or [])]
+            path = DatabaseV2.get_relative_path(track, db.track_path_root)
+            entries = [(DatabaseV2.Fields.FILE_PATH, path), *(fields or [])]
             # the database has no method that adds a track
             db._entries.append((DatabaseV2.Fields.TRACK, entries))
         db.save()
 
     def db_track(self, track: str) -> SeratoBinFile.Track:
         """`track`'s entry in the saved database."""
-        path = DatabaseV2.get_relative_path(track)
-        saved = next((t for t in DatabaseV2(self.db_file).get_tracks() if t.relpath == path), None)
+        db = DatabaseV2(self.db_file)
+        path = DatabaseV2.get_relative_path(track, db.track_path_root)
+        saved = next((t for t in db.get_tracks() if t.relpath == path), None)
         assert saved is not None, f"{path} isn't in the saved database"
         return saved
 

@@ -11,15 +11,24 @@ Each release groups its changes by the part of the package they're in. Within ea
   - Before, Serato couldn't use the order file the export wrote, and on Windows it was garbled.
   - The order lists only the exported crates, with the root crate first.
 - **Feature (CLI):** `delete_unused_tracks` on `copy_crates_to_usb`, and `--delete_unused_tracks` on `serato_usb_export`, delete the other files in the drive's tracks folder, such as tracks no exported crate uses.
+- **Feature (CLI):** `source_serato_dir` on `copy_crates_to_usb`, and `--source` on `serato_usb_export`, export from a library on another drive instead of the home library.
 - **Feature:** The drive keeps which crates are collapsed.
 - **Feature:** `copy_crates_to_usb`'s `dest_tracks_dir` defaults to `Tracks`, the folder `serato_usb_export` uses.
 - **Fix:** An export with a library file it can't read (a crate, the database, or the stems crate) fails before writing anything to the drive, rather than after deleting the drive's `_Serato_` folder.
   - A crate order file it can't read is skipped with a warning, as a missing one is, so the drive lists its crates in Serato's default order.
 - **Fix:** Stems files named with their separation's version, as Serato names them (`Track.1.2.serato-stems`), are copied with their track.
   - A track with more than one stems file has them all copied, rather than failing the export.
+- **Fix:** `copy_crates_to_usb` stores tracks' paths relative to the drive when `dest_tracks_dir` is an absolute path on it.
+  - Before, on macOS, `/Volumes/USB/Tracks` was stored as `Volumes/USB/Tracks/...`.
 - **Performance:** Exporting again to a FAT32 or exFAT drive is much faster when few tracks have changed, since unchanged tracks are no longer read in full.
 - **[BREAKING] Removed:** `usb_export.get_crate_files`, replaced by `Library.find_crate_files`.
   - **Upgrading:** Call `Library().find_crate_files(pattern)`, or pass `Library` a library folder to search another.
+
+### Database / Crates
+
+- **Feature:** Support libraries on an external drive (e.g. `E:\_Serato_` or `/Volumes/USB/_Serato_`), whose track paths Serato stores relative to that drive's root rather than the home library's drive.
+  - Each database and crate finds that root from where its file is, as `track_path_root`.
+  - `get_relative_path` and `get_full_path` take it as an optional `root`.
 
 ### Crate Order / Collapsed Crates
 

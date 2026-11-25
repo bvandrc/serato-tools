@@ -78,7 +78,7 @@ class CrateBase(SeratoBinFile):
         # the whole crate per file
         existing = {path.upper() for path in self.get_track_paths()}
         for filepath in filepaths:
-            relpath = self.get_relative_path(filepath)
+            relpath = self._relative_path(filepath)
             if relpath.upper() not in existing:
                 self._entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, relpath)]))
                 existing.add(relpath.upper())
@@ -87,7 +87,7 @@ class CrateBase(SeratoBinFile):
         """Adds every file directly in `dir` but hidden ones, such as `.DS_Store`; with `replace`, first removes every
         track that isn't one of them."""
         dir_tracks = [
-            self.get_relative_path(path)
+            self._relative_path(path)
             for name in os.listdir(dir)
             # not a subfolder, which isn't a track
             if not name.startswith(".") and os.path.isfile(path := os.path.join(dir, name))

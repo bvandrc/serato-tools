@@ -173,9 +173,12 @@ Both bases refuse unknown formats: `SeratoBinFile._check_version` rejects any `v
 - `pref_files.py` holds Serato's pref files that list crates by name: `CrateOrder` for its crate order file, `neworder.pref`, and `CollapsedCrates` for which crates its sidebar shows collapsed, `collapsed.pref`.
   - **Base:** they're UTF-16-BE text, not the bin container, so they subclass neither base above but their own, `_SeratoPrefFile`. It reads and writes them in binary, since a `\n` written as `\r\n` on Windows misaligns every UTF-16 character after it.
   - **A subclass** sets `FILENAME` (which sets `DEFAULT_FILE`, the default library's) and implements `_parse` (the file's lines to its fields) and `_to_lines` (back).
-- `usb_export.py` composes `Crate`, `SmartCrate`, `DatabaseV2`, `CrateOrder`, and `CollapsedCrates`: it flattens all tracks into one folder on the drive, dedupes by basename, rewrites crate/database paths to the new layout, and copies only changed files.
+- `usb_export.py` composes `Crate`, `SmartCrate`, `DatabaseV2`, `CrateOrder`, and `CollapsedCrates`: it flattens all tracks into one folder on the drive, dedupes by basename, rewrites crate/database paths to the new layout, and copies only changed files. It reads the source library from `source_serato_dir` (the home library by default) and finds each source track from its crate's `track_path_root`, so it can export from a library on another drive.
   - Its file handling that knows nothing about Serato (copying a file only if it changed, finding the files a folder no longer needs, comparing paths as a drive does, and removing empty folders) is in `utils/files.py`, which is internal: its docstring says its names aren't API, though they have no `_`.
 - `SERATO_DIR` (`~/Music/_Serato_`) in `utils/__init__.py` is the default root for all library lookups.
+- Serato stores track paths relative to the root of the drive the library's `_Serato_` folder is on.
+  - Each bin file finds that root from its own location (`track_path_root`, from `utils.get_track_path_root`): the drive's mount point for a library on an external drive (`E:\`, `/Volumes/USB`), else the system drive's root for the home library.
+  - Convert a path for a specific file through its `_relative_path` / `_full_path`, or pass its `track_path_root` as `root` to `get_relative_path` / `get_full_path`; without `root` they assume the home library.
 
 ### CLI conventions
 
