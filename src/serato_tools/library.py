@@ -156,11 +156,10 @@ class Library:
         try:
             # listdir's names, rather than iterdir's Paths: the USB export calls this for every track, and a Path for
             # every file in each track's folder made exporting a 12,000-track library twice as slow
-            names = [name for name in os.listdir(path.parent) if pattern.fullmatch(name)]  # noqa: PTH208
+            return sorted(str(path.parent / name) for name in os.listdir(path.parent) if pattern.fullmatch(name))  # noqa: PTH208
         except OSError:
             # its folder is gone, so it has none
             return []
-        return sorted(str(path.parent / name) for name in names)
 
     def _get_crate_files(self, crate_class: type[CrateBase]) -> list[str]:
         crates_dir = self.serato_path / crate_class.DIR
