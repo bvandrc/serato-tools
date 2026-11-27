@@ -1,6 +1,7 @@
 """The gain Serato sets for a track, which it stores in an ID3 `RVA2:SeratoGain` frame."""
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from mutagen.id3._frames import RVA2
 
@@ -74,12 +75,12 @@ if __name__ == "__main__":
 
     @dataclass
     class Args:
-        file: str
+        file: Path
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("file")
+    parser.add_argument("file", type=Path)
     args = Args(**vars(parser.parse_args()))
 
-    tags = TrackGain(args.file)
+    tags = TrackGain(str(args.file))
     print(str(tags))
     # ruff: enable[T201]

@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -187,10 +188,10 @@ def test_rename_track_file_in_a_given_database(folders: LibraryFolders, bin_file
 @pytest.mark.parametrize(
     "dest, rename_side_effect",
     [
-        # os.rename made to overwrite on every OS, as on POSIX, so only Library's own check can refuse
+        # rename made to overwrite on every OS, as on POSIX, so only Library's own check can refuse
         pytest.param(lambda folders: folders.make_track("Taken.mp3"), os.replace, id="dest exists"),
-        # os.rename refusing, as on Windows, a clash os.path.exists misses, such as a case change on some filesystems
-        pytest.param(lambda folders: folders.music_path("New.mp3"), FileExistsError, id="os.rename finds a clash"),
+        # rename refusing, as on Windows, a clash Path.exists misses, such as a case change on some filesystems
+        pytest.param(lambda folders: folders.music_path("New.mp3"), FileExistsError, id="rename finds a clash"),
     ],
 )
 def test_rename_track_file_refuses_to_overwrite(
@@ -201,7 +202,10 @@ def test_rename_track_file_refuses_to_overwrite(
     dest_path = dest(folders)
     bin_file_writes.clear()
 
-    with mock.patch("os.rename", side_effect=rename_side_effect), pytest.raises(FileExistsError):
+    with (
+        mock.patch.object(Path, "rename", autospec=True, side_effect=rename_side_effect),
+        pytest.raises(FileExistsError),
+    ):
         Library(folders.serato_dir).rename_track_file(src, dest_path)
 
     assert os.path.exists(src), "src left in place"

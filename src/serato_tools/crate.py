@@ -1,9 +1,9 @@
 # This is from this repo: https://github.com/sharst/seratopy
 """Serato crate files (`.crate`), and the `serato_crate` CLI for listing their tracks and fixing missing ones."""
 
-import os
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import ClassVar
 
 from serato_tools.utils import SERATO_DIR
@@ -16,8 +16,9 @@ class Crate(CrateBase):
     TESTED_VERSIONS = frozenset({"1.0/Serato ScratchLive Crate"})
     EXTENSION = ".crate"
     DIR = "Subcrates"
-    DIR_PATH = os.path.join(SERATO_DIR, DIR)
-    SERATO_STEMS_CRATE_PATH = os.path.join(DIR, "Serato Stems", "Stems.crate")
+    # TODO(breaking): change these to Paths
+    DIR_PATH = str(Path(SERATO_DIR, DIR))
+    SERATO_STEMS_CRATE_PATH = str(Path(DIR, "Serato Stems", "Stems.crate"))
 
     DEFAULT_ENTRIES: ClassVar[CrateBase.EntryList] = [
         (CrateBase.Fields.VERSION, "1.0/Serato ScratchLive Crate"),
@@ -32,14 +33,16 @@ def main():
 
     @dataclass
     class Args:
-        file_or_dir: str | None
+        file_or_dir: Path | None
         all: bool
         list_tracks: bool
         filenames_only: bool
         find_missing: bool
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("file_or_dir", nargs="?", help="Set the crate file, or a directory to do all files in it")
+    parser.add_argument(
+        "file_or_dir", nargs="?", type=Path, help="Set the crate file, or a directory to do all files in it"
+    )
     parser.add_argument("--all", action="store_true", help="Perform actions on all crates.")
     parser.add_argument("-l", "--list_tracks", action="store_true", help="Only list tracks")
     parser.add_argument("-f", "--filenames_only", action="store_true", help="Only list track filenames")
@@ -47,14 +50,14 @@ def main():
     args = Args(**vars(parser.parse_args()))
 
     if args.all:
-        args.file_or_dir = Crate.DIR_PATH
+        args.file_or_dir = Path(Crate.DIR_PATH)
 
-    if not args.file_or_dir:
+    if args.file_or_dir is None:
         print(f"must pass a file or dir, or --all!\nfiles in {Crate.DIR_PATH}:")
         print("\n".join(Crate.get_crate_files()))
         sys.exit()
 
-    for crate_path in Crate.get_crate_files(args.file_or_dir):
+    for crate_path in Crate.get_crate_files(str(args.file_or_dir)):
         crate = Crate(crate_path)
         if args.find_missing:
             crate.find_missing()

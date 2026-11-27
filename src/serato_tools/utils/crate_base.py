@@ -3,6 +3,7 @@
 
 import os
 from collections.abc import Iterable
+from pathlib import Path
 from typing import ClassVar, Self
 
 from serato_tools.utils.bin_file_base import SeratoBinFile
@@ -55,18 +56,15 @@ class CrateBase(SeratoBinFile):
         """Prints each track's absolute path, or with `filenames_only`, its filename without the extension."""
         track_paths = self.get_track_paths(include_drive=True)
         if filenames_only:
-            track_paths = [os.path.splitext(os.path.basename(t))[0] for t in track_paths]
+            track_paths = [Path(t).stem for t in track_paths]
         print("\n".join(track_paths))  # noqa: T201
 
     def save(self, file: str | None = None, force: bool = False) -> bool:
         """As `SeratoBinFile.save`, but raises ValueError if `file` doesn't end with this class's `EXTENSION`."""
-        if file is None:
-            file = self.filepath
-
-        if not file.endswith(self.EXTENSION):
-            raise ValueError(f"file should end with {self.EXTENSION}: " + file)
-
-        return super().save(file, force)
+        path = self.path if file is None else Path(file)
+        if not path.name.endswith(self.EXTENSION):
+            raise ValueError(f"file should end with {self.EXTENSION}: {path}")
+        return super().save(str(path), force)
 
     def add_tracks(self, filepaths: Iterable[str]):
         """Adds the tracks not already in the crate. Filepaths must include the containing dir.
@@ -87,10 +85,10 @@ class CrateBase(SeratoBinFile):
         """Adds every file directly in `dir` but hidden ones, such as `.DS_Store`; with `replace`, first removes every
         track that isn't one of them."""
         dir_tracks = [
-            self.get_relative_path(path)
-            for name in os.listdir(dir)
+            self.get_relative_path(str(path))
+            for path in Path(dir).iterdir()
             # not a subfolder, which isn't a track
-            if not name.startswith(".") and os.path.isfile(path := os.path.join(dir, name))
+            if not path.name.startswith(".") and path.is_file()
         ]
 
         if replace:
@@ -118,16 +116,19 @@ class CrateBase(SeratoBinFile):
         """
         if file_or_dir is None:
             file_or_dir = cls.DIR_PATH
+        path = Path(file_or_dir)
 
         crate_paths: list[str] = []
-        if os.path.isdir(file_or_dir):
-            for fname in os.listdir(file_or_dir):
-                path = os.path.normpath(os.path.join(file_or_dir, fname))
-                if os.path.isfile(path) and path.endswith(cls.EXTENSION):
-                    crate_paths.append(path)
-        elif os.path.isfile(file_or_dir):
+        if path.is_dir():
+            # normpath, which unlike Path collapses "..", for the same paths the crates were always listed by
+            crate_paths = [
+                str(crate)
+                for crate in Path(os.path.normpath(path)).iterdir()
+                if crate.is_file() and crate.name.endswith(cls.EXTENSION)
+            ]
+        elif path.is_file():
             crate_paths = [file_or_dir]
         else:
-            raise FileNotFoundError("does not exist: " + file_or_dir)
+            raise FileNotFoundError(f"does not exist: {file_or_dir}")
 
         return crate_paths

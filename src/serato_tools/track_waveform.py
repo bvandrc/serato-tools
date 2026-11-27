@@ -5,6 +5,7 @@ It can draw the overview as an image, which needs the `waveform_drawing` extra (
 
 import io
 from dataclasses import dataclass
+from pathlib import Path
 
 from serato_tools.utils.track_tags import GeobKeys, NoWaveformError, SeratoGeobTag
 
@@ -89,10 +90,10 @@ if __name__ == "__main__":
 
     @dataclass
     class Args:
-        file: str
+        file: Path
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("file")
+    parser.add_argument("file", type=Path)
     args = Args(**vars(parser.parse_args()))
 
     tags = open_tag_file_or_data(TrackWaveform, args.file)

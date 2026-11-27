@@ -4,6 +4,7 @@ import os
 import struct
 from collections.abc import Iterable
 from enum import StrEnum, unique
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -276,7 +277,7 @@ def test_modify_passes_later_rules_the_new_path():
     old, new = db.get_track_paths()[:2]
     db.remove_tracks([new])  # so moving a track there doesn't duplicate one
     seen: list[str] = []
-    with mock.patch("os.path.exists", return_value=True):
+    with mock.patch.object(Path, "exists", return_value=True):
         db.modify(
             [
                 {"field": DatabaseV2.Fields.FILE_PATH, "func": lambda f, _: new if f == old else None},

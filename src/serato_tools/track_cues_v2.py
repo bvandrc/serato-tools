@@ -13,6 +13,7 @@ import warnings
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum, unique
+from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from serato_tools.track_cues_v1 import TrackCuesV1
@@ -38,7 +39,7 @@ _MAX_CUE_INDEX = 7
 
 # the package's folder: a deprecation warning skips its frames, to point at the caller's code even when it came through
 # another of the package's methods (Track.set_track_color)
-_PACKAGE_DIR = os.path.dirname(__file__) + os.sep
+_PACKAGE_DIR = str(Path(__file__).parent) + os.sep
 
 # Every tag Serato DJ Pro 2 was seen writing passes the entry checks below, so an entry that doesn't is one this class
 # may not understand, and rewriting it could corrupt the tag. Mixxx's parser checks the same fields, with comments on them:
@@ -640,13 +641,13 @@ def main():
 
     @dataclass
     class Args:
-        file: str
+        file: Path
         set_color: str | None
         snap_cues: bool
         snap_tolerance: str | None
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("file")
+    parser.add_argument("file", type=Path)
     parser.add_argument(
         "--set_color",
         dest="set_color",

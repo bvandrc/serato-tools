@@ -7,6 +7,7 @@ from collections.abc import Callable, Collection, Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import cached_property
+from pathlib import Path
 from typing import TYPE_CHECKING, Unpack
 
 from serato_tools.crate import Crate
@@ -83,16 +84,22 @@ class Library:
 
     def __init__(self, serato_dir: str = SERATO_DIR, database: DatabaseV2 | None = None):
         """Pass `database` to use one already loaded, along with any unsaved changes it has, instead of parsing it."""
+        # TODO(breaking): remove serato_dir, once deprecated in favor of serato_path
         self.serato_dir = serato_dir
         self._database = database
         # how many batch() blocks are open; while any is, this class's methods leave saving to the outermost one
         self._batch_depth = 0
 
+    @property
+    def serato_path(self) -> Path:
+        """The library folder, as a `Path`: `serato_dir`, which is a `str`."""
+        return Path(self.serato_dir)
+
     @cached_property
     def database(self) -> DatabaseV2:
         if self._database is not None:
             return self._database
-        return DatabaseV2(os.path.join(self.serato_dir, DatabaseV2.FILENAME))
+        return DatabaseV2(str(self.serato_path / DatabaseV2.FILENAME))
 
     @cached_property
     def crates(self) -> list[Crate]:
@@ -119,7 +126,7 @@ class Library:
         subcrate's name includes its parents' (`Bass%%DnB`), so `"Bass*"` matches a crate and its subcrates. `pattern` is
         tried as a glob, and if nothing matches it, as a regex.
         """
-        names = {f: os.path.splitext(os.path.basename(f))[0] for f in self.crate_files}
+        names = {f: Path(f).stem for f in self.crate_files}
 
         # try the pattern as a glob first: most globs (e.g. "house*") are also valid regexes, so
         # checking re.compile first would silently give glob-looking patterns regex semantics
@@ -141,23 +148,23 @@ class Library:
         one. A name without the version (`A.serato-stems`) counts too. Lists the track's folder, so it finds them whether
         or not the track's own file exists.
         """
-        folder, filename = os.path.split(track_path)
-        name = os.path.splitext(filename)[0]
+        path = Path(track_path)
         # the version is two numbers, so another track's never matches: A.1.mp3's A.1.1.2.serato-stems has three after
         # "A". Ignoring case, since Serato runs on case-insensitive filesystems, where the library's path for a track
         # may differ in case from its file's.
-        pattern = re.compile(rf"{re.escape(name)}(?:\.\d+\.\d+)?{re.escape(STEMS_EXTENSION)}", re.IGNORECASE)
+        pattern = re.compile(rf"{re.escape(path.stem)}(?:\.\d+\.\d+)?{re.escape(STEMS_EXTENSION)}", re.IGNORECASE)
         try:
-            filenames = os.listdir(folder or os.curdir)
+            # listdir's names, rather than iterdir's Paths: the USB export calls this for every track, and a Path for
+            # every file in each track's folder made exporting a 12,000-track library twice as slow
+            return sorted(str(path.parent / name) for name in os.listdir(path.parent) if pattern.fullmatch(name))  # noqa: PTH208
         except OSError:
             # its folder is gone, so it has none
             return []
-        return sorted(os.path.join(folder, f) for f in filenames if pattern.fullmatch(f))
 
     def _get_crate_files(self, crate_class: type[CrateBase]) -> list[str]:
-        crates_dir = os.path.join(self.serato_dir, crate_class.DIR)
+        crates_dir = self.serato_path / crate_class.DIR
         # Serato only creates the folder once the first crate of its kind is made
-        return crate_class.get_crate_files(crates_dir) if os.path.isdir(crates_dir) else []
+        return crate_class.get_crate_files(str(crates_dir)) if crates_dir.is_dir() else []
 
     def _get_bin_files(self) -> list[SeratoBinFile]:
         """Every file in the library that holds track paths: the database, crates, and smart crates."""
@@ -229,14 +236,15 @@ class Library:
         none did, e.g. for a file Serato hasn't imported. Only those are saved, or, inside `batch()`, left for it to
         save once. Raises FileExistsError, changing nothing, if a different file already exists at `dest`.
         """
-        # os.rename only raises FileExistsError on Windows; on POSIX it silently overwrites, so check
+        # rename only raises FileExistsError on Windows; on POSIX it silently overwrites, so check
         # first. A case-only rename is fine: on case-insensitive filesystems dest is then the same file.
         # If src is missing, samefile raises FileNotFoundError, just as the rename itself would.
-        if os.path.exists(dest) and not os.path.samefile(src, dest):
+        src_path, dest_path = Path(src), Path(dest)
+        if dest_path.exists() and not src_path.samefile(dest_path):
             raise FileExistsError(f"can't rename {src}: a different file already exists at {dest}")
-        # where os.path.exists misses a clash, e.g. a case change on some filesystems, os.rename raises
-        # FileExistsError itself on Windows
-        os.rename(src=src, dst=dest)
+        # where exists misses a clash, e.g. a case change on some filesystems, rename raises FileExistsError itself on
+        # Windows
+        src_path.rename(dest_path)
         logger.info(f"renamed {src} to {dest}")
 
         return self._change_bin_files(lambda file: file.change_track_path(src, dest))
@@ -256,17 +264,18 @@ class Library:
         anything. Only the files that contain one of the tracks are saved, or, inside `batch()`, left for it to save
         once.
         """
-        if delete_files and not missing_ok and (missing := [p for p in filepaths if not os.path.exists(p)]):
+        paths = [Path(p) for p in filepaths]
+        if delete_files and not missing_ok and (missing := [str(p) for p in paths if not p.exists()]):
             raise FileNotFoundError(f"Track files not found: {', '.join(missing)}")
         changed = self._change_bin_files(lambda file: file.remove_tracks(filepaths))
         deleted: list[str] = []
         if delete_files:
-            for filepath in filepaths:
-                for path in (filepath, *self.find_stems_files(filepath)):
-                    if os.path.exists(path):
-                        os.remove(path)
-                        logger.info(f"deleted {path}")
-                        deleted.append(path)
+            for path in paths:
+                for file in (path, *map(Path, self.find_stems_files(str(path)))):
+                    if file.exists():
+                        file.unlink()
+                        logger.info(f"deleted {file}")
+                        deleted.append(str(file))
         return RemoveTrackFilesResult(files_deleted=deleted, library_files_changed=changed)
 
     def set_db_track_tags(

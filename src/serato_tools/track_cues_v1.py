@@ -5,6 +5,7 @@ import io
 import struct
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import ClassVar
 
 from mutagen.mp3 import HeaderNotFoundError
@@ -186,18 +187,16 @@ if __name__ == "__main__":
 
     @dataclass
     class Args:
-        file: str
+        file: Path
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("file")
+    parser.add_argument("file", type=Path)
     args = Args(**vars(parser.parse_args()))
 
     try:
-        tags = TrackCuesV1(args.file)
+        tags = TrackCuesV1(str(args.file))
     except HeaderNotFoundError:
-        with open(args.file, mode="rb") as fp:
-            data = fp.read()
-        tags = TrackCuesV1(data)
+        tags = TrackCuesV1(args.file.read_bytes())
 
     entries = tags.entries
     if not entries:

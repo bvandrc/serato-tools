@@ -1,10 +1,10 @@
 """Serato smart crate files (`.scrate`), and the `serato_smartcrate` CLI for listing their tracks and setting rules."""
 
-import os
 import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import IntEnum, StrEnum, unique
+from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, cast, override
 
 from serato_tools.utils import SERATO_DIR
@@ -20,7 +20,8 @@ class SmartCrate(CrateBase):
     TESTED_VERSIONS = frozenset({"1.0/Serato ScratchLive Smart Crate"})
     EXTENSION = ".scrate"
     DIR = "SmartCrates"
-    DIR_PATH = os.path.join(SERATO_DIR, DIR)
+    # TODO(breaking): change to a Path
+    DIR_PATH = str(Path(SERATO_DIR, DIR))
 
     @unique
     class RuleFields(StrEnum):
@@ -280,7 +281,7 @@ def main():
 
     @dataclass
     class Args:
-        file_or_dir: str | None
+        file_or_dir: Path | None
         all: bool
         list_tracks: bool
         filenames_only: bool
@@ -298,7 +299,9 @@ def main():
     option_by_field = {field: f"--{field.name.lower()}" for field in SmartCrate.RuleField}
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("file_or_dir", nargs="?", help="Set the crate file, or a directory to do all files in it")
+    parser.add_argument(
+        "file_or_dir", nargs="?", type=Path, help="Set the crate file, or a directory to do all files in it"
+    )
     parser.add_argument("--all", action="store_true", help="Perform actions on all crates.")
     parser.add_argument("-l", "--list_tracks", action="store_true", help="Only list tracks")
     parser.add_argument("-f", "--filenames_only", action="store_true", help="Only list track filenames")
@@ -346,14 +349,14 @@ def main():
             parser.error(f"{option} takes a comparison and a value, or DELETE")
 
     if args.all:
-        args.file_or_dir = SmartCrate.DIR_PATH
+        args.file_or_dir = Path(SmartCrate.DIR_PATH)
 
-    if not args.file_or_dir:
+    if args.file_or_dir is None:
         print(f"must pass a file or dir, or --all!\nfiles in {SmartCrate.DIR_PATH}:")
         print("\n".join(SmartCrate.get_crate_files()))
         sys.exit()
 
-    for crate_path in SmartCrate.get_crate_files(args.file_or_dir):
+    for crate_path in SmartCrate.get_crate_files(str(args.file_or_dir)):
         crate = SmartCrate(crate_path)
 
         if rules:

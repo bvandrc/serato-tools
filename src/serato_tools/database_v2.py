@@ -1,8 +1,8 @@
 """Serato's library database (`database V2`), which holds every track's path and the values Serato shows for it."""
 
-import os
 from collections.abc import Iterable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import ClassVar
 
 from serato_tools.utils import SERATO_DIR
@@ -19,7 +19,8 @@ class DatabaseV2(SeratoBinFile):
 
     TESTED_VERSIONS = frozenset({"2.0/Serato Scratch LIVE Database"})
     FILENAME = "database V2"
-    DEFAULT_DATABASE_FILE = os.path.join(SERATO_DIR, FILENAME)
+    # TODO(breaking): change to a Path
+    DEFAULT_DATABASE_FILE = str(Path(SERATO_DIR, FILENAME))
     TRACK_PATH_KEY = SeratoBinFile.Fields.FILE_PATH
 
     DEFAULT_ENTRIES: ClassVar[SeratoBinFile.EntryList] = [
@@ -61,17 +62,17 @@ if __name__ == "__main__":
 
     @dataclass
     class Args:
-        file: str
+        file: Path
         find_missing: bool
         list_corrupt: bool
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("file", nargs="?", default=DatabaseV2.DEFAULT_DATABASE_FILE)
+    parser.add_argument("file", nargs="?", type=Path, default=DatabaseV2.DEFAULT_DATABASE_FILE)
     parser.add_argument("--find_missing", action="store_true", help="List files that do not exist")
     parser.add_argument("--list_corrupt", action="store_true", help="List tracks Serato marked corrupt, and why")
     args = Args(**vars(parser.parse_args()))
 
-    db = DatabaseV2(args.file)
+    db = DatabaseV2(str(args.file))
 
     if args.find_missing:
         # TODO: actually look for that missing flag.
