@@ -61,9 +61,9 @@ def copy_crates_to_usb(
     - A track whose file is missing is skipped, logging an error. Raises FileNotFoundError if every one is missing, such
       as when the library's music is on a drive that isn't plugged in.
     """
-    drive = Path(dest_drive_dir)
-    if not drive.is_dir():
-        raise FileNotFoundError(f"destination drive directory does not exist: {drive}")
+    drive_dir = Path(dest_drive_dir)
+    if not drive_dir.is_dir():
+        raise FileNotFoundError(f"destination drive directory does not exist: {drive_dir}")
 
     # everything is read from the local library before anything on the drive changes, so a file that can't be read
     # leaves the drive as it was
@@ -79,11 +79,11 @@ def copy_crates_to_usb(
     dest_paths = _dest_track_paths(
         [os.path.normpath(p) for crate, _ in crates for p in crate.get_track_paths()], dest_tracks_dir
     )
-    tracks_dir = drive / dest_tracks_dir
+    tracks_dir = drive_dir / dest_tracks_dir
     if delete_unused_tracks:
-        _check_unused_tracks_can_be_deleted(drive, tracks_dir, dest_paths)
+        _check_unused_tracks_can_be_deleted(drive_dir, tracks_dir, dest_paths)
 
-    dest_serato_dir = drive / SERATO_DIR_NAME
+    dest_serato_dir = drive_dir / SERATO_DIR_NAME
     # TODO: merge with existing, instead of replacing
     if dest_serato_dir.is_dir():
         shutil.rmtree(dest_serato_dir)
@@ -108,7 +108,7 @@ def copy_crates_to_usb(
     for pref_file in (crate_order, collapsed_crates):
         if pref_file is not None:
             _export_pref_file(pref_file, dest_serato_dir / pref_file.FILENAME, root_crate, crate_names)
-    copied = _copy_tracks(dest_paths, drive)
+    copied = _copy_tracks(dest_paths, drive_dir)
     if delete_unused_tracks:
         _delete_unused_tracks(tracks_dir, copied)
 
@@ -175,12 +175,12 @@ def _dest_track_paths(track_paths: list[str], dest_tracks_dir: str) -> dict[str,
     return dest_paths
 
 
-def _check_unused_tracks_can_be_deleted(drive: Path, tracks_dir: Path, dest_paths: Mapping[str, str]):
+def _check_unused_tracks_can_be_deleted(drive_dir: Path, tracks_dir: Path, dest_paths: Mapping[str, str]):
     """Raises ValueError if deleting the files under `tracks_dir` that the export doesn't hold would delete more than
     unused tracks: when it isn't a folder inside the drive, or there's no track to export.
     """
     # not the drive itself, which would hold its _Serato_ folder
-    if not is_inside_dir(tracks_dir, drive):
+    if not is_inside_dir(tracks_dir, drive_dir):
         raise ValueError(f"delete_unused_tracks needs a tracks folder inside the drive, not {tracks_dir.resolve()}")
     if not dest_paths:
         raise ValueError("delete_unused_tracks needs a track to export, or it would delete every track on the drive")
@@ -241,7 +241,7 @@ def _with_parents(names: Iterable[str]) -> set[str]:
     return result
 
 
-def _copy_tracks(dest_paths: Mapping[str, str], drive: Path) -> set[Path]:
+def _copy_tracks(dest_paths: Mapping[str, str], drive_dir: Path) -> set[Path]:
     """Copies each track, and its stems files, to its path in `dest_paths` on the drive, unless it's there unchanged.
 
     Returns the paths on the drive of the tracks and stems files it's meant to hold, copied now or before, or whose
@@ -255,7 +255,7 @@ def _copy_tracks(dest_paths: Mapping[str, str], drive: Path) -> set[Path]:
 
     for track_path, dest_path in tqdm(dest_paths.items(), desc="Copying tracks", unit="track"):
         src_path = root / track_path
-        dst_path = drive / dest_path
+        dst_path = drive_dir / dest_path
         # kept whether or not it's copied now, as a track missing from the library still is
         meant_to_hold.add(dst_path)
         if not copy_if_changed(src_path, dst_path):
