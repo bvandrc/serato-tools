@@ -416,7 +416,7 @@ def main_analyze():
     parser = argparse.ArgumentParser()
     parser.add_argument("file", type=Path)
     args = Args(**vars(parser.parse_args()))
-    tags = TrackBeatgrid(str(args.file))
+    tags = TrackBeatgrid(args.file)
     tags.analyze_and_write()
     # ruff: enable[PLC0415]
 

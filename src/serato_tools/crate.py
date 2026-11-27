@@ -57,7 +57,7 @@ def main():
         print("\n".join(Crate.get_crate_files()))
         sys.exit()
 
-    for crate_path in Crate.get_crate_files(str(args.file_or_dir)):
+    for crate_path in Crate.get_crate_files(args.file_or_dir):
         crate = Crate(crate_path)
         if args.find_missing:
             crate.find_missing()

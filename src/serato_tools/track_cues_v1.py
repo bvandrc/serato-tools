@@ -194,7 +194,7 @@ if __name__ == "__main__":
     args = Args(**vars(parser.parse_args()))
 
     try:
-        tags = TrackCuesV1(str(args.file))
+        tags = TrackCuesV1(args.file)
     except HeaderNotFoundError:
         tags = TrackCuesV1(args.file.read_bytes())
 

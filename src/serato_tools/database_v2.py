@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar
 
-from serato_tools.utils import SERATO_DIR
+from serato_tools.utils import SERATO_DIR, StrPath
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
 
@@ -27,7 +27,7 @@ class DatabaseV2(SeratoBinFile):
         (SeratoBinFile.Fields.VERSION, "2.0/Serato Scratch LIVE Database"),
     ]
 
-    def __init__(self, file: str = DEFAULT_DATABASE_FILE):
+    def __init__(self, file: StrPath = DEFAULT_DATABASE_FILE):
         """Parses the database at `file`, Serato's own by default; raises FileNotFoundError if it doesn't exist."""
         super().__init__(file=file)
 
@@ -41,7 +41,7 @@ class DatabaseV2(SeratoBinFile):
                 corrupt[track.full_path] = reason
         return corrupt
 
-    def set_unanalyzed(self, filepaths: Iterable[str]) -> bool:
+    def set_unanalyzed(self, filepaths: Iterable[StrPath]) -> bool:
         """Marks the tracks as not yet analyzed, so Serato analyzes them again, and returns whether any changed.
 
         For a track whose audio changed, since Serato otherwise keeps its old analysis. Doesn't save.
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     parser.add_argument("--list_corrupt", action="store_true", help="List tracks Serato marked corrupt, and why")
     args = Args(**vars(parser.parse_args()))
 
-    db = DatabaseV2(str(args.file))
+    db = DatabaseV2(args.file)
 
     if args.find_missing:
         # TODO: actually look for that missing flag.

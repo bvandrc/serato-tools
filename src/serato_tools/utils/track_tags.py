@@ -1,6 +1,7 @@
 """The base classes for Serato's tags in a track file, and functions that read and write its ID3 frames."""
 
 import io
+import os
 import struct
 from enum import StrEnum, unique
 from pathlib import Path
@@ -11,11 +12,11 @@ from mutagen.id3 import ID3, ID3FileType
 from mutagen.id3._frames import GEOB
 from mutagen.mp3 import MP3
 
-from serato_tools.utils import logger
+from serato_tools.utils import StrPath, logger
 
 # an open track file whose tags can be read and written: an ID3 file (.mp3), an AIFF file, or a file's bare ID3 tags
 type ID3File = ID3FileType | ID3 | AIFF
-type ID3FileOrPath = str | ID3File
+type ID3FileOrPath = StrPath | ID3File
 
 
 @unique
@@ -77,7 +78,7 @@ def open_tagfile(file: ID3FileOrPath) -> ID3File:
 
     Raises ValueError for a file type other than .mp3, .aiff, or .aif.
     """
-    if not isinstance(file, str):
+    if not isinstance(file, (str, os.PathLike)):
         return file
     path = Path(file)
     extension = path.suffix.lower()

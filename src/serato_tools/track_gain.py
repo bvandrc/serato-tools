@@ -81,6 +81,6 @@ if __name__ == "__main__":
     parser.add_argument("file", type=Path)
     args = Args(**vars(parser.parse_args()))
 
-    tags = TrackGain(str(args.file))
+    tags = TrackGain(args.file)
     print(str(tags))
     # ruff: enable[T201]

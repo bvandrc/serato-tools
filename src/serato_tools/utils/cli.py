@@ -19,7 +19,7 @@ def open_tag_file_or_data[T: SeratoGeobTag](tag_class: type[T], path: str | Path
 
     path = Path(path)
     if path.suffix.lower() in TAGFILE_EXTENSIONS:
-        return tag_class(str(path))
+        return tag_class(path)
     return tag_class(path.read_bytes())
 
 

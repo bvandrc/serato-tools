@@ -24,7 +24,7 @@ from typing import (
     overload,
 )
 
-from serato_tools.utils import SERATO_DRIVE, logger
+from serato_tools.utils import SERATO_DRIVE, StrPath, logger
 
 
 class DataTypeError(Exception):
@@ -185,7 +185,7 @@ class SeratoBinFile:
         cls.FIELDS = _field_values(cls.FIELD_ENUMS)
         cls.FIELD_NAMES = _field_names(cls.FIELD_ENUMS)
 
-    def __init__(self, file: str, *, _new: bool = False):
+    def __init__(self, file: StrPath, *, _new: bool = False):
         """Parses `file`, either Serato's binary format or JSON as `write_json` writes it.
 
         Raises FileNotFoundError if it doesn't exist (a crate's `new` starts one instead), and ValueError for a version
@@ -339,7 +339,7 @@ class SeratoBinFile:
         self._serialize_entries(entries)
         self._entries = entries
 
-    def write_json(self, filepath: str) -> None:
+    def write_json(self, filepath: StrPath) -> None:
         """Writes the entries to `filepath` as JSON, one entry per line, which loading that path reads back."""
 
         def write_json_array(json_entries: list[SeratoBinFile.EntryJson], indent: int = 0) -> str:
@@ -472,7 +472,7 @@ class SeratoBinFile:
                 raise ValueError(f"can't remove a track's path ({field})")
             return super().remove_field(field)
 
-        def set_path(self, path: str):
+        def set_path(self, path: StrPath):
             """Points the track at `path`, stored without its drive, as Serato stores paths."""
             self.set_value(self.path_key, SeratoBinFile.get_relative_path(path))
 
@@ -619,7 +619,7 @@ class SeratoBinFile:
         """Whether `data` differs from the bytes loaded or last saved, or there were none, as for a new file."""
         return self._saved_hash is None or self._hash(data) != self._saved_hash
 
-    def _is_own_path(self, file: str | Path) -> bool:
+    def _is_own_path(self, file: StrPath) -> bool:
         """Whether `file` is the file this was loaded from, by any path to it."""
         # abspath, as filepath was made with; Path equality ignores case only on Windows, as os.path.normcase does
         if Path(os.path.abspath(file)) == self.path:  # noqa: PTH100
@@ -656,7 +656,7 @@ class SeratoBinFile:
         """Each track's path: as stored, with no drive, or with `include_drive`, as an absolute path."""
         return [t.full_path if include_drive else t.relpath for t in self.get_tracks()]
 
-    def modify_tracks(self, func: Callable[[Track], Track], files: Iterable[str] | None = None) -> bool:
+    def modify_tracks(self, func: Callable[[Track], Track], files: Iterable[StrPath] | None = None) -> bool:
         """
         Replaces each track with what `func` returns for it, and returns whether any track changed.
 
@@ -690,7 +690,7 @@ class SeratoBinFile:
         """Keeps only the tracks `func` returns True for, and returns whether any track was removed."""
         return self._filter_entry_lists(SeratoBinFile.Fields.TRACK, lambda value: func(self._get_track(value)))
 
-    def remove_tracks(self, filepaths: Iterable[str]) -> bool:
+    def remove_tracks(self, filepaths: Iterable[StrPath]) -> bool:
         """Removes every track whose path is in `filepaths`, in one pass, and returns whether any was removed.
 
         Paths match whatever their case, as `modify_tracks` matches its `files`.
@@ -713,7 +713,7 @@ class SeratoBinFile:
 
         return self.filter_tracks(filter_track)
 
-    def save(self, file: str | None = None, force: bool = False) -> bool:
+    def save(self, file: StrPath | None = None, force: bool = False) -> bool:
         """Writes the file's bytes to `file`, or to the path it was loaded from, and returns whether it wrote them.
 
         Saving to its own path writes only if the file changed since it was loaded or last saved (`has_changed`), unless
@@ -751,15 +751,15 @@ class SeratoBinFile:
             )
 
     @staticmethod
-    def get_relative_path(filepath: str) -> str:
+    def get_relative_path(filepath: StrPath) -> str:
         """`filepath` as Serato stores a track path: without its drive or leading slash, and `/`-separated."""
         # strings rather than Path, which costs far more per track and doesn't collapse ".." as normpath does
-        filepath = os.path.splitdrive(filepath)[1]
-        relpath = os.path.normpath(filepath).replace(os.path.sep, "/").lstrip("/")
+        path = os.path.splitdrive(filepath)[1]
+        relpath = os.path.normpath(path).replace(os.path.sep, "/").lstrip("/")
         return relpath  # noqa: RET504
 
     @staticmethod
-    def get_full_path(filepath: str) -> str:
+    def get_full_path(filepath: StrPath) -> str:
         """Get the absolute, normalized form of a track path.
 
         - A path with a drive or UNC share keeps it.
@@ -768,9 +768,10 @@ class SeratoBinFile:
         Doesn't check that the file exists.
         """
         # strings rather than Path, which costs far more per track and doesn't collapse ".." as normpath does
+        path = os.fspath(filepath)
         # with no drive, splitdrive's path half is the whole of filepath, so filepath serves both branches
-        drive = os.path.splitdrive(filepath)[0]
-        return os.path.normpath(filepath if drive else os.path.join(SERATO_DRIVE, os.sep, filepath))  # noqa: PTH118
+        drive = os.path.splitdrive(path)[0]
+        return os.path.normpath(path if drive else os.path.join(SERATO_DRIVE, os.sep, path))  # noqa: PTH118
 
     def get_entries(self, track_matcher: str | Pattern[str] | None = None) -> Generator[EntryFull, None, None]:
         """Each entry with its field's readable name, as is each entry in a nested entry list.
@@ -803,7 +804,7 @@ class SeratoBinFile:
 
         field: "SeratoBinFile.Fields"
         func: "SeratoBinFile.ModifyFunc"
-        files: NotRequired[Collection[str]]
+        files: NotRequired[Collection[StrPath]]
 
     def modify(self, rules: Collection[ModifyRule]) -> bool:
         """Applies `rules` to every track, and returns whether any track changed.
@@ -862,7 +863,7 @@ class SeratoBinFile:
 
         return self.modify_tracks(modify_track, files=only_files)
 
-    def modify_and_save(self, rules: Collection[ModifyRule], file: str | None = None):
+    def modify_and_save(self, rules: Collection[ModifyRule], file: StrPath | None = None):
         """
         Applies `rules` to every track, then saves.
 
@@ -872,9 +873,11 @@ class SeratoBinFile:
         if changed or (file is not None and not self._is_own_path(file)):
             self.save(file)
 
-    def change_track_path(self, src: str, dest: str) -> bool:
+    def change_track_path(self, src: StrPath, dest: StrPath) -> bool:
         """Points the track at `src` to `dest`, and returns whether this file had that track."""
-        return self.modify([{"field": self.TRACK_PATH_KEY, "files": [src], "func": lambda *args: dest}])
+        # as a str, the type the track path field holds
+        dest_path = os.fspath(dest)
+        return self.modify([{"field": self.TRACK_PATH_KEY, "files": [src], "func": lambda *args: dest_path}])
 
     def find_missing(self):
         """Prompts for a new location for each track whose file doesn't exist, then saves if any was given.
@@ -908,7 +911,7 @@ class SeratoBinFile:
                 if answer_path.exists():
                     new_location = answer_path
             print(f"   new_location: {new_location}")  # noqa: T201
-            track.set_path(str(new_location))
+            track.set_path(new_location)
             return track
 
         if self.modify_tracks(relocate):

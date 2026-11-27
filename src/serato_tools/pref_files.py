@@ -4,7 +4,7 @@ collapsed crates, `collapsed.pref`."""
 from dataclasses import dataclass
 from pathlib import Path
 
-from serato_tools.utils import SERATO_DIR
+from serato_tools.utils import SERATO_DIR, StrPath
 
 
 class _SeratoPrefFile:
@@ -23,7 +23,7 @@ class _SeratoPrefFile:
         super().__init_subclass__(**kwargs)
         cls.DEFAULT_FILE = Path(SERATO_DIR, cls.FILENAME)
 
-    def __init__(self, file: str | None = None):
+    def __init__(self, file: StrPath | None = None):
         """Loads the file at `file`, the default library's by default.
 
         Raises FileNotFoundError if it doesn't exist, and ValueError if it isn't UTF-16-BE text.
@@ -33,7 +33,7 @@ class _SeratoPrefFile:
         # misaligns every UTF-16 character after it
         self._parse(self.path.read_bytes().decode(self._ENCODING).split("\n"))
 
-    def save(self, file: str | None = None):
+    def save(self, file: StrPath | None = None):
         """Writes the file to `file`, or to the path it was loaded from."""
         (Path(file) if file else self.path).write_bytes("\n".join(self._to_lines()).encode(self._ENCODING))
 
@@ -138,7 +138,7 @@ def main():
     if args.file is not None:
         # the two files' records look alike, so the file's name says which it is
         is_collapsed = args.file.name.casefold() == CollapsedCrates.FILENAME
-        print("\n".join((CollapsedCrates if is_collapsed else CrateOrder)(str(args.file)).crates))
+        print("\n".join((CollapsedCrates if is_collapsed else CrateOrder)(args.file).crates))
         return
     sections = [
         (heading, cls().crates)

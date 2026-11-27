@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import ClassVar, Self
 
+from serato_tools.utils import StrPath
 from serato_tools.utils.bin_file_base import SeratoBinFile
 
 
@@ -59,14 +60,14 @@ class CrateBase(SeratoBinFile):
             track_paths = [Path(t).stem for t in track_paths]
         print("\n".join(track_paths))  # noqa: T201
 
-    def save(self, file: str | None = None, force: bool = False) -> bool:
+    def save(self, file: StrPath | None = None, force: bool = False) -> bool:
         """As `SeratoBinFile.save`, but raises ValueError if `file` doesn't end with this class's `EXTENSION`."""
         path = self.path if file is None else Path(file)
         if not path.name.endswith(self.EXTENSION):
             raise ValueError(f"file should end with {self.EXTENSION}: {path}")
-        return super().save(str(path), force)
+        return super().save(path, force)
 
-    def add_tracks(self, filepaths: Iterable[str]):
+    def add_tracks(self, filepaths: Iterable[StrPath]):
         """Adds the tracks not already in the crate. Filepaths must include the containing dir.
 
         A track already in the crate in another case isn't added again, as `remove_tracks` matches paths whatever
@@ -81,11 +82,11 @@ class CrateBase(SeratoBinFile):
                 self._entries.append((CrateBase.Fields.TRACK, [(CrateBase.Fields.TRACK_PATH, relpath)]))
                 existing.add(relpath.upper())
 
-    def add_tracks_from_dir(self, dir: str, replace: bool = False):  # noqa: A002
+    def add_tracks_from_dir(self, dir: StrPath, replace: bool = False):  # noqa: A002
         """Adds every file directly in `dir` but hidden ones, such as `.DS_Store`; with `replace`, first removes every
         track that isn't one of them."""
         dir_tracks = [
-            self.get_relative_path(str(path))
+            self.get_relative_path(path)
             for path in Path(dir).iterdir()
             # not a subfolder, which isn't a track
             if not path.name.startswith(".") and path.is_file()
@@ -100,7 +101,7 @@ class CrateBase(SeratoBinFile):
         self.add_tracks(dir_tracks)
 
     @classmethod
-    def new(cls, file: str) -> Self:
+    def new(cls, file: StrPath) -> Self:
         """A new, empty crate at `file`, with the sort and columns Serato gives one, which `save()` creates.
 
         Raises FileExistsError if `file` already exists, rather than replace it on save.
@@ -108,14 +109,13 @@ class CrateBase(SeratoBinFile):
         return cls(file, _new=True)
 
     @classmethod
-    def get_crate_files(cls, file_or_dir: str | None = None) -> list[str]:
+    def get_crate_files(cls, file_or_dir: StrPath | None = None) -> list[str]:
         """The paths of this class's crate files directly in `file_or_dir`, or just `file_or_dir` if it's a file.
 
         Defaults to this class's folder in the default Serato folder (`DIR_PATH`). Raises FileNotFoundError if
         `file_or_dir` doesn't exist.
         """
-        if file_or_dir is None:
-            file_or_dir = cls.DIR_PATH
+        file_or_dir = cls.DIR_PATH if file_or_dir is None else os.fspath(file_or_dir)
         path = Path(file_or_dir)
 
         crate_paths: list[str] = []

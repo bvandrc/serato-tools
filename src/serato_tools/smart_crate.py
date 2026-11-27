@@ -7,7 +7,7 @@ from enum import IntEnum, StrEnum, unique
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, cast, override
 
-from serato_tools.utils import SERATO_DIR
+from serato_tools.utils import SERATO_DIR, StrPath
 from serato_tools.utils.crate_base import CrateBase
 
 if TYPE_CHECKING:
@@ -250,7 +250,7 @@ class SmartCrate(CrateBase):
             lambda rule_entries: SmartCrate._get_rule_field(rule_entries) != field.value,
         )
 
-    def to_regular_crate(self, file: str) -> "Crate":
+    def to_regular_crate(self, file: StrPath) -> "Crate":
         """A regular crate for `file`, holding this smart crate's tracks and view settings (its sort and columns), but
         not its rules.
 
@@ -356,7 +356,7 @@ def main():
         print("\n".join(SmartCrate.get_crate_files()))
         sys.exit()
 
-    for crate_path in SmartCrate.get_crate_files(str(args.file_or_dir)):
+    for crate_path in SmartCrate.get_crate_files(args.file_or_dir):
         crate = SmartCrate(crate_path)
 
         if rules:
